@@ -16,7 +16,15 @@ import prettier from "eslint-config-prettier";
 
 export default defineConfig(
   {
-    ignores: ["node_modules/", "test-suite/", "docs/", "coverage/"],
+    // `.snippets` holds guide code blocks extracted at test time (docs.test.ts) — transient files
+    // outside the tsconfig project.
+    ignores: [
+      "node_modules/",
+      "test-suite/",
+      "docs/",
+      "coverage/",
+      "**/.snippets/",
+    ],
   },
   js.configs.recommended,
   tseslint.configs.strictTypeChecked,

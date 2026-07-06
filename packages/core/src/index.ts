@@ -53,6 +53,8 @@ export type { Cursor } from "./cursor.js";
 export { rootCursor, childCursor, instancePointer } from "./cursor.js";
 export type { SchemaRef } from "./ref.js";
 export type {
+  Dialect,
+  DialectKeyword,
   KeywordBehavior,
   KeywordContext,
   StaticFacts,
@@ -151,9 +153,10 @@ export interface EngineOptions {
   loaders?: readonly SchemaLoader[];
   /**
    * Validate each load/register target against its metaschema when that
-   * metaschema is registered as a schema resource. Standard metaschemas are
-   * not bundled, so an unavailable metaschema means "cannot check", not
-   * failure — supply a loader for it to get the check.
+   * metaschema is registered as a schema resource. The standard metaschemas
+   * for the built-in dialects are bundled; for custom dialects, an
+   * unavailable metaschema means "cannot check", not failure — supply a
+   * loader for it to get the check.
    */
   validateSchemas?: boolean;
 }

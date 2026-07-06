@@ -1,63 +1,98 @@
 # json-schema-engine
 
-Pre-implementation work for an **annotation-first, two-tier JSON Schema
-implementation** for JavaScript/TypeScript: a spec-faithful interpreter core
-plus a compiler tier that emits specialized JS with constant evaluation-path
-locations, sharing one keyword registry.
+A JSON Schema implementation for JavaScript/TypeScript that is both
+spec-complete and built for speed. It validates instances **and** collects
+annotations, with full location information in every output unit — the
+combination existing implementations do not offer.
 
-## Read in this order
+**Status: pre-release.** The package is not yet published; the npm name is
+TBD. APIs may change before 1.0.
 
-1. [ANALYSIS.md](ANALYSIS.md) — validated findings on AJV and
-   `@hyperjump/json-schema`, why neither converges on "fast **and** complete",
-   and the recommended architecture.
-2. [SPIKE.md](SPIKE.md) — F1 performance spike results. Verdict: hand-emitted
-   compiler-tier output **beats ajv@8 flag mode** (0.46–0.87× ajv/ours) while
-   supporting `keywordLocation`-bearing output and retention-configurable
-   annotations.
-3. [DESIGN.md](DESIGN.md) — the engineering design and milestone contract for
-   implementation sessions. Start here if you are implementing.
+## Why
 
-## Code in this repo
+- **Complete:** 100% of the official test suite via
+  [Bowtie](https://bowtie.report/) for draft 2020-12, 2019-09, draft-07, and
+  draft-06 — including `$dynamicRef`, `$vocabulary`, remote references, and
+  annotation semantics.
+- **Annotation-first:** annotations are a primary output, not an
+  afterthought. Collection is configurable per evaluation and costs nothing
+  when off.
+- **Full location data:** every error and annotation carries the evaluation
+  path, schema location, and instance location, in either the current output
+  spec's field names or the 2020-12 names.
+- **Extensible:** custom keywords, vocabularies, and dialects use the same
+  registry as the built-in drafts.
+- A compiler tier targeting benchmark-leading performance is in development
+  ([DESIGN.md](DESIGN.md) M6). The current interpreter is the reference
+  implementation.
 
-- `spike/` — F1's hand-written "compiled" validators + benchmark harness
-  (`npm run bench`; installs nothing at runtime, competitors are dev deps).
-  Kept as the M6 compiler tier's target output shape.
-- `packages/` — npm workspaces (DESIGN.md D16):
-  - `packages/core` (`@jse/core`) — the M1 interpreter core: dialect/
-    vocabulary registry (keywords identified by URI), analyze-driven schema
-    registration, instance cursors, the frame-scoped production channel with
-    retention policy, cycle guard, and output renderers in both location
-    vocabularies (`evaluationPath`/`schemaLocation` default,
-    `keywordLocation`/`absoluteKeywordLocation` compat). Covers the F2
-    prototype's 2020-12 keyword set; keywords owed by M2/M3 are loud
-    not-implemented placeholders, never silent annotations. The F2
-    `prototype/` directory was absorbed here (its tests live on in
-    `packages/core/test/`).
-  - `packages/test-kit` (`@jse/test-kit`) — reusable official-suite runner
-    generalized from `prototype/suite.test.ts`'s schema-position-only
-    unsupported-keyword scan and group/test iteration. Exposes a
-    dependency-free "collect" mode (`runSuiteFiles`) returning per-file/
-    per-case results, and a thin `runSuiteFilesVitest` wrapper that registers
-    `describe`/`it` (vitest is injected by the caller, not imported by the
-    package). `packages/test-kit/src/self-test.test.ts` exercises the skip
-    and pass/fail counting machinery itself.
+## Validate
 
-`test-suite/` is a git submodule pinned to the official
-[JSON-Schema-Test-Suite](https://github.com/json-schema-org/JSON-Schema-Test-Suite)
-repo.
+```ts
+import assert from "node:assert";
+import { createEngine } from "@jse/core";
 
-## Commands
+const engine = createEngine();
+const uri = engine.registerSchema(
+  {
+    type: "object",
+    properties: { name: { type: "string" } },
+    required: ["name"],
+  },
+  "https://example.com/person",
+);
 
+assert.equal(engine.evaluate(uri, { name: "Ada" }).valid, true);
+
+// List output includes one unit per error, with locations.
+const result = engine.evaluate(uri, {}, { output: "list" });
+assert.equal(result.valid, false);
+assert.equal(result.errors?.[0]?.evaluationPath, "/required");
+assert.equal(result.errors?.[0]?.instanceLocation, "");
 ```
-git submodule update --init
-npm install
-npm test            # core vs official suite + channels/output/engine tests + test-kit self-test
-npm run bench       # F1 spike benchmarks (oracle-gated)
-npm run check-types
+
+## Collect annotations
+
+```ts
+import assert from "node:assert";
+import { createEngine } from "@jse/core";
+
+const engine = createEngine();
+const uri = engine.registerSchema(
+  {
+    title: "Person",
+    type: "object",
+    properties: { name: { title: "Full name", deprecated: true } },
+  },
+  "https://example.com/annotated",
+);
+
+const result = engine.evaluate(
+  uri,
+  { name: "Ada" },
+  {
+    collectAnnotations: true,
+    retention: { keywords: ["title", "deprecated"] },
+  },
+);
+
+const titles = result.annotations?.filter((a) => a.keyword === "title");
+assert.deepEqual(titles?.map((t) => t.instanceLocation).sort(), ["", "/name"]);
 ```
+
+## Documentation
+
+- [User guide](docs/guide/index.md) — task-oriented, example-driven.
+- API reference — generated from source: `npm run docs:api`, output in
+  `docs/reference/`.
+- [CONTRIBUTING.md](CONTRIBUTING.md) — build, test, and contribution
+  workflow.
+- [ANALYSIS.md](ANALYSIS.md), [DESIGN.md](DESIGN.md) — background: why this
+  engine exists and how it is built.
 
 ## IP policy
 
-Implementation is written from the specifications and the official test suite
-only. AJV and Hyperjump are executed as benchmark subjects and correctness
-oracles; their source is not an implementation reference. See DESIGN.md D15.
+The implementation is written from the JSON Schema specifications and the
+official test suite only. Competing implementations are executed as
+benchmark subjects and correctness oracles; their source is never used as an
+implementation reference. See [DESIGN.md](DESIGN.md) D15.

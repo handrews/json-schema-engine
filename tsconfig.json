@@ -10,5 +10,6 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["spike", "packages", "bowtie"]
+  "include": ["spike", "packages", "bowtie"],
+  "exclude": ["**/.snippets"]
 }
