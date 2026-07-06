@@ -225,6 +225,125 @@ export async function runSuiteFiles(options: RunSuiteFilesOptions): Promise<Suit
   return { files: fileSummaries, totalRun, totalSkipped, skips, cases };
 }
 
+// Official output-tests runner (test-suite/output-tests, DESIGN.md M5): each
+// group carries its own schema+data; each test names an output-format key
+// (only "basic" is populated as of this writing per output-tests/README) with
+// an output-validating schema. The runner is evaluator-agnostic like
+// runSuiteFiles above — the caller supplies both the evaluate-to-document
+// step and the self-validate-the-document step, keeping test-kit dependency-
+// free of @jse/core.
+
+export interface OutputTestCase {
+  description: string;
+  data: JsonValue;
+  output: Record<string, JsonValue>; // keyed by format: "basic" | "list" | "detailed" | "verbose"
+}
+export interface OutputTestGroup {
+  description: string;
+  schema: JsonValue;
+  tests: OutputTestCase[];
+}
+
+export interface OutputCaseResult {
+  file: string;
+  group: string;
+  description: string;
+  status: "passed" | "failed" | "skipped";
+  detail?: string;
+}
+
+export interface OutputTestSummary {
+  totalRun: number;
+  totalSkipped: number;
+  cases: OutputCaseResult[];
+}
+
+export interface RunOutputTestsOptions {
+  contentDir: string;      // path to test-suite/output-tests/<draft>/content
+  files: string[];         // file stems, no .json extension
+  /** format keys this runner can produce a document for; others are skipped */
+  supportedFormats: readonly string[];
+  /**
+   * Evaluate `data` against `schema` (registered at `retrievalUri`), render
+   * the named format, and return the document as plain JSON.
+   */
+  renderDocument: (
+    schema: JsonValue,
+    retrievalUri: string,
+    data: JsonValue,
+    format: string,
+  ) => JsonValue | Promise<JsonValue>;
+  /**
+   * Validate `document` against the case's `outputSchema` using the
+   * evaluator's own engine — "the output document must validate" is the
+   * pass condition, not a structural diff. `outputSchemaUri` is a fallback
+   * retrieval URI for schemas without their own `$id` (the vendored fixtures
+   * all carry one).
+   */
+  validateDocument: (
+    outputSchema: JsonValue,
+    outputSchemaUri: string,
+    document: JsonValue,
+  ) => boolean | Promise<boolean>;
+  /** base URI for the fallback retrieval URIs above; per-file/group/test */
+  retrievalBase?: string;
+  onSkip?: (info: { file: string; group: string; description: string; reason: string }) => void;
+}
+
+const OUTPUT_TEST_RETRIEVAL_BASE = "https://output-suite.example/schema";
+
+// Sequential (not vitest-mode): output-tests.test.ts drives vitest
+// describe/it itself since it also needs to register per-draft output-schema
+// documents once, outside the per-case loop.
+export async function runOutputTests(options: RunOutputTestsOptions): Promise<OutputTestSummary> {
+  const {
+    contentDir, files, supportedFormats, renderDocument, validateDocument, onSkip,
+  } = options;
+  const formats = new Set(supportedFormats);
+  const retrievalBase = options.retrievalBase ?? OUTPUT_TEST_RETRIEVAL_BASE;
+
+  const cases: OutputCaseResult[] = [];
+  let totalRun = 0;
+  let totalSkipped = 0;
+
+  for (const file of files) {
+    const groups = JSON.parse(
+      readFileSync(join(contentDir, `${file}.json`), "utf8"),
+    ) as OutputTestGroup[];
+
+    for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+      const group = groups[groupIndex]!;
+      const retrievalUri = `${retrievalBase}/${file}/${groupIndex}`;
+      for (let testIndex = 0; testIndex < group.tests.length; testIndex++) {
+        const test = group.tests[testIndex]!;
+        const availableFormats = Object.keys(test.output);
+        const format = availableFormats.find((f) => formats.has(f));
+        if (format === undefined) {
+          const reason = `no supported format among [${availableFormats.join(", ")}]`;
+          totalSkipped++;
+          cases.push({
+            file, group: group.description, description: test.description,
+            status: "skipped", detail: reason,
+          });
+          onSkip?.({ file, group: group.description, description: test.description, reason });
+          continue;
+        }
+        totalRun++;
+        const outputSchema = test.output[format]!;
+        const outputSchemaUri = `${retrievalUri}/tests/${testIndex}/${format}`;
+        const document = await renderDocument(group.schema, retrievalUri, test.data, format);
+        const valid = await validateDocument(outputSchema, outputSchemaUri, document);
+        cases.push({
+          file, group: group.description, description: test.description,
+          status: valid ? "passed" : "failed",
+          detail: valid ? undefined : `document ${JSON.stringify(document)} failed its output schema`,
+        });
+      }
+    }
+  }
+  return { totalRun, totalSkipped, cases };
+}
+
 // Minimal shape of the vitest functions this module needs, injected by the
 // caller so test-kit itself has no vitest dependency (only the workspace
 // root does, as a devDependency).

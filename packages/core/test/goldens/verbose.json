@@ -1,0 +1,47 @@
+{
+  "valid": false,
+  "keywordLocation": "",
+  "absoluteKeywordLocation": "https://golden.example/schema#",
+  "instanceLocation": "",
+  "droppedAnnotations": {
+    "properties": ["item", "count"],
+    "title": "root"
+  },
+  "details": [
+    {
+      "valid": true,
+      "keywordLocation": "/properties/item",
+      "absoluteKeywordLocation": "https://golden.example/schema#/properties/item",
+      "instanceLocation": "/item",
+      "details": [
+        {
+          "valid": true,
+          "keywordLocation": "/properties/item/$ref",
+          "absoluteKeywordLocation": "https://golden.example/schema#/$defs/named",
+          "instanceLocation": "/item",
+          "annotations": {
+            "properties": ["name"],
+            "title": "a named thing"
+          },
+          "details": [
+            {
+              "valid": true,
+              "keywordLocation": "/properties/item/$ref/properties/name",
+              "absoluteKeywordLocation": "https://golden.example/schema#/$defs/named/properties/name",
+              "instanceLocation": "/item/name"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "valid": false,
+      "keywordLocation": "/properties/count",
+      "absoluteKeywordLocation": "https://golden.example/schema#/properties/count",
+      "instanceLocation": "/count",
+      "errors": {
+        "type": "expected type \"integer\""
+      }
+    }
+  ]
+}

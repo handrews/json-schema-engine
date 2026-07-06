@@ -14,8 +14,9 @@ import { SchemaRegistry } from "./registry.js";
 import { runEvaluation } from "./engine.js";
 import { LoadedDocument, SchemaLoader, SourceLocation, SourceRange } from "./loader.js";
 import {
-  AnnotationUnit, ErrorUnit, LocationVocabulary, OutputUnit, RetentionPolicy,
-  applyRetention, renderError, renderHierarchical,
+  AnnotationUnit, BasicOutputDocument, ErrorUnit, LocationVocabulary, OutputUnit,
+  RetentionPolicy, applyRetention, renderBasic, renderDetailed, renderError,
+  renderHierarchical, renderList, renderVerbose,
 } from "./output.js";
 import { DIALECT_2020_12, registerStandardDialects } from "./keywords/vocab2020.js";
 import { METASCHEMAS_2020_12 } from "./keywords/metaschemas2020.js";
@@ -42,7 +43,8 @@ export type { DocumentLocation } from "./registry.js";
 export { UnresolvableRefError } from "./uri.js";
 export { InfiniteLoopError, UnknownKeywordError } from "./engine.js";
 export type {
-  AnnotationUnit, ErrorUnit, LocationVocabulary, OutputUnit, RetentionPolicy,
+  AnnotationUnit, BasicOutputDocument, ErrorUnit, LocationVocabulary, OutputUnit,
+  RetentionPolicy,
 } from "./output.js";
 export type {
   LoadedDocument, SchemaLoader, SourceLocation, SourcePosition, SourceRange,
@@ -82,8 +84,14 @@ export interface Result {
   valid: boolean;
   errors?: ErrorUnit[];
   annotations?: AnnotationUnit[];
-  /** spec-shaped structured output document (hierarchical) */
-  outputDocument?: OutputUnit;
+  /**
+   * Spec-shaped structured output document. Shape depends on `output`/
+   * `locations`: modern "list" -> OutputUnit[] (LIST), "2020-12" "list" ->
+   * BasicOutputDocument (Basic), modern "hierarchical" -> OutputUnit
+   * (HIERARCHICAL), "2020-12" "hierarchical" -> OutputUnit (Detailed, or
+   * Verbose with `verbose: true`).
+   */
+  outputDocument?: OutputUnit | OutputUnit[] | BasicOutputDocument;
 }
 
 export interface EngineOptions {
@@ -218,23 +226,57 @@ export class Engine {
       : { documentUri: loc.documentUri, pointer, range };
   }
 
+  // Overloads narrow `outputDocument`'s shape for the common literal-option
+  // call sites; the general signature keeps the full union for dynamic
+  // options objects (e.g. options built from a variable).
+  evaluate(
+    schemaUri: string, instance: JsonValue,
+    options: EvaluateOptions & { output: "hierarchical"; locations?: "modern" },
+  ): Result & { outputDocument: OutputUnit };
+  evaluate(
+    schemaUri: string, instance: JsonValue,
+    options: EvaluateOptions & { output: "hierarchical"; locations: "2020-12" },
+  ): Result & { outputDocument: OutputUnit };
+  evaluate(
+    schemaUri: string, instance: JsonValue,
+    options: EvaluateOptions & { output: "list"; locations: "2020-12" },
+  ): Result & { outputDocument: BasicOutputDocument };
+  evaluate(
+    schemaUri: string, instance: JsonValue,
+    options: EvaluateOptions & { output: "list"; locations?: "modern" },
+  ): Result & { outputDocument: OutputUnit[] };
+  evaluate(schemaUri: string, instance: JsonValue, options?: EvaluateOptions): Result;
   evaluate(schemaUri: string, instance: JsonValue, options: EvaluateOptions = {}): Result {
     const vocabulary = options.locations ?? "modern";
-    const structured = options.output === "hierarchical";
+    const outputKind = options.output ?? "flag";
+    // Tracing is only worth its cost (TraceNode per application) when a
+    // structured document is requested; flag/legacy-list stay trace-free.
+    const structured = outputKind === "list" || outputKind === "hierarchical";
     const { valid, state } =
       runEvaluation(this.schemas, schemaUri, instance, structured);
 
     const result: Result = { valid };
-    if (!valid && (options.output ?? "flag") === "list") {
+    if (!valid && outputKind === "list") {
       result.errors = state.errors.map((e) => renderError(e, vocabulary));
     }
     if (valid && options.collectAnnotations) {
       result.annotations = applyRetention(state.rootProductions, options.retention, vocabulary);
     }
-    if (structured) {
-      result.outputDocument = renderHierarchical(
-        state.traceRoot!, state.errors, state.allProductions ?? [],
-        { vocabulary, verbose: options.verbose, retention: options.retention });
+    if (outputKind === "list") {
+      result.outputDocument = vocabulary === "2020-12"
+        ? renderBasic(valid, this.schemas.rootRef(schemaUri), state.errors,
+          state.rootProductions, options.retention, vocabulary)
+        : renderList(state.traceRoot!, state.errors, state.allProductions ?? [],
+          { vocabulary, verbose: options.verbose, retention: options.retention });
+    } else if (outputKind === "hierarchical") {
+      result.outputDocument = vocabulary === "2020-12"
+        ? (options.verbose
+          ? renderVerbose(state.traceRoot!, state.errors, state.allProductions ?? [],
+            options.retention)
+          : renderDetailed(state.traceRoot!, state.errors, state.allProductions ?? [],
+            options.retention))
+        : renderHierarchical(state.traceRoot!, state.errors, state.allProductions ?? [],
+          { vocabulary, verbose: options.verbose, retention: options.retention });
     }
     if (options.positions) {
       this.decorate(result.errors);

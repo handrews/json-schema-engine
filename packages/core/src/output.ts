@@ -38,6 +38,10 @@ export interface RetentionPolicy {
   keywords?: readonly string[];
   /** allow-list of vocabulary URIs (OR-ed with `keywords`) */
   vocabularies?: readonly string[];
+  /** deny-list of keyword names, subtracted after the allow-lists */
+  excludeKeywords?: readonly string[];
+  /** deny-list of vocabulary URIs, subtracted after the allow-lists */
+  excludeVocabularies?: readonly string[];
   /** arbitrary predicate over the rendered unit, AND-ed after the lists */
   keep?: (unit: AnnotationUnit) => boolean;
 }
@@ -77,6 +81,10 @@ export function renderAnnotation(
   };
 }
 
+// Retention only runs in renderers (§4 rule 5: it never affects rule 4's
+// channel visibility), so deny lists here can never hide a production from
+// ctx.visible() — the concern the M5.5 elision milestone must keep separate.
+
 /** The retention decision on raw productions, shared by every renderer. */
 export function selectRetained(
   productions: readonly Production[],
@@ -90,6 +98,14 @@ export function selectRetained(
     selected = selected.filter(
       (p) => names.has(p.keywordName)
         || (p.vocabularyUri !== null && vocabs.has(p.vocabularyUri)),
+    );
+  }
+  if (retention?.excludeKeywords !== undefined || retention?.excludeVocabularies !== undefined) {
+    const names = new Set(retention.excludeKeywords ?? []);
+    const vocabs = new Set(retention.excludeVocabularies ?? []);
+    selected = selected.filter(
+      (p) => !names.has(p.keywordName)
+        && !(p.vocabularyUri !== null && vocabs.has(p.vocabularyUri)),
     );
   }
   if (retention?.keep) {
@@ -206,4 +222,93 @@ export function renderHierarchical(
     ...locations(root.pathNode, null, root.schemaRef, vocabulary),
     instanceLocation: instancePointer(root.cursor),
   };
+}
+
+// Detailed/Verbose (2020-12 names) are the identical tree shape as
+// HIERARCHICAL — the field vocabulary was always orthogonal to the
+// structure (D6) — so they reuse renderHierarchical under the "2020-12"
+// vocabulary rather than duplicating the pruning logic.
+export function renderDetailed(
+  root: TraceNode,
+  errors: readonly ErrorRecord[],
+  productions: readonly Production[],
+  retention?: RetentionPolicy,
+): OutputUnit {
+  return renderHierarchical(root, errors, productions,
+    { vocabulary: "2020-12", verbose: false, retention });
+}
+
+export function renderVerbose(
+  root: TraceNode,
+  errors: readonly ErrorRecord[],
+  productions: readonly Production[],
+  retention?: RetentionPolicy,
+): OutputUnit {
+  return renderHierarchical(root, errors, productions,
+    { vocabulary: "2020-12", verbose: true, retention });
+}
+
+/**
+ * LIST structure over the evaluation trace (current output spec): the same
+ * per-application units as HIERARCHICAL, flattened instead of nested — no
+ * `details`. Pruning matches HIERARCHICAL's non-verbose rule (contribution-
+ * free valid units drop).
+ */
+export function renderList(
+  root: TraceNode,
+  errors: readonly ErrorRecord[],
+  productions: readonly Production[],
+  options: HierarchicalOptions,
+): OutputUnit[] {
+  const nested = renderHierarchical(root, errors, productions, options);
+  const flat: OutputUnit[] = [];
+  const collect = (unit: OutputUnit): void => {
+    const { details, ...rest } = unit;
+    flat.push(rest);
+    details?.forEach(collect);
+  };
+  collect(nested);
+  return flat;
+}
+
+// Basic (2020-12) is structurally distinct from OutputUnit's
+// Detailed/Verbose/LIST shape: its errors/annotations are flat arrays of
+// full units (one per error/production record, each with its own
+// keywordLocation), not a details tree or a keyword-keyed record.
+export interface BasicOutputDocument {
+  valid: boolean;
+  instanceLocation: string;
+  evaluationPath?: string;
+  schemaLocation?: string;
+  keywordLocation?: string;
+  absoluteKeywordLocation?: string;
+  errors?: ErrorUnit[];
+  annotations?: AnnotationUnit[];
+}
+
+/**
+ * Basic output document: a wrapper unit (`valid`, empty root locations) with
+ * a flat `errors` array on failure or `annotations` array on success — per
+ * the suite's output-tests basic fixtures, `errors` is absent on success.
+ */
+export function renderBasic(
+  valid: boolean,
+  rootSchemaRef: { baseUri: string; pointer: string },
+  errors: readonly ErrorRecord[],
+  rootProductions: readonly Production[],
+  retention: RetentionPolicy | undefined,
+  vocabulary: LocationVocabulary,
+): BasicOutputDocument {
+  const doc: BasicOutputDocument = {
+    valid,
+    ...locations(null, null, rootSchemaRef, vocabulary),
+    instanceLocation: "",
+  };
+  if (valid) {
+    const anns = applyRetention(rootProductions, retention, vocabulary);
+    if (anns.length > 0) doc.annotations = anns;
+  } else {
+    doc.errors = errors.map((e) => renderError(e, vocabulary));
+  }
+  return doc;
 }
