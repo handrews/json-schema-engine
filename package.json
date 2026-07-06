@@ -5,6 +5,9 @@
   "description": "Spikes and prototypes for an annotation-first two-tier JSON Schema engine (see ANALYSIS.md)",
   "type": "module",
   "license": "MIT",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "bench": "tsx spike/bench.ts",
     "test": "vitest run",

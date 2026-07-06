@@ -24,18 +24,34 @@ locations, sharing one keyword registry.
 - `prototype/` — F2 channels prototype: miniature interpreter with the
   production-channel/retention design, run against the official
   JSON-Schema-Test-Suite (`npm test`; 852/852 non-skipped draft2020-12 cases
-  green). Requires the suite: `git clone --depth 1
-  https://github.com/json-schema-org/JSON-Schema-Test-Suite.git test-suite`.
+  green).
+- `packages/` — npm workspaces (DESIGN.md D16), scaffolded in M0:
+  - `packages/core` (`@jse/core`) — stub pending M1 (the real interpreter
+    core: registry, cursor, context, channel, cycle guard, output result
+    tree). Currently just exports a placeholder.
+  - `packages/test-kit` (`@jse/test-kit`) — reusable official-suite runner
+    generalized from `prototype/suite.test.ts`'s schema-position-only
+    unsupported-keyword scan and group/test iteration. Exposes a
+    dependency-free "collect" mode (`runSuiteFiles`) returning per-file/
+    per-case results, and a thin `runSuiteFilesVitest` wrapper that registers
+    `describe`/`it` (vitest is injected by the caller, not imported by the
+    package). `packages/test-kit/src/self-test.test.ts` exercises the skip
+    and pass/fail counting machinery itself.
 
-Both directories exist to validate DESIGN.md decisions and serve as exemplars;
-per DESIGN.md M1, the real `core` package replaces them.
+Both `spike/` and `prototype/` exist to validate DESIGN.md decisions and
+serve as exemplars; per DESIGN.md M1, the real `core` package replaces
+`prototype/`.
+
+`test-suite/` is a git submodule pinned to the official
+[JSON-Schema-Test-Suite](https://github.com/json-schema-org/JSON-Schema-Test-Suite)
+repo.
 
 ## Commands
 
 ```
+git submodule update --init
 npm install
-git clone --depth 1 https://github.com/json-schema-org/JSON-Schema-Test-Suite.git test-suite
-npm test            # prototype vs official suite + channels tests
+npm test            # prototype vs official suite + channels tests + test-kit self-test
 npm run bench       # F1 spike benchmarks (oracle-gated)
 npm run check-types
 ```
