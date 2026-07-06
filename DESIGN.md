@@ -29,7 +29,7 @@ and the [official test suite](https://github.com/json-schema-org/JSON-Schema-Tes
 | D3 | Keyword interface | `analyze(schemaValue, lexicalScope) → StaticFacts` + `evaluate(schemaValue, cursor, ctx) → boolean` (§3). Applicators request subschema application through the engine; the engine owns path/scope/frame bookkeeping in exactly one place. | Prototype: 30 keywords fit this shape; engine-owned descent is what makes locations constants for the compiler | — |
 | D4 | Keyword communication | **Frame-scoped production channel** (§4): schema application pushes a frame; productions merge to the parent frame only on success. Annotation dropping, in-place-applicator visibility for `unevaluated*`, and cousin-invisibility all fall out of the one scoping rule. | Prototype: 852 suite cases + channels tests pass with no per-keyword special cases | IETF keyword-communication experiments needing non-annotation payloads → add production kinds, not mechanisms |
 | D5 | Annotation retention | Retention policy supplied at compile/evaluate time: allow-list by keyword name and vocabulary URI, schema/instance-location predicates; internal consumers always see the channel regardless of retention ("transient" retention). Compiler memoizes one artifact per (schema, policy, output config). | Spec-sanctioned (ANALYSIS.md §5 quotes); SPIKE.md: policy-specialized artifact 32M ops/s vs 51M with annotations fully elided — cost proportional to retention | — |
-| D6 | Output | Evaluation path tracked natively (constant in compiled code; push/pop + lazy string materialization in the interpreter). One internal result tree; renderers for 2020-12/-02 Flag/Basic/Detailed/Verbose with `keywordLocation`/`absoluteKeywordLocation` **and** current-output-spec flag/list/hierarchical with `evaluationPath`/`schemaLocation`. Field vocabulary and structure are orthogonal knobs. | The engine exists partly because both incumbents refuse half of this | Output spec changes upstream |
+| D6 | Output | Evaluation path tracked natively (constant in compiled code; push/pop + lazy string materialization in the interpreter). One internal result tree; renderers for 2020-12/-02 Flag/Basic/Detailed/Verbose with `keywordLocation`/`absoluteKeywordLocation` **and** current-output-spec flag/list/hierarchical with `evaluationPath`/`schemaLocation`. Field vocabulary and structure are orthogonal knobs. **Default field vocabulary: `evaluationPath`/`schemaLocation`**, with the 2020-12 names as a compatibility option (owner decision, 2026-07-05). | The engine exists partly because both incumbents refuse half of this | Output spec changes upstream |
 | D7 | Async boundary | Loading/registration async (loaders for file/http/media types); **`compile` and `evaluate` are sync**. | Hyperjump's async-generator compile pipeline is a real tax; resource I/O is the only inherent async | — |
 | D8 | Dynamic scope | Full 2020-12 `$dynamicRef` semantics: dynamic scope = stack of entered schema resources; resolution requires the anchor lexically at the target, then rebinds to the outermost dynamic scope containing a matching `$dynamicAnchor`. 2019-09 `$recursiveRef/(Anchor)` as the degenerate case. Compiler marks everything dynamically reachable from a `$dynamicRef`-influenced scope as a dynamic island → interpreter trampoline with the compiled caller's scope stack. | The single thing AJV got structurally wrong (fragment-only, root-registry, first-write-wins); prior art in the user's oas-tree-viewer `dynamicScope.ts` strict-winner analysis | — |
 | D9 | Lowering catalogue | Compiler lowerings, each licensed by `StaticFacts`: (a) `unevaluated*` → static evaluated-name/index sets when all contributors are static, else runtime evaluated-set tracking; (b) production elision when no consumer (retention ∪ dependent keywords) exists; (c) constant-location emit sites incl. through static `$ref`; (d) small-set membership → equality chains (threshold ~8, measure), else hoisted `Set`; (e) lazy error/annotation unit materialization; (f) regex/format hoisting. | SPIKE.md findings 1–5 (finding 4: equality-chain vs `Set.has` moved a ratio from 1.34 to 0.82) | Benchmarks show a lowering never pays |
@@ -37,7 +37,7 @@ and the [official test suite](https://github.com/json-schema-org/JSON-Schema-Tes
 | D11 | Draft support | Native in core: 2020-12, IETF drafts, 2019-09, draft-07. draft-04/06 as a separately packaged legacy dialect module. | ANALYSIS.md §7.7: market center of mass is draft-07+; keeps oldest quirks out of the core | ajv-compat adoption data shows heavy draft-04 demand |
 | D12 | Testing strategy | Official suite as git submodule with a generated runner; **both tiers must pass the identical suite**; differential fuzzing (interpreter vs compiler on suite schemas × mutated instances) as the compiler's primary correctness gate; Bowtie harness from M3; releases are conformance-gated (suite + Bowtie green or no release). | The suite is the clean-room discipline (D15) and the marketing story | — |
 | D13 | Error model | Keywords emit structured error data (keyword id, params, message key) into units; message rendering is a presentation concern. Params designed so ajv-compat can reconstruct `instancePath`/`schemaPath`/`params` mechanically. | Compat layer must not parse message strings | — |
-| D14 | Strictness | Validator core is spec-clean (spec-valid schemas evaluate per spec; unknown keywords annotate per SHOULD). AJV-strict-style schema hygiene ships as a separate opt-in **lint layer**, out of the validation path. | ANALYSIS.md §14; overlaps the user's OAS-viewer lint/SARIF roadmap | — |
+| D14 | Strictness | Validator core is spec-clean (spec-valid schemas evaluate per spec; unknown keywords annotate per SHOULD). AJV-strict-style schema hygiene is **opt-in only**, via two paths: (a) a separate lint layer, out of the validation path; (b) **stricter meta-schemas** covering the common strict-mode use cases — worth offering as the idiomatic migration path since it stays inside the spec's own extension model. ajv-compat may enable hygiene checks where AJV's defaults imply them, since compat mode is itself opt-in. | Owner decision 2026-07-05; ANALYSIS.md §14; overlaps the user's OAS-viewer lint/SARIF roadmap | — |
 | D15 | IP policy | Implementation from specs + official suite only. AJV/Hyperjump may be executed as oracles/benchmarks; their code is never read for implementation, ported, or translated. Concepts noted in ANALYSIS.md §11 (keyword-URI registries, evaluated-set lowering, standalone emission, media-type loading) are used as ideas. Compat layers reproduce public API *surfaces* only. **This policy binds every implementation session, including subagents — restate it in any task prompt.** | No colorable derivation claim, per project owner | — |
 | D16 | Packaging | Monorepo, npm workspaces; packages under a scope TBD (owner decision, M0 blocker): `core`, `compiler`, `formats`, `dialect-legacy` (draft-04/06), `ajv-compat`, `test-kit` (suite runner + differential fuzzer), `bench`. `hyperjump-compat` later, likely just a documented shim. | Mirrors the staging in §6 | — |
 
@@ -149,7 +149,7 @@ assertion (`pattern`), in-place applicator (`anyOf`), child applicator
 | M5 | Output completion: Detailed/Verbose/hierarchical renderers, golden fixtures | patterned | Renderer goldens + output-format tests green |
 | M6 | `compiler`: static analysis over `StaticFacts`, lowering catalogue (D9), trampoline (D8), both output modes (D10) | judgment | Differential fuzz (test-kit): interpreter ≡ compiler over suite schemas × mutated instances; bench meets SPIKE gate on the spike schemas |
 | M7 | `formats` package (annotation + assertion modes) | patterned | format suite incl. optional format-assertion tests green |
-| M8 | `ajv-compat`: API surface, error mapping (D13), formats parity, loud failure for `code`-keywords; PoC against a fastify app and an OpenAPI validator | judgment (surface) + patterned (mapping tables) | Compat test suite green; both PoCs validate real traffic |
+| M8 | `ajv-compat`: API surface, error mapping (D13), formats parity, loud failure for `code`-keywords and `$data` (§7); PoC against a fastify app and an OpenAPI validator | judgment (surface) + patterned (mapping tables) | Compat test suite green; both PoCs validate real traffic |
 | M9 | `bench` harness (compile/first/hot/annotations-on × corpora), Bowtie onboarding PR, docs | patterned | Published Bowtie report; bench reproducible in CI |
 | M10 | `dialect-legacy`: draft-04/06 | patterned | draft4/draft6 suites green |
 
@@ -162,13 +162,23 @@ subagent prompts. Keep changes within the milestone — interface changes
 ## 7. Open items (owner decisions)
 
 1. **npm scope + project name** — blocks M0 publishing setup (not scaffolding).
-2. **`$data` references** (AJV-proprietary): out of core; decide compat-layer
-   stance before M8.
-3. **Output default field vocabulary** (`keywordLocation` vs `evaluationPath`
-   as the default rendering) — owner is a spec author; both ship either way.
-4. **Annotation test coverage upstream**: the official suite doesn't exercise
-   annotation output; our channels tests are the local substitute. Decide
-   whether to propose them upstream (also strengthens the "fully compliant"
-   marketing claim).
-5. **Governance/funding** per ANALYSIS.md §12 — needed before any public
+2. **Governance/funding** per ANALYSIS.md §12 — needed before any public
    release, not before code.
+
+### Resolved (owner, 2026-07-05)
+
+- **`$data` references**: not in the first public version. Candidate for a
+  later **extension vocabulary** (which the D2 registry supports without core
+  changes). Context: not actually AJV-proprietary — proposed for the standard
+  well over a decade ago, never agreed to be in scope — and it carries
+  security concerns (keyword values become instance-controlled). ajv-compat
+  (M8) fails loudly on `$data` with a pointer to this rationale.
+- **Strict mode**: folded into D14 — opt-in only; explore stricter
+  meta-schemas as the primary AJV-migration path for common strict-mode uses.
+- **Output default field vocabulary**: folded into D6 —
+  `evaluationPath`/`schemaLocation` default, 2020-12 names as a compat option.
+- **Annotation tests upstream**: not pursuing with the suite maintainer
+  (historically unreceptive; his implementation doesn't collect annotations).
+  Our channels tests remain the local gate. Watch for official annotation
+  cases arriving via other maintainers (reported in progress); adopt them into
+  test-kit when they land.
