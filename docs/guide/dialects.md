@@ -49,9 +49,12 @@ assert.equal(engine.evaluate(uri, [3]).valid, false);
 
 ## The same keyword, different meaning
 
-`items` takes an array of subschemas (positional, tuple-style) in
-draft-07. In 2020-12, tuple validation moved to `prefixItems`; a schema
-value for `items` is not a valid schema there, so it has no effect.
+In draft-07, `items` accepts either a single schema (applied to every
+element) or an array of subschemas (positional, tuple-style). In 2020-12,
+tuple validation moved to `prefixItems` and `items` accepts only a single
+schema — an **array** value for `items` is not valid 2020-12. The engine
+treats such a value as having no effect; `validateSchemas: true` rejects
+the document instead (see [Metaschemas](metaschemas.md)).
 
 ```ts
 import assert from "node:assert";
@@ -75,6 +78,23 @@ const modernUri = modern.registerSchema(
 // The same document under 2020-12: `items` ignores its array value, so
 // there is no tuple check at all — every array is valid.
 assert.equal(modern.evaluate(modernUri, [1, "a"]).valid, true);
+```
+
+Catch the mistake at registration time with `validateSchemas`:
+
+```ts
+import assert from "node:assert";
+import { createEngine, SchemaValidationError } from "@jse/core";
+
+const strict = createEngine({ validateSchemas: true });
+assert.throws(
+  () =>
+    strict.registerSchema(
+      { items: [{ type: "string" }] },
+      "https://example.com/invalid-2020-12",
+    ),
+  SchemaValidationError,
+);
 ```
 
 ## Unknown dialects
