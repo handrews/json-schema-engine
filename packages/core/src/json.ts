@@ -1,4 +1,7 @@
-// Shared JSON utilities for the prototype.
+// JSON utilities. Discipline notes carried over from the F2 prototype
+// (DESIGN.md §5): Object.hasOwn everywhere an instance or schema key is
+// tested (`__proto__`/`toString`/`constructor` are legal property names);
+// regex compiled in unicode mode with fallback; length in code points.
 
 export type JsonValue =
   | null | boolean | number | string | JsonValue[] | { [k: string]: JsonValue };
@@ -9,8 +12,8 @@ export type JsonType =
 export const isObject = (v: unknown): v is Record<string, JsonValue> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
-// The primitive type of an instance value ("integer" is a subtype handled in
-// the type keyword, not returned here).
+// The primitive type of an instance value ("integer" is a numeric subtype
+// handled by the type keyword, never returned here).
 export function jsonTypeOf(v: JsonValue): Exclude<JsonType, "integer"> {
   if (v === null) return "null";
   if (Array.isArray(v)) return "array";
@@ -22,11 +25,10 @@ export function jsonTypeOf(v: JsonValue): Exclude<JsonType, "integer"> {
   }
 }
 
-// JSON equality per the spec's definition (type + value, order-insensitive
-// for objects).
+// JSON equality per the spec: same type and value, object member order
+// insignificant.
 export function jsonEqual(a: JsonValue, b: JsonValue): boolean {
   if (a === b) return true;
-  if (typeof a === "number" && typeof b === "number") return a === b;
   if (Array.isArray(a)) {
     if (!Array.isArray(b) || a.length !== b.length) return false;
     for (let i = 0; i < a.length; i++) {
@@ -36,9 +38,9 @@ export function jsonEqual(a: JsonValue, b: JsonValue): boolean {
   }
   if (isObject(a)) {
     if (!isObject(b)) return false;
-    const ka = Object.keys(a);
-    if (ka.length !== Object.keys(b).length) return false;
-    for (const k of ka) {
+    const keys = Object.keys(a);
+    if (keys.length !== Object.keys(b).length) return false;
+    for (const k of keys) {
       if (!Object.hasOwn(b, k) || !jsonEqual(a[k]!, b[k]!)) return false;
     }
     return true;

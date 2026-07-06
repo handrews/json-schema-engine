@@ -17,18 +17,22 @@ locations, sharing one keyword registry.
 3. [DESIGN.md](DESIGN.md) — the engineering design and milestone contract for
    implementation sessions. Start here if you are implementing.
 
-## Code in this repo (throwaway, semantics are not)
+## Code in this repo
 
-- `spike/` — hand-written "compiled" validators + benchmark harness
+- `spike/` — F1's hand-written "compiled" validators + benchmark harness
   (`npm run bench`; installs nothing at runtime, competitors are dev deps).
-- `prototype/` — F2 channels prototype: miniature interpreter with the
-  production-channel/retention design, run against the official
-  JSON-Schema-Test-Suite (`npm test`; 852/852 non-skipped draft2020-12 cases
-  green).
-- `packages/` — npm workspaces (DESIGN.md D16), scaffolded in M0:
-  - `packages/core` (`@jse/core`) — stub pending M1 (the real interpreter
-    core: registry, cursor, context, channel, cycle guard, output result
-    tree). Currently just exports a placeholder.
+  Kept as the M6 compiler tier's target output shape.
+- `packages/` — npm workspaces (DESIGN.md D16):
+  - `packages/core` (`@jse/core`) — the M1 interpreter core: dialect/
+    vocabulary registry (keywords identified by URI), analyze-driven schema
+    registration, instance cursors, the frame-scoped production channel with
+    retention policy, cycle guard, and output renderers in both location
+    vocabularies (`evaluationPath`/`schemaLocation` default,
+    `keywordLocation`/`absoluteKeywordLocation` compat). Covers the F2
+    prototype's 2020-12 keyword set; keywords owed by M2/M3 are loud
+    not-implemented placeholders, never silent annotations. The F2
+    `prototype/` directory was absorbed here (its tests live on in
+    `packages/core/test/`).
   - `packages/test-kit` (`@jse/test-kit`) — reusable official-suite runner
     generalized from `prototype/suite.test.ts`'s schema-position-only
     unsupported-keyword scan and group/test iteration. Exposes a
@@ -37,10 +41,6 @@ locations, sharing one keyword registry.
     `describe`/`it` (vitest is injected by the caller, not imported by the
     package). `packages/test-kit/src/self-test.test.ts` exercises the skip
     and pass/fail counting machinery itself.
-
-Both `spike/` and `prototype/` exist to validate DESIGN.md decisions and
-serve as exemplars; per DESIGN.md M1, the real `core` package replaces
-`prototype/`.
 
 `test-suite/` is a git submodule pinned to the official
 [JSON-Schema-Test-Suite](https://github.com/json-schema-org/JSON-Schema-Test-Suite)
@@ -51,7 +51,7 @@ repo.
 ```
 git submodule update --init
 npm install
-npm test            # prototype vs official suite + channels tests + test-kit self-test
+npm test            # core vs official suite + channels/output/engine tests + test-kit self-test
 npm run bench       # F1 spike benchmarks (oracle-gated)
 npm run check-types
 ```

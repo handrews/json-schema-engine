@@ -1,20 +1,21 @@
-// F2 gate tests beyond the official suite: annotation collection semantics
-// (dropping on failure) and retention-policy configurability (ANALYSIS.md
-// §7.2/§7.3, licensed by the spec passages quoted in ANALYSIS.md §5).
+// Channel semantics gates, ported from the F2 prototype (expectations are
+// the F2-validated semantics; only the API surface and the default location
+// field names — evaluationPath/schemaLocation per D6 — changed).
 
 import { describe, it, expect } from "vitest";
-import { JsonValue } from "./json.js";
-import { Registry } from "./registry.js";
-import { evaluate, EvalOptions, Production } from "./engine.js";
+import {
+  createEngine, EvaluateOptions, JsonValue, Result,
+} from "@jse/core";
 
-function run(schema: JsonValue, instance: JsonValue, options?: EvalOptions) {
-  const registry = new Registry();
-  const uri = registry.register(schema, "https://channels.example/schema");
-  return evaluate(registry, uri, instance, { collectAnnotations: true, ...options });
+function run(schema: JsonValue, instance: JsonValue, options?: EvaluateOptions): Result {
+  const engine = createEngine();
+  const uri = engine.registerSchema(schema, "https://channels.example/schema");
+  return engine.evaluate(uri, instance,
+    { collectAnnotations: true, output: "list", ...options });
 }
 
-const annotationTuples = (r: { annotations?: Production[] }) =>
-  (r.annotations ?? []).map((a) => [a.evaluationPath, a.instanceLocation, a.value]);
+const annotationTuples = (r: Result) =>
+  (r.annotations ?? []).map((a) => [a.evaluationPath, a.instanceLocation, a.annotation]);
 
 const profileSchema: JsonValue = {
   title: "User profile",
@@ -28,7 +29,7 @@ const profileSchema: JsonValue = {
 };
 
 describe("annotation collection", () => {
-  it("collects annotations with keywordLocation (evaluationPath) on success", () => {
+  it("collects annotations with evaluation paths on success", () => {
     const r = run(profileSchema, { id: "u1", displayName: "Ada" });
     expect(r.valid).toBe(true);
     expect(annotationTuples(r)).toContainEqual(["/properties/id/readOnly", "/id", true]);
@@ -64,7 +65,7 @@ describe("annotation collection", () => {
     const r = run(schema, "abc");
     expect(r.valid).toBe(true);
     const titles = (r.annotations ?? []).filter((a) => a.keyword === "title");
-    expect(titles.map((a) => a.value)).toEqual(["starts with a"]);
+    expect(titles.map((a) => a.annotation)).toEqual(["starts with a"]);
     expect(titles[0]!.evaluationPath).toBe("/anyOf/0/title");
     expect(titles[0]!.schemaLocation)
       .toBe("https://channels.example/schema#/anyOf/0/title");
@@ -85,8 +86,8 @@ describe("annotation collection", () => {
   });
 });
 
-describe("retention policy (§7.3)", () => {
-  const instance = { id: "u1", displayName: "Ada" };
+describe("retention policy (DESIGN.md D5)", () => {
+  const instance: JsonValue = { id: "u1", displayName: "Ada" };
 
   it("filters by keyword allow-list without changing validation", () => {
     const all = run(profileSchema, instance);
@@ -97,9 +98,18 @@ describe("retention policy (§7.3)", () => {
     expect(all.annotations!.length).toBeGreaterThan(only.annotations!.length);
   });
 
-  it("filters by arbitrary predicate (schema-location prefix)", () => {
+  it("filters by vocabulary URI", () => {
     const r = run(profileSchema, instance, {
-      retention: { keep: (p) => p.evaluationPath.startsWith("/properties/id/") },
+      retention: { vocabularies: ["https://json-schema.org/draft/2020-12/vocab/meta-data"] },
+    });
+    expect(r.annotations!.length).toBeGreaterThan(0);
+    expect(r.annotations!.every(
+      (a) => ["title", "readOnly", "default"].includes(a.keyword))).toBe(true);
+  });
+
+  it("filters by arbitrary predicate (evaluation-path prefix)", () => {
+    const r = run(profileSchema, instance, {
+      retention: { keep: (u) => u.evaluationPath!.startsWith("/properties/id/") },
     });
     expect(r.annotations!.every((a) => a.instanceLocation === "/id")).toBe(true);
     expect(r.annotations!.length).toBeGreaterThan(0);
@@ -116,22 +126,5 @@ describe("retention policy (§7.3)", () => {
     expect(r.valid).toBe(true);
     expect(r.annotations).toEqual([]);
     expect(run(schema, { x: 1, y: 2 }, { retention: { keywords: [] } }).valid).toBe(false);
-  });
-});
-
-describe("output locations", () => {
-  it("errors carry constant evaluation paths through $ref", () => {
-    const schema: JsonValue = {
-      $defs: { base: { required: ["id"] } },
-      allOf: [{ $ref: "#/$defs/base" }],
-    };
-    const r = run(schema, {});
-    expect(r.valid).toBe(false);
-    expect(r.errors).toContainEqual({
-      keywordLocation: "/allOf/0/$ref/required",
-      absoluteKeywordLocation: "https://channels.example/schema#/$defs/base/required",
-      instanceLocation: "",
-      error: "missing required property 'id'",
-    });
   });
 });

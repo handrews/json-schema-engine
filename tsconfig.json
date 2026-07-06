@@ -10,5 +10,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["spike", "prototype", "packages"]
+  "include": ["spike", "packages"]
 }
