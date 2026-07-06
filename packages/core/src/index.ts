@@ -18,6 +18,7 @@ import {
   applyRetention, renderError,
 } from "./output.js";
 import { DIALECT_2020_12, registerStandardDialects } from "./keywords/vocab2020.js";
+import { METASCHEMAS_2020_12 } from "./keywords/metaschemas2020.js";
 
 export type { JsonValue, JsonType } from "./json.js";
 export type { Cursor } from "./cursor.js";
@@ -94,6 +95,13 @@ export class Engine {
     this.schemas = new SchemaRegistry(this.dialects, this.defaultDialect);
     this.loaders = [...(options.loaders ?? [])];
     this.validateSchemas = options.validateSchemas ?? false;
+    // Standard metaschemas are registered as ordinary schema resources so
+    // that $refs to them resolve without loaders and validateSchemas can
+    // check standard-dialect documents. Registered directly (not through
+    // registerSchema) so the policy never self-validates them here.
+    for (const [uri, doc] of METASCHEMAS_2020_12) {
+      this.schemas.register(doc, uri);
+    }
   }
 
   addLoader(loader: SchemaLoader): void {

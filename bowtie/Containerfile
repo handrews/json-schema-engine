@@ -1,0 +1,11 @@
+# Bowtie harness image for @jse/core. Build from the repo root:
+#   podman build -t localhost/jse-bowtie -f bowtie/Containerfile .
+# tsx runs the TypeScript sources directly — no build artifacts to keep in
+# sync with the packages.
+FROM docker.io/library/node:24-alpine
+WORKDIR /app
+COPY bowtie/container-package.json package.json
+RUN npm install --no-audit --no-fund
+COPY packages/core/src packages/core/src
+COPY bowtie/harness.ts bowtie/harness.ts
+ENTRYPOINT ["./node_modules/.bin/tsx", "bowtie/harness.ts"]

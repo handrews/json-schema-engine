@@ -158,10 +158,14 @@ assertion (`pattern`), in-place applicator (`anyOf`), child applicator
 | M9 | `bench` harness (compile/first/hot/annotations-on × corpora), Bowtie onboarding PR, docs | patterned | Published Bowtie report; bench reproducible in CI |
 | M10 | `dialect-legacy`: draft-04/06 | patterned | draft4/draft6 suites green |
 
-**Status note (M3, 2026-07-05):** all M3 done-signal legs are green except
-the local Bowtie run — the dev machine has no container runtime
-(bowtie/docker/podman all absent), which Bowtie requires. That leg is owed;
-run it alongside M9's Bowtie onboarding or earlier once podman is installed.
+**Status note (M3, completed 2026-07-06):** all done-signal legs green. The
+Bowtie leg ran locally (podman + `bowtie/` harness image, `bowtie suite` over
+`test-suite/tests/draft2020-12`): **1299/1299 = 100%**, no errored or wrong
+results. Getting there required bundling the 2020-12 metaschema resources in
+core (`keywords/metaschemas2020.ts`) — the suite's metaschema-`$ref` cases
+expect them resolvable without loaders, and the local runner had been
+silently error-skipping those 4 tests. The `bowtie/` harness is the starting
+point for M9's Bowtie onboarding PR.
 
 Session protocol for a milestone: read this file §1–§5 + the milestone row;
 run the done-signal first (red); implement; done-signal green; conformance

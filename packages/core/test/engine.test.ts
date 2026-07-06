@@ -149,6 +149,24 @@ describe("$vocabulary processing and metaschema policy (M3)", () => {
       .rejects.toThrow(UnknownVocabularyError);
   });
 
+  it("resolves $refs to the bundled 2020-12 metaschema without loaders", () => {
+    const engine = createEngine();
+    const uri = engine.registerSchema(
+      { $ref: "https://json-schema.org/draft/2020-12/schema" },
+      "https://policy.example/meta-ref");
+    expect(engine.evaluate(uri, { minLength: 1 }).valid).toBe(true);
+    expect(engine.evaluate(uri, { minLength: -1 }).valid).toBe(false);
+  });
+
+  it("validates against the bundled standard metaschema when enabled", () => {
+    const engine = createEngine({ validateSchemas: true });
+    expect(() => engine.registerSchema(
+      { type: 123 }, "https://policy.example/bad-type"))
+      .toThrow(SchemaValidationError);
+    expect(engine.registerSchema({ type: "string" }, "https://policy.example/ok"))
+      .toBe("https://policy.example/ok");
+  });
+
   it("validates load targets against their metaschema when enabled", async () => {
     const metaschema: JsonValue = {
       $id: META,
