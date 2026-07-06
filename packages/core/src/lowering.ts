@@ -75,7 +75,18 @@ export type LowerExpr =
       readonly kind: "logic";
       readonly op: "and" | "or";
       readonly parts: readonly LowerExpr[];
-    };
+    }
+  /**
+   * A subschema application used as a boolean expression rather than a
+   * statement (M6.4): `if`'s condition, `not`'s single negated apply, and
+   * `contains`'/`oneOf`'s per-branch probes all need the verdict as a value,
+   * not a verdict-folding statement. The serializer renders it as the same
+   * call expression `apply` statements use; `apply.fold` still governs how a
+   * caller that wraps this in a statement folds the result (e.g. `negate`,
+   * `exactlyOne`), while a bare `applyExpr` used purely for its value (e.g.
+   * as a `forEachIndex` counter guard) carries `fold: "discard"`.
+   */
+  | { readonly kind: "applyExpr"; readonly apply: LowerApply };
 
 /**
  * The closed set of runtime helpers emitted code may call. All are imported
@@ -90,7 +101,8 @@ export type LowerHelper =
   | "escapeSegment"
   | "keysOf" // Object.keys
   | "lengthOf" // .length of a string or array (UTF-16 units / element count)
-  | "isMultipleOf";
+  | "isMultipleOf"
+  | "hasDuplicateItems";
 
 /** A statement-level IR node. */
 export type LowerStmt =
@@ -125,12 +137,41 @@ export type LowerStmt =
    * identifies the instance position; the compiler owns frames, locations,
    * and scope threading, exactly as the engine does for the interpreter.
    */
-  | { readonly kind: "apply"; readonly apply: LowerApply };
+  | { readonly kind: "apply"; readonly apply: LowerApply }
+  /**
+   * `contains`'s shape: iterate array indexes 0..length-1 (like
+   * `forEachIndex`, binding each index), counting the iterations where
+   * `countWhen` holds true, then fail the keyword when the final count
+   * falls outside `[min, max]`. Every index is probed unconditionally (no
+   * short-circuit on reaching `max`), matching evaluate()'s full sweep.
+   * `countWhen` is typically an `applyExpr` with `fold: "discard"` (the
+   * per-item probe verdict feeds the count, never the keyword verdict
+   * directly — a failed probe is not itself a `contains` failure).
+   */
+  | {
+      readonly kind: "countRange";
+      readonly target: LowerExpr;
+      readonly binding: number;
+      readonly countWhen: LowerExpr;
+      readonly min: number;
+      readonly max: number;
+      readonly outOfRangeMessage: LowerMessage;
+    };
 
 /** How a keyword's lowered body applies one subschema. */
 export interface LowerApply {
   /** subschema position relative to the keyword's schema object (matches StaticFacts.applications[].path, with loop bindings for dynamic segments) */
   readonly path: readonly (string | number | { binding: number })[];
+  /**
+   * Set when the applied subschema is a sibling keyword's value (`if` →
+   * `then`/`else`), mirroring {@link SubschemaApplication.sibling} — the
+   * planner already resolves the edge this way (plan.ts); the serializer
+   * matches an apply back to its planned edge by keyword + sibling + path
+   * identity, so a keyword emitting more than one apply at the same `path`
+   * (e.g. `if`'s condition vs. its `then` edge, both `path: []`) MUST set
+   * this to disambiguate.
+   */
+  readonly sibling?: string;
   /**
    * For reference keywords: the reference value. The compiler resolves it
    * at plan time against the unit's lexical base; `path` is ignored.
@@ -150,7 +191,13 @@ export type LowerCursor =
       readonly kind: "child";
       readonly of: LowerCursor;
       readonly segment: LowerExpr | string | number;
-    };
+    }
+  /**
+   * `propertyNames`: the current loop binding's KEY STRING is the instance
+   * under evaluation, not a child of the object being iterated (there is no
+   * parent cursor to descend from — the property name itself is the value).
+   */
+  | { readonly kind: "key"; readonly binding: number };
 
 /**
  * An error message: literal parts joined with expression parts, escaped by

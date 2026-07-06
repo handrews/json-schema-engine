@@ -104,3 +104,34 @@ export const escapeSegment = (s: string): string =>
 /** Unescapes a JSON Pointer segment (RFC 6901). */
 export const unescapeSegment = (s: string): string =>
   s.replace(/~1/g, "/").replace(/~0/g, "~");
+
+/**
+ * The first jsonEqual-duplicate pair in `items` (by ascending index), or
+ * `null` when every item is distinct — `uniqueItems`' predicate, shared by
+ * both tiers. Buckets by {@link canonicalKey} for near-linear detection; a
+ * key collision is confirmed with {@link jsonEqual} so distinct values that
+ * happen to share a key are never misreported as duplicates.
+ */
+export function firstDuplicatePair(
+  items: readonly JsonValue[],
+): readonly [number, number] | null {
+  const seen = new Map<string, number[]>();
+  for (let i = 0; i < items.length; i++) {
+    const key = canonicalKey(items[i]!);
+    const bucket = seen.get(key);
+    if (bucket === undefined) {
+      seen.set(key, [i]);
+      continue;
+    }
+    for (const j of bucket) {
+      if (jsonEqual(items[j]!, items[i]!)) return [j, i];
+    }
+    bucket.push(i);
+  }
+  return null;
+}
+
+/** True when `items` contains any jsonEqual-duplicate pair (`uniqueItems`'s compiled-tier predicate). */
+export function hasDuplicateItems(items: readonly JsonValue[]): boolean {
+  return firstDuplicatePair(items) !== null;
+}

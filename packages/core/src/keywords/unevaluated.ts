@@ -137,6 +137,46 @@ export const unevaluatedItems: KeywordBehavior = {
       { path: [], mode: "childSweep", conditional: false, asserts: true },
     ],
   }),
+  // Static-coverage path only (D9a), same discipline as
+  // unevaluatedProperties: the planner classifies this schema object as
+  // interpreted whenever any index-coverage contributor is dynamic (e.g. a
+  // sibling `contains`, whose coverage is instance-dependent), so lower() is
+  // never called with a null/incomplete coverage.
+  lower: (_value, lctx) => {
+    const coverage = lctx.staticCoverage();
+    if (coverage === null) {
+      throw new Error(
+        "unevaluatedItems lowering requires static coverage (planner bug)",
+      );
+    }
+    if (coverage.coversAllIndexes) return; // statically vacuous
+    const b = lctx.binding();
+    lctx.emit(
+      lowerIR.when(lowerIR.typeIs(lctx.instance, "array"), [
+        {
+          kind: "forEachIndex",
+          target: lctx.instance,
+          binding: b,
+          start: coverage.prefixCount,
+          body: [
+            {
+              kind: "apply",
+              apply: {
+                path: [],
+                cursor: {
+                  kind: "child",
+                  of: { kind: "here" },
+                  segment: { kind: "binding", id: b },
+                },
+                fold: "allMustPass",
+              },
+            },
+          ],
+        },
+      ]),
+    );
+    lctx.emit({ kind: "produce", value: { kind: "collectedIndexes" } });
+  },
   evaluate: (_value, cursor, ctx) => {
     if (!Array.isArray(cursor.value)) return true;
     const length = cursor.value.length;

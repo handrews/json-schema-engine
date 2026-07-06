@@ -14,7 +14,10 @@ import {
   ifKeyword,
   anyOf,
   allOf,
+  oneOf,
+  not,
   dependentSchemas,
+  propertyNames,
 } from "../src/keywords/applicator.js";
 import {
   unevaluatedProperties,
@@ -173,5 +176,66 @@ describe("StaticFacts v2 exemplars (M6.1)", () => {
       produces: string[];
     };
     expect(a.produces).toEqual(["urn:test#a"]);
+  });
+
+  // M6.4: the trickiest new lowerings — pinned separately since a regression
+  // here silently mis-licenses the planner's consumer computation (contains'
+  // dynamic coverage forcing a sibling unevaluatedItems interpreted) or its
+  // index-coverage fold (unevaluatedItems' own facts).
+
+  it("contains: dynamic coverage is the licensing fact that forces a sibling unevaluatedItems interpreted (non-asserting per-item probes)", () => {
+    const f = facts(contains, true) as {
+      evaluatesIndexes: unknown;
+      produces: string[];
+      applications: { asserts: boolean; mode: string }[];
+    };
+    expect(f.evaluatesIndexes).toEqual({ kind: "dynamic" });
+    expect(f.produces).toEqual([contains.id]);
+    // Per-item probes never assert directly — countRange's countWhen folds
+    // them, not the keyword verdict (M6.4 lowering shape).
+    expect(f.applications).toEqual([
+      { path: [], mode: "childSweep", conditional: false, asserts: false },
+    ]);
+  });
+
+  it("unevaluatedItems: full index coverage, keeps prefixItems/items/contains as consumes", () => {
+    const ui = facts(unevaluatedItems, true) as {
+      produces: string[];
+      consumes: string[];
+      evaluatesIndexes: unknown;
+      applications: unknown;
+    };
+    expect(ui.produces).toEqual([unevaluatedItems.id]);
+    expect(ui.consumes).toEqual([
+      prefixItems.id,
+      items.id,
+      contains.id,
+      unevaluatedItems.id,
+    ]);
+    expect(ui.evaluatesIndexes).toEqual({ kind: "all" });
+    expect(ui.applications).toEqual([
+      { path: [], mode: "childSweep", conditional: false, asserts: true },
+    ]);
+  });
+
+  it("propertyNames declares a propertyName-mode self application (M6.4 lowering needs an edge to resolve)", () => {
+    const f = facts(propertyNames, true) as {
+      applications: { path: unknown; mode: string; asserts: boolean }[];
+    };
+    expect(f.applications).toEqual([
+      { path: [], mode: "propertyName", conditional: false, asserts: true },
+    ]);
+  });
+
+  it("oneOf alternatives are conditional (exactlyOne fold, same shape as anyOf); not is a non-conditional self application", () => {
+    const one = facts(oneOf, [true, true]) as {
+      applications: { conditional: boolean }[];
+    };
+    expect(one.applications.every((a) => a.conditional)).toBe(true);
+
+    const n = facts(not, true) as { applications: { path: unknown }[] };
+    expect(n.applications).toEqual([
+      { path: [], mode: "inPlace", conditional: false, asserts: true },
+    ]);
   });
 });

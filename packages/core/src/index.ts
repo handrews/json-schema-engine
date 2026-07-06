@@ -105,9 +105,11 @@ export {
   canonicalKey,
   codePointLength,
   escapeSegment,
+  hasDuplicateItems,
   jsonEqual,
   unescapeSegment,
 } from "./json.js";
+export { isMultipleOf } from "./keywords/validation.js";
 export type {
   AnalyzeContext,
   IndexCoverage,

@@ -8,10 +8,10 @@ import {
   jsonTypeOf,
   jsonEqual,
   codePointLength,
-  canonicalKey,
+  firstDuplicatePair,
 } from "../json.js";
 import { KeywordBehavior, KeywordContext } from "../dialect.js";
-import { lowerIR } from "../lowering.js";
+import { LowerExpr, LoweringContext, lowerIR } from "../lowering.js";
 import { Cursor } from "../cursor.js";
 
 /** 2020-12 validation vocabulary URI. */
@@ -32,6 +32,42 @@ const assertion = (
     return false;
   },
 });
+
+/**
+ * Shared shape for the numeric/string/array/object "guard, then compare"
+ * assertions (minLength/maxLength/minimum/maximum/exclusiveMinimum/
+ * exclusiveMaximum/minItems/maxItems/minProperties/maxProperties): the
+ * keyword is vacuously true unless the instance has the guarded type, in
+ * which case a comparison against the (hoisted) keyword value must hold.
+ * Mirrors each assertion's `test` above exactly — same guard, same
+ * direction of comparison — via `when(and(guard, not(cmp)), [fail])`.
+ */
+const guardedCompare =
+  (
+    guardType: JsonType,
+    measure: (lctx: LoweringContext) => LowerExpr,
+    op: "<" | "<=" | ">" | ">=",
+    message: (value: JsonValue) => string,
+  ) =>
+  (value: JsonValue, lctx: LoweringContext): void => {
+    lctx.emit(
+      lowerIR.when(
+        lowerIR.and(
+          lowerIR.typeIs(lctx.instance, guardType),
+          lowerIR.not(lowerIR.cmp(op, measure(lctx), lowerIR.constant(value))),
+        ),
+        [lowerIR.fail(message(value))],
+      ),
+    );
+  };
+
+const lengthMeasure = (lctx: LoweringContext): LowerExpr =>
+  lowerIR.helper("codePointLength", lctx.instance);
+const arrayLengthMeasure = (lctx: LoweringContext): LowerExpr =>
+  lowerIR.helper("lengthOf", lctx.instance);
+const propertyCountMeasure = (lctx: LoweringContext): LowerExpr =>
+  lowerIR.helper("lengthOf", lowerIR.helper("keysOf", lctx.instance));
+const numberMeasure = (lctx: LoweringContext): LowerExpr => lctx.instance;
 
 const typeMatches = (t: JsonValue, v: JsonValue): boolean =>
   t === "integer"
@@ -90,7 +126,13 @@ function decimalDigits(n: number): number {
   return dot === -1 ? 0 : s.length - dot - 1;
 }
 
-function isMultipleOf(instance: number, divisor: number): boolean {
+/**
+ * `instance` is an exact multiple of `divisor` (`multipleOf`'s predicate,
+ * shared by both tiers). Scales both operands to integers by the same power
+ * of ten before the modulus so binary-float rounding doesn't misfire (e.g.
+ * 0.0075 % 0.0001 in raw floats).
+ */
+export function isMultipleOf(instance: number, divisor: number): boolean {
   const scale = 10 ** Math.max(decimalDigits(instance), decimalDigits(divisor));
   const scaledInstance = instance * scale;
   const scaledDivisor = divisor * scale;
@@ -126,80 +168,200 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
       );
     },
   },
-  enum: assertion(
-    "enum",
-    (value, instance) =>
-      (value as JsonValue[]).some((x) => jsonEqual(x, instance)),
-    () => "not one of the allowed values",
-  ),
-  const: assertion(
-    "const",
-    (value, instance) => jsonEqual(value, instance),
-    () => "does not equal the required constant",
-  ),
+  enum: {
+    ...assertion(
+      "enum",
+      (value, instance) =>
+        (value as JsonValue[]).some((x) => jsonEqual(x, instance)),
+      () => "not one of the allowed values",
+    ),
+    lower: (value, lctx) => {
+      const alternatives = value as JsonValue[];
+      // An empty enum can never match (some() over zero alternatives is
+      // false); guard explicitly since lowerIR.or() with zero parts has no
+      // meaningful "no alternatives matched" expression to negate.
+      lctx.emit(
+        alternatives.length === 0
+          ? lowerIR.fail("not one of the allowed values")
+          : lowerIR.when(
+              lowerIR.not(
+                lowerIR.or(
+                  ...alternatives.map((x) =>
+                    lowerIR.helper(
+                      "jsonEqual",
+                      lowerIR.constant(x),
+                      lctx.instance,
+                    ),
+                  ),
+                ),
+              ),
+              [lowerIR.fail("not one of the allowed values")],
+            ),
+      );
+    },
+  },
+  const: {
+    ...assertion(
+      "const",
+      (value, instance) => jsonEqual(value, instance),
+      () => "does not equal the required constant",
+    ),
+    lower: (value, lctx) => {
+      lctx.emit(
+        lowerIR.when(
+          lowerIR.not(
+            lowerIR.helper("jsonEqual", lowerIR.constant(value), lctx.instance),
+          ),
+          [lowerIR.fail("does not equal the required constant")],
+        ),
+      );
+    },
+  },
   pattern,
-  minLength: assertion(
-    "minLength",
-    (value, instance) =>
-      typeof instance !== "string" ||
-      codePointLength(instance) >= (value as number),
-    (value) => `must be at least ${value as number} characters`,
-  ),
-  maxLength: assertion(
-    "maxLength",
-    (value, instance) =>
-      typeof instance !== "string" ||
-      codePointLength(instance) <= (value as number),
-    (value) => `must be at most ${value as number} characters`,
-  ),
-  minimum: assertion(
-    "minimum",
-    (value, instance) =>
-      typeof instance !== "number" || instance >= (value as number),
-    (value) => `must be >= ${value as number}`,
-  ),
-  maximum: assertion(
-    "maximum",
-    (value, instance) =>
-      typeof instance !== "number" || instance <= (value as number),
-    (value) => `must be <= ${value as number}`,
-  ),
-  exclusiveMinimum: assertion(
-    "exclusiveMinimum",
-    (value, instance) =>
-      typeof instance !== "number" || instance > (value as number),
-    (value) => `must be > ${value as number}`,
-  ),
-  exclusiveMaximum: assertion(
-    "exclusiveMaximum",
-    (value, instance) =>
-      typeof instance !== "number" || instance < (value as number),
-    (value) => `must be < ${value as number}`,
-  ),
-  minItems: assertion(
-    "minItems",
-    (value, instance) =>
-      !Array.isArray(instance) || instance.length >= (value as number),
-    (value) => `must have at least ${value as number} items`,
-  ),
-  maxItems: assertion(
-    "maxItems",
-    (value, instance) =>
-      !Array.isArray(instance) || instance.length <= (value as number),
-    (value) => `must have at most ${value as number} items`,
-  ),
-  minProperties: assertion(
-    "minProperties",
-    (value, instance) =>
-      !isObject(instance) || Object.keys(instance).length >= (value as number),
-    (value) => `must have at least ${value as number} properties`,
-  ),
-  maxProperties: assertion(
-    "maxProperties",
-    (value, instance) =>
-      !isObject(instance) || Object.keys(instance).length <= (value as number),
-    (value) => `must have at most ${value as number} properties`,
-  ),
+  minLength: {
+    ...assertion(
+      "minLength",
+      (value, instance) =>
+        typeof instance !== "string" ||
+        codePointLength(instance) >= (value as number),
+      (value) => `must be at least ${value as number} characters`,
+    ),
+    lower: guardedCompare(
+      "string",
+      lengthMeasure,
+      ">=",
+      (value) => `must be at least ${value as number} characters`,
+    ),
+  },
+  maxLength: {
+    ...assertion(
+      "maxLength",
+      (value, instance) =>
+        typeof instance !== "string" ||
+        codePointLength(instance) <= (value as number),
+      (value) => `must be at most ${value as number} characters`,
+    ),
+    lower: guardedCompare(
+      "string",
+      lengthMeasure,
+      "<=",
+      (value) => `must be at most ${value as number} characters`,
+    ),
+  },
+  minimum: {
+    ...assertion(
+      "minimum",
+      (value, instance) =>
+        typeof instance !== "number" || instance >= (value as number),
+      (value) => `must be >= ${value as number}`,
+    ),
+    lower: guardedCompare(
+      "number",
+      numberMeasure,
+      ">=",
+      (value) => `must be >= ${value as number}`,
+    ),
+  },
+  maximum: {
+    ...assertion(
+      "maximum",
+      (value, instance) =>
+        typeof instance !== "number" || instance <= (value as number),
+      (value) => `must be <= ${value as number}`,
+    ),
+    lower: guardedCompare(
+      "number",
+      numberMeasure,
+      "<=",
+      (value) => `must be <= ${value as number}`,
+    ),
+  },
+  exclusiveMinimum: {
+    ...assertion(
+      "exclusiveMinimum",
+      (value, instance) =>
+        typeof instance !== "number" || instance > (value as number),
+      (value) => `must be > ${value as number}`,
+    ),
+    lower: guardedCompare(
+      "number",
+      numberMeasure,
+      ">",
+      (value) => `must be > ${value as number}`,
+    ),
+  },
+  exclusiveMaximum: {
+    ...assertion(
+      "exclusiveMaximum",
+      (value, instance) =>
+        typeof instance !== "number" || instance < (value as number),
+      (value) => `must be < ${value as number}`,
+    ),
+    lower: guardedCompare(
+      "number",
+      numberMeasure,
+      "<",
+      (value) => `must be < ${value as number}`,
+    ),
+  },
+  minItems: {
+    ...assertion(
+      "minItems",
+      (value, instance) =>
+        !Array.isArray(instance) || instance.length >= (value as number),
+      (value) => `must have at least ${value as number} items`,
+    ),
+    lower: guardedCompare(
+      "array",
+      arrayLengthMeasure,
+      ">=",
+      (value) => `must have at least ${value as number} items`,
+    ),
+  },
+  maxItems: {
+    ...assertion(
+      "maxItems",
+      (value, instance) =>
+        !Array.isArray(instance) || instance.length <= (value as number),
+      (value) => `must have at most ${value as number} items`,
+    ),
+    lower: guardedCompare(
+      "array",
+      arrayLengthMeasure,
+      "<=",
+      (value) => `must have at most ${value as number} items`,
+    ),
+  },
+  minProperties: {
+    ...assertion(
+      "minProperties",
+      (value, instance) =>
+        !isObject(instance) ||
+        Object.keys(instance).length >= (value as number),
+      (value) => `must have at least ${value as number} properties`,
+    ),
+    lower: guardedCompare(
+      "object",
+      propertyCountMeasure,
+      ">=",
+      (value) => `must have at least ${value as number} properties`,
+    ),
+  },
+  maxProperties: {
+    ...assertion(
+      "maxProperties",
+      (value, instance) =>
+        !isObject(instance) ||
+        Object.keys(instance).length <= (value as number),
+      (value) => `must have at most ${value as number} properties`,
+    ),
+    lower: guardedCompare(
+      "object",
+      propertyCountMeasure,
+      "<=",
+      (value) => `must have at most ${value as number} properties`,
+    ),
+  },
   required: {
     id: id("required"),
     evaluate: (value, cursor, ctx) => {
@@ -213,37 +375,73 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
       }
       return ok;
     },
+    lower: (value, lctx) => {
+      lctx.emit(
+        lowerIR.when(lowerIR.typeIs(lctx.instance, "object"), [
+          ...(value as string[]).map((name) =>
+            lowerIR.when(
+              lowerIR.not({
+                kind: "hasOwn",
+                target: lctx.instance,
+                key: name,
+              }),
+              [lowerIR.fail(`missing required property '${name}'`)],
+            ),
+          ),
+        ]),
+      );
+    },
   },
-  multipleOf: assertion(
-    "multipleOf",
-    (value, instance) =>
-      typeof instance !== "number" || isMultipleOf(instance, value as number),
-    (value) => `must be a multiple of ${value as number}`,
-  ),
+  multipleOf: {
+    ...assertion(
+      "multipleOf",
+      (value, instance) =>
+        typeof instance !== "number" || isMultipleOf(instance, value as number),
+      (value) => `must be a multiple of ${value as number}`,
+    ),
+    lower: (value, lctx) => {
+      lctx.emit(
+        lowerIR.when(
+          lowerIR.and(
+            lowerIR.typeIs(lctx.instance, "number"),
+            lowerIR.not(
+              lowerIR.helper(
+                "isMultipleOf",
+                lctx.instance,
+                lowerIR.constant(value),
+              ),
+            ),
+          ),
+          [lowerIR.fail(`must be a multiple of ${value as number}`)],
+        ),
+      );
+    },
+  },
   uniqueItems: {
     id: id("uniqueItems"),
     evaluate: (value, cursor, ctx) => {
       if (value !== true || !Array.isArray(cursor.value)) return true;
-      const items = cursor.value;
-      // Bucket by canonical key for near-linear detection; a key collision is
-      // confirmed with jsonEqual so distinct values that happen to share a key
-      // are never misreported as duplicates.
-      const seen = new Map<string, number[]>();
-      for (let i = 0; i < items.length; i++) {
-        const bucket = seen.get(canonicalKey(items[i]!));
-        if (bucket === undefined) {
-          seen.set(canonicalKey(items[i]!), [i]);
-          continue;
-        }
-        for (const j of bucket) {
-          if (jsonEqual(items[j]!, items[i]!)) {
-            ctx.error(`items at ${j} and ${i} are not unique`);
-            return false;
-          }
-        }
-        bucket.push(i);
-      }
-      return true;
+      const pair = firstDuplicatePair(cursor.value);
+      if (pair === null) return true;
+      const [j, i] = pair;
+      ctx.error(`items at ${j} and ${i} are not unique`);
+      return false;
+    },
+    // evaluate() returns true (vacuously) whenever `value !== true` — mirror
+    // that by emitting nothing at all when the keyword value isn't literally
+    // `true` (the message text can't cite specific indexes at compile time,
+    // but the assertion itself does not depend on them: any duplicate fails).
+    lower: (value, lctx) => {
+      if (value !== true) return;
+      lctx.emit(
+        lowerIR.when(
+          lowerIR.and(
+            lowerIR.typeIs(lctx.instance, "array"),
+            lowerIR.helper("hasDuplicateItems", lctx.instance),
+          ),
+          [lowerIR.fail("items are not unique")],
+        ),
+      );
     },
   },
   dependentRequired: {
@@ -265,11 +463,45 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
       }
       return ok;
     },
+    lower: (value, lctx) => {
+      lctx.emit(
+        lowerIR.when(lowerIR.typeIs(lctx.instance, "object"), [
+          ...Object.entries(value as Record<string, JsonValue>).map(
+            ([name, deps]) =>
+              lowerIR.when(
+                { kind: "hasOwn", target: lctx.instance, key: name },
+                (deps as string[]).map((dep) =>
+                  lowerIR.when(
+                    lowerIR.not({
+                      kind: "hasOwn",
+                      target: lctx.instance,
+                      key: dep,
+                    }),
+                    [lowerIR.fail(`'${name}' requires '${dep}' to be present`)],
+                  ),
+                ),
+              ),
+          ),
+        ]),
+      );
+    },
   },
   // minContains/maxContains have no assertion of their own; `contains` reads
   // them as inert siblings (applicator.ts), the same way `if` drives `then`/
   // `else`. They must still be registered so unknown-keyword handling and the
   // registration walk don't treat them as annotation-only or absent.
-  minContains: { id: id("minContains"), evaluate: () => true },
-  maxContains: { id: id("maxContains"), evaluate: () => true },
+  minContains: {
+    id: id("minContains"),
+    evaluate: () => true,
+    lower: () => {
+      /* contains reads this sibling directly (lctx.schema.minContains) */
+    },
+  },
+  maxContains: {
+    id: id("maxContains"),
+    evaluate: () => true,
+    lower: () => {
+      /* contains reads this sibling directly (lctx.schema.maxContains) */
+    },
+  },
 };

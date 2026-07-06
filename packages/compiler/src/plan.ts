@@ -8,6 +8,7 @@ import {
   DIALECT_2020_12,
   UnresolvableRefError,
   type Engine,
+  type IndexCoverage,
   type JsonValue,
   type NameCoverage,
   type SchemaRef,
@@ -125,6 +126,7 @@ export function buildPlan(engine: Engine, schemaUri: string): CompilationPlan {
     let hasInPlace = false;
     let consumerPresent = false;
     const nameCoverages: NameCoverage[] = [];
+    const indexCoverages: IndexCoverage[] = [];
     for (const entry of dialect.ordered) {
       if (!Object.hasOwn(node, entry.name)) continue;
       const behavior = entry.behavior;
@@ -146,6 +148,8 @@ export function buildPlan(engine: Engine, schemaUri: string): CompilationPlan {
       // its sweep is licensed by prior contributors only.
       if (facts.evaluatesNames && !isConsumer)
         nameCoverages.push(facts.evaluatesNames);
+      if (facts.evaluatesIndexes && !isConsumer)
+        indexCoverages.push(facts.evaluatesIndexes);
       for (const app of facts.applications ?? []) {
         if (app.mode === "inPlace") hasInPlace = true;
       }
@@ -158,25 +162,37 @@ export function buildPlan(engine: Engine, schemaUri: string): CompilationPlan {
     // every coverage contributor is this object's own static trio — any
     // in-place application or dynamic coverage forces the interpreter.
     if (consumerPresent) {
-      if (hasInPlace || nameCoverages.some((c) => c.kind === "dynamic")) {
+      if (
+        hasInPlace ||
+        nameCoverages.some((c) => c.kind === "dynamic") ||
+        indexCoverages.some((c) => c.kind === "dynamic")
+      ) {
         unit.kind = "interpreted";
         unit.cause = "unlowerable";
         return unit;
       }
       const names = new Set<string>();
       const patternList: string[] = [];
-      let coversAll = false;
+      let coversAllNames = false;
       for (const c of nameCoverages) {
         if (c.kind === "names") for (const n of c.names) names.add(n);
         else if (c.kind === "patterns") patternList.push(...c.patterns);
-        else if (c.kind === "all") coversAll = true;
+        else if (c.kind === "all") coversAllNames = true;
+      }
+      let prefixCount = 0;
+      let coversAllIndexes = false;
+      for (const c of indexCoverages) {
+        if (c.kind === "prefix") prefixCount = Math.max(prefixCount, c.count);
+        else if (c.kind === "allFrom" || c.kind === "all") {
+          coversAllIndexes = true;
+        }
       }
       unit.coverage = {
         names: [...names],
         patterns: patternList,
-        coversAllNames: coversAll,
-        prefixCount: 0,
-        coversAllIndexes: false,
+        coversAllNames,
+        prefixCount,
+        coversAllIndexes,
       };
       for (const p of patternList) patterns.add(p);
     }

@@ -8,6 +8,8 @@ import {
   codePointLength,
   escapeSegment,
   evaluateFragment,
+  hasDuplicateItems,
+  isMultipleOf,
   jsonEqual,
   makeRecordPredicate,
   rootCursor,
@@ -38,6 +40,8 @@ export interface Runtime {
   readonly canonicalKey: typeof canonicalKey;
   readonly codePointLength: typeof codePointLength;
   readonly escapeSegment: typeof escapeSegment;
+  readonly isMultipleOf: typeof isMultipleOf;
+  readonly hasDuplicateItems: typeof hasDuplicateItems;
   /** compiled RegExp by pattern source */
   readonly re: Record<string, { test(s: string): boolean }>;
   /** the artifact's depth bound (D20), shared with trampolined fragments */
@@ -84,6 +88,8 @@ export function makeRuntime(
     canonicalKey,
     codePointLength,
     escapeSegment,
+    isMultipleOf,
+    hasDuplicateItems,
     re,
     maxDepth,
     tooDeep: () => {

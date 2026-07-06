@@ -49,6 +49,14 @@ const selfApplication = (
 export const allOf: KeywordBehavior = {
   id: id("allOf"),
   analyze: (value) => arrayPositions(value),
+  lower: (value, lctx) => {
+    (value as JsonValue[]).forEach((_, i) => {
+      lctx.emit({
+        kind: "apply",
+        apply: { path: [i], cursor: { kind: "here" }, fold: "allMustPass" },
+      });
+    });
+  },
   evaluate: (value, cursor, ctx) => {
     let ok = true;
     (value as JsonValue[]).forEach((_, i) => {
@@ -63,7 +71,16 @@ export const anyOf: KeywordBehavior = {
   id: id("anyOf"),
   analyze: (value) => arrayPositions(value, true),
   lower: (value, lctx) => {
-    (value as JsonValue[]).forEach((_, i) => {
+    const schemas = value as JsonValue[];
+    // An empty anyOf can never match (evaluate()'s `ok` starts false and no
+    // iteration can flip it) — keywordStatements only emits a check when it
+    // sees at least one anyMayPass apply, so the empty case needs its own
+    // unconditional failure.
+    if (schemas.length === 0) {
+      lctx.emit(lowerIR.fail("no branch matched"));
+      return;
+    }
+    schemas.forEach((_, i) => {
       lctx.emit({
         kind: "apply",
         apply: { path: [i], cursor: { kind: "here" }, fold: "anyMayPass" },
@@ -87,6 +104,21 @@ export const anyOf: KeywordBehavior = {
 export const oneOf: KeywordBehavior = {
   id: id("oneOf"),
   analyze: (value) => arrayPositions(value, true),
+  lower: (value, lctx) => {
+    const schemas = value as JsonValue[];
+    // An empty oneOf can never match exactly one branch (count stays 0) —
+    // same empty-run gap as anyOf above.
+    if (schemas.length === 0) {
+      lctx.emit(lowerIR.fail("matched 0 branches, expected exactly 1"));
+      return;
+    }
+    schemas.forEach((_, i) => {
+      lctx.emit({
+        kind: "apply",
+        apply: { path: [i], cursor: { kind: "here" }, fold: "exactlyOne" },
+      });
+    });
+  },
   evaluate: (value, cursor, ctx) => {
     let count = 0;
     (value as JsonValue[]).forEach((_, i) => {
@@ -101,6 +133,12 @@ export const oneOf: KeywordBehavior = {
 export const not: KeywordBehavior = {
   id: id("not"),
   analyze: () => selfApplication("inPlace", false, true),
+  lower: (_value, lctx) => {
+    lctx.emit({
+      kind: "apply",
+      apply: { path: [], cursor: { kind: "here" }, fold: "negate" },
+    });
+  },
   evaluate: (_value, cursor, ctx) => {
     if (!ctx.apply(["not"], cursor)) return true;
     ctx.error("must not match the subschema");
@@ -134,6 +172,45 @@ export const ifKeyword: KeywordBehavior = {
     }
     return { ...SELF, applications };
   },
+  lower: (_value, lctx) => {
+    const hasThen = Object.hasOwn(lctx.schema, "then");
+    const hasElse = Object.hasOwn(lctx.schema, "else");
+    const condition: LowerExpr = {
+      kind: "applyExpr",
+      apply: { path: [], cursor: { kind: "here" }, fold: "discard" },
+    };
+    lctx.emit(
+      lowerIR.when(
+        condition,
+        hasThen
+          ? [
+              {
+                kind: "apply",
+                apply: {
+                  path: [],
+                  sibling: "then",
+                  cursor: { kind: "here" },
+                  fold: "allMustPass",
+                },
+              },
+            ]
+          : [],
+        hasElse
+          ? [
+              {
+                kind: "apply",
+                apply: {
+                  path: [],
+                  sibling: "else",
+                  cursor: { kind: "here" },
+                  fold: "allMustPass",
+                },
+              },
+            ]
+          : [],
+      ),
+    );
+  },
   evaluate: (_value, cursor, ctx) => {
     const condition = ctx.apply(["if"], cursor);
     if (condition && Object.hasOwn(ctx.schema, "then"))
@@ -158,6 +235,25 @@ export const dependentSchemas: KeywordBehavior = {
         }))
       : [],
   }),
+  lower: (value, lctx) => {
+    if (!isObject(value)) return;
+    lctx.emit(
+      lowerIR.when(lowerIR.typeIs(lctx.instance, "object"), [
+        ...Object.keys(value).map((k) =>
+          lowerIR.when({ kind: "hasOwn", target: lctx.instance, key: k }, [
+            {
+              kind: "apply",
+              apply: {
+                path: [k],
+                cursor: { kind: "here" },
+                fold: "allMustPass",
+              },
+            },
+          ]),
+        ),
+      ]),
+    );
+  },
   evaluate: (value, cursor, ctx) => {
     if (!isObject(cursor.value)) return true;
     let ok = true;
@@ -426,6 +522,34 @@ export const prefixItems: KeywordBehavior = {
         }))
       : [],
   }),
+  lower: (value, lctx) => {
+    if (!Array.isArray(value)) return;
+    value.forEach((_, i) => {
+      lctx.emit(
+        lowerIR.when(
+          lowerIR.and(
+            lowerIR.typeIs(lctx.instance, "array"),
+            lowerIR.cmp(
+              ">",
+              lowerIR.helper("lengthOf", lctx.instance),
+              lowerIR.constant(i),
+            ),
+          ),
+          [
+            {
+              kind: "apply",
+              apply: {
+                path: [i],
+                cursor: { kind: "child", of: { kind: "here" }, segment: i },
+                fold: "allMustPass",
+              },
+            },
+          ],
+        ),
+      );
+    });
+    lctx.emit({ kind: "produce", value: { kind: "collectedIndexes" } });
+  },
   evaluate: (value, cursor, ctx) => {
     if (!Array.isArray(cursor.value)) return true;
     const schemas = value as JsonValue[];
@@ -458,6 +582,37 @@ export const items: KeywordBehavior = {
         : 0,
     },
   }),
+  lower: (_value, lctx) => {
+    const start = Array.isArray(lctx.schema.prefixItems)
+      ? lctx.schema.prefixItems.length
+      : 0;
+    const b = lctx.binding();
+    lctx.emit(
+      lowerIR.when(lowerIR.typeIs(lctx.instance, "array"), [
+        {
+          kind: "forEachIndex",
+          target: lctx.instance,
+          binding: b,
+          start,
+          body: [
+            {
+              kind: "apply",
+              apply: {
+                path: [],
+                cursor: {
+                  kind: "child",
+                  of: { kind: "here" },
+                  segment: { kind: "binding", id: b },
+                },
+                fold: "allMustPass",
+              },
+            },
+          ],
+        },
+      ]),
+    );
+    lctx.emit({ kind: "produce", value: { kind: "collectedIndexes" } });
+  },
   evaluate: (_value, cursor, ctx) => {
     if (!Array.isArray(cursor.value)) return true;
     // Applies past the sibling prefixItems (statically known per spec).
@@ -489,6 +644,42 @@ export const contains: KeywordBehavior = {
     produces: [id("contains")],
     evaluatesIndexes: { kind: "dynamic" },
   }),
+  lower: (_value, lctx) => {
+    const min =
+      typeof lctx.schema.minContains === "number" ? lctx.schema.minContains : 1;
+    const max =
+      typeof lctx.schema.maxContains === "number"
+        ? lctx.schema.maxContains
+        : Infinity;
+    const b = lctx.binding();
+    lctx.emit(
+      lowerIR.when(lowerIR.typeIs(lctx.instance, "array"), [
+        {
+          kind: "countRange",
+          target: lctx.instance,
+          binding: b,
+          countWhen: {
+            kind: "applyExpr",
+            apply: {
+              path: [],
+              cursor: {
+                kind: "child",
+                of: { kind: "here" },
+                segment: { kind: "binding", id: b },
+              },
+              fold: "discard",
+            },
+          },
+          min,
+          max,
+          outOfRangeMessage: [
+            "item(s) match the contains subschema outside the required range",
+          ],
+        },
+      ]),
+    );
+    lctx.emit({ kind: "produce", value: { kind: "collectedIndexes" } });
+  },
   evaluate: (_value, cursor, ctx) => {
     if (!Array.isArray(cursor.value)) return true;
     const matched: number[] = [];
@@ -524,7 +715,34 @@ export const contains: KeywordBehavior = {
  */
 export const propertyNames: KeywordBehavior = {
   id: id("propertyNames"),
-  analyze: selfPosition,
+  analyze: () => ({
+    ...SELF,
+    applications: [
+      { path: [], mode: "propertyName", conditional: false, asserts: true },
+    ],
+  }),
+  lower: (_value, lctx) => {
+    const b = lctx.binding();
+    lctx.emit(
+      lowerIR.when(lowerIR.typeIs(lctx.instance, "object"), [
+        {
+          kind: "forEachKey",
+          target: lctx.instance,
+          binding: b,
+          body: [
+            {
+              kind: "apply",
+              apply: {
+                path: [],
+                cursor: { kind: "key", binding: b },
+                fold: "allMustPass",
+              },
+            },
+          ],
+        },
+      ]),
+    );
+  },
   evaluate: (_value, cursor, ctx) => {
     if (!isObject(cursor.value)) return true;
     let ok = true;
@@ -543,8 +761,22 @@ export const applicatorVocabulary: Record<string, KeywordBehavior> = {
   oneOf,
   not,
   if: ifKeyword,
-  then: { id: id("then"), analyze: selfPosition, evaluate: () => true },
-  else: { id: id("else"), analyze: selfPosition, evaluate: () => true },
+  then: {
+    id: id("then"),
+    analyze: selfPosition,
+    evaluate: () => true,
+    lower: () => {
+      /* if owns the application of this sibling */
+    },
+  },
+  else: {
+    id: id("else"),
+    analyze: selfPosition,
+    evaluate: () => true,
+    lower: () => {
+      /* if owns the application of this sibling */
+    },
+  },
   dependentSchemas,
   properties,
   patternProperties,

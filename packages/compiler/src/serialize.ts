@@ -25,6 +25,7 @@ const T = id("T"); // interpreted-target table
 
 const unitFn = (index: number): CodeChunk => id("u" + String(index));
 const bindingVar = (n: number): CodeChunk => id("b" + String(n));
+const counterVar = (n: number): CodeChunk => id("c" + String(n));
 
 class SerializeError extends Error {}
 
@@ -109,6 +110,7 @@ function serializeUnit(
 /** Per-unit serialization state: bindings, keyword context, apply targets. */
 class UnitContext {
   private bindingCounter = 0;
+  private counterCounter = 0;
   private currentKeyword = "";
 
   constructor(
@@ -139,25 +141,46 @@ class UnitContext {
    * Serialize one keyword's statement list. Runs of anyMayPass applies
    * (the anyOf shape) group into a single OR check; short-circuit emission
    * is licensed here because the planner interpreted every node whose
-   * channel a consumer could observe (slice licensing, DESIGN §7).
+   * channel a consumer could observe (slice licensing, DESIGN §7). Runs of
+   * exactlyOne applies (the oneOf shape) group into a counter block that
+   * runs EVERY branch — never stop-at-first-success, since the count past 1
+   * must still be exact.
    */
   keywordStatements(stmts: readonly LowerStmt[]): CodeChunk[] {
     const out: CodeChunk[] = [];
     let anyRun: CodeChunk[] = [];
-    const flush = () => {
+    let oneRun: CodeChunk[] = [];
+    const flushAny = () => {
       if (anyRun.length === 0) return;
       out.push(js`if (!(${join(" || ", anyRun)})) return false;`);
       anyRun = [];
     };
+    const flushOne = () => {
+      if (oneRun.length === 0) return;
+      const c = counterVar(this.counterCounter++);
+      const incs = oneRun.map((call) => js`if (${call}) ${c}++;`);
+      out.push(
+        js`let ${c} = 0; ${join(" ", incs)} if (${c} !== 1) return false;`,
+      );
+      oneRun = [];
+    };
     for (const stmt of stmts) {
       if (stmt.kind === "apply" && stmt.apply.fold === "anyMayPass") {
+        flushOne();
         anyRun.push(this.applyCall(stmt.apply));
         continue;
       }
-      flush();
+      if (stmt.kind === "apply" && stmt.apply.fold === "exactlyOne") {
+        flushAny();
+        oneRun.push(this.applyCall(stmt.apply));
+        continue;
+      }
+      flushAny();
+      flushOne();
       out.push(this.statement(stmt));
     }
-    flush();
+    flushAny();
+    flushOne();
     return out;
   }
 
@@ -202,6 +225,17 @@ class UnitContext {
         return js``;
       case "apply":
         return this.applyStatement(stmt.apply);
+      case "countRange": {
+        const b = bindingVar(stmt.binding);
+        const c = counterVar(this.counterCounter++);
+        const loop = js`let ${c} = 0; for (let ${b} = 0; ${b} < ${this.expr(stmt.target)}.length; ${b}++) { if (${this.expr(stmt.countWhen)}) ${c}++; }`;
+        const max = Number.isFinite(stmt.max) ? num(stmt.max) : null;
+        const rangeCheck =
+          max === null
+            ? js`if (${c} < ${num(stmt.min)}) return false;`
+            : js`if (${c} < ${num(stmt.min)} || ${c} > ${max}) return false;`;
+        return js`${loop} ${rangeCheck}`;
+      }
     }
   }
 
@@ -210,10 +244,21 @@ class UnitContext {
     switch (apply.fold) {
       case "allMustPass":
         return js`if (!${call}) return false;`;
-      // anyMayPass runs are grouped by keywordStatements.
-      default:
+      case "negate":
+        return js`if (${call}) return false;`;
+      case "anyMayPass":
+      case "exactlyOne":
+        // keywordStatements groups consecutive runs of these before they
+        // reach here (a lone run of one is still a "run").
         throw new SerializeError(
-          "fold '" + apply.fold + "' is not supported in the M6.2 slice",
+          "fold '" + apply.fold + "' must be grouped by keywordStatements",
+        );
+      case "discard":
+        // A bare discard apply statement has no verdict-folding meaning —
+        // it's only legal as an applyExpr operand (the if/contains probe
+        // shape), never a standalone statement.
+        throw new SerializeError(
+          "fold 'discard' is only legal inside applyExpr",
         );
     }
   }
@@ -241,10 +286,13 @@ class UnitContext {
   }
 
   // The planner recorded edges in keyword order; match an apply back to its
-  // edge by keyword + path/ref identity.
+  // edge by keyword + sibling + path/ref identity. `sibling` disambiguates a
+  // keyword that emits more than one apply at the same path (if's condition
+  // vs. its then/else edges, all path: []).
   private edgeTarget(ref: string | null, apply: LowerApply | null): string {
     for (const edge of this.unit.edges) {
       if (edge.keyword !== this.currentKeyword) continue;
+      if ((edge.app.sibling ?? null) !== (apply?.sibling ?? null)) continue;
       if (ref !== null) {
         if (edge.app.ref === ref) return edge.targetKey;
         continue;
@@ -265,6 +313,9 @@ class UnitContext {
 
   private cursorValue(cursor: LowerCursor): CodeChunk {
     if (cursor.kind === "here") return V;
+    // propertyNames: the loop binding IS the instance (the key string),
+    // not a child reached by descending from a parent cursor.
+    if (cursor.kind === "key") return bindingVar(cursor.binding);
     const base = this.cursorValue(cursor.of);
     const seg = cursor.segment;
     if (typeof seg === "string") return js`${base}[${str(seg)}]`;
@@ -308,6 +359,11 @@ class UnitContext {
           e.parts.map((p) => this.expr(p)),
         )})`;
       }
+      case "applyExpr":
+        // Same call expression an `apply` statement builds; `fold` on this
+        // apply is not consulted here (it governs how a wrapping statement
+        // uses the value, not how the call itself is rendered).
+        return this.applyCall(e.apply);
     }
   }
 
@@ -346,11 +402,11 @@ class UnitContext {
       case "jsonEqual":
       case "canonicalKey":
       case "escapeSegment":
+      case "isMultipleOf":
+      case "hasDuplicateItems":
         return js`${R}.${id(helper)}(${join(", ", rendered)})`;
       default:
-        throw new SerializeError(
-          "helper '" + helper + "' is not supported in the M6.2 slice",
-        );
+        throw new SerializeError("helper '" + helper + "' is not supported");
     }
   }
 }
