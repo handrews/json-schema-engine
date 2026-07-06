@@ -278,6 +278,20 @@ describe("$recursiveRef/$recursiveAnchor (D8 degenerate case)", () => {
   });
 });
 
+describe("legacy dialect keyword sets (D11/D18)", () => {
+  it("treats post-draft-07 validation keywords as unknown in draft-07", async () => {
+    const { DIALECT_DRAFT_07 } = await import("@jse/core");
+    const engine = createEngine({ defaultDialect: DIALECT_DRAFT_07 });
+    const uri = engine.registerSchema(
+      { dependentRequired: { a: ["b"] }, contains: true, minContains: 2 },
+      "https://legacy.example/unknown-keywords");
+    // dependentRequired must not assert, minContains must not raise
+    // contains' bound — both are unknown keywords in draft-07.
+    expect(engine.evaluate(uri, { a: 1 }).valid).toBe(true);
+    expect(engine.evaluate(uri, [1]).valid).toBe(true);
+  });
+});
+
 describe("custom vocabularies and dialects (D2)", () => {
   const VOCAB = "https://dialect.example/vocab/each";
   const DIALECT = "https://dialect.example/dialect";

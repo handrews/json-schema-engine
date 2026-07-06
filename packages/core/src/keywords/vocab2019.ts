@@ -53,7 +53,7 @@ const core2019Vocabulary: Record<string, KeywordBehavior> = {
 // largest index reached, or `true` when it covers the whole array — this is
 // the pre-2020-12 keyword that prefixItems/items later split in two, so its
 // annotation shape mirrors 2020-12 prefixItems'.
-const items2019: KeywordBehavior = {
+export const items2019: KeywordBehavior = {
   id: id("items"),
   analyze: (value): StaticFacts =>
     Array.isArray(value) ? { subschemas: value.map((_, i) => [i]) } : SELF,
@@ -84,7 +84,7 @@ const items2019: KeywordBehavior = {
 // additionalItems "does nothing" against it (suite: "when items is schema,
 // additionalItems does nothing"). Sibling-read, same pattern as if/then/else
 // and contains' minContains/maxContains siblings.
-const additionalItems: KeywordBehavior = {
+export const additionalItems: KeywordBehavior = {
   id: id("additionalItems"),
   analyze: (): StaticFacts => SELF,
   evaluate: (_value, cursor, ctx) => {
