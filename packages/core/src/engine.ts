@@ -16,7 +16,11 @@ import { resolveUri, splitFragment } from "./uri.js";
 import { Cursor, rootCursor } from "./cursor.js";
 import { SchemaRef } from "./ref.js";
 import {
-  Dialect, DialectKeyword, KeywordContext, ProductionView, unknownKeywordId,
+  Dialect,
+  DialectKeyword,
+  KeywordContext,
+  ProductionView,
+  unknownKeywordId,
 } from "./dialect.js";
 import { SchemaRegistry } from "./registry.js";
 
@@ -54,20 +58,22 @@ export interface Production {
   keywordName: string;
   vocabularyUri: string | null; // null for unknown keywords
   schemaRef: SchemaRef;
-  pathNode: PathNode | null;    // path of the schema object (keyword appended on render)
+  pathNode: PathNode | null; // path of the schema object (keyword appended on render)
   cursor: Cursor;
   value: unknown;
 }
 
 export interface ErrorRecord {
-  keywordName: string | null;   // null: the schema itself failed (boolean false)
+  keywordName: string | null; // null: the schema itself failed (boolean false)
   schemaRef: SchemaRef;
   pathNode: PathNode | null;
   cursor: Cursor;
   message: string;
 }
 
-interface Frame { productions: Production[] }
+interface Frame {
+  productions: Production[];
+}
 
 // One schema application, recorded only when tracing (M5 structured
 // outputs): hierarchical/verbose renderers need application boundaries and
@@ -102,10 +108,22 @@ export class EvalState {
     if (tracing) this.allProductions = [];
   }
 
-  get tracing(): boolean { return this.allProductions !== null; }
+  get tracing(): boolean {
+    return this.allProductions !== null;
+  }
 
-  traceEnter(schemaRef: SchemaRef, pathNode: PathNode | null, cursor: Cursor): TraceNode {
-    const node: TraceNode = { schemaRef, pathNode, cursor, valid: true, children: [] };
+  traceEnter(
+    schemaRef: SchemaRef,
+    pathNode: PathNode | null,
+    cursor: Cursor,
+  ): TraceNode {
+    const node: TraceNode = {
+      schemaRef,
+      pathNode,
+      cursor,
+      valid: true,
+      children: [],
+    };
     const parent = this.traceStack[this.traceStack.length - 1];
     if (parent) parent.children.push(node);
     else this.traceRoot = node;
@@ -118,8 +136,12 @@ export class EvalState {
     this.traceStack.pop();
   }
 
-  get frame(): Frame { return this.frames[this.frames.length - 1]!; }
-  get rootProductions(): Production[] { return this.frames[0]!.productions; }
+  get frame(): Frame {
+    return this.frames[this.frames.length - 1]!;
+  }
+  get rootProductions(): Production[] {
+    return this.frames[0]!.productions;
+  }
 
   enter(schemaRef: SchemaRef, cursor: Cursor): void {
     const key = `${schemaRef.baseUri}#${schemaRef.pointer}`;
@@ -129,7 +151,8 @@ export class EvalState {
       this.active.set(cursor, keys);
     } else if (keys.has(key)) {
       throw new InfiniteLoopError(
-        `schema '${key}' re-entered at the same instance location`);
+        `schema '${key}' re-entered at the same instance location`,
+      );
     }
     keys.add(key);
   }
@@ -145,7 +168,11 @@ class KeywordContextImpl implements KeywordContext {
   constructor(
     private state: EvalState,
     private schemaRef: SchemaRef,
-    private entry: { name: string; behaviorId: string; vocabularyUri: string | null },
+    private entry: {
+      name: string;
+      behaviorId: string;
+      vocabularyUri: string | null;
+    },
     public cursor: Cursor,
     private pathNode: PathNode | null,
   ) {}
@@ -173,9 +200,11 @@ class KeywordContextImpl implements KeywordContext {
     // rebinding below only applies to plain-name fragments minted by a
     // dynamic anchor — pointer fragments behave exactly like $ref.
     const target = registry.resolveRef(ref, this.schemaRef.baseUri);
-    const { resource, fragment } =
-      splitFragment(resolveUri(ref, this.schemaRef.baseUri));
-    if (fragment === null || fragment === "" || fragment.startsWith("/")) return target;
+    const { resource, fragment } = splitFragment(
+      resolveUri(ref, this.schemaRef.baseUri),
+    );
+    if (fragment === null || fragment === "" || fragment.startsWith("/"))
+      return target;
     if (registry.dynamicAnchor(resource, fragment) === undefined) return target;
     for (const scopeUri of this.state.dynamicScope) {
       const hit = registry.dynamicAnchor(scopeUri, fragment);
@@ -190,25 +219,32 @@ class KeywordContextImpl implements KeywordContext {
     // behaves like $ref. Rebinding is all-or-nothing on the root-level
     // $recursiveAnchor flag rather than a named anchor.
     const target = registry.resolveRef(ref, this.schemaRef.baseUri);
-    const { resource, fragment } =
-      splitFragment(resolveUri(ref, this.schemaRef.baseUri));
+    const { resource, fragment } = splitFragment(
+      resolveUri(ref, this.schemaRef.baseUri),
+    );
     if (fragment !== null && fragment !== "") return target;
     if (!registry.hasRecursiveRoot(resource)) return target;
     for (const scopeUri of this.state.dynamicScope) {
-      if (registry.hasRecursiveRoot(scopeUri)) return registry.rootRef(scopeUri);
+      if (registry.hasRecursiveRoot(scopeUri))
+        return registry.rootRef(scopeUri);
     }
     return target;
   }
 
   applyResolved(target: SchemaRef): boolean {
-    const pathNode = { parent: this.pathNode, segment: escapeSegment(this.entry.name) };
+    const pathNode = {
+      parent: this.pathNode,
+      segment: escapeSegment(this.entry.name),
+    };
     return applySchema(this.state, target, this.cursor, pathNode);
   }
 
   produce(value: unknown): void {
     const record = this.state.shouldRecord;
-    if (record
-      && !record(this.entry.behaviorId, this.entry.name, this.entry.vocabularyUri)) {
+    if (
+      record &&
+      !record(this.entry.behaviorId, this.entry.name, this.entry.vocabularyUri)
+    ) {
       return;
     }
     const production = {
@@ -234,7 +270,8 @@ class KeywordContextImpl implements KeywordContext {
       for (const id of behaviorIds) {
         if (!consumed.has(id)) {
           throw new UndeclaredConsumptionError(
-            `'${this.entry.behaviorId}' reads '${id}' without declaring it in analyze().consumes`);
+            `'${this.entry.behaviorId}' reads '${id}' without declaring it in analyze().consumes`,
+          );
         }
       }
     }
@@ -264,7 +301,10 @@ export function applySchema(
   if (typeof node === "boolean") {
     if (!node) {
       state.errors.push({
-        keywordName: null, schemaRef, pathNode, cursor,
+        keywordName: null,
+        schemaRef,
+        pathNode,
+        cursor,
         message: "schema is false",
       });
     }
@@ -284,25 +324,29 @@ export function applySchema(
   state.dynamicScope.push(schemaRef.baseUri);
   state.frames.push({ productions: [] });
   const traceNode = state.tracing
-    ? state.traceEnter(schemaRef, pathNode, cursor) : null;
+    ? state.traceEnter(schemaRef, pathNode, cursor)
+    : null;
   let valid = true;
   try {
     for (const entry of dialect.ordered) {
       if (refOnly && entry.name !== "$ref") continue;
       if (!Object.hasOwn(node, entry.name)) continue;
-      if (!evaluateKeyword(state, schemaRef, entry, cursor, pathNode)) valid = false;
+      if (!evaluateKeyword(state, schemaRef, entry, cursor, pathNode))
+        valid = false;
     }
     for (const name of Object.keys(node)) {
       if (refOnly) break;
       if (dialect.keywords.has(name)) continue;
       if (!dialect.allowUnknownKeywords) {
         throw new UnknownKeywordError(
-          `dialect '${dialect.uri}' does not allow unknown keyword '${name}'`);
+          `dialect '${dialect.uri}' does not allow unknown keyword '${name}'`,
+        );
       }
       // Unknown keywords are collected as annotations: the keyword's value is
       // the annotation value (spec SHOULD).
       const behaviorId = unknownKeywordId(name);
-      if (state.shouldRecord && !state.shouldRecord(behaviorId, name, null)) continue;
+      if (state.shouldRecord && !state.shouldRecord(behaviorId, name, null))
+        continue;
       const production = {
         behaviorId,
         keywordName: name,
@@ -335,7 +379,11 @@ function evaluateKeyword(
   const ctx = new KeywordContextImpl(
     state,
     schemaRef,
-    { name: entry.name, behaviorId: entry.behavior.id, vocabularyUri: entry.vocabularyUri },
+    {
+      name: entry.name,
+      behaviorId: entry.behavior.id,
+      vocabularyUri: entry.vocabularyUri,
+    },
     cursor,
     pathNode,
   );
@@ -351,6 +399,11 @@ export function runEvaluation(
   shouldRecord: RecordPredicate | null = null,
 ): { valid: boolean; state: EvalState } {
   const state = new EvalState(registry, tracing, tracing ? null : shouldRecord);
-  const valid = applySchema(state, registry.rootRef(schemaUri), rootCursor(instance), null);
+  const valid = applySchema(
+    state,
+    registry.rootRef(schemaUri),
+    rootCursor(instance),
+    null,
+  );
   return { valid, state };
 }

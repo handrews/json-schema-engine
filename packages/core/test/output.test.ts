@@ -31,10 +31,15 @@ describe("output rendering", () => {
 
   it("renders 2020-12 field names as the compatibility option", () => {
     const { engine, uri } = engineFor(schema);
-    const r = engine.evaluate(uri, {}, { output: "list", locations: "2020-12" });
+    const r = engine.evaluate(
+      uri,
+      {},
+      { output: "list", locations: "2020-12" },
+    );
     expect(r.errors).toContainEqual({
       keywordLocation: "/allOf/0/$ref/required",
-      absoluteKeywordLocation: "https://output.example/schema#/$defs/base/required",
+      absoluteKeywordLocation:
+        "https://output.example/schema#/$defs/base/required",
       instanceLocation: "",
       error: "missing required property 'id'",
     });
@@ -52,11 +57,16 @@ describe("output rendering", () => {
       instanceLocation: "",
       annotation: "T",
     });
-    const compat = engine.evaluate(uri, {},
-      { collectAnnotations: true, locations: "2020-12" });
+    const compat = engine.evaluate(
+      uri,
+      {},
+      { collectAnnotations: true, locations: "2020-12" },
+    );
     expect(compat.annotations![0]).toHaveProperty("keywordLocation", "/title");
     expect(compat.annotations![0]).toHaveProperty(
-      "absoluteKeywordLocation", "https://output.example/schema#/title");
+      "absoluteKeywordLocation",
+      "https://output.example/schema#/title",
+    );
   });
 
   it("flag output carries no error units", () => {
@@ -109,8 +119,9 @@ describe("hierarchical output (M5 exemplar)", () => {
     const nameUnit = root.details!.find((d) => d.instanceLocation === "/name")!;
     expect(nameUnit.valid).toBe(false);
     expect(nameUnit.evaluationPath).toBe("/properties/name");
-    expect(nameUnit.schemaLocation)
-      .toBe("https://h.example/schema#/properties/name");
+    expect(nameUnit.schemaLocation).toBe(
+      "https://h.example/schema#/properties/name",
+    );
     expect(nameUnit.errors!.type).toContain("string");
   });
 
@@ -122,16 +133,23 @@ describe("hierarchical output (M5 exemplar)", () => {
     const nameUnit = root.details!.find((d) => d.instanceLocation === "/name")!;
     expect(nameUnit.annotations!.title).toBe("the name");
     // `size` is absent from the instance: its subschema is never applied.
-    expect(root.details!.every((d) => d.instanceLocation !== "/size")).toBe(true);
+    expect(root.details!.every((d) => d.instanceLocation !== "/size")).toBe(
+      true,
+    );
   });
 
   it("verbose keeps valid, annotation-free units", () => {
     const engine = createEngine();
     const uri = engine.registerSchema(
-      { properties: { n: { type: "integer" } } }, "https://h.example/plain");
+      { properties: { n: { type: "integer" } } },
+      "https://h.example/plain",
+    );
     const terse = engine.evaluate(uri, { n: 1 }, { output: "hierarchical" });
-    const verbose = engine.evaluate(uri, { n: 1 },
-      { output: "hierarchical", verbose: true });
+    const verbose = engine.evaluate(
+      uri,
+      { n: 1 },
+      { output: "hierarchical", verbose: true },
+    );
     expect(terse.outputDocument.details).toBeUndefined();
     expect(verbose.outputDocument.details!.length).toBe(1);
     expect(verbose.outputDocument.details![0]!.valid).toBe(true);
@@ -140,7 +158,8 @@ describe("hierarchical output (M5 exemplar)", () => {
   it("reports droppedAnnotations on failed units", () => {
     const r = run({ name: 3 });
     const nameUnit = r.outputDocument.details!.find(
-      (d) => d.instanceLocation === "/name")!;
+      (d) => d.instanceLocation === "/name",
+    )!;
     expect(nameUnit.droppedAnnotations!.title).toBe("the name");
   });
 });
@@ -150,9 +169,14 @@ describe("retention deny lists (M5)", () => {
 
   it("excludeKeywords subtracts from the default (everything) retention", () => {
     const { engine, uri } = engineFor(s);
-    const r = engine.evaluate(uri, {}, {
-      collectAnnotations: true, retention: { excludeKeywords: ["title"] },
-    });
+    const r = engine.evaluate(
+      uri,
+      {},
+      {
+        collectAnnotations: true,
+        retention: { excludeKeywords: ["title"] },
+      },
+    );
     const names = r.annotations!.map((a) => a.keyword);
     expect(names).toContain("description");
     expect(names).not.toContain("title");
@@ -160,47 +184,80 @@ describe("retention deny lists (M5)", () => {
 
   it("excludeKeywords subtracts after an allow-list", () => {
     const { engine, uri } = engineFor(s);
-    const r = engine.evaluate(uri, {}, {
-      collectAnnotations: true,
-      retention: { keywords: ["title", "description"], excludeKeywords: ["title"] },
-    });
+    const r = engine.evaluate(
+      uri,
+      {},
+      {
+        collectAnnotations: true,
+        retention: {
+          keywords: ["title", "description"],
+          excludeKeywords: ["title"],
+        },
+      },
+    );
     expect(r.annotations!.map((a) => a.keyword)).toEqual(["description"]);
   });
 
-  it("unevaluatedProperties still validates when retention denies everything "
-    + "and collectAnnotations is off", () => {
-    // Retention (§4 rule 5) must never affect channel visibility (rule 4):
-    // unevaluatedProperties reads ctx.visible(), not the retained set.
-    const { engine, uri } = engineFor({
-      properties: { a: true },
-      unevaluatedProperties: false,
-    });
-    const r = engine.evaluate(uri, { a: 1 }, {
-      output: "list",
-      retention: { excludeKeywords: ["properties", "unevaluatedProperties"] },
-    });
-    expect(r.valid).toBe(true);
-    const r2 = engine.evaluate(uri, { a: 1, b: 2 }, {
-      output: "list",
-      retention: { excludeKeywords: ["properties", "unevaluatedProperties"] },
-    });
-    expect(r2.valid).toBe(false);
-  });
+  it(
+    "unevaluatedProperties still validates when retention denies everything " +
+      "and collectAnnotations is off",
+    () => {
+      // Retention (§4 rule 5) must never affect channel visibility (rule 4):
+      // unevaluatedProperties reads ctx.visible(), not the retained set.
+      const { engine, uri } = engineFor({
+        properties: { a: true },
+        unevaluatedProperties: false,
+      });
+      const r = engine.evaluate(
+        uri,
+        { a: 1 },
+        {
+          output: "list",
+          retention: {
+            excludeKeywords: ["properties", "unevaluatedProperties"],
+          },
+        },
+      );
+      expect(r.valid).toBe(true);
+      const r2 = engine.evaluate(
+        uri,
+        { a: 1, b: 2 },
+        {
+          output: "list",
+          retention: {
+            excludeKeywords: ["properties", "unevaluatedProperties"],
+          },
+        },
+      );
+      expect(r2.valid).toBe(false);
+    },
+  );
 });
 
 describe("Basic output document (M5)", () => {
   it("omits errors on success and lists flat error units on failure", () => {
     const { engine, uri } = engineFor(schema);
-    const ok = engine.evaluate(uri, { id: 1 }, { output: "list", locations: "2020-12" });
+    const ok = engine.evaluate(
+      uri,
+      { id: 1 },
+      { output: "list", locations: "2020-12" },
+    );
     expect(ok.outputDocument).toEqual({
-      valid: true, keywordLocation: "", instanceLocation: "",
+      valid: true,
+      keywordLocation: "",
+      instanceLocation: "",
       absoluteKeywordLocation: "https://output.example/schema#",
     });
-    const bad = engine.evaluate(uri, {}, { output: "list", locations: "2020-12" });
+    const bad = engine.evaluate(
+      uri,
+      {},
+      { output: "list", locations: "2020-12" },
+    );
     expect(bad.outputDocument.valid).toBe(false);
     expect(bad.outputDocument.errors).toContainEqual({
       keywordLocation: "/allOf/0/$ref/required",
-      absoluteKeywordLocation: "https://output.example/schema#/$defs/base/required",
+      absoluteKeywordLocation:
+        "https://output.example/schema#/$defs/base/required",
       instanceLocation: "",
       error: "missing required property 'id'",
     });
@@ -229,25 +286,37 @@ describe("Detailed/Verbose output documents (M5)", () => {
   it("Detailed prunes contribution-free valid units with 2020-12 field names", () => {
     const engine = createEngine();
     const uri = engine.registerSchema(hSchema, "https://h.example/detailed");
-    const r = engine.evaluate(uri, { name: 3 },
-      { output: "hierarchical", locations: "2020-12" });
+    const r = engine.evaluate(
+      uri,
+      { name: 3 },
+      { output: "hierarchical", locations: "2020-12" },
+    );
     const root = r.outputDocument;
     expect(root.keywordLocation).toBe("");
     expect(root).not.toHaveProperty("evaluationPath");
     const nameUnit = root.details!.find((d) => d.instanceLocation === "/name")!;
     expect(nameUnit.keywordLocation).toBe("/properties/name");
-    expect(nameUnit.absoluteKeywordLocation)
-      .toBe("https://h.example/detailed#/properties/name");
+    expect(nameUnit.absoluteKeywordLocation).toBe(
+      "https://h.example/detailed#/properties/name",
+    );
   });
 
   it("Verbose keeps valid, annotation-free units", () => {
     const engine = createEngine();
     const uri = engine.registerSchema(
-      { properties: { n: { type: "integer" } } }, "https://h.example/verbose");
-    const detailed = engine.evaluate(uri, { n: 1 },
-      { output: "hierarchical", locations: "2020-12" });
-    const verbose = engine.evaluate(uri, { n: 1 },
-      { output: "hierarchical", locations: "2020-12", verbose: true });
+      { properties: { n: { type: "integer" } } },
+      "https://h.example/verbose",
+    );
+    const detailed = engine.evaluate(
+      uri,
+      { n: 1 },
+      { output: "hierarchical", locations: "2020-12" },
+    );
+    const verbose = engine.evaluate(
+      uri,
+      { n: 1 },
+      { output: "hierarchical", locations: "2020-12", verbose: true },
+    );
     expect(detailed.outputDocument.details).toBeUndefined();
     expect(verbose.outputDocument.details!.length).toBe(1);
     expect(verbose.outputDocument.details![0]!.valid).toBe(true);

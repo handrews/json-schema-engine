@@ -23,10 +23,10 @@ export interface DocumentLocation {
 }
 
 export class SchemaRegistry {
-  private documents = new Map<string, JsonValue>();   // resource URI -> schema node
-  private anchors = new Map<string, SchemaRef>();     // "resource#anchor"
+  private documents = new Map<string, JsonValue>(); // resource URI -> schema node
+  private anchors = new Map<string, SchemaRef>(); // "resource#anchor"
   private dynamicAnchors = new Map<string, SchemaRef>(); // $dynamicAnchor only (D8)
-  private recursiveRoots = new Set<string>();         // 2019-09 $recursiveAnchor at root
+  private recursiveRoots = new Set<string>(); // 2019-09 $recursiveAnchor at root
   // Union of StaticFacts.consumes over every registered keyword occurrence:
   // the elision predicate's "someone might read this" side (D5/M5.5).
   private consumedBehaviorIds = new Set<string>();
@@ -38,7 +38,10 @@ export class SchemaRegistry {
   // External resources seen in reference values during registration walks,
   // drained by the load closure (D7).
   private pendingResources = new Set<string>();
-  private documentRanges = new Map<string, (pointer: string) => SourceRange | undefined>();
+  private documentRanges = new Map<
+    string,
+    (pointer: string) => SourceRange | undefined
+  >();
 
   constructor(
     private dialectRegistry: DialectRegistry,
@@ -58,9 +61,13 @@ export class SchemaRegistry {
   ): string {
     // Dialect URIs are compared fragment-free: "…/draft-07/schema#" (the
     // canonical in-the-wild $schema spelling) names the same dialect.
-    let effectiveDialect = splitFragment(dialectUri ?? this.defaultDialectUri).resource;
+    let effectiveDialect = splitFragment(
+      dialectUri ?? this.defaultDialectUri,
+    ).resource;
     if (isObject(schema) && typeof schema.$schema === "string") {
-      effectiveDialect = splitFragment(resolveUri(schema.$schema, retrievalUri)).resource;
+      effectiveDialect = splitFragment(
+        resolveUri(schema.$schema, retrievalUri),
+      ).resource;
     }
     const dialect = this.dialectRegistry.getDialect(effectiveDialect);
 
@@ -70,7 +77,8 @@ export class SchemaRegistry {
     if (rootIds.baseId !== undefined) {
       baseUri = splitFragment(resolveUri(rootIds.baseId, baseUri)).resource;
     }
-    if (baseUri !== retrievalResource) this.aliases.set(retrievalResource, baseUri);
+    if (baseUri !== retrievalResource)
+      this.aliases.set(retrievalResource, baseUri);
     this.documents.set(baseUri, schema);
     this.documentDialects.set(baseUri, effectiveDialect);
     this.resourceLocations.set(baseUri, { documentUri: baseUri, pointer: "" });
@@ -119,7 +127,9 @@ export class SchemaRegistry {
       for (const c of facts.consumes ?? []) this.consumedBehaviorIds.add(c);
       for (const ref of facts.references ?? []) {
         try {
-          this.pendingResources.add(splitFragment(resolveUri(ref, baseUri)).resource);
+          this.pendingResources.add(
+            splitFragment(resolveUri(ref, baseUri)).resource,
+          );
         } catch {
           // Unresolvable now is not an error: evaluation reports it if the
           // reference is actually followed.
@@ -131,12 +141,21 @@ export class SchemaRegistry {
         let child: JsonValue = value;
         let suffix = "/" + escapeSegment(name);
         for (const seg of relPath) {
-          child = (Array.isArray(child)
-            ? child[seg as number]
-            : (child as Record<string, JsonValue>)[seg as string]) as JsonValue;
+          child = (
+            Array.isArray(child)
+              ? child[seg as number]
+              : (child as Record<string, JsonValue>)[seg as string]
+          ) as JsonValue;
           suffix += "/" + escapeSegment(String(seg));
         }
-        this.walk(child, baseUri, pointer + suffix, documentUri, docPointer + suffix, dialect);
+        this.walk(
+          child,
+          baseUri,
+          pointer + suffix,
+          documentUri,
+          docPointer + suffix,
+          dialect,
+        );
       }
     }
   }
@@ -192,7 +211,8 @@ export class SchemaRegistry {
 
   dialectUriFor(baseUri: string): string {
     const uri = this.documentDialects.get(this.canonical(baseUri));
-    if (uri === undefined) throw new UnresolvableRefError(`unknown schema '${baseUri}'`);
+    if (uri === undefined)
+      throw new UnresolvableRefError(`unknown schema '${baseUri}'`);
     return uri;
   }
 
@@ -207,7 +227,8 @@ export class SchemaRegistry {
       return this.resolveRef(uri, resource);
     }
     const node = this.documents.get(resource);
-    if (node === undefined) throw new UnresolvableRefError(`unknown schema '${resource}'`);
+    if (node === undefined)
+      throw new UnresolvableRefError(`unknown schema '${resource}'`);
     return { node, baseUri: resource, pointer: "" };
   }
 
@@ -219,12 +240,16 @@ export class SchemaRegistry {
 
     if (fragment !== null && fragment !== "" && !fragment.startsWith("/")) {
       const hit = this.anchors.get(`${resource}#${fragment}`);
-      if (!hit) throw new UnresolvableRefError(`unknown anchor '${resource}#${fragment}'`);
+      if (!hit)
+        throw new UnresolvableRefError(
+          `unknown anchor '${resource}#${fragment}'`,
+        );
       return hit;
     }
 
     const root = this.documents.get(resource);
-    if (root === undefined) throw new UnresolvableRefError(`unknown schema '${resource}'`);
+    if (root === undefined)
+      throw new UnresolvableRefError(`unknown schema '${resource}'`);
     if (fragment === null || fragment === "") {
       return { node: root, baseUri: resource, pointer: "" };
     }
@@ -245,7 +270,9 @@ export class SchemaRegistry {
         node = undefined;
       }
       if (node === undefined) {
-        throw new UnresolvableRefError(`pointer '${fragment}' not found in '${resource}'`);
+        throw new UnresolvableRefError(
+          `pointer '${fragment}' not found in '${resource}'`,
+        );
       }
       pointer += "/" + escapeSegment(seg);
       if (isObject(node)) {
@@ -268,9 +295,11 @@ export class SchemaRegistry {
     let node: JsonValue = ref.node;
     let { baseUri, pointer } = ref;
     for (const seg of segments) {
-      node = (Array.isArray(node)
-        ? node[seg as number]
-        : (node as Record<string, JsonValue>)[seg as string]) as JsonValue;
+      node = (
+        Array.isArray(node)
+          ? node[seg as number]
+          : (node as Record<string, JsonValue>)[seg as string]
+      ) as JsonValue;
       pointer += "/" + escapeSegment(String(seg));
       if (isObject(node)) {
         const baseId = identifiers(node).baseId;

@@ -28,7 +28,7 @@ positioned to converge on "fast **and** complete":
   architecture pays per-keyword dispatch, plugin-hook, and URI-string costs that
   make AJV-class throughput implausible without a redesign.
 
-**Recommendation:** build a new engine designed *annotation-first* with two
+**Recommendation:** build a new engine designed _annotation-first_ with two
 execution tiers sharing one keyword registry: a spec-faithful interpreter (the
 semantics reference — all dialects, all output formats, CSP-safe) and a compiler
 tier that emits specialized JavaScript for the statically-analyzable parts of a
@@ -38,16 +38,16 @@ compiled code** — the evaluation path is a compile-time constant at every emit
 site — so AJV-class speed does not require abandoning the annotation model.
 AJV's and Hyperjump's failures are both consequences of retrofitting: AJV bolted
 2019-09+ semantics onto an error-centric compiler, Hyperjump bolted output onto a
-purist interpreter. Starting from the annotation model and *lowering* it is the
+purist interpreter. Starting from the annotation model and _lowering_ it is the
 design neither can reach from where they are.
 
 Verdicts on the three assumptions flagged for validation:
 
-| Assumption | Verdict |
-|---|---|
-| AJV does not collect annotations | **Confirmed.** No annotation machinery exists in `lib/`; the only "annotation" references are the vocabulary metaschema files. Errors use AJV's own `instancePath`/`schemaPath` format; none of the spec output formats are implemented. |
-| Hyperjump omits `keywordLocation`, includes `absoluteKeywordLocation` | **Confirmed, still current.** Both the BASIC-output and annotations plugins emit only `keyword` (URI), `absoluteKeywordLocation`, `instanceLocation`. The maintainer's rationale is on record (§3.3). |
-| Hyperjump may not support all output formats | **Confirmed.** FLAG is the only stable format; BASIC and DETAILED exist behind the `/experimental` export; VERBOSE does not exist. |
+| Assumption                                                            | Verdict                                                                                                                                                                                                                                  |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AJV does not collect annotations                                      | **Confirmed.** No annotation machinery exists in `lib/`; the only "annotation" references are the vocabulary metaschema files. Errors use AJV's own `instancePath`/`schemaPath` format; none of the spec output formats are implemented. |
+| Hyperjump omits `keywordLocation`, includes `absoluteKeywordLocation` | **Confirmed, still current.** Both the BASIC-output and annotations plugins emit only `keyword` (URI), `absoluteKeywordLocation`, `instanceLocation`. The maintainer's rationale is on record (§3.3).                                    |
+| Hyperjump may not support all output formats                          | **Confirmed.** FLAG is the only stable format; BASIC and DETAILED exist behind the `/experimental` export; VERBOSE does not exist.                                                                                                       |
 
 ---
 
@@ -72,7 +72,7 @@ well and 2020-12 poorly.
   [report](https://bowtie.report/)). Even its home draft isn't clean.
 - `$dynamicRef`/`$dynamicAnchor` (source-verified, `lib/vocabularies/dynamic/dynamicRef.ts`):
   - throws unless the reference is a bare fragment (`"$dynamicRef" only supports
-    hash fragment reference`) — cross-resource dynamic references are unsupported;
+hash fragment reference`) — cross-resource dynamic references are unsupported;
   - dynamic anchors live in a single **root-level registry** with
     first-assignment-wins at runtime — an emulation of `$recursiveRef` semantics,
     not 2020-12 lexical-scope + dynamic-scope resolution;
@@ -91,8 +91,8 @@ well and 2020-12 poorly.
 - `unevaluatedProperties`/`unevaluatedItems` are implemented via bespoke
   static+dynamic "evaluated" tracking compiled into the generated code — a
   functional stand-in for annotation flow in the cases its static analysis
-  understands, and the natural way to *lower* the annotation model (§7.5), but in
-  AJV it is the *only* representation, which is why general annotation collection
+  understands, and the natural way to _lower_ the annotation model (§7.5), but in
+  AJV it is the _only_ representation, which is why general annotation collection
   can't be retrofitted cheaply.
 - Vocabularies: no real vocabulary system; `$vocabulary` is not processed
   meaningfully. Strict mode adds useful but non-spec schema rejections (its
@@ -125,7 +125,7 @@ the compat-layer mapping surface (§8.1).
 - Costs of the approach as AJV made it: requires `new Function`/`eval` (CSP-hostile
   environments need its separate standalone-codegen mode), compile time is
   significant on cold starts, and the generated code is error-centric with no
-  evaluation-path bookkeeping — speed was bought partly by *not* doing the things
+  evaluation-path bookkeeping — speed was bought partly by _not_ doing the things
   this project needs, though §7.4 argues that trade was unnecessary.
 
 ### 2.5 Maintenance and governance
@@ -142,7 +142,7 @@ the compat-layer mapping surface (§8.1).
   understaffed enough that deep spec work (which requires touching the codegen
   core) is not going to happen. Its dominance is self-sustaining via transitive
   dependencies regardless of quality, which is precisely why an upgrade path has
-  to be offered *to* its users rather than waiting for it to improve.
+  to be offered _to_ its users rather than waiting for it to improve.
 
 ---
 
@@ -183,8 +183,8 @@ the current code:
 > sufficient for debugging and it's awkward for the output to produce JSON Pointers
 > that potentially won't resolve because they cross schema boundaries."
 
-This conflates the two fields' purposes: `absoluteKeywordLocation` tells you *where
-the keyword lives*; `keywordLocation` tells you *how evaluation got there* — which
+This conflates the two fields' purposes: `absoluteKeywordLocation` tells you _where
+the keyword lives_; `keywordLocation` tells you _how evaluation got there_ — which
 `$ref`/`$dynamicRef` chain, which `allOf` branch, which array position. For
 annotation consumers (and for debugging dynamic references at all), the evaluation
 path is the primary key, and it is not recoverable from the other two fields. Since
@@ -230,7 +230,7 @@ million-instance workloads.** That is the gap the new engine exists to close.
 ### 3.6 Governance
 
 The inverse of AJV: one highly engaged maintainer with strong opinions and no bus
-factor. The single-maintainer risk is structural — the project *is* its
+factor. The single-maintainer risk is structural — the project _is_ its
 maintainer's view of the spec, including where that view diverges (keywordLocation,
 output stability). Sustainable, but not steerable from outside.
 
@@ -246,7 +246,7 @@ output stability). Sustainable, but not steerable from outside.
 - **[@cfworker/json-schema](https://github.com/cfworker/json-schema)** (~5.2M
   weekly): interpreter built specifically because AJV's `new Function` codegen is
   banned in CSP-restricted runtimes (Cloudflare Workers). Demonstrates real demand
-  for an interpreter tier as a *product feature*, not just a reference tier.
+  for an interpreter tier as a _product feature_, not just a reference tier.
 - **[Bowtie](https://bowtie.report/)**: cross-implementation compliance reporting
   against the official
   [JSON-Schema-Test-Suite](https://github.com/json-schema-org/JSON-Schema-Test-Suite);
@@ -256,7 +256,8 @@ output stability). Sustainable, but not steerable from outside.
 The design range, then: AJV and schemasafe at the compiled end (fast, static,
 error-centric), Hyperjump and cfworker at the interpreted end (complete or
 CSP-safe, slow). Nothing in the JS ecosystem occupies "compiled + annotation-model
-+ spec-complete." That is the open position.
+
+- spec-complete." That is the open position.
 
 ---
 
@@ -274,7 +275,7 @@ All quotes verified against
   cost in terms of both computation and memory, implementations MAY opt out of
   this feature." → §7.3's retention-policy API is squarely inside the spec, not an
   extension.
-- **Keyword interactions are defined *in terms of* annotations, not *by means of*
+- **Keyword interactions are defined _in terms of_ annotations, not _by means of_
   them:** "Keyword behavior MAY be defined in terms of the annotation results of
   subschemas," and the draft moved its annotation implementation suggestions into
   an informative appendix ("Using annotations in implementations": "Annotations
@@ -311,14 +312,14 @@ Worth stating plainly because it justifies a new project on merits:
   information flow its generated code deliberately doesn't carry. Adding them
   means rearchitecting the codegen core — the one thing a caretaker-mode project
   cannot staff. The stalled `$dynamicRef` PRs are the experiment already run.
-- Hyperjump *has* the semantics but its architecture (per-keyword plugin hooks,
+- Hyperjump _has_ the semantics but its architecture (per-keyword plugin hooks,
   cursor wrappers, URI materialization) puts a ceiling on throughput, and its
   maintainer has a principled objection to a field this project considers a hard
   requirement. Neither a perf rewrite nor a `keywordLocation` PR is a realistic
   path.
 - Both have governance failure modes that are mirror images: AJV has users and no
   maintainers; Hyperjump has a maintainer and (comparatively) no users. A new
-  project should be designed against *both* failure modes from day one (§12).
+  project should be designed against _both_ failure modes from day one (§12).
 
 ---
 
@@ -330,7 +331,7 @@ keyword; two execution strategies over it.
 ### 7.1 Semantic core (interpreter tier)
 
 - **Dialect/vocabulary registry as data.** Keywords identified by URI (Hyperjump's
-  registry concept is the right *idea*; adopt the idea, not the code), dialects =
+  registry concept is the right _idea_; adopt the idea, not the code), dialects =
   ordered vocabulary sets, drafts = predefined dialects. Custom keywords,
   vocabularies, and dialects are the same mechanism the built-ins use — no
   privileged path, which is what keeps the compiler tier honest (§7.5).
@@ -354,16 +355,16 @@ keyword; two execution strategies over it.
 
 ### 7.2 Evaluation state as channels (the keyword-communication experiment surface)
 
-Internally, keywords *produce* typed facts (`properties` produces the matched
+Internally, keywords _produce_ typed facts (`properties` produces the matched
 property-name set; `prefixItems` produces the max evaluated index; any keyword may
-produce its annotation value) and *consume* facts from a scoped evaluation state.
+produce its annotation value) and _consume_ facts from a scoped evaluation state.
 The standard annotation collector is just one subscriber to this channel; the
 `unevaluated*` keywords are another; a future experimental keyword mechanism per
 the IETF draft's appendix is a third. This gives:
 
 - spec-exact behavior (annotation dropping on failed schemas is a property of the
   channel's scoping rules, implemented once);
-- a place to try keyword-communication mechanisms that are *not* annotations
+- a place to try keyword-communication mechanisms that are _not_ annotations
   without touching the engine core;
 - a natural point for the retention policy (§7.3) to filter what escapes to output
   versus what exists only transiently for dependent keywords.
@@ -396,15 +397,15 @@ choice, not physics. This claim should be validated early with a spike benchmark
 ### 7.5 Compiler tier
 
 - **Static analysis pass** over the compiled-form schema classifies each subschema:
-  *static* (no dynamic-scope sensitivity, no runtime dialect switching, retention
-  policy resolvable at compile time) or *dynamic*. Experience says the
+  _static_ (no dynamic-scope sensitivity, no runtime dialect switching, retention
+  policy resolvable at compile time) or _dynamic_. Experience says the
   overwhelming majority of real-world schemas — and near-100% of the AJV-migration
   corpus, which is draft-07-shaped — are fully static.
 - **Lowering:** for static subschemas, keyword semantics are lowered to specialized
   JS: annotation productions that nothing consumes are compiled away (verdict via
   the channel-consumer graph, e.g. `unevaluatedProperties` present or retention
   policy matches); productions consumed only by `unevaluated*` are lowered to
-  evaluated-set bitmask/set tracking (the AJV/schemasafe trick, but *derived from*
+  evaluated-set bitmask/set tracking (the AJV/schemasafe trick, but _derived from_
   the annotation model rather than replacing it); retained annotations compile to
   constant-path emit sites.
 - **Dynamic islands** (`$dynamicRef` targets and everything downstream of a
@@ -418,7 +419,7 @@ choice, not physics. This claim should be validated early with a spike benchmark
   build-time mode: serverless cold starts, CSP with precompiled validators, and a
   drop-in answer to AJV's standalone mode.
 - Both tiers run the **same official test suite and the same keyword registry**;
-  the compiler is *forbidden* to have keyword knowledge not derived from
+  the compiler is _forbidden_ to have keyword knowledge not derived from
   `analyze()` — that single constraint is what prevents the semantic fork that
   killed AJV's spec agility.
 
@@ -480,7 +481,7 @@ documented per option:
 
 Smaller and easier: `registerSchema`/`validate(schemaUri, instance, outputFormat)`
 map nearly 1:1; the annotations-experimental API maps onto the annotation channel
-with *more* fields (adding `keywordLocation` is additive — output-unit consumers
+with _more_ fields (adding `keywordLocation` is additive — output-unit consumers
 keep working); media-type-driven loading is a resource-loader plugin. The main
 behavioral deltas to document: sync-vs-async evaluate, keyword-URI naming in the
 `keyword` field (worth keeping — it's a genuinely good idea), and stable-vs-
@@ -494,7 +495,7 @@ experimental output formats becoming all-stable.
   order of magnitude (target: beat it via sync evaluation, no per-keyword plugin
   hooks, lazy string materialization); compiler tier targets AJV-class flag-mode
   throughput on the static corpus. The differentiator is not "faster than AJV" —
-  it is "AJV-class speed *with* 100% compliance and annotations," verified in
+  it is "AJV-class speed _with_ 100% compliance and annotations," verified in
   public via Bowtie.
 - **Techniques** (all standard, none AJV-specific): monomorphic compiled functions
   per subschema; allocation-free happy path; short-circuit in flag mode
@@ -523,7 +524,7 @@ annotation needs (`readOnly`/`writeOnly`, discriminators, extension-keyword
 annotations, per-location retention) map directly onto §7.3, and D9's
 runtime-checked residuals could eventually use the compiler tier to generate
 standalone residual validators (D9's own noted "bigger lift, later"). Also note
-§3.4: @oaskit's current dependency rests on Hyperjump's *experimental* annotation
+§3.4: @oaskit's current dependency rests on Hyperjump's _experimental_ annotation
 surface — a stability risk worth logging against D12 regardless of whether this
 project proceeds. No design coupling in either direction beyond that; the engine
 must stand as a general-purpose JSON Schema implementation or it will end up an
@@ -535,14 +536,14 @@ must stand as a general-purpose JSON Schema implementation or it will end up an
   JSON-Schema-Test-Suite; test-suite-driven development is the clean-room
   discipline.
 - AJV and Hyperjump were studied at the architecture level for this analysis
-  (evaluation strategies, module boundaries, failure modes). Design *ideas* noted
+  (evaluation strategies, module boundaries, failure modes). Design _ideas_ noted
   for adoption — keyword-URI registries, evaluated-set lowering, standalone
   codegen, media-type loading — are unprotectable concepts also present across
   the wider ecosystem. No code, code structure, identifier scheme, or
   documentation text is to be ported or translated from either codebase (both are
   MIT, but the bar here is "no colorable derivation claim," not "license
   compliance").
-- Compat-layer API surfaces (§8) reproduce *interfaces* for interoperability —
+- Compat-layer API surfaces (§8) reproduce _interfaces_ for interoperability —
   the legally distinct and well-trodden category — not implementations.
 
 ## 12. Governance and sustainability (designing against both incumbents' failure modes)
@@ -569,7 +570,7 @@ must stand as a general-purpose JSON Schema implementation or it will end up an
    (one draft-07-shaped, one with `unevaluatedProperties`, one with retained
    annotations) and benchmark against ajv@8 and @hyperjump/json-schema. If
    constant-path emission doesn't hold AJV-class throughput, the architecture
-   needs rethinking *before* any engine exists.
+   needs rethinking _before_ any engine exists.
 2. **Prototype the channel abstraction (§7.2)** in a toy interpreter over ~10
    keywords including the `properties`→`unevaluatedProperties` dependency; check
    that annotation dropping and the retention policy fall out of scoping rules.
@@ -583,7 +584,7 @@ must stand as a general-purpose JSON Schema implementation or it will end up an
 - **Spec (for the co-author, i.e. you):** Should new output default to the
   `evaluationPath`/`schemaLocation` vocabulary with 2020-12 field names as a
   compatibility rendering, or the reverse? Is there appetite for standardized
-  *annotation* test cases (the official suite exercises validation; annotation
+  _annotation_ test cases (the official suite exercises validation; annotation
   behavior — especially dropping and `unevaluated*` interaction — has thin
   third-party coverage, which weakens any implementation's "fully compliant"
   claim on exactly the features this project leads with)? And is the -02
@@ -606,17 +607,17 @@ must stand as a general-purpose JSON Schema implementation or it will end up an
 
 ## Appendix: fact table (as of 2026-07-05)
 
-| | AJV | @hyperjump/json-schema |
-|---|---|---|
-| Version | 8.20.0 (2026-04-24) | 1.17.6 (active, last push 2026-07-03) |
-| Weekly npm downloads | 316,245,732 | 174,042 |
-| GitHub | 14.8k ★, 356 open issues | 311 ★, 7 open issues |
-| Bowtie 2020-12 | 80% | 99% |
-| Bowtie 2019-09 / draft-07 / draft-04 | 83% / 85% / (separate pkg) | 99% / 98% / 98% |
-| Drafts | 04 (separate pkg), 06, 07, 2019-09, 2020-12 (partial) | 04, 06, 07, 2019-09, 2020-12, OpenAPI 3.0/3.1/3.2 dialects |
-| Annotations | none | experimental, no `keywordLocation`, not configurable |
-| Output formats | proprietary errors only | FLAG stable; BASIC/DETAILED experimental; no VERBOSE/hierarchical |
-| `$dynamicRef` | fragment-only, root-registry approximation, known broken, fixes stalled | correct |
-| Vocabularies | not meaningfully processed | first-class |
-| Execution | compiled (`new Function`; standalone mode for CSP) | async compile, sync interpret; CSP-safe |
-| Maintenance | caretaker mode (19-month release gap 2024–26) | single active maintainer |
+|                                      | AJV                                                                     | @hyperjump/json-schema                                            |
+| ------------------------------------ | ----------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Version                              | 8.20.0 (2026-04-24)                                                     | 1.17.6 (active, last push 2026-07-03)                             |
+| Weekly npm downloads                 | 316,245,732                                                             | 174,042                                                           |
+| GitHub                               | 14.8k ★, 356 open issues                                                | 311 ★, 7 open issues                                              |
+| Bowtie 2020-12                       | 80%                                                                     | 99%                                                               |
+| Bowtie 2019-09 / draft-07 / draft-04 | 83% / 85% / (separate pkg)                                              | 99% / 98% / 98%                                                   |
+| Drafts                               | 04 (separate pkg), 06, 07, 2019-09, 2020-12 (partial)                   | 04, 06, 07, 2019-09, 2020-12, OpenAPI 3.0/3.1/3.2 dialects        |
+| Annotations                          | none                                                                    | experimental, no `keywordLocation`, not configurable              |
+| Output formats                       | proprietary errors only                                                 | FLAG stable; BASIC/DETAILED experimental; no VERBOSE/hierarchical |
+| `$dynamicRef`                        | fragment-only, root-registry approximation, known broken, fixes stalled | correct                                                           |
+| Vocabularies                         | not meaningfully processed                                              | first-class                                                       |
+| Execution                            | compiled (`new Function`; standalone mode for CSP)                      | async compile, sync interpret; CSP-safe                           |
+| Maintenance                          | caretaker mode (19-month release gap 2024–26)                           | single active maintainer                                          |

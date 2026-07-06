@@ -23,7 +23,12 @@ import { runSuiteFiles, runSuiteFilesVitest, type JsonValue } from "./index.js";
 
 const SUITE_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
-  "..", "..", "..", "test-suite", "tests", "draft2020-12",
+  "..",
+  "..",
+  "..",
+  "test-suite",
+  "tests",
+  "draft2020-12",
 );
 
 const alwaysTrue = (_schema: JsonValue, _instance: JsonValue): boolean => true;
@@ -42,7 +47,9 @@ describe("@jse/test-kit runSuiteFiles (collect mode)", () => {
 
     expect(summary.totalRun).toBe(0);
     expect(summary.totalSkipped).toBe(80);
-    expect(summary.files).toEqual([{ name: "type", run: 0, passed: 0, skipped: 80 }]);
+    expect(summary.files).toEqual([
+      { name: "type", run: 0, passed: 0, skipped: 80 },
+    ]);
     expect(summary.cases.length).toBe(80);
     expect(summary.cases.every((c) => c.status === "skipped")).toBe(true);
   });
@@ -63,7 +70,9 @@ describe("@jse/test-kit runSuiteFiles (collect mode)", () => {
     expect(passed).toBe(22); // cases where valid=true, so always-true agrees
     expect(failed).toBe(29); // cases where valid=false, so always-true disagrees
     expect(passed + failed).toBe(summary.totalRun);
-    expect(summary.files).toEqual([{ name: "enum", run: 51, passed: 22, skipped: 0 }]);
+    expect(summary.files).toEqual([
+      { name: "enum", run: 51, passed: 22, skipped: 0 },
+    ]);
   });
 
   it("reports thrown evaluator errors as skips, not silent passes", async () => {

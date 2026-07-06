@@ -10,7 +10,8 @@ import { KeywordBehavior, StaticFacts } from "../dialect.js";
 import { childCursor } from "../cursor.js";
 import { SELF, mapPositions } from "./core.js";
 
-export const VOCAB_APPLICATOR = "https://json-schema.org/draft/2020-12/vocab/applicator";
+export const VOCAB_APPLICATOR =
+  "https://json-schema.org/draft/2020-12/vocab/applicator";
 
 const id = (name: string): string => `${VOCAB_APPLICATOR}#${name}`;
 
@@ -80,8 +81,10 @@ export const ifKeyword: KeywordBehavior = {
   analyze: selfPosition,
   evaluate: (_value, cursor, ctx) => {
     const condition = ctx.apply(["if"], cursor);
-    if (condition && Object.hasOwn(ctx.schema, "then")) return ctx.apply(["then"], cursor);
-    if (!condition && Object.hasOwn(ctx.schema, "else")) return ctx.apply(["else"], cursor);
+    if (condition && Object.hasOwn(ctx.schema, "then"))
+      return ctx.apply(["then"], cursor);
+    if (!condition && Object.hasOwn(ctx.schema, "else"))
+      return ctx.apply(["else"], cursor);
     return true;
   },
 };
@@ -93,8 +96,10 @@ export const dependentSchemas: KeywordBehavior = {
     if (!isObject(cursor.value)) return true;
     let ok = true;
     for (const name of Object.keys(value as Record<string, JsonValue>)) {
-      if (Object.hasOwn(cursor.value, name)
-        && !ctx.apply(["dependentSchemas", name], cursor)) {
+      if (
+        Object.hasOwn(cursor.value, name) &&
+        !ctx.apply(["dependentSchemas", name], cursor)
+      ) {
         ok = false;
       }
     }
@@ -112,8 +117,13 @@ export const properties: KeywordBehavior = {
     for (const name of Object.keys(value as Record<string, JsonValue>)) {
       if (Object.hasOwn(cursor.value, name)) {
         matched.push(name);
-        if (!ctx.apply(["properties", name],
-          childCursor(cursor, name, cursor.value[name]!))) ok = false;
+        if (
+          !ctx.apply(
+            ["properties", name],
+            childCursor(cursor, name, cursor.value[name]!),
+          )
+        )
+          ok = false;
       }
     }
     ctx.produce(matched);
@@ -133,8 +143,13 @@ export const patternProperties: KeywordBehavior = {
       for (const name of Object.keys(cursor.value)) {
         if (re.test(name)) {
           matched.add(name);
-          if (!ctx.apply(["patternProperties", pattern],
-            childCursor(cursor, name, cursor.value[name]!))) ok = false;
+          if (
+            !ctx.apply(
+              ["patternProperties", pattern],
+              childCursor(cursor, name, cursor.value[name]!),
+            )
+          )
+            ok = false;
         }
       }
     }
@@ -152,16 +167,23 @@ export const additionalProperties: KeywordBehavior = {
     // derivable from the schema object, no channel involvement (an example of
     // "same result, different mechanism"; contrast unevaluatedProperties).
     const names = isObject(ctx.schema.properties)
-      ? new Set(Object.keys(ctx.schema.properties)) : new Set<string>();
+      ? new Set(Object.keys(ctx.schema.properties))
+      : new Set<string>();
     const patterns = isObject(ctx.schema.patternProperties)
-      ? Object.keys(ctx.schema.patternProperties).map((p) => schemaRegExp(p)) : [];
+      ? Object.keys(ctx.schema.patternProperties).map((p) => schemaRegExp(p))
+      : [];
     let ok = true;
     const matched: string[] = [];
     for (const name of Object.keys(cursor.value)) {
       if (names.has(name) || patterns.some((re) => re.test(name))) continue;
       matched.push(name);
-      if (!ctx.apply(["additionalProperties"],
-        childCursor(cursor, name, cursor.value[name]!))) ok = false;
+      if (
+        !ctx.apply(
+          ["additionalProperties"],
+          childCursor(cursor, name, cursor.value[name]!),
+        )
+      )
+        ok = false;
     }
     ctx.produce(matched);
     return ok;
@@ -177,7 +199,10 @@ export const prefixItems: KeywordBehavior = {
     const n = Math.min(schemas.length, cursor.value.length);
     let ok = true;
     for (let i = 0; i < n; i++) {
-      if (!ctx.apply(["prefixItems", i], childCursor(cursor, i, cursor.value[i]!))) ok = false;
+      if (
+        !ctx.apply(["prefixItems", i], childCursor(cursor, i, cursor.value[i]!))
+      )
+        ok = false;
     }
     // Annotation: largest applied index, or true when it covered the array.
     if (n > 0) ctx.produce(n === cursor.value.length ? true : n - 1);
@@ -191,12 +216,15 @@ export const items: KeywordBehavior = {
   evaluate: (_value, cursor, ctx) => {
     if (!Array.isArray(cursor.value)) return true;
     // Applies past the sibling prefixItems (statically known per spec).
-    const start = Array.isArray(ctx.schema.prefixItems) ? ctx.schema.prefixItems.length : 0;
+    const start = Array.isArray(ctx.schema.prefixItems)
+      ? ctx.schema.prefixItems.length
+      : 0;
     let ok = true;
     let applied = false;
     for (let i = start; i < cursor.value.length; i++) {
       applied = true;
-      if (!ctx.apply(["items"], childCursor(cursor, i, cursor.value[i]!))) ok = false;
+      if (!ctx.apply(["items"], childCursor(cursor, i, cursor.value[i]!)))
+        ok = false;
     }
     if (applied) ctx.produce(true);
     return ok;
@@ -210,19 +238,27 @@ export const contains: KeywordBehavior = {
     if (!Array.isArray(cursor.value)) return true;
     const matched: number[] = [];
     for (let i = 0; i < cursor.value.length; i++) {
-      if (ctx.apply(["contains"], childCursor(cursor, i, cursor.value[i]!))) matched.push(i);
+      if (ctx.apply(["contains"], childCursor(cursor, i, cursor.value[i]!)))
+        matched.push(i);
     }
     // minContains/maxContains are inert siblings (validation.ts) that turn
     // the count into a range assertion instead of contains' own >=1 default;
     // minContains: 0 with zero matches is valid (suite: "minContains = 0").
-    const min = typeof ctx.schema.minContains === "number" ? ctx.schema.minContains : 1;
-    const max = typeof ctx.schema.maxContains === "number" ? ctx.schema.maxContains : Infinity;
+    const min =
+      typeof ctx.schema.minContains === "number" ? ctx.schema.minContains : 1;
+    const max =
+      typeof ctx.schema.maxContains === "number"
+        ? ctx.schema.maxContains
+        : Infinity;
     if (matched.length < min || matched.length > max) {
-      ctx.error(`${matched.length} item(s) match the contains subschema, expected ${min}-${max}`);
+      ctx.error(
+        `${matched.length} item(s) match the contains subschema, expected ${min}-${max}`,
+      );
       return false;
     }
     // Annotation: matched indexes, or true when every item matched.
-    if (matched.length > 0) ctx.produce(matched.length === cursor.value.length ? true : matched);
+    if (matched.length > 0)
+      ctx.produce(matched.length === cursor.value.length ? true : matched);
     return true;
   },
 };
@@ -236,7 +272,8 @@ export const propertyNames: KeywordBehavior = {
     if (!isObject(cursor.value)) return true;
     let ok = true;
     for (const name of Object.keys(cursor.value)) {
-      if (!ctx.apply(["propertyNames"], childCursor(cursor, name, name))) ok = false;
+      if (!ctx.apply(["propertyNames"], childCursor(cursor, name, name)))
+        ok = false;
     }
     return ok;
   },

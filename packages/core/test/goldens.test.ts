@@ -61,20 +61,29 @@ describe("golden output documents (M5)", () => {
 
   it("Basic (2020-12) matches the golden", () => {
     const { engine, uri } = engineFor();
-    const r = engine.evaluate(uri, instance, { output: "list", locations: "2020-12" });
+    const r = engine.evaluate(uri, instance, {
+      output: "list",
+      locations: "2020-12",
+    });
     expect(r.outputDocument).toEqual(golden("basic"));
   });
 
   it("Detailed (2020-12) matches the golden", () => {
     const { engine, uri } = engineFor();
-    const r = engine.evaluate(uri, instance, { output: "hierarchical", locations: "2020-12" });
+    const r = engine.evaluate(uri, instance, {
+      output: "hierarchical",
+      locations: "2020-12",
+    });
     expect(r.outputDocument).toEqual(golden("detailed"));
   });
 
   it("Verbose (2020-12) matches the golden", () => {
     const { engine, uri } = engineFor();
-    const r = engine.evaluate(uri, instance,
-      { output: "hierarchical", locations: "2020-12", verbose: true });
+    const r = engine.evaluate(uri, instance, {
+      output: "hierarchical",
+      locations: "2020-12",
+      verbose: true,
+    });
     expect(r.outputDocument).toEqual(golden("verbose"));
   });
 });

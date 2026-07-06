@@ -1,8 +1,8 @@
 # F1 spike: constant-evaluation-path compilation vs AJV and Hyperjump
 
 **Verdict: GATE PASS — decisively.** Hand-compiled validators in the shape the
-compiler tier would emit (ANALYSIS.md §7.4/§7.5) were *faster than AJV in every
-gated comparison* (AJV/ours ratios 0.46–0.87 across three runs; the gate required
+compiler tier would emit (ANALYSIS.md §7.4/§7.5) were _faster than AJV in every
+gated comparison_ (AJV/ours ratios 0.46–0.87 across three runs; the gate required
 ≤ 1.50), while carrying full `keywordLocation`-bearing output and configurable
 annotation collection as separately-specialized artifacts. The load-bearing claim
 holds: **evaluation-path output and annotation support do not cost flag-mode
@@ -36,15 +36,15 @@ implementation disagrees on any verdict).
 
 ## Results (representative run; ratios varied ±0.1 across three runs, all PASS)
 
-| Case | ours (compiled) | ajv | hyperjump | ajv/ours |
-|---|---:|---:|---:|---:|
-| user valid (flag) | 17.5M ops/s | 11.4M | 273k | **0.66** |
-| user invalid (flag) | 26.6M | 12.2M | 258k | **0.46** |
-| event valid (flag) | 47.4M | 38.8M | 241k | **0.82** |
-| event invalid (flag) | 47.4M | 29.6M | 253k | **0.62** |
-| user all-errors with locations | 5.6M (full units) | 11.8M (proprietary errors) | 219k (BASIC) | — |
-| profile annotations | 32.1M (retained: readOnly+default) | n/a (no annotation support) | 151k (`annotate`) | — |
-| profile flag (annotations compiled away) | 51.0M | — | — | — |
+| Case                                     |                    ours (compiled) |                         ajv |         hyperjump | ajv/ours |
+| ---------------------------------------- | ---------------------------------: | --------------------------: | ----------------: | -------: |
+| user valid (flag)                        |                        17.5M ops/s |                       11.4M |              273k | **0.66** |
+| user invalid (flag)                      |                              26.6M |                       12.2M |              258k | **0.46** |
+| event valid (flag)                       |                              47.4M |                       38.8M |              241k | **0.82** |
+| event invalid (flag)                     |                              47.4M |                       29.6M |              253k | **0.62** |
+| user all-errors with locations           |                  5.6M (full units) |  11.8M (proprietary errors) |      219k (BASIC) |        — |
+| profile annotations                      | 32.1M (retained: readOnly+default) | n/a (no annotation support) | 151k (`annotate`) |        — |
+| profile flag (annotations compiled away) |                              51.0M |                           — |                 — |        — |
 
 Compile time for the three schemas: ajv ≈ 19 ms, hyperjump ≈ 17 ms, ours
 precompiled (models build-time/standalone emission; runtime codegen cost for our
@@ -53,7 +53,7 @@ future compiler is not yet measured).
 ## Findings
 
 1. **The §7.4 claim is validated.** Flag-mode artifacts with zero location
-   bookkeeping beat AJV while the *same compilation approach* produces, from the
+   bookkeeping beat AJV while the _same compilation approach_ produces, from the
    same schema, artifacts emitting spec-shaped output units whose
    `keywordLocation`/`absoluteKeywordLocation` are string constants — including
    evaluation paths through `$ref`, which no runtime bookkeeping produced.

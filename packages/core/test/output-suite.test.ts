@@ -14,8 +14,14 @@ import { fileURLToPath } from "node:url";
 import { runOutputTests } from "@jse/test-kit";
 import { createEngine, JsonValue, DIALECT_2019_09 } from "@jse/core";
 
-const SUITE_ROOT = join(dirname(fileURLToPath(import.meta.url)),
-  "..", "..", "..", "test-suite", "output-tests");
+const SUITE_ROOT = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "..",
+  "test-suite",
+  "output-tests",
+);
 
 const FILES = ["escape", "general", "readOnly", "type"];
 
@@ -24,9 +30,13 @@ type Draft = "draft2020-12" | "draft2019-09";
 // Both output-schema documents declare an absolute $id (checked against the
 // vendored files), so they register directly, the same way index.ts bundles
 // the standard metaschemas — no loader indirection needed.
-function outputSchemaDoc(draft: Draft): { $id: string; [k: string]: JsonValue } {
-  return JSON.parse(readFileSync(
-    join(SUITE_ROOT, draft, "output-schema.json"), "utf8")) as { $id: string; [k: string]: JsonValue };
+function outputSchemaDoc(draft: Draft): {
+  $id: string;
+  [k: string]: JsonValue;
+} {
+  return JSON.parse(
+    readFileSync(join(SUITE_ROOT, draft, "output-schema.json"), "utf8"),
+  ) as { $id: string; [k: string]: JsonValue };
 }
 
 const DRAFTS: { draft: Draft; defaultDialect?: string }[] = [
@@ -44,8 +54,10 @@ for (const { draft, defaultDialect } of DRAFTS) {
         supportedFormats: ["basic"],
         onSkip: (info) => {
           skippedLoud++;
-          console.warn(`SKIP [${draft}] ${info.file}: ${info.group} / `
-            + `${info.description}: ${info.reason}`);
+          console.warn(
+            `SKIP [${draft}] ${info.file}: ${info.group} / ` +
+              `${info.description}: ${info.reason}`,
+          );
         },
         // Basic is the 2020-12-named flat document (contract's "classic
         // Basic document" for locations: "2020-12"); rendered via the
@@ -53,8 +65,10 @@ for (const { draft, defaultDialect } of DRAFTS) {
         renderDocument: (schema, retrievalUri, data) => {
           const engine = createEngine({ defaultDialect });
           const uri = engine.registerSchema(schema, retrievalUri);
-          const result = engine.evaluate(uri, data,
-            { output: "list", locations: "2020-12" });
+          const result = engine.evaluate(uri, data, {
+            output: "list",
+            locations: "2020-12",
+          });
           return result.outputDocument as unknown as JsonValue;
         },
         // A fresh engine per case: the case's own output-validating schema
@@ -64,17 +78,22 @@ for (const { draft, defaultDialect } of DRAFTS) {
           const validatorEngine = createEngine();
           const meta = outputSchemaDoc(draft);
           validatorEngine.registerSchema(meta, meta.$id);
-          const schemaId = (outputSchema as { $id?: string }).$id ?? outputSchemaUri;
+          const schemaId =
+            (outputSchema as { $id?: string }).$id ?? outputSchemaUri;
           const uri = validatorEngine.registerSchema(outputSchema, schemaId);
           return validatorEngine.evaluate(uri, document).valid;
         },
       });
 
-      console.log(`\noutput-tests [${draft}]: run ${summary.totalRun}, `
-        + `skipped ${summary.totalSkipped}`);
+      console.log(
+        `\noutput-tests [${draft}]: run ${summary.totalRun}, ` +
+          `skipped ${summary.totalSkipped}`,
+      );
       for (const c of summary.cases) {
         if (c.status === "failed") {
-          console.warn(`FAIL [${draft}] ${c.file}: ${c.group} / ${c.description}: ${c.detail}`);
+          console.warn(
+            `FAIL [${draft}] ${c.file}: ${c.group} / ${c.description}: ${c.detail}`,
+          );
         }
       }
       expect(skippedLoud).toBe(summary.totalSkipped);

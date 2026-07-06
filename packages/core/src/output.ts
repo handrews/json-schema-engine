@@ -8,7 +8,11 @@
 import { escapeSegment } from "./json.js";
 import { instancePointer } from "./cursor.js";
 import {
-  ErrorRecord, PathNode, Production, RecordPredicate, TraceNode,
+  ErrorRecord,
+  PathNode,
+  Production,
+  RecordPredicate,
+  TraceNode,
   materializePath,
 } from "./engine.js";
 import { SourceLocation } from "./loader.js";
@@ -52,18 +56,36 @@ function locations(
   keywordName: string | null,
   schemaRef: { baseUri: string; pointer: string },
   vocabulary: LocationVocabulary,
-): Pick<ErrorUnit, "evaluationPath" | "schemaLocation" | "keywordLocation" | "absoluteKeywordLocation"> {
-  const keywordSuffix = keywordName === null ? "" : "/" + escapeSegment(keywordName);
+): Pick<
+  ErrorUnit,
+  | "evaluationPath"
+  | "schemaLocation"
+  | "keywordLocation"
+  | "absoluteKeywordLocation"
+> {
+  const keywordSuffix =
+    keywordName === null ? "" : "/" + escapeSegment(keywordName);
   const evaluationPath = materializePath(pathNode) + keywordSuffix;
   const schemaLocation = `${schemaRef.baseUri}#${schemaRef.pointer}${keywordSuffix}`;
   return vocabulary === "modern"
     ? { evaluationPath, schemaLocation }
-    : { keywordLocation: evaluationPath, absoluteKeywordLocation: schemaLocation };
+    : {
+        keywordLocation: evaluationPath,
+        absoluteKeywordLocation: schemaLocation,
+      };
 }
 
-export function renderError(record: ErrorRecord, vocabulary: LocationVocabulary): ErrorUnit {
+export function renderError(
+  record: ErrorRecord,
+  vocabulary: LocationVocabulary,
+): ErrorUnit {
   return {
-    ...locations(record.pathNode, record.keywordName, record.schemaRef, vocabulary),
+    ...locations(
+      record.pathNode,
+      record.keywordName,
+      record.schemaRef,
+      vocabulary,
+    ),
     instanceLocation: instancePointer(record.cursor),
     error: record.message,
   };
@@ -75,8 +97,15 @@ export function renderAnnotation(
 ): AnnotationUnit {
   return {
     keyword: production.keywordName,
-    ...(production.vocabularyUri === null ? {} : { vocabulary: production.vocabularyUri }),
-    ...locations(production.pathNode, production.keywordName, production.schemaRef, vocabulary),
+    ...(production.vocabularyUri === null
+      ? {}
+      : { vocabulary: production.vocabularyUri }),
+    ...locations(
+      production.pathNode,
+      production.keywordName,
+      production.schemaRef,
+      vocabulary,
+    ),
     instanceLocation: instancePointer(production.cursor),
     annotation: production.value,
   };
@@ -105,19 +134,28 @@ export function makeRecordPredicate(
   if (!collectAnnotations) {
     return (behaviorId) => consumedIds.has(behaviorId);
   }
-  const allow = retention?.keywords !== undefined || retention?.vocabularies !== undefined
-    ? { names: new Set(retention.keywords ?? []), vocabs: new Set(retention.vocabularies ?? []) }
-    : null;
+  const allow =
+    retention?.keywords !== undefined || retention?.vocabularies !== undefined
+      ? {
+          names: new Set(retention.keywords ?? []),
+          vocabs: new Set(retention.vocabularies ?? []),
+        }
+      : null;
   const denyNames = new Set(retention?.excludeKeywords ?? []);
   const denyVocabs = new Set(retention?.excludeVocabularies ?? []);
   return (behaviorId, keywordName, vocabularyUri) => {
     if (consumedIds.has(behaviorId)) return true;
-    if (allow !== null && !allow.names.has(keywordName)
-      && !(vocabularyUri !== null && allow.vocabs.has(vocabularyUri))) {
+    if (
+      allow !== null &&
+      !allow.names.has(keywordName) &&
+      !(vocabularyUri !== null && allow.vocabs.has(vocabularyUri))
+    ) {
       return false;
     }
-    return !denyNames.has(keywordName)
-      && !(vocabularyUri !== null && denyVocabs.has(vocabularyUri));
+    return (
+      !denyNames.has(keywordName) &&
+      !(vocabularyUri !== null && denyVocabs.has(vocabularyUri))
+    );
   };
 }
 
@@ -128,8 +166,9 @@ export function selectRetained(
   vocabulary: LocationVocabulary,
 ): Production[] {
   const byLists = makeRecordPredicate(NO_CONSUMED_IDS, true, retention);
-  let selected = productions.filter(
-    (p) => byLists(p.behaviorId, p.keywordName, p.vocabularyUri));
+  let selected = productions.filter((p) =>
+    byLists(p.behaviorId, p.keywordName, p.vocabularyUri),
+  );
   if (retention?.keep) {
     const keep = retention.keep;
     selected = selected.filter((p) => keep(renderAnnotation(p, vocabulary)));
@@ -142,8 +181,9 @@ export function applyRetention(
   retention: RetentionPolicy | undefined,
   vocabulary: LocationVocabulary,
 ): AnnotationUnit[] {
-  return selectRetained(productions, retention, vocabulary)
-    .map((p) => renderAnnotation(p, vocabulary));
+  return selectRetained(productions, retention, vocabulary).map((p) =>
+    renderAnnotation(p, vocabulary),
+  );
 }
 
 // Structured output unit (current output spec / 2020-12 output spec): the
@@ -216,8 +256,10 @@ export function renderHierarchical(
         // A keyword may report several errors (required's missing names);
         // the unit field is one message per keyword, so join them.
         const key = e.keywordName ?? "";
-        byKeyword[key] = byKeyword[key] === undefined
-          ? e.message : `${byKeyword[key]}; ${e.message}`;
+        byKeyword[key] =
+          byKeyword[key] === undefined
+            ? e.message
+            : `${byKeyword[key]}; ${e.message}`;
       }
       unit.errors = byKeyword;
     }
@@ -232,18 +274,24 @@ export function renderHierarchical(
 
     if (details.length > 0) unit.details = details;
 
-    if (!options.verbose && node.valid
-      && unit.annotations === undefined && unit.details === undefined) {
+    if (
+      !options.verbose &&
+      node.valid &&
+      unit.annotations === undefined &&
+      unit.details === undefined
+    ) {
       return undefined;
     }
     return unit;
   };
 
-  return toUnit(root) ?? {
-    valid: root.valid,
-    ...locations(root.pathNode, null, root.schemaRef, vocabulary),
-    instanceLocation: instancePointer(root.cursor),
-  };
+  return (
+    toUnit(root) ?? {
+      valid: root.valid,
+      ...locations(root.pathNode, null, root.schemaRef, vocabulary),
+      instanceLocation: instancePointer(root.cursor),
+    }
+  );
 }
 
 // Detailed/Verbose (2020-12 names) are the identical tree shape as
@@ -256,8 +304,11 @@ export function renderDetailed(
   productions: readonly Production[],
   retention?: RetentionPolicy,
 ): OutputUnit {
-  return renderHierarchical(root, errors, productions,
-    { vocabulary: "2020-12", verbose: false, retention });
+  return renderHierarchical(root, errors, productions, {
+    vocabulary: "2020-12",
+    verbose: false,
+    retention,
+  });
 }
 
 export function renderVerbose(
@@ -266,8 +317,11 @@ export function renderVerbose(
   productions: readonly Production[],
   retention?: RetentionPolicy,
 ): OutputUnit {
-  return renderHierarchical(root, errors, productions,
-    { vocabulary: "2020-12", verbose: true, retention });
+  return renderHierarchical(root, errors, productions, {
+    vocabulary: "2020-12",
+    verbose: true,
+    retention,
+  });
 }
 
 /**

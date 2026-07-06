@@ -4,10 +4,10 @@
 // regex compiled in unicode mode with fallback; length in code points.
 
 export type JsonValue =
-  | null | boolean | number | string | JsonValue[] | { [k: string]: JsonValue };
+  null | boolean | number | string | JsonValue[] | { [k: string]: JsonValue };
 
 export type JsonType =
-  | "null" | "boolean" | "number" | "integer" | "string" | "array" | "object";
+  "null" | "boolean" | "number" | "integer" | "string" | "array" | "object";
 
 export const isObject = (v: unknown): v is Record<string, JsonValue> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
@@ -18,10 +18,14 @@ export function jsonTypeOf(v: JsonValue): Exclude<JsonType, "integer"> {
   if (v === null) return "null";
   if (Array.isArray(v)) return "array";
   switch (typeof v) {
-    case "boolean": return "boolean";
-    case "number": return "number";
-    case "string": return "string";
-    default: return "object";
+    case "boolean":
+      return "boolean";
+    case "number":
+      return "number";
+    case "string":
+      return "string";
+    default:
+      return "object";
   }
 }
 

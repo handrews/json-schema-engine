@@ -16,16 +16,17 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 export type JsonValue =
-  | null | boolean | number | string | JsonValue[] | { [k: string]: JsonValue };
+  null | boolean | number | string | JsonValue[] | { [k: string]: JsonValue };
 
 export const isObject = (v: unknown): v is Record<string, JsonValue> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
-export {
-  parseJsonWithRanges,
-} from "./positions.js";
+export { parseJsonWithRanges } from "./positions.js";
 export type {
-  ParsedDocument, SourcePosition, SourceRange, SourceSpan,
+  ParsedDocument,
+  SourcePosition,
+  SourceRange,
+  SourceSpan,
 } from "./positions.js";
 
 // Serves the official suite's `remotes/` tree for the URIs the suite files
@@ -41,7 +42,9 @@ export function suiteRemotesLoader(
     if (!uri.startsWith(baseUrl)) return undefined;
     try {
       const text = readFileSync(
-        join(remotesDir, ...uri.slice(baseUrl.length).split("/")), "utf8");
+        join(remotesDir, ...uri.slice(baseUrl.length).split("/")),
+        "utf8",
+      );
       return { value: JSON.parse(text) as JsonValue };
     } catch {
       return undefined;
@@ -51,14 +54,26 @@ export function suiteRemotesLoader(
 
 // Keywords whose value is one schema.
 const SINGLE = new Set([
-  "additionalProperties", "contains", "items", "not", "if", "then", "else",
-  "propertyNames", "unevaluatedItems", "unevaluatedProperties",
+  "additionalProperties",
+  "contains",
+  "items",
+  "not",
+  "if",
+  "then",
+  "else",
+  "propertyNames",
+  "unevaluatedItems",
+  "unevaluatedProperties",
 ]);
 // Keywords whose value is an array of schemas.
 const ARRAY = new Set(["allOf", "anyOf", "oneOf", "prefixItems"]);
 // Keywords whose value is an object of named schemas.
 const MAP = new Set([
-  "$defs", "definitions", "properties", "patternProperties", "dependentSchemas",
+  "$defs",
+  "definitions",
+  "properties",
+  "patternProperties",
+  "dependentSchemas",
 ]);
 
 // Find unsupported keywords in a schema, looking only in schema positions —
@@ -78,14 +93,24 @@ export function unsupportedIn(
     else if (ARRAY.has(k) && Array.isArray(v)) {
       v.forEach((s) => unsupportedIn(s, unsupportedKeywords, found));
     } else if (MAP.has(k) && isObject(v)) {
-      Object.values(v).forEach((s) => unsupportedIn(s, unsupportedKeywords, found));
+      Object.values(v).forEach((s) =>
+        unsupportedIn(s, unsupportedKeywords, found),
+      );
     }
   }
   return found;
 }
 
-export interface SuiteCase { description: string; data: JsonValue; valid: boolean }
-export interface SuiteGroup { description: string; schema: JsonValue; tests: SuiteCase[] }
+export interface SuiteCase {
+  description: string;
+  data: JsonValue;
+  valid: boolean;
+}
+export interface SuiteGroup {
+  description: string;
+  schema: JsonValue;
+  tests: SuiteCase[];
+}
 
 // Case-level outcome for collect mode.
 export interface CaseResult {
@@ -135,14 +160,14 @@ export interface OnSkipInfo {
 }
 
 export interface RunSuiteFilesOptions {
-  suiteDir: string;               // path to test-suite/tests/<draft>
-  files: string[];                // file stems, no .json extension
-  unsupportedKeywords: string[];  // schema-position keyword names to skip
+  suiteDir: string; // path to test-suite/tests/<draft>
+  files: string[]; // file stems, no .json extension
+  unsupportedKeywords: string[]; // schema-position keyword names to skip
   evaluate?: Evaluate;
   registerAndEvaluate?: RegisterAndEvaluate;
-  retrievalBase?: string;         // base URI for registerAndEvaluate; default below
+  retrievalBase?: string; // base URI for registerAndEvaluate; default below
   onSkip?: (info: OnSkipInfo) => void;
-  minRun?: number;                // vitest-mode summary threshold; default 0
+  minRun?: number; // vitest-mode summary threshold; default 0
 }
 
 const DEFAULT_RETRIEVAL_BASE = "https://suite.example/schema";
@@ -151,10 +176,14 @@ const DEFAULT_RETRIEVAL_BASE = "https://suite.example/schema";
 // case-level results plus per-file/overall totals. No test-framework
 // dependency — this is the primary API; runSuiteFilesVitest is a thin wrapper
 // over it.
-export async function runSuiteFiles(options: RunSuiteFilesOptions): Promise<SuiteSummary> {
+export async function runSuiteFiles(
+  options: RunSuiteFilesOptions,
+): Promise<SuiteSummary> {
   const { suiteDir, files, evaluate, registerAndEvaluate, onSkip } = options;
   if (!evaluate && !registerAndEvaluate) {
-    throw new Error("runSuiteFiles requires either evaluate or registerAndEvaluate");
+    throw new Error(
+      "runSuiteFiles requires either evaluate or registerAndEvaluate",
+    );
   }
   const unsupportedKeywords = new Set(options.unsupportedKeywords);
   const retrievalBase = options.retrievalBase ?? DEFAULT_RETRIEVAL_BASE;
@@ -181,8 +210,19 @@ export async function runSuiteFiles(options: RunSuiteFilesOptions): Promise<Suit
         for (const test of group.tests) {
           const detail = `${group.description} / ${test.description} [${reason}]`;
           skips.push(`${file}: ${detail}`);
-          cases.push({ file, group: group.description, description: test.description, status: "skipped", detail: reason });
-          onSkip?.({ file, group: group.description, description: test.description, reason });
+          cases.push({
+            file,
+            group: group.description,
+            description: test.description,
+            status: "skipped",
+            detail: reason,
+          });
+          onSkip?.({
+            file,
+            group: group.description,
+            description: test.description,
+            reason,
+          });
         }
         fileSkipped += group.tests.length;
         continue;
@@ -196,10 +236,21 @@ export async function runSuiteFiles(options: RunSuiteFilesOptions): Promise<Suit
             : evaluate!(group.schema, test.data));
           if (valid === test.valid) {
             filePassed++;
-            cases.push({ file, group: group.description, description: test.description, status: "passed" });
+            cases.push({
+              file,
+              group: group.description,
+              description: test.description,
+              status: "passed",
+            });
           } else {
             const detail = `expected valid=${test.valid}, got valid=${valid}`;
-            cases.push({ file, group: group.description, description: test.description, status: "failed", detail });
+            cases.push({
+              file,
+              group: group.description,
+              description: test.description,
+              status: "failed",
+              detail,
+            });
           }
         } catch (e) {
           // A thrown error (e.g. unresolvable remote ref) is reported as a
@@ -210,14 +261,32 @@ export async function runSuiteFiles(options: RunSuiteFilesOptions): Promise<Suit
           fileRun--;
           fileSkipped++;
           const reason = `error: ${message}`;
-          skips.push(`${file}: ${group.description} / ${test.description} [${reason}]`);
-          cases.push({ file, group: group.description, description: test.description, status: "errored", detail: message });
-          onSkip?.({ file, group: group.description, description: test.description, reason });
+          skips.push(
+            `${file}: ${group.description} / ${test.description} [${reason}]`,
+          );
+          cases.push({
+            file,
+            group: group.description,
+            description: test.description,
+            status: "errored",
+            detail: message,
+          });
+          onSkip?.({
+            file,
+            group: group.description,
+            description: test.description,
+            reason,
+          });
         }
       }
     }
 
-    fileSummaries.push({ name: file, run: fileRun, passed: filePassed, skipped: fileSkipped });
+    fileSummaries.push({
+      name: file,
+      run: fileRun,
+      passed: filePassed,
+      skipped: fileSkipped,
+    });
     totalRun += fileRun;
     totalSkipped += fileSkipped;
   }
@@ -259,8 +328,8 @@ export interface OutputTestSummary {
 }
 
 export interface RunOutputTestsOptions {
-  contentDir: string;      // path to test-suite/output-tests/<draft>/content
-  files: string[];         // file stems, no .json extension
+  contentDir: string; // path to test-suite/output-tests/<draft>/content
+  files: string[]; // file stems, no .json extension
   /** format keys this runner can produce a document for; others are skipped */
   supportedFormats: readonly string[];
   /**
@@ -287,7 +356,12 @@ export interface RunOutputTestsOptions {
   ) => boolean | Promise<boolean>;
   /** base URI for the fallback retrieval URIs above; per-file/group/test */
   retrievalBase?: string;
-  onSkip?: (info: { file: string; group: string; description: string; reason: string }) => void;
+  onSkip?: (info: {
+    file: string;
+    group: string;
+    description: string;
+    reason: string;
+  }) => void;
 }
 
 const OUTPUT_TEST_RETRIEVAL_BASE = "https://output-suite.example/schema";
@@ -295,9 +369,16 @@ const OUTPUT_TEST_RETRIEVAL_BASE = "https://output-suite.example/schema";
 // Sequential (not vitest-mode): output-tests.test.ts drives vitest
 // describe/it itself since it also needs to register per-draft output-schema
 // documents once, outside the per-case loop.
-export async function runOutputTests(options: RunOutputTestsOptions): Promise<OutputTestSummary> {
+export async function runOutputTests(
+  options: RunOutputTestsOptions,
+): Promise<OutputTestSummary> {
   const {
-    contentDir, files, supportedFormats, renderDocument, validateDocument, onSkip,
+    contentDir,
+    files,
+    supportedFormats,
+    renderDocument,
+    validateDocument,
+    onSkip,
   } = options;
   const formats = new Set(supportedFormats);
   const retrievalBase = options.retrievalBase ?? OUTPUT_TEST_RETRIEVAL_BASE;
@@ -322,21 +403,42 @@ export async function runOutputTests(options: RunOutputTestsOptions): Promise<Ou
           const reason = `no supported format among [${availableFormats.join(", ")}]`;
           totalSkipped++;
           cases.push({
-            file, group: group.description, description: test.description,
-            status: "skipped", detail: reason,
+            file,
+            group: group.description,
+            description: test.description,
+            status: "skipped",
+            detail: reason,
           });
-          onSkip?.({ file, group: group.description, description: test.description, reason });
+          onSkip?.({
+            file,
+            group: group.description,
+            description: test.description,
+            reason,
+          });
           continue;
         }
         totalRun++;
         const outputSchema = test.output[format]!;
         const outputSchemaUri = `${retrievalUri}/tests/${testIndex}/${format}`;
-        const document = await renderDocument(group.schema, retrievalUri, test.data, format);
-        const valid = await validateDocument(outputSchema, outputSchemaUri, document);
+        const document = await renderDocument(
+          group.schema,
+          retrievalUri,
+          test.data,
+          format,
+        );
+        const valid = await validateDocument(
+          outputSchema,
+          outputSchemaUri,
+          document,
+        );
         cases.push({
-          file, group: group.description, description: test.description,
+          file,
+          group: group.description,
+          description: test.description,
           status: valid ? "passed" : "failed",
-          detail: valid ? undefined : `document ${JSON.stringify(document)} failed its output schema`,
+          detail: valid
+            ? undefined
+            : `document ${JSON.stringify(document)} failed its output schema`,
         });
       }
     }
@@ -353,7 +455,10 @@ export interface VitestLike {
     (name: string, fn: () => void | Promise<void>): void;
     skip: (name: string, fn: () => void) => void;
   };
-  expect: (actual: unknown, message?: string) => { toBe: (expected: unknown) => void };
+  expect: (
+    actual: unknown,
+    message?: string,
+  ) => { toBe: (expected: unknown) => void };
 }
 
 export interface RunSuiteFilesVitestOptions extends RunSuiteFilesOptions {
@@ -367,9 +472,19 @@ export interface RunSuiteFilesVitestOptions extends RunSuiteFilesOptions {
 // trailing "suite summary" test that logs totals. Built on top of collect
 // mode's per-group skip detection so both modes agree on what's skipped.
 export function runSuiteFilesVitest(options: RunSuiteFilesVitestOptions): void {
-  const { suiteDir, files, evaluate, registerAndEvaluate, describe, it, expect } = options;
+  const {
+    suiteDir,
+    files,
+    evaluate,
+    registerAndEvaluate,
+    describe,
+    it,
+    expect,
+  } = options;
   if (!evaluate && !registerAndEvaluate) {
-    throw new Error("runSuiteFilesVitest requires either evaluate or registerAndEvaluate");
+    throw new Error(
+      "runSuiteFilesVitest requires either evaluate or registerAndEvaluate",
+    );
   }
   const unsupportedKeywords = new Set(options.unsupportedKeywords);
   const retrievalBase = options.retrievalBase ?? DEFAULT_RETRIEVAL_BASE;
@@ -406,8 +521,15 @@ export function runSuiteFilesVitest(options: RunSuiteFilesVitestOptions): void {
               } catch (e) {
                 const message = e instanceof Error ? e.message : String(e);
                 const reason = `error: ${message}`;
-                skips.push(`${file}: ${group.description} / ${test.description} [${reason}]`);
-                options.onSkip?.({ file, group: group.description, description: test.description, reason });
+                skips.push(
+                  `${file}: ${group.description} / ${test.description} [${reason}]`,
+                );
+                options.onSkip?.({
+                  file,
+                  group: group.description,
+                  description: test.description,
+                  reason,
+                });
                 return; // treated as a skip, not a failure — see collect-mode comment
               }
               run++;
@@ -421,13 +543,17 @@ export function runSuiteFilesVitest(options: RunSuiteFilesVitestOptions): void {
 
   describe("suite summary", () => {
     it("reports coverage", () => {
-      console.log(`\nsuite cases run: ${run}, group/case skips: ${skips.length}`);
+      console.log(
+        `\nsuite cases run: ${run}, group/case skips: ${skips.length}`,
+      );
       for (const s of skips) console.log(`  SKIP ${s}`);
       // Caller-provided threshold, not a fixed invariant: some callers (e.g.
       // this package's own self-test) intentionally run fixtures that are
       // fully skipped by design.
       const minRun = options.minRun ?? 0;
-      expect(run >= minRun, `expected at least ${minRun} case(s) to run`).toBe(true);
+      expect(run >= minRun, `expected at least ${minRun} case(s) to run`).toBe(
+        true,
+      );
     });
   });
 }

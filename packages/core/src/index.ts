@@ -7,18 +7,40 @@
 import { JsonValue, isObject } from "./json.js";
 import { resolveUri, splitFragment, UnresolvableRefError } from "./uri.js";
 import {
-  DialectRegistry, DialectOptions, KeywordBehavior,
-  UnknownDialectError, UnknownVocabularyError,
+  DialectRegistry,
+  DialectOptions,
+  KeywordBehavior,
+  UnknownDialectError,
+  UnknownVocabularyError,
 } from "./dialect.js";
 import { SchemaRegistry } from "./registry.js";
 import { runEvaluation } from "./engine.js";
-import { LoadedDocument, SchemaLoader, SourceLocation, SourceRange } from "./loader.js";
 import {
-  AnnotationUnit, BasicOutputDocument, ErrorUnit, LocationVocabulary, OutputUnit,
-  RetentionPolicy, applyRetention, makeRecordPredicate, renderBasic,
-  renderDetailed, renderError, renderHierarchical, renderList, renderVerbose,
+  LoadedDocument,
+  SchemaLoader,
+  SourceLocation,
+  SourceRange,
+} from "./loader.js";
+import {
+  AnnotationUnit,
+  BasicOutputDocument,
+  ErrorUnit,
+  LocationVocabulary,
+  OutputUnit,
+  RetentionPolicy,
+  applyRetention,
+  makeRecordPredicate,
+  renderBasic,
+  renderDetailed,
+  renderError,
+  renderHierarchical,
+  renderList,
+  renderVerbose,
 } from "./output.js";
-import { DIALECT_2020_12, registerStandardDialects } from "./keywords/vocab2020.js";
+import {
+  DIALECT_2020_12,
+  registerStandardDialects,
+} from "./keywords/vocab2020.js";
 import { METASCHEMAS_2020_12 } from "./keywords/metaschemas2020.js";
 import { METASCHEMAS_2019_09 } from "./keywords/metaschemas2019.js";
 import { METASCHEMAS_DRAFT_07 } from "./keywords/metaschemas7.js";
@@ -31,25 +53,44 @@ export type { Cursor } from "./cursor.js";
 export { rootCursor, childCursor, instancePointer } from "./cursor.js";
 export type { SchemaRef } from "./ref.js";
 export type {
-  KeywordBehavior, KeywordContext, StaticFacts, ProductionView, DialectOptions,
-  IdentifierFacts, IdentifierExtractor,
+  KeywordBehavior,
+  KeywordContext,
+  StaticFacts,
+  ProductionView,
+  DialectOptions,
+  IdentifierFacts,
+  IdentifierExtractor,
 } from "./dialect.js";
 export {
-  DialectRegistry, UnknownDialectError, UnknownVocabularyError,
-  identifiers2020, identifiers2019, identifiersLegacy,
+  DialectRegistry,
+  UnknownDialectError,
+  UnknownVocabularyError,
+  identifiers2020,
+  identifiers2019,
+  identifiersLegacy,
 } from "./dialect.js";
 export { SchemaRegistry } from "./registry.js";
 export type { DocumentLocation } from "./registry.js";
 export { UnresolvableRefError } from "./uri.js";
 export {
-  InfiniteLoopError, UndeclaredConsumptionError, UnknownKeywordError,
+  InfiniteLoopError,
+  UndeclaredConsumptionError,
+  UnknownKeywordError,
 } from "./engine.js";
 export type {
-  AnnotationUnit, BasicOutputDocument, ErrorUnit, LocationVocabulary, OutputUnit,
+  AnnotationUnit,
+  BasicOutputDocument,
+  ErrorUnit,
+  LocationVocabulary,
+  OutputUnit,
   RetentionPolicy,
 } from "./output.js";
 export type {
-  LoadedDocument, SchemaLoader, SourceLocation, SourcePosition, SourceRange,
+  LoadedDocument,
+  SchemaLoader,
+  SourceLocation,
+  SourcePosition,
+  SourceRange,
   SourceSpan,
 } from "./loader.js";
 export { DIALECT_2020_12 } from "./keywords/vocab2020.js";
@@ -57,7 +98,10 @@ export { DIALECT_2019_09 } from "./keywords/vocab2019.js";
 export { DIALECT_DRAFT_07, DIALECT_DRAFT_06 } from "./keywords/vocab7.js";
 
 export class SchemaValidationError extends Error {
-  constructor(message: string, readonly errors: readonly ErrorUnit[]) {
+  constructor(
+    message: string,
+    readonly errors: readonly ErrorUnit[],
+  ) {
     super(message);
   }
 }
@@ -121,8 +165,9 @@ export class Engine {
 
   constructor(options: EngineOptions = {}) {
     registerStandardDialects(this.dialects);
-    this.defaultDialect =
-      splitFragment(options.defaultDialect ?? DIALECT_2020_12).resource;
+    this.defaultDialect = splitFragment(
+      options.defaultDialect ?? DIALECT_2020_12,
+    ).resource;
     this.schemas = new SchemaRegistry(this.dialects, this.defaultDialect);
     this.loaders = [...(options.loaders ?? [])];
     this.validateSchemas = options.validateSchemas ?? false;
@@ -159,7 +204,12 @@ export class Engine {
     dialectUri?: string,
     getRange?: (pointer: string) => SourceRange | undefined,
   ): string {
-    const baseUri = this.schemas.register(schema, retrievalUri, dialectUri, getRange);
+    const baseUri = this.schemas.register(
+      schema,
+      retrievalUri,
+      dialectUri,
+      getRange,
+    );
     this.maybeValidate(baseUri);
     return baseUri;
   }
@@ -177,7 +227,12 @@ export class Engine {
     getRange?: (pointer: string) => SourceRange | undefined,
   ): Promise<string> {
     await this.ensureDialectFor(schema, retrievalUri, dialectUri);
-    const baseUri = this.schemas.register(schema, retrievalUri, dialectUri, getRange);
+    const baseUri = this.schemas.register(
+      schema,
+      retrievalUri,
+      dialectUri,
+      getRange,
+    );
     await this.loadPending();
     this.maybeValidate(baseUri);
     return baseUri;
@@ -195,11 +250,18 @@ export class Engine {
     return baseUri;
   }
 
-  registerVocabulary(uri: string, keywords: Readonly<Record<string, KeywordBehavior>>): void {
+  registerVocabulary(
+    uri: string,
+    keywords: Readonly<Record<string, KeywordBehavior>>,
+  ): void {
     this.dialects.registerVocabulary(uri, keywords);
   }
 
-  registerDialect(uri: string, vocabularyUris: readonly string[], options?: DialectOptions): void {
+  registerDialect(
+    uri: string,
+    vocabularyUris: readonly string[],
+    options?: DialectOptions,
+  ): void {
     this.dialects.registerDialect(uri, vocabularyUris, options);
   }
 
@@ -232,19 +294,33 @@ export class Engine {
   // call sites; the general signature keeps the full union for dynamic
   // options objects (e.g. options built from a variable).
   evaluate(
-    schemaUri: string, instance: JsonValue,
-    options: EvaluateOptions & { output: "hierarchical"; locations?: "modern" | "2020-12" },
+    schemaUri: string,
+    instance: JsonValue,
+    options: EvaluateOptions & {
+      output: "hierarchical";
+      locations?: "modern" | "2020-12";
+    },
   ): Result & { outputDocument: OutputUnit };
   evaluate(
-    schemaUri: string, instance: JsonValue,
+    schemaUri: string,
+    instance: JsonValue,
     options: EvaluateOptions & { output: "list"; locations: "2020-12" },
   ): Result & { outputDocument: BasicOutputDocument };
   evaluate(
-    schemaUri: string, instance: JsonValue,
+    schemaUri: string,
+    instance: JsonValue,
     options: EvaluateOptions & { output: "list"; locations?: "modern" },
   ): Result & { outputDocument: OutputUnit[] };
-  evaluate(schemaUri: string, instance: JsonValue, options?: EvaluateOptions): Result;
-  evaluate(schemaUri: string, instance: JsonValue, options: EvaluateOptions = {}): Result {
+  evaluate(
+    schemaUri: string,
+    instance: JsonValue,
+    options?: EvaluateOptions,
+  ): Result;
+  evaluate(
+    schemaUri: string,
+    instance: JsonValue,
+    options: EvaluateOptions = {},
+  ): Result {
     const vocabulary = options.locations ?? "modern";
     const outputKind = options.output ?? "flag";
     // Tracing is only worth its cost (TraceNode per application) when a
@@ -253,35 +329,79 @@ export class Engine {
     // Without tracing, productions no consumer declares and no annotation
     // path can retain are elided at produce time (D5/M5.5); channel
     // consumers are unaffected because consumed ids always record.
-    const shouldRecord = structured ? null : makeRecordPredicate(
-      this.schemas.consumedIds(),
-      options.collectAnnotations ?? false,
-      options.retention);
-    const { valid, state } =
-      runEvaluation(this.schemas, schemaUri, instance, structured, shouldRecord);
+    const shouldRecord = structured
+      ? null
+      : makeRecordPredicate(
+          this.schemas.consumedIds(),
+          options.collectAnnotations ?? false,
+          options.retention,
+        );
+    const { valid, state } = runEvaluation(
+      this.schemas,
+      schemaUri,
+      instance,
+      structured,
+      shouldRecord,
+    );
 
     const result: Result = { valid };
     if (!valid && outputKind === "list") {
       result.errors = state.errors.map((e) => renderError(e, vocabulary));
     }
     if (valid && options.collectAnnotations) {
-      result.annotations = applyRetention(state.rootProductions, options.retention, vocabulary);
+      result.annotations = applyRetention(
+        state.rootProductions,
+        options.retention,
+        vocabulary,
+      );
     }
     if (outputKind === "list") {
-      result.outputDocument = vocabulary === "2020-12"
-        ? renderBasic(valid, this.schemas.rootRef(schemaUri), state.errors,
-          state.rootProductions, options.retention, vocabulary)
-        : renderList(state.traceRoot!, state.errors, state.allProductions ?? [],
-          { vocabulary, verbose: options.verbose, retention: options.retention });
+      result.outputDocument =
+        vocabulary === "2020-12"
+          ? renderBasic(
+              valid,
+              this.schemas.rootRef(schemaUri),
+              state.errors,
+              state.rootProductions,
+              options.retention,
+              vocabulary,
+            )
+          : renderList(
+              state.traceRoot!,
+              state.errors,
+              state.allProductions ?? [],
+              {
+                vocabulary,
+                verbose: options.verbose,
+                retention: options.retention,
+              },
+            );
     } else if (outputKind === "hierarchical") {
-      result.outputDocument = vocabulary === "2020-12"
-        ? (options.verbose
-          ? renderVerbose(state.traceRoot!, state.errors, state.allProductions ?? [],
-            options.retention)
-          : renderDetailed(state.traceRoot!, state.errors, state.allProductions ?? [],
-            options.retention))
-        : renderHierarchical(state.traceRoot!, state.errors, state.allProductions ?? [],
-          { vocabulary, verbose: options.verbose, retention: options.retention });
+      result.outputDocument =
+        vocabulary === "2020-12"
+          ? options.verbose
+            ? renderVerbose(
+                state.traceRoot!,
+                state.errors,
+                state.allProductions ?? [],
+                options.retention,
+              )
+            : renderDetailed(
+                state.traceRoot!,
+                state.errors,
+                state.allProductions ?? [],
+                options.retention,
+              )
+          : renderHierarchical(
+              state.traceRoot!,
+              state.errors,
+              state.allProductions ?? [],
+              {
+                vocabulary,
+                verbose: options.verbose,
+                retention: options.retention,
+              },
+            );
     }
     if (options.positions) {
       this.decorate(result.errors);
@@ -290,7 +410,9 @@ export class Engine {
     return result;
   }
 
-  private decorate(units: readonly ErrorUnit[] | readonly AnnotationUnit[] | undefined): void {
+  private decorate(
+    units: readonly ErrorUnit[] | readonly AnnotationUnit[] | undefined,
+  ): void {
     for (const unit of units ?? []) {
       const canonical = unit.schemaLocation ?? unit.absoluteKeywordLocation;
       if (canonical === undefined) continue;
@@ -338,7 +460,9 @@ export class Engine {
   ): Promise<void> {
     let effective = splitFragment(dialectUri ?? this.defaultDialect).resource;
     if (isObject(schema) && typeof schema.$schema === "string") {
-      effective = splitFragment(resolveUri(schema.$schema, retrievalUri)).resource;
+      effective = splitFragment(
+        resolveUri(schema.$schema, retrievalUri),
+      ).resource;
     }
     if (this.dialects.hasDialect(effective)) return;
     if (this.assembling.has(effective)) {
@@ -347,10 +471,12 @@ export class Engine {
     this.assembling.add(effective);
     try {
       const metaBase = await this.loadResource(effective);
-      const meta = metaBase === undefined ? undefined : this.schemas.document(metaBase);
+      const meta =
+        metaBase === undefined ? undefined : this.schemas.document(metaBase);
       if (meta === undefined) {
         throw new UnknownDialectError(
-          `dialect '${effective}' is not registered and no loader provides its metaschema`);
+          `dialect '${effective}' is not registered and no loader provides its metaschema`,
+        );
       }
       this.assembleDialect(effective, meta);
     } finally {
@@ -377,7 +503,8 @@ export class Engine {
         uris.push(vocabUri);
       } else if (required === true) {
         throw new UnknownVocabularyError(
-          `dialect '${uri}' requires unknown vocabulary '${vocabUri}'`);
+          `dialect '${uri}' requires unknown vocabulary '${vocabUri}'`,
+        );
       }
       // Unknown optional vocabularies are skipped; their keywords fall to
       // unknown-keyword annotation handling (spec MUST for false).
@@ -385,7 +512,9 @@ export class Engine {
     // Identifier syntax travels with the core vocabulary (D18): a dialect
     // assembled around the 2019-09 core gets 2019-09 identifier handling.
     this.dialects.registerDialect(uri, uris, {
-      identifiers: uris.includes(VOCAB_CORE_2019) ? identifiers2019 : identifiers2020,
+      identifiers: uris.includes(VOCAB_CORE_2019)
+        ? identifiers2019
+        : identifiers2020,
     });
   }
 
@@ -398,9 +527,11 @@ export class Engine {
     if (!result.valid) {
       throw new SchemaValidationError(
         `schema '${baseUri}' fails its metaschema '${dialectUri}'`,
-        result.errors ?? []);
+        result.errors ?? [],
+      );
     }
   }
 }
 
-export const createEngine = (options?: EngineOptions): Engine => new Engine(options);
+export const createEngine = (options?: EngineOptions): Engine =>
+  new Engine(options);

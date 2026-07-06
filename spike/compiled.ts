@@ -53,7 +53,8 @@ const USER_PROPS = new Set(["id", "name", "email", "role", "tags", "address"]);
 
 export function userFlag(d: unknown): boolean {
   if (!isObject(d)) return false;
-  if (!("id" in d) || !("name" in d) || !("email" in d) || !("tags" in d)) return false;
+  if (!("id" in d) || !("name" in d) || !("email" in d) || !("tags" in d))
+    return false;
 
   const id = d.id;
   if (typeof id !== "number" || !Number.isInteger(id) || id < 1) return false;
@@ -89,7 +90,14 @@ export function userFlag(d: unknown): boolean {
   }
 
   for (const k in d) {
-    if (k !== "id" && k !== "name" && k !== "email" && k !== "role" && k !== "tags" && k !== "address") {
+    if (
+      k !== "id" &&
+      k !== "name" &&
+      k !== "email" &&
+      k !== "role" &&
+      k !== "tags" &&
+      k !== "address"
+    ) {
       return false;
     }
   }
@@ -103,12 +111,14 @@ export function userList(d: unknown): ListResult {
   if (!isObject(d)) {
     return {
       valid: false,
-      errors: [{
-        keywordLocation: "/type",
-        absoluteKeywordLocation: USER + "/type",
-        instanceLocation: "",
-        error: "expected an object",
-      }],
+      errors: [
+        {
+          keywordLocation: "/type",
+          absoluteKeywordLocation: USER + "/type",
+          instanceLocation: "",
+          error: "expected an object",
+        },
+      ],
     };
   }
   const errors: OutputUnit[] = [];
@@ -257,7 +267,8 @@ export function userList(d: unknown): ListResult {
       if ("street" in a && typeof a.street !== "string") {
         errors.push({
           keywordLocation: "/properties/address/properties/street/type",
-          absoluteKeywordLocation: USER + "/properties/address/properties/street/type",
+          absoluteKeywordLocation:
+            USER + "/properties/address/properties/street/type",
           instanceLocation: "/address/street",
           error: "expected a string",
         });
@@ -265,7 +276,8 @@ export function userList(d: unknown): ListResult {
       if ("city" in a && typeof a.city !== "string") {
         errors.push({
           keywordLocation: "/properties/address/properties/city/type",
-          absoluteKeywordLocation: USER + "/properties/address/properties/city/type",
+          absoluteKeywordLocation:
+            USER + "/properties/address/properties/city/type",
           instanceLocation: "/address/city",
           error: "expected a string",
         });
@@ -275,14 +287,16 @@ export function userList(d: unknown): ListResult {
         if (typeof zip !== "string") {
           errors.push({
             keywordLocation: "/properties/address/properties/zip/type",
-            absoluteKeywordLocation: USER + "/properties/address/properties/zip/type",
+            absoluteKeywordLocation:
+              USER + "/properties/address/properties/zip/type",
             instanceLocation: "/address/zip",
             error: "expected a string",
           });
         } else if (!ZIP_RE.test(zip)) {
           errors.push({
             keywordLocation: "/properties/address/properties/zip/pattern",
-            absoluteKeywordLocation: USER + "/properties/address/properties/zip/pattern",
+            absoluteKeywordLocation:
+              USER + "/properties/address/properties/zip/pattern",
             instanceLocation: "/address/zip",
             error: "does not match required pattern",
           });
@@ -312,7 +326,13 @@ export function userList(d: unknown): ListResult {
 const EVENT = "https://spike.example/event#";
 // Static analysis result: every applicator contributing evaluated names is
 // statically resolvable, so unevaluatedProperties lowers to one constant set.
-const EVENT_EVALUATED = new Set(["kind", "id", "actor", "createdAt", "updatedAt"]);
+const EVENT_EVALUATED = new Set([
+  "kind",
+  "id",
+  "actor",
+  "createdAt",
+  "updatedAt",
+]);
 
 export function eventFlag(d: unknown): boolean {
   if (!isObject(d)) return false;
@@ -330,12 +350,19 @@ export function eventFlag(d: unknown): boolean {
   // /properties, /required
   if (!("kind" in d)) return false;
   const kind = d.kind;
-  if (kind !== "created" && kind !== "updated" && kind !== "deleted") return false;
+  if (kind !== "created" && kind !== "updated" && kind !== "deleted")
+    return false;
 
   // /unevaluatedProperties, lowered to the static evaluated-name set
   // (emitted as an equality chain below a size threshold, Set.has above it)
   for (const k in d) {
-    if (k !== "kind" && k !== "id" && k !== "actor" && k !== "createdAt" && k !== "updatedAt") {
+    if (
+      k !== "kind" &&
+      k !== "id" &&
+      k !== "actor" &&
+      k !== "createdAt" &&
+      k !== "updatedAt"
+    ) {
       return false;
     }
   }
@@ -348,12 +375,14 @@ export function eventList(d: unknown): ListResult {
   if (!isObject(d)) {
     return {
       valid: false,
-      errors: [{
-        keywordLocation: "/type",
-        absoluteKeywordLocation: EVENT + "/type",
-        instanceLocation: "",
-        error: "expected an object",
-      }],
+      errors: [
+        {
+          keywordLocation: "/type",
+          absoluteKeywordLocation: EVENT + "/type",
+          instanceLocation: "",
+          error: "expected an object",
+        },
+      ],
     };
   }
   const errors: OutputUnit[] = [];
@@ -395,7 +424,8 @@ export function eventList(d: unknown): ListResult {
   } else if (typeof d.createdAt !== "string") {
     errors.push({
       keywordLocation: "/allOf/1/$ref/properties/createdAt/type",
-      absoluteKeywordLocation: EVENT + "/$defs/timestamps/properties/createdAt/type",
+      absoluteKeywordLocation:
+        EVENT + "/$defs/timestamps/properties/createdAt/type",
       instanceLocation: "/createdAt",
       error: "expected a string",
     });
@@ -403,7 +433,8 @@ export function eventList(d: unknown): ListResult {
   if ("updatedAt" in d && typeof d.updatedAt !== "string") {
     errors.push({
       keywordLocation: "/allOf/1/$ref/properties/updatedAt/type",
-      absoluteKeywordLocation: EVENT + "/$defs/timestamps/properties/updatedAt/type",
+      absoluteKeywordLocation:
+        EVENT + "/$defs/timestamps/properties/updatedAt/type",
       instanceLocation: "/updatedAt",
       error: "expected a string",
     });
@@ -466,12 +497,14 @@ export function profileAnnotated(d: unknown): AnnotatedResult {
   if (!isObject(d)) {
     return {
       valid: false,
-      errors: [{
-        keywordLocation: "/type",
-        absoluteKeywordLocation: PROFILE + "/type",
-        instanceLocation: "",
-        error: "expected an object",
-      }],
+      errors: [
+        {
+          keywordLocation: "/type",
+          absoluteKeywordLocation: PROFILE + "/type",
+          instanceLocation: "",
+          error: "expected an object",
+        },
+      ],
     };
   }
   const errors: OutputUnit[] = [];

@@ -4,12 +4,22 @@
 // stays dependency-free; the shapes must stay assignment-compatible.
 
 export type JsonValue =
-  | null | boolean | number | string | JsonValue[] | { [k: string]: JsonValue };
+  null | boolean | number | string | JsonValue[] | { [k: string]: JsonValue };
 
 /** 1-based line/column; 0-based offset. */
-export interface SourcePosition { line: number; column: number; offset: number }
-export interface SourceSpan { start: SourcePosition; end: SourcePosition }
-export interface SourceRange { key?: SourceSpan; value: SourceSpan }
+export interface SourcePosition {
+  line: number;
+  column: number;
+  offset: number;
+}
+export interface SourceSpan {
+  start: SourcePosition;
+  end: SourcePosition;
+}
+export interface SourceRange {
+  key?: SourceSpan;
+  value: SourceSpan;
+}
 
 export interface ParsedDocument {
   value: JsonValue;
@@ -79,10 +89,18 @@ export function parseJsonWithRanges(text: string): ParsedDocument {
           if (text[i] !== ":") fail("expected ':'");
           advance();
           obj[key.value] = parseValue(
-            pointer + "/" + escapePointer(key.value), key.span);
+            pointer + "/" + escapePointer(key.value),
+            key.span,
+          );
           skipWs();
-          if (text[i] === ",") { advance(); continue; }
-          if (text[i] === "}") { advance(); break; }
+          if (text[i] === ",") {
+            advance();
+            continue;
+          }
+          if (text[i] === "}") {
+            advance();
+            break;
+          }
           fail("expected ',' or '}'");
         }
       }
@@ -97,8 +115,14 @@ export function parseJsonWithRanges(text: string): ParsedDocument {
         for (;;) {
           arr.push(parseValue(pointer + "/" + arr.length));
           skipWs();
-          if (text[i] === ",") { advance(); continue; }
-          if (text[i] === "]") { advance(); break; }
+          if (text[i] === ",") {
+            advance();
+            continue;
+          }
+          if (text[i] === "]") {
+            advance();
+            break;
+          }
           fail("expected ',' or ']'");
         }
       }

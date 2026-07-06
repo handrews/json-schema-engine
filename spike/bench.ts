@@ -13,12 +13,24 @@ import { BASIC } from "@hyperjump/json-schema/experimental";
 import { annotate } from "@hyperjump/json-schema/annotations/experimental";
 
 import {
-  userSchema, userValid, userInvalid, userInvalidMulti,
-  eventSchema, eventValid, eventInvalid,
-  profileSchema, profileValid, profileInvalid,
+  userSchema,
+  userValid,
+  userInvalid,
+  userInvalidMulti,
+  eventSchema,
+  eventValid,
+  eventInvalid,
+  profileSchema,
+  profileValid,
+  profileInvalid,
 } from "./schemas.js";
 import {
-  userFlag, userList, eventFlag, eventList, profileFlag, profileAnnotated,
+  userFlag,
+  userList,
+  eventFlag,
+  eventList,
+  profileFlag,
+  profileAnnotated,
 } from "./compiled.js";
 
 // --- Set up competitors ----------------------------------------------------
@@ -56,7 +68,9 @@ function expectVerdict(
   for (const [impl, got] of Object.entries(verdicts)) {
     if (got !== expected) {
       oracleFailures++;
-      console.error(`ORACLE FAIL: ${label}: ${impl} said ${got}, expected ${expected}`);
+      console.error(
+        `ORACLE FAIL: ${label}: ${impl} said ${got}, expected ${expected}`,
+      );
     }
   }
 }
@@ -111,12 +125,20 @@ if (oracleFailures > 0) {
 console.log("Oracle: all implementations agree on all verdicts.\n");
 
 // Spot-check output content for the SPIKE.md record.
-console.log("Sample ours/list unit (event/invalid):",
-  JSON.stringify(eventList(eventInvalid).errors![0]));
-console.log("Sample hyperjump BASIC unit (event/invalid):",
-  JSON.stringify((hjEvent(eventInvalid, BASIC) as { errors?: unknown[] }).errors?.[0]));
-console.log("Ours annotations (profile/valid):",
-  JSON.stringify(profileAnnotated(profileValid).annotations));
+console.log(
+  "Sample ours/list unit (event/invalid):",
+  JSON.stringify(eventList(eventInvalid).errors![0]),
+);
+console.log(
+  "Sample hyperjump BASIC unit (event/invalid):",
+  JSON.stringify(
+    (hjEvent(eventInvalid, BASIC) as { errors?: unknown[] }).errors?.[0],
+  ),
+);
+console.log(
+  "Ours annotations (profile/valid):",
+  JSON.stringify(profileAnnotated(profileValid).annotations),
+);
 console.log();
 
 // --- Benchmarks --------------------------------------------------------------
@@ -129,43 +151,56 @@ interface Group {
 
 const groups: Group[] = [
   {
-    name: "user valid (flag)", gated: true, tasks: {
+    name: "user valid (flag)",
+    gated: true,
+    tasks: {
       "ours(compiled)": () => userFlag(userValid),
-      "ajv": () => ajvUser(userValid),
-      "hyperjump": () => hjUser(userValid),
+      ajv: () => ajvUser(userValid),
+      hyperjump: () => hjUser(userValid),
     },
   },
   {
-    name: "user invalid (flag)", gated: true, tasks: {
+    name: "user invalid (flag)",
+    gated: true,
+    tasks: {
       "ours(compiled)": () => userFlag(userInvalid),
-      "ajv": () => ajvUser(userInvalid),
-      "hyperjump": () => hjUser(userInvalid),
+      ajv: () => ajvUser(userInvalid),
+      hyperjump: () => hjUser(userInvalid),
     },
   },
   {
-    name: "event valid (flag)", gated: true, tasks: {
+    name: "event valid (flag)",
+    gated: true,
+    tasks: {
       "ours(compiled)": () => eventFlag(eventValid),
-      "ajv": () => ajvEvent(eventValid),
-      "hyperjump": () => hjEvent(eventValid),
+      ajv: () => ajvEvent(eventValid),
+      hyperjump: () => hjEvent(eventValid),
     },
   },
   {
-    name: "event invalid (flag)", gated: true, tasks: {
+    name: "event invalid (flag)",
+    gated: true,
+    tasks: {
       "ours(compiled)": () => eventFlag(eventInvalid),
-      "ajv": () => ajvEvent(eventInvalid),
-      "hyperjump": () => hjEvent(eventInvalid),
+      ajv: () => ajvEvent(eventInvalid),
+      hyperjump: () => hjEvent(eventInvalid),
     },
   },
   {
-    name: "user invalidMulti (all errors w/ locations)", gated: false, tasks: {
+    name: "user invalidMulti (all errors w/ locations)",
+    gated: false,
+    tasks: {
       "ours(list)": () => userList(userInvalidMulti),
       "ajv(allErrors)": () => ajvUserAll(userInvalidMulti),
       "hyperjump(BASIC)": () => hjUser(userInvalidMulti, BASIC),
     },
   },
   {
-    name: "profile valid (annotations)", gated: false, tasks: {
-      "ours(annotated, retention={readOnly,default})": () => profileAnnotated(profileValid),
+    name: "profile valid (annotations)",
+    gated: false,
+    tasks: {
+      "ours(annotated, retention={readOnly,default})": () =>
+        profileAnnotated(profileValid),
       "ours(flag, annotations compiled away)": () => profileFlag(profileValid),
       "hyperjump(annotate)": () => hjAnnotateProfile(profileValid),
     },
@@ -185,7 +220,9 @@ for (const group of groups) {
     const r = task.result;
     const opsSec = "latency" in r ? 1000 / r.latency.mean : NaN;
     hz[task.name] = opsSec;
-    console.log(`  ${task.name.padEnd(45)} ${Math.round(opsSec).toLocaleString("en-US").padStart(14)} ops/s`);
+    console.log(
+      `  ${task.name.padEnd(45)} ${Math.round(opsSec).toLocaleString("en-US").padStart(14)} ops/s`,
+    );
   }
   results.push({ group, hz });
   console.log();
@@ -194,7 +231,9 @@ for (const group of groups) {
 // --- Gate --------------------------------------------------------------------
 
 console.log(`ajv compile time (3 schemas): ${ajvCompileMs.toFixed(1)} ms`);
-console.log(`hyperjump register+compile time (3 schemas): ${hjCompileMs.toFixed(1)} ms`);
+console.log(
+  `hyperjump register+compile time (3 schemas): ${hjCompileMs.toFixed(1)} ms`,
+);
 console.log("(ours: precompiled — models build-time/standalone emission)\n");
 
 let gatePass = true;
@@ -205,7 +244,9 @@ for (const { group, hz } of results) {
   const ratio = theirs / ours;
   const ok = ratio <= 1.5;
   if (!ok) gatePass = false;
-  console.log(`GATE ${ok ? "PASS" : "FAIL"}: ${group.name}: ajv/ours = ${ratio.toFixed(2)} (must be <= 1.50)`);
+  console.log(
+    `GATE ${ok ? "PASS" : "FAIL"}: ${group.name}: ajv/ours = ${ratio.toFixed(2)} (must be <= 1.50)`,
+  );
 }
 console.log(`\nOVERALL GATE: ${gatePass ? "PASS" : "FAIL"}`);
 process.exit(gatePass ? 0 : 1);

@@ -6,12 +6,30 @@
 // so its vocabulary objects are built by omission from the draft-07 ones.
 
 import { isObject, JsonValue } from "../json.js";
-import { DialectRegistry, KeywordBehavior, StaticFacts, identifiersLegacy } from "../dialect.js";
-import { childCursor } from "../cursor.js";
-import { $ref, structural, annotationOnly, mapPositions, SELF } from "./core.js";
 import {
-  allOf, anyOf, oneOf, not, ifKeyword, properties, patternProperties,
-  propertyNames, additionalProperties,
+  DialectRegistry,
+  KeywordBehavior,
+  StaticFacts,
+  identifiersLegacy,
+} from "../dialect.js";
+import { childCursor } from "../cursor.js";
+import {
+  $ref,
+  structural,
+  annotationOnly,
+  mapPositions,
+  SELF,
+} from "./core.js";
+import {
+  allOf,
+  anyOf,
+  oneOf,
+  not,
+  ifKeyword,
+  properties,
+  patternProperties,
+  propertyNames,
+  additionalProperties,
 } from "./applicator.js";
 import { items2019, additionalItems } from "./vocab2019.js";
 import { validationVocabulary } from "./validation.js";
@@ -45,7 +63,8 @@ export const containsLegacy: KeywordBehavior = {
     if (!Array.isArray(cursor.value)) return true;
     const matched: number[] = [];
     for (let i = 0; i < cursor.value.length; i++) {
-      if (ctx.apply(["contains"], childCursor(cursor, i, cursor.value[i]!))) matched.push(i);
+      if (ctx.apply(["contains"], childCursor(cursor, i, cursor.value[i]!)))
+        matched.push(i);
     }
     if (matched.length === 0) {
       ctx.error("no item matches the contains subschema");
@@ -69,16 +88,18 @@ export const dependencies: KeywordBehavior = {
   analyze: (value): StaticFacts =>
     isObject(value)
       ? {
-        subschemas: Object.entries(value)
-          .filter(([, v]) => isSchemaValue(v))
-          .map(([k]) => [k]),
-      }
+          subschemas: Object.entries(value)
+            .filter(([, v]) => isSchemaValue(v))
+            .map(([k]) => [k]),
+        }
       : {},
   evaluate: (value, cursor, ctx) => {
     if (!isObject(cursor.value)) return true;
     const instance = cursor.value;
     let ok = true;
-    for (const [name, dep] of Object.entries(value as Record<string, JsonValue>)) {
+    for (const [name, dep] of Object.entries(
+      value as Record<string, JsonValue>,
+    )) {
       if (!Object.hasOwn(instance, name)) continue;
       if (Array.isArray(dep)) {
         for (const required of dep as string[]) {
@@ -103,24 +124,43 @@ const core07Vocabulary: Record<string, KeywordBehavior> = {
   // definitions is draft-07/06's pre-$defs name for the same inert-container
   // shape: subschemas exist for identification/registration but nothing
   // evaluates them directly.
-  definitions: { id: `${VOCAB_CORE_07}#definitions`, analyze: mapPositions, evaluate: () => true },
+  definitions: {
+    id: `${VOCAB_CORE_07}#definitions`,
+    analyze: mapPositions,
+    evaluate: () => true,
+  },
 };
 
 const applicator07Vocabulary: Record<string, KeywordBehavior> = {
-  allOf, anyOf, oneOf, not,
+  allOf,
+  anyOf,
+  oneOf,
+  not,
   if: ifKeyword,
-  then: { id: id07("then"), analyze: (): StaticFacts => SELF, evaluate: () => true },
-  else: { id: id07("else"), analyze: (): StaticFacts => SELF, evaluate: () => true },
+  then: {
+    id: id07("then"),
+    analyze: (): StaticFacts => SELF,
+    evaluate: () => true,
+  },
+  else: {
+    id: id07("else"),
+    analyze: (): StaticFacts => SELF,
+    evaluate: () => true,
+  },
   dependencies,
-  properties, patternProperties, propertyNames, additionalProperties,
+  properties,
+  patternProperties,
+  propertyNames,
+  additionalProperties,
   items: items2019,
   additionalItems,
   contains: containsLegacy,
 };
 
 const metaData07Vocabulary = Object.fromEntries(
-  ["title", "description", "default", "readOnly", "writeOnly", "examples"]
-    .map((name) => [name, annotationOnly(`${VOCAB_META_DATA_07}#${name}`)]),
+  ["title", "description", "default", "readOnly", "writeOnly", "examples"].map(
+    (name) => [name, annotationOnly(`${VOCAB_META_DATA_07}#${name}`)],
+  ),
 );
 
 const format07Vocabulary = {
@@ -128,8 +168,10 @@ const format07Vocabulary = {
 };
 
 const content07Vocabulary = Object.fromEntries(
-  ["contentMediaType", "contentEncoding"]
-    .map((name) => [name, annotationOnly(`${VOCAB_CONTENT_07}#${name}`)]),
+  ["contentMediaType", "contentEncoding"].map((name) => [
+    name,
+    annotationOnly(`${VOCAB_CONTENT_07}#${name}`),
+  ]),
 );
 
 // draft-06: draft-07 minus if/then/else, $comment, readOnly/writeOnly,
@@ -139,15 +181,28 @@ const core06Vocabulary: Record<string, KeywordBehavior> = {
   ...core06Rest,
   $id: structural(`${VOCAB_CORE_06}#$id`),
   $schema: structural(`${VOCAB_CORE_06}#$schema`),
-  definitions: { id: `${VOCAB_CORE_06}#definitions`, analyze: mapPositions, evaluate: () => true },
+  definitions: {
+    id: `${VOCAB_CORE_06}#definitions`,
+    analyze: mapPositions,
+    evaluate: () => true,
+  },
 };
 
-const { if: _dropIf, then: _dropThen, else: _dropElse, ...applicator06Rest } =
-  applicator07Vocabulary;
-const applicator06Vocabulary: Record<string, KeywordBehavior> = { ...applicator06Rest };
+const {
+  if: _dropIf,
+  then: _dropThen,
+  else: _dropElse,
+  ...applicator06Rest
+} = applicator07Vocabulary;
+const applicator06Vocabulary: Record<string, KeywordBehavior> = {
+  ...applicator06Rest,
+};
 
-const { readOnly: _dropReadOnly, writeOnly: _dropWriteOnly, ...metaData06Rest } =
-  metaData07Vocabulary;
+const {
+  readOnly: _dropReadOnly,
+  writeOnly: _dropWriteOnly,
+  ...metaData06Rest
+} = metaData07Vocabulary;
 const metaData06Vocabulary = metaData06Rest;
 
 const format06Vocabulary = {
@@ -172,14 +227,18 @@ export function registerDialect07(registry: DialectRegistry): void {
   registry.registerVocabulary(VOCAB_FORMAT_07, format07Vocabulary);
   registry.registerVocabulary(VOCAB_CONTENT_07, content07Vocabulary);
 
-  registry.registerDialect(DIALECT_DRAFT_07, [
-    VOCAB_CORE_07,
-    VOCAB_APPLICATOR_07,
-    VOCAB_VALIDATION_07,
-    VOCAB_META_DATA_07,
-    VOCAB_FORMAT_07,
-    VOCAB_CONTENT_07,
-  ], { identifiers: identifiersLegacy, refIgnoresSiblings: true });
+  registry.registerDialect(
+    DIALECT_DRAFT_07,
+    [
+      VOCAB_CORE_07,
+      VOCAB_APPLICATOR_07,
+      VOCAB_VALIDATION_07,
+      VOCAB_META_DATA_07,
+      VOCAB_FORMAT_07,
+      VOCAB_CONTENT_07,
+    ],
+    { identifiers: identifiersLegacy, refIgnoresSiblings: true },
+  );
 }
 
 export function registerDialect06(registry: DialectRegistry): void {
@@ -189,11 +248,15 @@ export function registerDialect06(registry: DialectRegistry): void {
   registry.registerVocabulary(VOCAB_META_DATA_06, metaData06Vocabulary);
   registry.registerVocabulary(VOCAB_FORMAT_06, format06Vocabulary);
 
-  registry.registerDialect(DIALECT_DRAFT_06, [
-    VOCAB_CORE_06,
-    VOCAB_APPLICATOR_06,
-    VOCAB_VALIDATION_06,
-    VOCAB_META_DATA_06,
-    VOCAB_FORMAT_06,
-  ], { identifiers: identifiersLegacy, refIgnoresSiblings: true });
+  registry.registerDialect(
+    DIALECT_DRAFT_06,
+    [
+      VOCAB_CORE_06,
+      VOCAB_APPLICATOR_06,
+      VOCAB_VALIDATION_06,
+      VOCAB_META_DATA_06,
+      VOCAB_FORMAT_06,
+    ],
+    { identifiers: identifiersLegacy, refIgnoresSiblings: true },
+  );
 }

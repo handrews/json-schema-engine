@@ -16,33 +16,39 @@ const mapPositions = (value: JsonValue): StaticFacts =>
     : {};
 
 /** Identifier/reserved keywords: no evaluation behavior, no annotation. */
-export const structural = (id: string): KeywordBehavior =>
-  ({ id, evaluate: () => true });
+export const structural = (id: string): KeywordBehavior => ({
+  id,
+  evaluate: () => true,
+});
 
 /** A keyword whose subschemas exist (for identification) but whose
  *  evaluation is driven by a sibling (then/else via if). */
-export const inertSubschema = (id: string): KeywordBehavior =>
-  ({ id, analyze: () => SELF, evaluate: () => true });
+export const inertSubschema = (id: string): KeywordBehavior => ({
+  id,
+  analyze: () => SELF,
+  evaluate: () => true,
+});
 
 /** EXEMPLAR (annotation-only class): the keyword's value is its annotation. */
-export const annotationOnly = (id: string): KeywordBehavior =>
-  ({
-    id,
-    evaluate: (value, _cursor, ctx) => {
-      ctx.produce(value);
-      return true;
-    },
-  });
+export const annotationOnly = (id: string): KeywordBehavior => ({
+  id,
+  evaluate: (value, _cursor, ctx) => {
+    ctx.produce(value);
+    return true;
+  },
+});
 
 /** Placeholder for keywords owed by a later milestone: loud failure beats
  *  silently treating a known assertion/applicator as an annotation. */
-export const notImplemented = (id: string, milestone: string): KeywordBehavior =>
-  ({
-    id,
-    evaluate: () => {
-      throw new Error(`keyword '${id}' is not implemented until ${milestone}`);
-    },
-  });
+export const notImplemented = (
+  id: string,
+  milestone: string,
+): KeywordBehavior => ({
+  id,
+  evaluate: () => {
+    throw new Error(`keyword '${id}' is not implemented until ${milestone}`);
+  },
+});
 
 const referenceFacts = (value: JsonValue): StaticFacts =>
   typeof value === "string" ? { references: [value] } : {};
@@ -50,28 +56,39 @@ const referenceFacts = (value: JsonValue): StaticFacts =>
 export const $ref: KeywordBehavior = {
   id: `${VOCAB_CORE}#$ref`,
   analyze: referenceFacts,
-  evaluate: (value, _cursor, ctx) => ctx.applyResolved(ctx.resolveRef(value as string)),
+  evaluate: (value, _cursor, ctx) =>
+    ctx.applyResolved(ctx.resolveRef(value as string)),
 };
 
 export const $dynamicRef: KeywordBehavior = {
   id: `${VOCAB_CORE}#$dynamicRef`,
-  analyze: (value) => ({ ...referenceFacts(value), dynamicScopeSensitive: true }),
-  evaluate: (value, _cursor, ctx) => ctx.applyResolved(ctx.resolveDynamic(value as string)),
+  analyze: (value) => ({
+    ...referenceFacts(value),
+    dynamicScopeSensitive: true,
+  }),
+  evaluate: (value, _cursor, ctx) =>
+    ctx.applyResolved(ctx.resolveDynamic(value as string)),
 };
 
 // 2019-09 core vocabulary (for the M4 dialect): $recursiveRef/$recursiveAnchor
 // are D8's degenerate case — resolution lives in the engine, anchor indexing
 // in the registry's identifier extractor, so both behaviors are one-liners.
-export const VOCAB_CORE_2019 = "https://json-schema.org/draft/2019-09/vocab/core";
+export const VOCAB_CORE_2019 =
+  "https://json-schema.org/draft/2019-09/vocab/core";
 
 export const $recursiveRef: KeywordBehavior = {
   id: `${VOCAB_CORE_2019}#$recursiveRef`,
-  analyze: (value) => ({ ...referenceFacts(value), dynamicScopeSensitive: true }),
-  evaluate: (value, _cursor, ctx) => ctx.applyResolved(ctx.resolveRecursive(value as string)),
+  analyze: (value) => ({
+    ...referenceFacts(value),
+    dynamicScopeSensitive: true,
+  }),
+  evaluate: (value, _cursor, ctx) =>
+    ctx.applyResolved(ctx.resolveRecursive(value as string)),
 };
 
-export const $recursiveAnchor: KeywordBehavior =
-  structural(`${VOCAB_CORE_2019}#$recursiveAnchor`);
+export const $recursiveAnchor: KeywordBehavior = structural(
+  `${VOCAB_CORE_2019}#$recursiveAnchor`,
+);
 
 export const $defs: KeywordBehavior = {
   id: `${VOCAB_CORE}#$defs`,

@@ -4,7 +4,11 @@
 // references resolve exactly the way real loaders do (D7).
 
 import * as readline from "node:readline";
-import { createEngine, JsonValue, SchemaLoader } from "../packages/core/src/index.js";
+import {
+  createEngine,
+  JsonValue,
+  SchemaLoader,
+} from "../packages/core/src/index.js";
 
 const DIALECTS = [
   "https://json-schema.org/draft/2020-12/schema",
@@ -35,7 +39,7 @@ const send = (response: unknown): void => {
 
 const errorContext = (e: unknown) => ({
   message: e instanceof Error ? e.message : String(e),
-  traceback: e instanceof Error ? e.stack ?? "" : "",
+  traceback: e instanceof Error ? (e.stack ?? "") : "",
 });
 
 async function handle(line: string): Promise<void> {
@@ -71,13 +75,18 @@ async function handle(line: string): Promise<void> {
             ? { value: registry[uri] as JsonValue }
             : undefined;
         const engine = createEngine({
-          defaultDialect: currentDialect, loaders: [loader],
+          defaultDialect: currentDialect,
+          loaders: [loader],
         });
         const uri = await engine.loadSchema(
-          testCase.schema as JsonValue, RETRIEVAL_URI);
+          testCase.schema as JsonValue,
+          RETRIEVAL_URI,
+        );
         const results = testCase.tests.map((test) => {
           try {
-            return { valid: engine.evaluate(uri, test.instance as JsonValue).valid };
+            return {
+              valid: engine.evaluate(uri, test.instance as JsonValue).valid,
+            };
           } catch (e) {
             return { errored: true, context: errorContext(e) };
           }

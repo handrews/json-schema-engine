@@ -7,24 +7,47 @@
 // and `additionalItems` (retired in 2020-12) fills the gap that leaves.
 
 import { isObject } from "../json.js";
-import { DialectRegistry, KeywordBehavior, StaticFacts, identifiers2019 } from "../dialect.js";
+import {
+  DialectRegistry,
+  KeywordBehavior,
+  StaticFacts,
+  identifiers2019,
+} from "../dialect.js";
 import { childCursor } from "../cursor.js";
 import {
-  coreVocabulary, VOCAB_CORE_2019, $recursiveRef, $recursiveAnchor,
-  annotationOnly, SELF,
+  coreVocabulary,
+  VOCAB_CORE_2019,
+  $recursiveRef,
+  $recursiveAnchor,
+  annotationOnly,
+  SELF,
 } from "./core.js";
 import {
-  allOf, anyOf, oneOf, not, ifKeyword, dependentSchemas, properties,
-  patternProperties, propertyNames, additionalProperties, contains,
+  allOf,
+  anyOf,
+  oneOf,
+  not,
+  ifKeyword,
+  dependentSchemas,
+  properties,
+  patternProperties,
+  propertyNames,
+  additionalProperties,
+  contains,
 } from "./applicator.js";
 import { validationVocabulary } from "./validation.js";
 
 export const VOCAB_CORE_2019_09 = VOCAB_CORE_2019;
-export const VOCAB_APPLICATOR_2019 = "https://json-schema.org/draft/2019-09/vocab/applicator";
-export const VOCAB_VALIDATION_2019 = "https://json-schema.org/draft/2019-09/vocab/validation";
-export const VOCAB_META_DATA_2019 = "https://json-schema.org/draft/2019-09/vocab/meta-data";
-export const VOCAB_FORMAT_2019 = "https://json-schema.org/draft/2019-09/vocab/format";
-export const VOCAB_CONTENT_2019 = "https://json-schema.org/draft/2019-09/vocab/content";
+export const VOCAB_APPLICATOR_2019 =
+  "https://json-schema.org/draft/2019-09/vocab/applicator";
+export const VOCAB_VALIDATION_2019 =
+  "https://json-schema.org/draft/2019-09/vocab/validation";
+export const VOCAB_META_DATA_2019 =
+  "https://json-schema.org/draft/2019-09/vocab/meta-data";
+export const VOCAB_FORMAT_2019 =
+  "https://json-schema.org/draft/2019-09/vocab/format";
+export const VOCAB_CONTENT_2019 =
+  "https://json-schema.org/draft/2019-09/vocab/content";
 
 export const DIALECT_2019_09 = "https://json-schema.org/draft/2019-09/schema";
 
@@ -63,7 +86,8 @@ export const items2019: KeywordBehavior = {
       const n = Math.min(value.length, cursor.value.length);
       let ok = true;
       for (let i = 0; i < n; i++) {
-        if (!ctx.apply(["items", i], childCursor(cursor, i, cursor.value[i]!))) ok = false;
+        if (!ctx.apply(["items", i], childCursor(cursor, i, cursor.value[i]!)))
+          ok = false;
       }
       if (n > 0) ctx.produce(n === cursor.value.length ? true : n - 1);
       return ok;
@@ -72,7 +96,8 @@ export const items2019: KeywordBehavior = {
     let applied = false;
     for (let i = 0; i < cursor.value.length; i++) {
       applied = true;
-      if (!ctx.apply(["items"], childCursor(cursor, i, cursor.value[i]!))) ok = false;
+      if (!ctx.apply(["items"], childCursor(cursor, i, cursor.value[i]!)))
+        ok = false;
     }
     if (applied) ctx.produce(true);
     return ok;
@@ -95,7 +120,13 @@ export const additionalItems: KeywordBehavior = {
     let applied = false;
     for (let i = siblingItems.length; i < cursor.value.length; i++) {
       applied = true;
-      if (!ctx.apply(["additionalItems"], childCursor(cursor, i, cursor.value[i]!))) ok = false;
+      if (
+        !ctx.apply(
+          ["additionalItems"],
+          childCursor(cursor, i, cursor.value[i]!),
+        )
+      )
+        ok = false;
     }
     // Boolean annotation (applied to any element or not) — additionalItems
     // has no index-range shape of its own; unevaluatedItems only needs "did
@@ -106,10 +137,25 @@ export const additionalItems: KeywordBehavior = {
 };
 
 const applicator2019Vocabulary: Record<string, KeywordBehavior> = {
-  allOf, anyOf, oneOf, not, if: ifKeyword,
-  then: { id: id("then"), analyze: (): StaticFacts => SELF, evaluate: () => true },
-  else: { id: id("else"), analyze: (): StaticFacts => SELF, evaluate: () => true },
-  dependentSchemas, properties, patternProperties, propertyNames,
+  allOf,
+  anyOf,
+  oneOf,
+  not,
+  if: ifKeyword,
+  then: {
+    id: id("then"),
+    analyze: (): StaticFacts => SELF,
+    evaluate: () => true,
+  },
+  else: {
+    id: id("else"),
+    analyze: (): StaticFacts => SELF,
+    evaluate: () => true,
+  },
+  dependentSchemas,
+  properties,
+  patternProperties,
+  propertyNames,
   additionalProperties,
   items: items2019,
   additionalItems,
@@ -126,16 +172,24 @@ const unevaluatedItems2019: KeywordBehavior = {
   phase: 1,
   analyze: (): StaticFacts => ({
     subschemas: SELF.subschemas,
-    consumes: [items2019.id, additionalItems.id, contains.id,
-      `${VOCAB_APPLICATOR_2019}#unevaluatedItems`],
+    consumes: [
+      items2019.id,
+      additionalItems.id,
+      contains.id,
+      `${VOCAB_APPLICATOR_2019}#unevaluatedItems`,
+    ],
   }),
   evaluate: (_value, cursor, ctx) => {
     if (!Array.isArray(cursor.value)) return true;
     const length = cursor.value.length;
     let coveredPrefix = 0;
     const coveredIdx = new Set<number>();
-    for (const p of ctx.visible([items2019.id, additionalItems.id, contains.id,
-      unevaluatedItems2019.id])) {
+    for (const p of ctx.visible([
+      items2019.id,
+      additionalItems.id,
+      contains.id,
+      unevaluatedItems2019.id,
+    ])) {
       if (p.behaviorId === contains.id) {
         if (p.value === true) coveredPrefix = length;
         else for (const i of p.value as number[]) coveredIdx.add(i);
@@ -150,7 +204,13 @@ const unevaluatedItems2019: KeywordBehavior = {
     for (let i = coveredPrefix; i < length; i++) {
       if (coveredIdx.has(i)) continue;
       applied = true;
-      if (!ctx.apply(["unevaluatedItems"], childCursor(cursor, i, cursor.value[i]!))) ok = false;
+      if (
+        !ctx.apply(
+          ["unevaluatedItems"],
+          childCursor(cursor, i, cursor.value[i]!),
+        )
+      )
+        ok = false;
     }
     if (applied) ctx.produce(true);
     return ok;
@@ -162,14 +222,22 @@ const unevaluatedProperties2019: KeywordBehavior = {
   phase: 1,
   analyze: (): StaticFacts => ({
     subschemas: SELF.subschemas,
-    consumes: [properties.id, patternProperties.id, additionalProperties.id,
-      `${VOCAB_APPLICATOR_2019}#unevaluatedProperties`],
+    consumes: [
+      properties.id,
+      patternProperties.id,
+      additionalProperties.id,
+      `${VOCAB_APPLICATOR_2019}#unevaluatedProperties`,
+    ],
   }),
   evaluate: (_value, cursor, ctx) => {
     if (!isObject(cursor.value)) return true;
     const seen = new Set<string>();
-    for (const p of ctx.visible([properties.id, patternProperties.id,
-      additionalProperties.id, unevaluatedProperties2019.id])) {
+    for (const p of ctx.visible([
+      properties.id,
+      patternProperties.id,
+      additionalProperties.id,
+      unevaluatedProperties2019.id,
+    ])) {
       for (const name of p.value as string[]) seen.add(name);
     }
     let ok = true;
@@ -177,8 +245,13 @@ const unevaluatedProperties2019: KeywordBehavior = {
     for (const name of Object.keys(cursor.value)) {
       if (seen.has(name)) continue;
       matched.push(name);
-      if (!ctx.apply(["unevaluatedProperties"],
-        childCursor(cursor, name, cursor.value[name]!))) ok = false;
+      if (
+        !ctx.apply(
+          ["unevaluatedProperties"],
+          childCursor(cursor, name, cursor.value[name]!),
+        )
+      )
+        ok = false;
     }
     ctx.produce(matched);
     return ok;
@@ -191,8 +264,15 @@ Object.assign(applicator2019Vocabulary, {
 });
 
 const metaDataVocabulary2019 = Object.fromEntries(
-  ["title", "description", "default", "deprecated", "readOnly", "writeOnly", "examples"]
-    .map((name) => [name, annotationOnly(`${VOCAB_META_DATA_2019}#${name}`)]),
+  [
+    "title",
+    "description",
+    "default",
+    "deprecated",
+    "readOnly",
+    "writeOnly",
+    "examples",
+  ].map((name) => [name, annotationOnly(`${VOCAB_META_DATA_2019}#${name}`)]),
 );
 
 const formatVocabulary2019 = {
@@ -200,8 +280,10 @@ const formatVocabulary2019 = {
 };
 
 const contentVocabulary2019 = Object.fromEntries(
-  ["contentMediaType", "contentEncoding", "contentSchema"]
-    .map((name) => [name, annotationOnly(`${VOCAB_CONTENT_2019}#${name}`)]),
+  ["contentMediaType", "contentEncoding", "contentSchema"].map((name) => [
+    name,
+    annotationOnly(`${VOCAB_CONTENT_2019}#${name}`),
+  ]),
 );
 
 export function registerDialect2019(registry: DialectRegistry): void {
@@ -212,12 +294,16 @@ export function registerDialect2019(registry: DialectRegistry): void {
   registry.registerVocabulary(VOCAB_FORMAT_2019, formatVocabulary2019);
   registry.registerVocabulary(VOCAB_CONTENT_2019, contentVocabulary2019);
 
-  registry.registerDialect(DIALECT_2019_09, [
-    VOCAB_CORE_2019_09,
-    VOCAB_APPLICATOR_2019,
-    VOCAB_VALIDATION_2019,
-    VOCAB_META_DATA_2019,
-    VOCAB_FORMAT_2019,
-    VOCAB_CONTENT_2019,
-  ], { identifiers: identifiers2019 });
+  registry.registerDialect(
+    DIALECT_2019_09,
+    [
+      VOCAB_CORE_2019_09,
+      VOCAB_APPLICATOR_2019,
+      VOCAB_VALIDATION_2019,
+      VOCAB_META_DATA_2019,
+      VOCAB_FORMAT_2019,
+      VOCAB_CONTENT_2019,
+    ],
+    { identifiers: identifiers2019 },
+  );
 }

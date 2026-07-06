@@ -18,15 +18,23 @@ export interface Cursor {
   ptr?: string;
 }
 
-export const rootCursor = (value: JsonValue): Cursor =>
-  ({ value, parent: null, segment: null });
+export const rootCursor = (value: JsonValue): Cursor => ({
+  value,
+  parent: null,
+  segment: null,
+});
 
-export const childCursor = (parent: Cursor, segment: string | number, value: JsonValue): Cursor =>
-  ({ value, parent, segment });
+export const childCursor = (
+  parent: Cursor,
+  segment: string | number,
+  value: JsonValue,
+): Cursor => ({ value, parent, segment });
 
 export function instancePointer(cursor: Cursor): string {
   if (cursor.ptr !== undefined) return cursor.ptr;
   if (cursor.parent === null) return (cursor.ptr = "");
   return (cursor.ptr =
-    instancePointer(cursor.parent) + "/" + escapeSegment(String(cursor.segment)));
+    instancePointer(cursor.parent) +
+    "/" +
+    escapeSegment(String(cursor.segment)));
 }

@@ -114,7 +114,8 @@ export const identifiers2020: IdentifierExtractor = (node) => ({
   ...(typeof node.$id === "string" ? { baseId: node.$id } : {}),
   ...(typeof node.$anchor === "string" ? { anchors: [node.$anchor] } : {}),
   ...(typeof node.$dynamicAnchor === "string"
-    ? { dynamicAnchor: node.$dynamicAnchor } : {}),
+    ? { dynamicAnchor: node.$dynamicAnchor }
+    : {}),
 });
 
 export const identifiers2019: IdentifierExtractor = (node) => ({
@@ -163,20 +164,31 @@ export class UnknownDialectError extends Error {}
 export class UnknownVocabularyError extends Error {}
 
 export class DialectRegistry {
-  private vocabularies = new Map<string, Readonly<Record<string, KeywordBehavior>>>();
+  private vocabularies = new Map<
+    string,
+    Readonly<Record<string, KeywordBehavior>>
+  >();
   private dialects = new Map<string, Dialect>();
 
-  registerVocabulary(uri: string, keywords: Readonly<Record<string, KeywordBehavior>>): void {
+  registerVocabulary(
+    uri: string,
+    keywords: Readonly<Record<string, KeywordBehavior>>,
+  ): void {
     this.vocabularies.set(uri, keywords);
   }
 
-  registerDialect(uri: string, vocabularyUris: readonly string[], options: DialectOptions = {}): void {
+  registerDialect(
+    uri: string,
+    vocabularyUris: readonly string[],
+    options: DialectOptions = {},
+  ): void {
     const keywords = new Map<string, DialectKeyword>();
     for (const vocabularyUri of vocabularyUris) {
       const vocab = this.vocabularies.get(vocabularyUri);
       if (!vocab) {
         throw new UnknownDialectError(
-          `dialect '${uri}' requires unregistered vocabulary '${vocabularyUri}'`);
+          `dialect '${uri}' requires unregistered vocabulary '${vocabularyUri}'`,
+        );
       }
       for (const [name, behavior] of Object.entries(vocab)) {
         keywords.set(name, { name, behavior, vocabularyUri });
