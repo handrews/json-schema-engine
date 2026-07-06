@@ -3,6 +3,7 @@
 
 import {
   JsonValue,
+  JsonType,
   isObject,
   jsonTypeOf,
   jsonEqual,
@@ -10,6 +11,7 @@ import {
   canonicalKey,
 } from "../json.js";
 import { KeywordBehavior, KeywordContext } from "../dialect.js";
+import { lowerIR } from "../lowering.js";
 import { Cursor } from "../cursor.js";
 
 /** 2020-12 validation vocabulary URI. */
@@ -55,6 +57,17 @@ export const pattern: KeywordBehavior = {
     ctx.error("does not match required pattern");
     return false;
   },
+  lower: (value, lctx) => {
+    lctx.emit(
+      lowerIR.when(
+        lowerIR.and(
+          lowerIR.typeIs(lctx.instance, "string"),
+          lowerIR.not(lowerIR.regexTest(value as string, lctx.instance)),
+        ),
+        [lowerIR.fail("does not match required pattern")],
+      ),
+    );
+  },
 };
 
 // Number of digits after the decimal point in `n`'s shortest representation,
@@ -93,14 +106,26 @@ function isMultipleOf(instance: number, divisor: number): boolean {
 
 /** The 2020-12 validation vocabulary's keyword behaviors, by name. */
 export const validationVocabulary: Record<string, KeywordBehavior> = {
-  type: assertion(
-    "type",
-    (value, instance) =>
-      Array.isArray(value)
-        ? value.some((t) => typeMatches(t, instance))
-        : typeMatches(value, instance),
-    (value) => `expected type ${JSON.stringify(value)}`,
-  ),
+  type: {
+    id: id("type"),
+    evaluate: (value, cursor, ctx) => {
+      const ok = Array.isArray(value)
+        ? value.some((t) => typeMatches(t, cursor.value))
+        : typeMatches(value, cursor.value);
+      if (!ok) ctx.error(`expected type ${JSON.stringify(value)}`);
+      return ok;
+    },
+    lower: (value, lctx) => {
+      const types = (Array.isArray(value) ? value : [value]) as (
+        JsonType | "integer"
+      )[];
+      lctx.emit(
+        lowerIR.when(lowerIR.not(lowerIR.typeIs(lctx.instance, ...types)), [
+          lowerIR.fail(`expected type ${JSON.stringify(value)}`),
+        ]),
+      );
+    },
+  },
   enum: assertion(
     "enum",
     (value, instance) =>

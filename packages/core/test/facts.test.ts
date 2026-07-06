@@ -142,7 +142,13 @@ describe("StaticFacts v2 exemplars (M6.1)", () => {
     };
     expect(f.references).toEqual(["#/$defs/x"]);
     expect(f.applications).toEqual([
-      { path: [], mode: "inPlace", conditional: false, asserts: true },
+      {
+        path: [],
+        ref: "#/$defs/x",
+        mode: "inPlace",
+        conditional: false,
+        asserts: true,
+      },
     ]);
   });
 

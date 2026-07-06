@@ -39,6 +39,8 @@ export interface SubschemaApplication {
   path: readonly (string | number)[];
   /** set when the applied subschema is a sibling keyword's value (if → then/else) */
   sibling?: string;
+  /** for reference keywords: the reference value, resolved against the lexical base at plan time (path is ignored) */
+  ref?: string;
   mode:
     | "inPlace" // same cursor (allOf/anyOf/oneOf/not/if/$ref)
     | "childByKey" // fixed property name (properties entries)

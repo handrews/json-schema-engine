@@ -51,6 +51,38 @@ export default defineConfig(
   },
   prettier,
   {
+    // Codegen safety fence (D20/M6): the IR serializer assembles emitted code
+    // exclusively through emit.ts's js`` tag and typed wrappers. A raw
+    // (untagged) template literal here would be a hand-assembly bypass, so it
+    // is forbidden — unit keys and messages that legitimately use template
+    // literals live in plan.ts/runtime.ts, outside this fence.
+    files: ["packages/compiler/src/serialize.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          // Untagged template literals only; the sanctioned js`` tag (whose
+          // quasi is a TemplateLiteral child of a TaggedTemplateExpression)
+          // is allowed — it accepts only typed CodeChunk interpolations.
+          selector:
+            "TemplateLiteral:not(TaggedTemplateExpression > TemplateLiteral)",
+          message:
+            "Assemble emitted code through emit.ts (js`` + typed wrappers), not raw template literals.",
+        },
+      ],
+    },
+  },
+  {
+    // `new Function`/`eval` are confined to runtime-compile.ts (D10); the ban
+    // is global so a stray code-gen site anywhere else fails the build.
+    files: ["packages/**/*.ts"],
+    ignores: ["packages/compiler/src/runtime-compile.ts"],
+    rules: {
+      "no-new-func": "error",
+      "no-eval": "error",
+    },
+  },
+  {
     rules: {
       // Existence checks (`if (!x) throw ...`) followed by a non-null `!` a few lines later are a
       // pervasive, deliberate idiom here — the checks aren't expressible as type guards TS can see.

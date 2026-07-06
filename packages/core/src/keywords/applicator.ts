@@ -12,6 +12,7 @@ import {
   SubschemaApplication,
 } from "../dialect.js";
 import { childCursor } from "../cursor.js";
+import { LowerExpr, lowerIR } from "../lowering.js";
 import { SELF, mapPositions } from "./core.js";
 
 /** 2020-12 applicator vocabulary URI. */
@@ -61,6 +62,14 @@ export const allOf: KeywordBehavior = {
 export const anyOf: KeywordBehavior = {
   id: id("anyOf"),
   analyze: (value) => arrayPositions(value, true),
+  lower: (value, lctx) => {
+    (value as JsonValue[]).forEach((_, i) => {
+      lctx.emit({
+        kind: "apply",
+        apply: { path: [i], cursor: { kind: "here" }, fold: "anyMayPass" },
+      });
+    });
+  },
   evaluate: (value, cursor, ctx) => {
     let ok = false;
     (value as JsonValue[]).forEach((_, i) => {
@@ -182,6 +191,31 @@ export const properties: KeywordBehavior = {
         }))
       : [],
   }),
+  lower: (value, lctx) => {
+    if (!isObject(value)) return;
+    for (const name of Object.keys(value)) {
+      lctx.emit(
+        lowerIR.when(
+          lowerIR.and(lowerIR.typeIs(lctx.instance, "object"), {
+            kind: "hasOwn",
+            target: lctx.instance,
+            key: name,
+          }),
+          [
+            {
+              kind: "apply",
+              apply: {
+                path: [name],
+                cursor: { kind: "child", of: { kind: "here" }, segment: name },
+                fold: "allMustPass",
+              },
+            },
+          ],
+        ),
+      );
+    }
+    lctx.emit({ kind: "produce", value: { kind: "collectedNames" } });
+  },
   evaluate: (value, cursor, ctx) => {
     if (!isObject(cursor.value)) return true;
     let ok = true;
@@ -225,6 +259,41 @@ export const patternProperties: KeywordBehavior = {
         }))
       : [],
   }),
+  lower: (value, lctx) => {
+    if (!isObject(value)) return;
+    for (const pattern of Object.keys(value)) {
+      const b = lctx.binding();
+      lctx.emit(
+        lowerIR.when(lowerIR.typeIs(lctx.instance, "object"), [
+          {
+            kind: "forEachKey",
+            target: lctx.instance,
+            binding: b,
+            body: [
+              lowerIR.when(
+                lowerIR.regexTest(pattern, { kind: "binding", id: b }),
+                [
+                  {
+                    kind: "apply",
+                    apply: {
+                      path: [pattern],
+                      cursor: {
+                        kind: "child",
+                        of: { kind: "here" },
+                        segment: { kind: "binding", id: b },
+                      },
+                      fold: "allMustPass",
+                    },
+                  },
+                ],
+              ),
+            ],
+          },
+        ]),
+      );
+    }
+    lctx.emit({ kind: "produce", value: { kind: "collectedNames" } });
+  },
   evaluate: (value, cursor, ctx) => {
     if (!isObject(cursor.value)) return true;
     let ok = true;
@@ -262,6 +331,54 @@ export const additionalProperties: KeywordBehavior = {
     produces: [id("additionalProperties")],
     evaluatesNames: { kind: "all" },
   }),
+  lower: (_value, lctx) => {
+    const names = isObject(lctx.schema.properties)
+      ? Object.keys(lctx.schema.properties)
+      : [];
+    const patterns = isObject(lctx.schema.patternProperties)
+      ? Object.keys(lctx.schema.patternProperties)
+      : [];
+    const b = lctx.binding();
+    const covered: LowerExpr[] = [
+      ...names.map((n): LowerExpr =>
+        lowerIR.cmp("===", { kind: "binding", id: b }, lowerIR.constant(n)),
+      ),
+      ...patterns.map((p): LowerExpr =>
+        lowerIR.regexTest(p, { kind: "binding", id: b }),
+      ),
+    ];
+    lctx.emit(
+      lowerIR.when(lowerIR.typeIs(lctx.instance, "object"), [
+        {
+          kind: "forEachKey",
+          target: lctx.instance,
+          binding: b,
+          body: [
+            lowerIR.when(
+              covered.length === 0
+                ? lowerIR.constant(true)
+                : lowerIR.not(lowerIR.or(...covered)),
+              [
+                {
+                  kind: "apply",
+                  apply: {
+                    path: [],
+                    cursor: {
+                      kind: "child",
+                      of: { kind: "here" },
+                      segment: { kind: "binding", id: b },
+                    },
+                    fold: "allMustPass",
+                  },
+                },
+              ],
+            ),
+          ],
+        },
+      ]),
+    );
+    lctx.emit({ kind: "produce", value: { kind: "collectedNames" } });
+  },
   evaluate: (_value, cursor, ctx) => {
     if (!isObject(cursor.value)) return true;
     const names = isObject(ctx.schema.properties)

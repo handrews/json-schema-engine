@@ -131,6 +131,11 @@ export type LowerStmt =
 export interface LowerApply {
   /** subschema position relative to the keyword's schema object (matches StaticFacts.applications[].path, with loop bindings for dynamic segments) */
   readonly path: readonly (string | number | { binding: number })[];
+  /**
+   * For reference keywords: the reference value. The compiler resolves it
+   * at plan time against the unit's lexical base; `path` is ignored.
+   */
+  readonly ref?: string;
   /** instance cursor for the application */
   readonly cursor: LowerCursor;
   /** how the application verdict folds into the keyword verdict */

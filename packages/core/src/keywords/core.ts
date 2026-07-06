@@ -19,6 +19,9 @@ export const structural = (id: string): KeywordBehavior => ({
   id,
   analyze: () => ({ produces: [] }),
   evaluate: () => true,
+  lower: () => {
+    /* inert in compiled code too */
+  },
 });
 
 /**
@@ -29,6 +32,9 @@ export const inertSubschema = (id: string): KeywordBehavior => ({
   id,
   analyze: () => SELF,
   evaluate: () => true,
+  lower: () => {
+    /* the driving sibling owns the application */
+  },
 });
 
 /** EXEMPLAR (annotation-only class): the keyword's value is its annotation. */
@@ -38,6 +44,9 @@ export const annotationOnly = (id: string): KeywordBehavior => ({
   evaluate: (value, _cursor, ctx) => {
     ctx.produce(value);
     return true;
+  },
+  lower: (value, lctx) => {
+    lctx.emit({ kind: "produce", value: { kind: "const", value } });
   },
 });
 
@@ -61,7 +70,13 @@ const referenceFacts = (value: JsonValue): StaticFacts =>
         references: [value],
         // The resolved target applies in place, unconditionally.
         applications: [
-          { path: [], mode: "inPlace", conditional: false, asserts: true },
+          {
+            path: [],
+            ref: value,
+            mode: "inPlace",
+            conditional: false,
+            asserts: true,
+          },
         ],
       }
     : {};
@@ -76,6 +91,17 @@ export const $ref: KeywordBehavior = {
   analyze: referenceFacts,
   evaluate: (value, _cursor, ctx) =>
     ctx.applyResolved(ctx.resolveRef(value as string)),
+  lower: (value, lctx) => {
+    lctx.emit({
+      kind: "apply",
+      apply: {
+        path: [],
+        ref: value as string,
+        cursor: { kind: "here" },
+        fold: "allMustPass",
+      },
+    });
+  },
 };
 
 /** `$dynamicRef` (D8): resolves with dynamic-scope rebinding. */
@@ -118,6 +144,9 @@ export const $defs: KeywordBehavior = {
   id: `${VOCAB_CORE}#$defs`,
   analyze: mapPositions,
   evaluate: () => true,
+  lower: () => {
+    /* contents are reachable only by reference */
+  },
 };
 
 /** The 2020-12 core vocabulary's keyword behaviors, by name. */

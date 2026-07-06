@@ -101,7 +101,13 @@ export type {
   Production,
   RecordPredicate,
 } from "./engine.js";
-export { escapeSegment, unescapeSegment } from "./json.js";
+export {
+  canonicalKey,
+  codePointLength,
+  escapeSegment,
+  jsonEqual,
+  unescapeSegment,
+} from "./json.js";
 export type {
   AnalyzeContext,
   IndexCoverage,
@@ -109,6 +115,7 @@ export type {
   SubschemaApplication,
 } from "./dialect.js";
 export { lowerIR } from "./lowering.js";
+export { makeRecordPredicate } from "./output.js";
 export type {
   LowerApply,
   LowerCursor,

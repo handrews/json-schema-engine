@@ -3,6 +3,7 @@
 
 import { isObject } from "../json.js";
 import { KeywordBehavior } from "../dialect.js";
+import { LowerExpr, LowerStmt, lowerIR } from "../lowering.js";
 import { childCursor } from "../cursor.js";
 import { SELF } from "./core.js";
 import {
@@ -40,6 +41,55 @@ export const unevaluatedProperties: KeywordBehavior = {
       { path: [], mode: "childSweep", conditional: false, asserts: true },
     ],
   }),
+  // Static-coverage path only (D9a): the planner classifies this schema
+  // object as interpreted when any coverage contributor is dynamic, so
+  // lower() is never called with a null coverage.
+  lower: (_value, lctx) => {
+    const coverage = lctx.staticCoverage();
+    if (coverage === null) {
+      throw new Error(
+        "unevaluatedProperties lowering requires static coverage (planner bug)",
+      );
+    }
+    if (coverage.coversAllNames) return; // statically vacuous
+    const b = lctx.binding();
+    const covered: LowerExpr[] = [
+      ...coverage.names.map((n): LowerExpr =>
+        lowerIR.cmp("===", { kind: "binding", id: b }, lowerIR.constant(n)),
+      ),
+      ...coverage.patterns.map((p): LowerExpr =>
+        lowerIR.regexTest(p, { kind: "binding", id: b }),
+      ),
+    ];
+    const sweep: LowerStmt = {
+      kind: "forEachKey",
+      target: lctx.instance,
+      binding: b,
+      body: [
+        lowerIR.when(
+          covered.length === 0
+            ? lowerIR.constant(true)
+            : lowerIR.not(lowerIR.or(...covered)),
+          [
+            {
+              kind: "apply",
+              apply: {
+                path: [],
+                cursor: {
+                  kind: "child",
+                  of: { kind: "here" },
+                  segment: { kind: "binding", id: b },
+                },
+                fold: "allMustPass",
+              },
+            },
+          ],
+        ),
+      ],
+    };
+    lctx.emit(lowerIR.when(lowerIR.typeIs(lctx.instance, "object"), [sweep]));
+    lctx.emit({ kind: "produce", value: { kind: "collectedNames" } });
+  },
   evaluate: (_value, cursor, ctx) => {
     if (!isObject(cursor.value)) return true;
     const seen = new Set<string>();

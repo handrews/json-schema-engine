@@ -1,0 +1,15 @@
+{
+  "name": "@jse/compiler",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Compiler tier: emits specialized validators from @jse/core registrations, trampolining to the interpreter for dynamic islands (DESIGN.md M6)",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@jse/core": "*"
+  }
+}
