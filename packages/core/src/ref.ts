@@ -4,8 +4,11 @@
 
 import { JsonValue } from "./json.js";
 
+/** A schema node plus its canonical location. */
 export interface SchemaRef {
   node: JsonValue;
-  baseUri: string; // canonical base, no fragment
-  pointer: string; // JSON Pointer from the base's root schema
+  /** Canonical base URI, no fragment. */
+  baseUri: string;
+  /** JSON Pointer from the base's root schema. */
+  pointer: string;
 }

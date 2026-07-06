@@ -34,28 +34,44 @@ import {
 import { items2019, additionalItems } from "./vocab2019.js";
 import { validationVocabulary } from "./validation.js";
 
+/** draft-07 core vocabulary identity (registry-internal; not a spec-meaningful URI, D2/D18). */
 export const VOCAB_CORE_07 = "urn:jse:vocab:draft-07:core";
+/** draft-07 applicator vocabulary identity (registry-internal; not a spec-meaningful URI, D2/D18). */
 export const VOCAB_APPLICATOR_07 = "urn:jse:vocab:draft-07:applicator";
+/** draft-07 validation vocabulary identity (registry-internal; not a spec-meaningful URI, D2/D18). */
 export const VOCAB_VALIDATION_07 = "urn:jse:vocab:draft-07:validation";
+/** draft-07 meta-data vocabulary identity (registry-internal; not a spec-meaningful URI, D2/D18). */
 export const VOCAB_META_DATA_07 = "urn:jse:vocab:draft-07:meta-data";
+/** draft-07 format vocabulary identity (registry-internal; not a spec-meaningful URI, D2/D18). */
 export const VOCAB_FORMAT_07 = "urn:jse:vocab:draft-07:format";
+/** draft-07 content vocabulary identity (registry-internal; not a spec-meaningful URI, D2/D18). */
 export const VOCAB_CONTENT_07 = "urn:jse:vocab:draft-07:content";
 
+/** draft-06 core vocabulary identity (registry-internal; not a spec-meaningful URI, D2/D18). */
 export const VOCAB_CORE_06 = "urn:jse:vocab:draft-06:core";
+/** draft-06 applicator vocabulary identity (registry-internal; not a spec-meaningful URI, D2/D18). */
 export const VOCAB_APPLICATOR_06 = "urn:jse:vocab:draft-06:applicator";
+/** draft-06 validation vocabulary identity (registry-internal; not a spec-meaningful URI, D2/D18). */
 export const VOCAB_VALIDATION_06 = "urn:jse:vocab:draft-06:validation";
+/** draft-06 meta-data vocabulary identity (registry-internal; not a spec-meaningful URI, D2/D18). */
 export const VOCAB_META_DATA_06 = "urn:jse:vocab:draft-06:meta-data";
+/** draft-06 format vocabulary identity (registry-internal; not a spec-meaningful URI, D2/D18). */
 export const VOCAB_FORMAT_06 = "urn:jse:vocab:draft-06:format";
 
+/** draft-07 dialect URI. */
 export const DIALECT_DRAFT_07 = "http://json-schema.org/draft-07/schema";
+/** draft-06 dialect URI. */
 export const DIALECT_DRAFT_06 = "http://json-schema.org/draft-06/schema";
 
 const id07 = (name: string): string => `${VOCAB_APPLICATOR_07}#${name}`;
 
-// contains (draft-07/06): unlike 2020-12's contains, these drafts have no
-// minContains/maxContains keywords at all — any occurrence of those names is
-// just an unknown (annotation-only) keyword, never a sibling contains reads.
-// So the count assertion is unconditionally ">= 1", with no min/max reads.
+/**
+ * `contains` (draft-07/06): unlike 2020-12's `contains`, these drafts have
+ * no `minContains`/`maxContains` keywords at all — any occurrence of those
+ * names is just an unknown (annotation-only) keyword, never a sibling
+ * `contains` reads. So the count assertion is unconditionally "at least 1",
+ * with no min/max reads.
+ */
 export const containsLegacy: KeywordBehavior = {
   id: id07("contains"),
   analyze: (): StaticFacts => SELF,
@@ -74,15 +90,18 @@ export const containsLegacy: KeywordBehavior = {
   },
 };
 
-// dependencies (draft-07/06): a single keyword folding what 2019-09+ split
-// into dependentRequired (array-valued members) and dependentSchemas
-// (schema-valued members). Member values are exactly one of the two shapes
-// per the metaschema's `anyOf` (schema vs stringArray) — a member is never
-// both, so reading the JS type of the value at evaluate/analyze time is
-// sufficient to dispatch, no declared-shape tracking needed.
+// Member values are exactly one of two shapes per the metaschema's `anyOf`
+// (schema vs stringArray) — a member is never both, so reading the JS type
+// of the value at evaluate/analyze time is sufficient to dispatch, no
+// declared-shape tracking needed.
 const isSchemaValue = (v: JsonValue): boolean =>
   v === true || v === false || (isObject(v) && !Array.isArray(v));
 
+/**
+ * `dependencies` (draft-07/06): a single keyword folding what 2019-09+ split
+ * into `dependentRequired` (array-valued members) and `dependentSchemas`
+ * (schema-valued members).
+ */
 export const dependencies: KeywordBehavior = {
   id: id07("dependencies"),
   analyze: (value): StaticFacts =>
@@ -219,6 +238,7 @@ const {
   ...validationLegacyVocabulary
 } = validationVocabulary;
 
+/** Registers the draft-07 vocabularies and dialect. */
 export function registerDialect07(registry: DialectRegistry): void {
   registry.registerVocabulary(VOCAB_CORE_07, core07Vocabulary);
   registry.registerVocabulary(VOCAB_APPLICATOR_07, applicator07Vocabulary);
@@ -241,6 +261,7 @@ export function registerDialect07(registry: DialectRegistry): void {
   );
 }
 
+/** Registers the draft-06 vocabularies and dialect. */
 export function registerDialect06(registry: DialectRegistry): void {
   registry.registerVocabulary(VOCAB_CORE_06, core06Vocabulary);
   registry.registerVocabulary(VOCAB_APPLICATOR_06, applicator06Vocabulary);

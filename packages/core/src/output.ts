@@ -17,8 +17,10 @@ import {
 } from "./engine.js";
 import { SourceLocation } from "./loader.js";
 
+/** Which location field names a rendered unit uses. */
 export type LocationVocabulary = "modern" | "2020-12";
 
+/** One rendered assertion failure. */
 export interface ErrorUnit {
   instanceLocation: string;
   error: string;
@@ -32,12 +34,14 @@ export interface ErrorUnit {
   source?: SourceLocation;
 }
 
+/** One rendered channel production. */
 export interface AnnotationUnit extends Omit<ErrorUnit, "error"> {
   keyword: string;
   vocabulary?: string;
   annotation: unknown;
 }
 
+/** Which annotations survive into rendered output (D5). */
 export interface RetentionPolicy {
   /** allow-list of keyword names; an empty array retains nothing */
   keywords?: readonly string[];
@@ -75,6 +79,7 @@ function locations(
       };
 }
 
+/** Renders one error record into its output unit. */
 export function renderError(
   record: ErrorRecord,
   vocabulary: LocationVocabulary,
@@ -91,6 +96,7 @@ export function renderError(
   };
 }
 
+/** Renders one channel production into its output unit. */
 export function renderAnnotation(
   production: Production,
   vocabulary: LocationVocabulary,
@@ -176,6 +182,7 @@ export function selectRetained(
   return selected;
 }
 
+/** Applies retention and renders the surviving productions into annotation units. */
 export function applyRetention(
   productions: readonly Production[],
   retention: RetentionPolicy | undefined,
@@ -186,8 +193,10 @@ export function applyRetention(
   );
 }
 
-// Structured output unit (current output spec / 2020-12 output spec): the
-// field vocabulary stays a projection knob, the structure is shared.
+/**
+ * Structured output unit (current output spec / 2020-12 output spec): the
+ * field vocabulary stays a projection knob, the structure is shared.
+ */
 export interface OutputUnit {
   valid: boolean;
   instanceLocation: string;
@@ -203,6 +212,7 @@ export interface OutputUnit {
   details?: OutputUnit[];
 }
 
+/** Options for {@link renderHierarchical}. */
 export interface HierarchicalOptions {
   vocabulary: LocationVocabulary;
   /** keep valid, annotation-free units instead of pruning them */
@@ -294,10 +304,10 @@ export function renderHierarchical(
   );
 }
 
-// Detailed/Verbose (2020-12 names) are the identical tree shape as
-// HIERARCHICAL — the field vocabulary was always orthogonal to the
-// structure (D6) — so they reuse renderHierarchical under the "2020-12"
-// vocabulary rather than duplicating the pruning logic.
+/**
+ * Detailed output (2020-12 output spec): the identical tree shape as
+ * HIERARCHICAL under the "2020-12" location vocabulary (D6).
+ */
 export function renderDetailed(
   root: TraceNode,
   errors: readonly ErrorRecord[],
@@ -311,6 +321,11 @@ export function renderDetailed(
   });
 }
 
+/**
+ * Verbose output (2020-12 output spec): the identical tree shape as
+ * HIERARCHICAL under the "2020-12" location vocabulary, with verbose pruning
+ * off (D6).
+ */
 export function renderVerbose(
   root: TraceNode,
   errors: readonly ErrorRecord[],
@@ -347,10 +362,12 @@ export function renderList(
   return flat;
 }
 
-// Basic (2020-12) is structurally distinct from OutputUnit's
-// Detailed/Verbose/LIST shape: its errors/annotations are flat arrays of
-// full units (one per error/production record, each with its own
-// keywordLocation), not a details tree or a keyword-keyed record.
+/**
+ * Basic output document (2020-12 output spec), structurally distinct from
+ * OutputUnit's Detailed/Verbose/LIST shape: its errors/annotations are flat
+ * arrays of full units (one per error/production record, each with its own
+ * `keywordLocation`), not a details tree or a keyword-keyed record.
+ */
 export interface BasicOutputDocument {
   valid: boolean;
   instanceLocation: string;

@@ -8,10 +8,11 @@ import { JsonValue } from "./json.js";
 import { Cursor } from "./cursor.js";
 import { SchemaRef } from "./ref.js";
 
-// Static facts about one keyword occurrence, derived from its value alone.
-// This is the compiler tier's entire window into keyword semantics (D1), and
-// it also drives the registry's schema-position walk. M1 uses `subschemas`;
-// the remaining fields are declared for M6.
+/**
+ * Static facts about one keyword occurrence, derived from its value alone.
+ * This is the compiler tier's entire window into keyword semantics (D1), and
+ * it also drives the registry's schema-position walk.
+ */
 export interface StaticFacts {
   /** paths to child schemas, relative to the keyword's value */
   subschemas?: readonly (readonly (string | number)[])[];
@@ -28,17 +29,19 @@ export interface StaticFacts {
   dynamicScopeSensitive?: boolean;
 }
 
-// Minimal view of a channel production, for consumer keywords.
+/** Minimal view of a channel production, for consumer keywords. */
 export interface ProductionView {
   behaviorId: string;
   value: unknown;
 }
 
-// The engine services available to one keyword application. This is the only
-// path to subschema application, the channel, and error reporting — the
-// engine owns path/scope/frame bookkeeping in exactly one place (DESIGN.md
-// §3), which is what makes locations compile-time constants for the M6
-// compiler.
+/**
+ * The engine services available to one keyword application. This is the only
+ * path to subschema application, the channel, and error reporting — the
+ * engine owns path/scope/frame bookkeeping in exactly one place (DESIGN.md
+ * §3), which is what makes locations compile-time constants for the M6
+ * compiler.
+ */
 export interface KeywordContext {
   /** the current schema object (this keyword's siblings included) */
   readonly schema: Record<string, JsonValue>;
@@ -47,18 +50,9 @@ export interface KeywordContext {
   apply(segments: readonly (string | number)[], cursor: Cursor): boolean;
   /** resolve a reference against the current lexical base */
   resolveRef(ref: string): SchemaRef;
-  /**
-   * resolve a `$dynamicRef`-class reference (D8): lexical resolution first;
-   * when the initial target's anchor was created by a dynamic anchor, rebind
-   * to the outermost dynamic-scope resource with a matching dynamic anchor
-   */
+  /** resolve a `$dynamicRef`-class reference, with dynamic-scope rebinding (D8; see engine.ts resolveDynamic) */
   resolveDynamic(ref: string): SchemaRef;
-  /**
-   * resolve a 2019-09 `$recursiveRef` (D8's degenerate case): lexical
-   * resolution first; when the target resource root carries
-   * `$recursiveAnchor: true`, rebind to the outermost dynamic-scope resource
-   * whose root also does
-   */
+  /** resolve a 2019-09 `$recursiveRef`, D8's degenerate case (see engine.ts resolveRecursive) */
   resolveRecursive(ref: string): SchemaRef;
   /** apply a resolved reference target at the current cursor */
   applyResolved(target: SchemaRef): boolean;
@@ -70,6 +64,7 @@ export interface KeywordContext {
   error(message: string): void;
 }
 
+/** A keyword's static analysis and evaluation semantics. */
 export interface KeywordBehavior {
   /** keyword URI — the stable identity, independent of its name in a dialect */
   readonly id: string;
@@ -83,18 +78,17 @@ export interface KeywordBehavior {
   evaluate(value: JsonValue, cursor: Cursor, ctx: KeywordContext): boolean;
 }
 
+/** A keyword's binding within one dialect: its name there, behavior, and owning vocabulary. */
 export interface DialectKeyword {
   name: string;
   behavior: KeywordBehavior;
   vocabularyUri: string;
 }
 
-// Identifier syntax varies by draft (D18): 2020-12 has $id/$anchor/
-// $dynamicAnchor; 2019-09 replaces the dynamic pair with boolean
-// $recursiveAnchor; draft-07/06 mint anchors from plain-fragment $id and
-// have no anchor keywords at all. The extractor is dialect data consumed by
-// the registry's walk and pointer navigation — keyword behaviors stay
-// syntax-free.
+/**
+ * Identifiers found in one schema object, per the dialect's identifier
+ * syntax (D18; see {@link IdentifierExtractor}).
+ */
 export interface IdentifierFacts {
   /** value that changes the lexical base (and starts a schema resource) */
   baseId?: string;
@@ -106,10 +100,19 @@ export interface IdentifierFacts {
   recursiveAnchor?: boolean;
 }
 
+/**
+ * Extracts identifier facts from a schema object. Identifier syntax varies
+ * by draft (D18): 2020-12 has `$id`/`$anchor`/`$dynamicAnchor`; 2019-09
+ * replaces the dynamic pair with boolean `$recursiveAnchor`; draft-07/06
+ * mint anchors from plain-fragment `$id` and have no anchor keywords at all.
+ * The extractor is dialect data consumed by the registry's walk and pointer
+ * navigation — keyword behaviors stay syntax-free.
+ */
 export type IdentifierExtractor = (
   node: Record<string, JsonValue>,
 ) => IdentifierFacts;
 
+/** Identifier syntax for the 2020-12 dialect: `$id`/`$anchor`/`$dynamicAnchor`. */
 export const identifiers2020: IdentifierExtractor = (node) => ({
   ...(typeof node.$id === "string" ? { baseId: node.$id } : {}),
   ...(typeof node.$anchor === "string" ? { anchors: [node.$anchor] } : {}),
@@ -118,15 +121,19 @@ export const identifiers2020: IdentifierExtractor = (node) => ({
     : {}),
 });
 
+/** Identifier syntax for the 2019-09 dialect: `$id`/`$anchor`/boolean `$recursiveAnchor`. */
 export const identifiers2019: IdentifierExtractor = (node) => ({
   ...(typeof node.$id === "string" ? { baseId: node.$id } : {}),
   ...(typeof node.$anchor === "string" ? { anchors: [node.$anchor] } : {}),
   ...(node.$recursiveAnchor === true ? { recursiveAnchor: true } : {}),
 });
 
-// draft-07/06: a schema object containing $ref has no identifiers at all —
-// the suite's "$ref prevents a sibling $id from changing the base uri" —
-// and a plain-fragment $id is an anchor, not a base change.
+/**
+ * Identifier syntax for legacy draft-07/06 dialects: a schema object
+ * containing `$ref` has no identifiers at all (the suite's "`$ref` prevents
+ * a sibling `$id` from changing the base uri"), and a plain-fragment `$id`
+ * is an anchor rather than a base change.
+ */
 export const identifiersLegacy: IdentifierExtractor = (node) => {
   if (Object.hasOwn(node, "$ref")) return {};
   const id = node.$id;
@@ -137,6 +144,7 @@ export const identifiersLegacy: IdentifierExtractor = (node) => {
   return { baseId: id };
 };
 
+/** An ordered set of vocabularies with identifier and `$ref` semantics (D18). */
 export interface Dialect {
   uri: string;
   /** name -\> entry */
@@ -151,6 +159,7 @@ export interface Dialect {
   refIgnoresSiblings: boolean;
 }
 
+/** Options for {@link DialectRegistry.registerDialect}. */
 export interface DialectOptions {
   /** unknown keywords are collected as annotations (spec SHOULD); default true */
   allowUnknownKeywords?: boolean;
@@ -160,9 +169,12 @@ export interface DialectOptions {
   refIgnoresSiblings?: boolean;
 }
 
+/** Thrown when a dialect or vocabulary URI has no registered entry. */
 export class UnknownDialectError extends Error {}
+/** Thrown when a `$vocabulary` URI is required but not registered. */
 export class UnknownVocabularyError extends Error {}
 
+/** Registry of vocabularies and the dialects assembled from them. */
 export class DialectRegistry {
   private vocabularies = new Map<
     string,
@@ -170,6 +182,7 @@ export class DialectRegistry {
   >();
   private dialects = new Map<string, Dialect>();
 
+  /** Registers a vocabulary's keyword behaviors under its URI. */
   registerVocabulary(
     uri: string,
     keywords: Readonly<Record<string, KeywordBehavior>>,
@@ -177,6 +190,10 @@ export class DialectRegistry {
     this.vocabularies.set(uri, keywords);
   }
 
+  /**
+   * Assembles a dialect from already-registered vocabularies.
+   * @throws UnknownDialectError if a listed vocabulary is not registered.
+   */
   registerDialect(
     uri: string,
     vocabularyUris: readonly string[],
@@ -210,22 +227,27 @@ export class DialectRegistry {
     });
   }
 
+  /**
+   * Looks up a registered dialect by URI.
+   * @throws UnknownDialectError if the URI has no registered dialect.
+   */
   getDialect(uri: string): Dialect {
     const dialect = this.dialects.get(uri);
     if (!dialect) throw new UnknownDialectError(`unknown dialect '${uri}'`);
     return dialect;
   }
 
+  /** True if a dialect is registered under this URI. */
   hasDialect(uri: string): boolean {
     return this.dialects.has(uri);
   }
 
+  /** True if a vocabulary is registered under this URI. */
   hasVocabulary(uri: string): boolean {
     return this.vocabularies.has(uri);
   }
 }
 
-// Identity for productions from keywords the dialect doesn't know; the value
-// of an unknown keyword is collected as its annotation.
+/** Behavior id for productions from keywords the dialect doesn't know. */
 export const unknownKeywordId = (name: string): string =>
   `urn:jse:keyword:unknown#${name}`;

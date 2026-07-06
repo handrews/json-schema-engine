@@ -1,8 +1,5 @@
-// Validation vocabulary: pure assertions.
-//
-// EXEMPLAR (assertion class): `pattern` — inspect the instance, report one
-// error on failure, return the verdict. Assertions never produce and never
-// descend.
+// Validation vocabulary: pure assertions. Assertions never produce and
+// never descend.
 
 import {
   JsonValue,
@@ -15,6 +12,7 @@ import {
 import { KeywordBehavior, KeywordContext } from "../dialect.js";
 import { Cursor } from "../cursor.js";
 
+/** 2020-12 validation vocabulary URI. */
 export const VOCAB_VALIDATION =
   "https://json-schema.org/draft/2020-12/vocab/validation";
 
@@ -38,6 +36,7 @@ const typeMatches = (t: JsonValue, v: JsonValue): boolean =>
     ? typeof v === "number" && Number.isInteger(v)
     : jsonTypeOf(v) === t;
 
+/** EXEMPLAR (assertion class): inspect the instance, report one error on failure, return the verdict. */
 export const pattern = assertion(
   "pattern",
   (value, instance) =>
@@ -80,6 +79,7 @@ function isMultipleOf(instance: number, divisor: number): boolean {
   return Number.isFinite(quotient) && Number.isInteger(quotient);
 }
 
+/** The 2020-12 validation vocabulary's keyword behaviors, by name. */
 export const validationVocabulary: Record<string, KeywordBehavior> = {
   type: assertion(
     "type",

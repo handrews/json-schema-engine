@@ -1,6 +1,14 @@
 // Resource loading types (DESIGN.md D7/D17). Loading is the only async
 // boundary: loaders feed Engine.load/loadSchema, which register documents
 // and their transitive references; compile and evaluate stay sync.
+//
+// D17 bridge: canonical schema locations are resource-rooted
+// (`resourceUri#/pointer`), but loaders report source positions
+// document-rooted, since a document can embed multiple resources via nested
+// `$id`. The registry's documentLocation(resourceUri) gives the containing
+// document plus the resource root's document-rooted pointer; a canonical
+// location's document-rooted pointer is then
+// `documentLocation(resourceUri).pointer + pointer`.
 
 import { JsonValue } from "./json.js";
 
@@ -11,20 +19,24 @@ export interface SourcePosition {
   offset?: number;
 }
 
+/** A range between two source positions. */
 export interface SourceSpan {
   start: SourcePosition;
   end: SourcePosition;
 }
 
-// Key vs value spans (D17): diagnostics point at the key for missing/extra-
-// property errors and at the value for type errors; SARIF/LSP-class
-// consumers need both.
+/**
+ * Key vs value spans (D17): diagnostics point at the key for missing/extra-
+ * property errors and at the value for type errors; SARIF/LSP-class
+ * consumers need both.
+ */
 export interface SourceRange {
   /** span of the member key, when the value is an object member */
   key?: SourceSpan;
   value: SourceSpan;
 }
 
+/** A document handed to the registry by a {@link SchemaLoader}. */
 export interface LoadedDocument {
   value: JsonValue;
   /**
@@ -35,12 +47,12 @@ export interface LoadedDocument {
   getRange?: (documentRootPointer: string) => SourceRange | undefined;
 }
 
-/** Returns undefined when this loader does not handle the URI. */
+/** Fetches a schema document by URI. Returns undefined when this loader does not handle the URI. */
 export type SchemaLoader = (
   uri: string,
 ) => LoadedDocument | undefined | Promise<LoadedDocument | undefined>;
 
-/** Where a canonical schema location physically lives (D17). */
+/** Where a canonical schema location physically lives (D17 bridge). */
 export interface SourceLocation {
   documentUri: string;
   pointer: string;

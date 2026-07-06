@@ -1,9 +1,4 @@
-// Unevaluated vocabulary: the channel-consumer keyword class.
-//
-// EXEMPLAR (consumer class): `unevaluatedProperties` — read visible
-// productions (own schema object's keywords plus merged successful in-place
-// child applications, per the §4 frame rules), apply the subschema to what
-// nobody evaluated, and produce like any other applicator. Phase 1: runs
+// Unevaluated vocabulary: the channel-consumer keyword class. Phase 1: runs
 // after every other keyword in the same schema object has merged.
 
 import { isObject } from "../json.js";
@@ -19,9 +14,15 @@ import {
   contains,
 } from "./applicator.js";
 
+/** 2020-12 unevaluated vocabulary URI. */
 export const VOCAB_UNEVALUATED =
   "https://json-schema.org/draft/2020-12/vocab/unevaluated";
 
+/**
+ * EXEMPLAR (consumer class): reads visible productions (engine.ts
+ * visibility rule), applies the subschema to properties nobody evaluated,
+ * and produces like any other applicator.
+ */
 export const unevaluatedProperties: KeywordBehavior = {
   id: `${VOCAB_UNEVALUATED}#unevaluatedProperties`,
   phase: 1,
@@ -63,6 +64,7 @@ export const unevaluatedProperties: KeywordBehavior = {
   },
 };
 
+/** Same consumer shape as {@link unevaluatedProperties}, over array indexes not covered by `prefixItems`/`items`/`contains`. */
 export const unevaluatedItems: KeywordBehavior = {
   id: `${VOCAB_UNEVALUATED}#unevaluatedItems`,
   phase: 1,
@@ -114,6 +116,7 @@ export const unevaluatedItems: KeywordBehavior = {
   },
 };
 
+/** The 2020-12 unevaluated vocabulary's keyword behaviors, by name. */
 export const unevaluatedVocabulary: Record<string, KeywordBehavior> = {
   unevaluatedProperties,
   unevaluatedItems,

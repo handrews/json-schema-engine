@@ -13,15 +13,17 @@ import { SchemaRef } from "./ref.js";
 import { Dialect, DialectRegistry } from "./dialect.js";
 import { SourceRange } from "./loader.js";
 
-// Where a schema resource physically lives: the registered document that
-// contains it and the JSON Pointer from that document's root to the
-// resource's root. Canonical schema locations are resource-rooted; loaders
-// report source positions document-rooted (D17) — this is the bridge.
+/**
+ * Where a schema resource physically lives: the registered document
+ * containing it and the JSON Pointer from that document's root to the
+ * resource's root (D17 bridge; see loader.ts).
+ */
 export interface DocumentLocation {
   documentUri: string;
   pointer: string;
 }
 
+/** Schema registration, identifier indexing, and reference resolution. */
 export class SchemaRegistry {
   private documents = new Map<string, JsonValue>(); // resource URI -> schema node
   private anchors = new Map<string, SchemaRef>(); // "resource#anchor"
@@ -162,10 +164,8 @@ export class SchemaRegistry {
 
   /**
    * The registered document containing a schema resource, and the resource
-   * root's pointer from that document's root (D17). A canonical location
-   * `(resourceUri, ptr)` corresponds to document pointer
-   * `documentLocation(resourceUri).pointer + ptr` for source-position lookup.
-   * Undefined for resources the registration walk never saw (e.g. an $id
+   * root's pointer from that document's root (D17 bridge; see loader.ts).
+   * Undefined for resources the registration walk never saw (e.g. an `$id`
    * inside an unknown keyword reached only by pointer navigation).
    */
   documentLocation(resourceUri: string): DocumentLocation | undefined {
@@ -177,10 +177,12 @@ export class SchemaRegistry {
     return this.documentRanges.get(documentUri)?.(pointer);
   }
 
+  /** True if a resource is registered, directly or via a retrieval-URI alias. */
   has(resourceUri: string): boolean {
     return this.documents.has(resourceUri) || this.aliases.has(resourceUri);
   }
 
+  /** The schema node at a resource's root, if registered. */
   document(resourceUri: string): JsonValue | undefined {
     return this.documents.get(this.canonical(resourceUri));
   }
@@ -192,10 +194,12 @@ export class SchemaRegistry {
     return missing;
   }
 
+  /** The `$dynamicAnchor` target for a name in a resource, if one was registered (D8). */
   dynamicAnchor(resourceUri: string, name: string): SchemaRef | undefined {
     return this.dynamicAnchors.get(`${this.canonical(resourceUri)}#${name}`);
   }
 
+  /** True if a resource's root carries 2019-09 `$recursiveAnchor: true`. */
   hasRecursiveRoot(resourceUri: string): boolean {
     return this.recursiveRoots.has(this.canonical(resourceUri));
   }
@@ -209,6 +213,10 @@ export class SchemaRegistry {
     return this.aliases.get(resourceUri) ?? resourceUri;
   }
 
+  /**
+   * The dialect URI a resource was registered under.
+   * @throws UnresolvableRefError if the resource is not registered.
+   */
   dialectUriFor(baseUri: string): string {
     const uri = this.documentDialects.get(this.canonical(baseUri));
     if (uri === undefined)
@@ -216,10 +224,18 @@ export class SchemaRegistry {
     return uri;
   }
 
+  /**
+   * The dialect a resource was registered under.
+   * @throws UnresolvableRefError if the resource is not registered.
+   */
   dialectFor(baseUri: string): Dialect {
     return this.dialectRegistry.getDialect(this.dialectUriFor(baseUri));
   }
 
+  /**
+   * Resolves a URI to its resource's root schema.
+   * @throws UnresolvableRefError if the resource is not registered.
+   */
   rootRef(uri: string): SchemaRef {
     const { resource: rawResource, fragment } = splitFragment(uri);
     const resource = this.canonical(rawResource);
@@ -232,7 +248,11 @@ export class SchemaRegistry {
     return { node, baseUri: resource, pointer: "" };
   }
 
-  /** Resolve a reference value against the referring schema's base URI. */
+  /**
+   * Resolves a reference value against the referring schema's base URI.
+   * @throws UnresolvableRefError if the resource, anchor, or pointer target
+   * does not exist.
+   */
   resolveRef(ref: string, currentBase: string): SchemaRef {
     const resolved = splitFragment(resolveUri(ref, currentBase));
     const resource = this.canonical(resolved.resource);

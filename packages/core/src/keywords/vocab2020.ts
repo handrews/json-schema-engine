@@ -8,13 +8,17 @@ import { unevaluatedVocabulary, VOCAB_UNEVALUATED } from "./unevaluated.js";
 import { registerDialect2019 } from "./vocab2019.js";
 import { registerDialect07, registerDialect06 } from "./vocab7.js";
 
+/** 2020-12 meta-data vocabulary URI. */
 export const VOCAB_META_DATA =
   "https://json-schema.org/draft/2020-12/vocab/meta-data";
+/** 2020-12 format-annotation vocabulary URI. */
 export const VOCAB_FORMAT_ANNOTATION =
   "https://json-schema.org/draft/2020-12/vocab/format-annotation";
+/** 2020-12 content vocabulary URI. */
 export const VOCAB_CONTENT =
   "https://json-schema.org/draft/2020-12/vocab/content";
 
+/** 2020-12 dialect URI. */
 export const DIALECT_2020_12 = "https://json-schema.org/draft/2020-12/schema";
 
 const metaDataVocabulary = Object.fromEntries(
@@ -43,6 +47,7 @@ const contentVocabulary = Object.fromEntries(
   ]),
 );
 
+/** Registers the 2020-12, 2019-09, draft-07, and draft-06 vocabularies and dialects. */
 export function registerStandardDialects(registry: DialectRegistry): void {
   registry.registerVocabulary(VOCAB_CORE, coreVocabulary);
   registry.registerVocabulary(VOCAB_APPLICATOR, applicatorVocabulary);

@@ -15,9 +15,11 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+/** A JSON-representable value. */
 export type JsonValue =
   null | boolean | number | string | JsonValue[] | { [k: string]: JsonValue };
 
+/** True for JSON objects, excluding arrays and `null`. */
 export const isObject = (v: unknown): v is Record<string, JsonValue> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -29,11 +31,13 @@ export type {
   SourceSpan,
 } from "./positions.js";
 
-// Serves the official suite's `remotes/` tree for the URIs the suite files
-// reference; no HTTP server involved. Shaped to satisfy @jse/core's
-// SchemaLoader structurally (test-kit stays dependency-free). A URI outside
-// the base or a missing file is a loader miss (undefined), not an error —
-// per the loader contract.
+/**
+ * Serves the official suite's `remotes/` tree for the URIs the suite files
+ * reference; no HTTP server involved. Shaped to satisfy \@jse/core's
+ * SchemaLoader structurally (test-kit stays dependency-free). A URI outside
+ * the base or a missing file is a loader miss (undefined), not an error —
+ * per the loader contract.
+ */
 export function suiteRemotesLoader(
   remotesDir: string,
   baseUrl = "http://localhost:1234/",
@@ -76,11 +80,13 @@ const MAP = new Set([
   "dependentSchemas",
 ]);
 
-// Find unsupported keywords in a schema, looking only in schema positions —
-// an unsupported keyword name appearing inside `enum` data, say, is not a
-// hit. `unsupportedKeywords` is the caller's declared list of keywords whose
-// assertion/applicator semantics aren't implemented by the evaluator under
-// test.
+/**
+ * Finds unsupported keywords in a schema, looking only in schema positions —
+ * an unsupported keyword name appearing inside `enum` data, say, is not a
+ * hit. `unsupportedKeywords` is the caller's declared list of keywords whose
+ * assertion/applicator semantics aren't implemented by the evaluator under
+ * test.
+ */
 export function unsupportedIn(
   schema: JsonValue,
   unsupportedKeywords: ReadonlySet<string>,
@@ -101,26 +107,30 @@ export function unsupportedIn(
   return found;
 }
 
+/** One official-suite test case. */
 export interface SuiteCase {
   description: string;
   data: JsonValue;
   valid: boolean;
 }
+/** One official-suite test group: a schema plus its test cases. */
 export interface SuiteGroup {
   description: string;
   schema: JsonValue;
   tests: SuiteCase[];
 }
 
-// Case-level outcome for collect mode.
+/** Case-level outcome for collect mode. */
 export interface CaseResult {
   file: string;
   group: string;
   description: string;
   status: "passed" | "failed" | "skipped" | "errored";
-  detail?: string; // failure/error message, or skip reason
+  /** Failure/error message, or skip reason. */
+  detail?: string;
 }
 
+/** Per-file case counts. */
 export interface FileSummary {
   name: string;
   run: number;
@@ -128,6 +138,7 @@ export interface FileSummary {
   skipped: number;
 }
 
+/** Overall result of {@link runSuiteFiles}. */
 export interface SuiteSummary {
   files: FileSummary[];
   totalRun: number;
@@ -136,22 +147,27 @@ export interface SuiteSummary {
   cases: CaseResult[];
 }
 
-// One required evaluate callback: (schema, instance) => boolean, throwing is
-// allowed and is reported as an "errored" case (not a bug in the runner).
-// May be async — remote-ref cases need loader I/O before evaluating.
+/**
+ * Evaluate callback: `(schema, instance) => boolean`. Throwing is allowed
+ * and is reported as an "errored" case, not a bug in the runner. May be
+ * async — remote-ref cases need loader I/O before evaluating.
+ */
 export type Evaluate = (
   schema: JsonValue,
   instance: JsonValue,
 ) => boolean | Promise<boolean>;
 
-// Alternative callback for evaluators that need the schema's retrieval URI
-// (e.g. to register it before evaluating, for $ref resolution).
+/**
+ * Alternative callback for evaluators that need the schema's retrieval URI
+ * (e.g. to register it before evaluating, for `$ref` resolution).
+ */
 export type RegisterAndEvaluate = (
   schema: JsonValue,
   retrievalUri: string,
   instance: JsonValue,
 ) => boolean | Promise<boolean>;
 
+/** Info passed to {@link RunSuiteFilesOptions.onSkip}. */
 export interface OnSkipInfo {
   file: string;
   group: string;
@@ -159,23 +175,32 @@ export interface OnSkipInfo {
   reason: string;
 }
 
+/** Options for {@link runSuiteFiles} and {@link runSuiteFilesVitest}. */
 export interface RunSuiteFilesOptions {
-  suiteDir: string; // path to test-suite/tests/<draft>
-  files: string[]; // file stems, no .json extension
-  unsupportedKeywords: string[]; // schema-position keyword names to skip
+  /** Path to test-suite/tests/\<draft\>. */
+  suiteDir: string;
+  /** File stems, no .json extension. */
+  files: string[];
+  /** Schema-position keyword names to skip. */
+  unsupportedKeywords: string[];
   evaluate?: Evaluate;
   registerAndEvaluate?: RegisterAndEvaluate;
-  retrievalBase?: string; // base URI for registerAndEvaluate; default below
+  /** Base URI for `registerAndEvaluate`; default {@link DEFAULT_RETRIEVAL_BASE}. */
+  retrievalBase?: string;
   onSkip?: (info: OnSkipInfo) => void;
-  minRun?: number; // vitest-mode summary threshold; default 0
+  /** vitest-mode summary threshold; default 0. */
+  minRun?: number;
 }
 
 const DEFAULT_RETRIEVAL_BASE = "https://suite.example/schema";
 
-// Collect mode: run suite files against one evaluator callback and return
-// case-level results plus per-file/overall totals. No test-framework
-// dependency — this is the primary API; runSuiteFilesVitest is a thin wrapper
-// over it.
+/**
+ * Collect mode: runs suite files against one evaluator callback and returns
+ * case-level results plus per-file/overall totals. No test-framework
+ * dependency — this is the primary API; {@link runSuiteFilesVitest} is a
+ * thin wrapper over it.
+ * @throws Error if neither `evaluate` nor `registerAndEvaluate` is supplied.
+ */
 export async function runSuiteFiles(
   options: RunSuiteFilesOptions,
 ): Promise<SuiteSummary> {
@@ -302,17 +327,21 @@ export async function runSuiteFiles(
 // step and the self-validate-the-document step, keeping test-kit dependency-
 // free of @jse/core.
 
+/** One official output-tests test case: an instance plus its expected document per output format. */
 export interface OutputTestCase {
   description: string;
   data: JsonValue;
-  output: Record<string, JsonValue>; // keyed by format: "basic" | "list" | "detailed" | "verbose"
+  /** Keyed by format: "basic" | "list" | "detailed" | "verbose". */
+  output: Record<string, JsonValue>;
 }
+/** One official output-tests test group: a schema plus its test cases. */
 export interface OutputTestGroup {
   description: string;
   schema: JsonValue;
   tests: OutputTestCase[];
 }
 
+/** Case-level outcome for {@link runOutputTests}. */
 export interface OutputCaseResult {
   file: string;
   group: string;
@@ -321,15 +350,19 @@ export interface OutputCaseResult {
   detail?: string;
 }
 
+/** Overall result of {@link runOutputTests}. */
 export interface OutputTestSummary {
   totalRun: number;
   totalSkipped: number;
   cases: OutputCaseResult[];
 }
 
+/** Options for {@link runOutputTests}. */
 export interface RunOutputTestsOptions {
-  contentDir: string; // path to test-suite/output-tests/<draft>/content
-  files: string[]; // file stems, no .json extension
+  /** Path to test-suite/output-tests/\<draft\>/content. */
+  contentDir: string;
+  /** File stems, no .json extension. */
+  files: string[];
   /** format keys this runner can produce a document for; others are skipped */
   supportedFormats: readonly string[];
   /**
@@ -366,9 +399,12 @@ export interface RunOutputTestsOptions {
 
 const OUTPUT_TEST_RETRIEVAL_BASE = "https://output-suite.example/schema";
 
-// Sequential (not vitest-mode): output-tests.test.ts drives vitest
-// describe/it itself since it also needs to register per-draft output-schema
-// documents once, outside the per-case loop.
+/**
+ * Runs the official output-tests fixtures against the caller-supplied
+ * render/validate steps. Sequential (not vitest-mode): callers drive vitest
+ * describe/it themselves since they also need to register per-draft
+ * output-schema documents once, outside the per-case loop.
+ */
 export async function runOutputTests(
   options: RunOutputTestsOptions,
 ): Promise<OutputTestSummary> {
@@ -446,9 +482,11 @@ export async function runOutputTests(
   return { totalRun, totalSkipped, cases };
 }
 
-// Minimal shape of the vitest functions this module needs, injected by the
-// caller so test-kit itself has no vitest dependency (only the workspace
-// root does, as a devDependency).
+/**
+ * Minimal shape of the vitest functions this module needs, injected by the
+ * caller so test-kit itself has no vitest dependency (only the workspace
+ * root does, as a devDependency).
+ */
 export interface VitestLike {
   describe: (name: string, fn: () => void) => void;
   it: {
@@ -461,16 +499,20 @@ export interface VitestLike {
   ) => { toBe: (expected: unknown) => void };
 }
 
+/** Options for {@link runSuiteFilesVitest}. */
 export interface RunSuiteFilesVitestOptions extends RunSuiteFilesOptions {
   describe: VitestLike["describe"];
   it: VitestLike["it"];
   expect: VitestLike["expect"];
 }
 
-// Vitest mode: registers one describe per file, one describe per group, one
-// it per case (it.skip for schema-position-unsupported groups), plus a
-// trailing "suite summary" test that logs totals. Built on top of collect
-// mode's per-group skip detection so both modes agree on what's skipped.
+/**
+ * Vitest mode: registers one describe per file, one describe per group, one
+ * it per case (it.skip for schema-position-unsupported groups), plus a
+ * trailing "suite summary" test that logs totals. Built on top of collect
+ * mode's per-group skip detection so both modes agree on what's skipped.
+ * @throws Error if neither `evaluate` nor `registerAndEvaluate` is supplied.
+ */
 export function runSuiteFilesVitest(options: RunSuiteFilesVitestOptions): void {
   const {
     suiteDir,

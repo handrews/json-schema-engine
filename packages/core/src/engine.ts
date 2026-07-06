@@ -24,8 +24,11 @@ import {
 } from "./dialect.js";
 import { SchemaRegistry } from "./registry.js";
 
+/** Thrown when a schema is re-entered at the same instance location (D8/cycle guard). */
 export class InfiniteLoopError extends Error {}
+/** Thrown when a dialect disallows unknown keywords and one is present. */
 export class UnknownKeywordError extends Error {}
+/** Thrown when a keyword reads a channel behavior id it never declared via `analyze().consumes`. */
 export class UndeclaredConsumptionError extends Error {}
 
 /**
@@ -40,31 +43,39 @@ export type RecordPredicate = (
   vocabularyUri: string | null,
 ) => boolean;
 
-// Evaluation-path node: one pre-escaped segment, parent-linked, materialized
-// only when a unit escapes to output.
+/**
+ * Evaluation-path node: one pre-escaped segment, parent-linked, materialized
+ * only when a unit escapes to output.
+ */
 export interface PathNode {
   readonly parent: PathNode | null;
   readonly segment: string;
 }
 
+/** Materializes a path node chain into its JSON Pointer string. */
 export function materializePath(node: PathNode | null): string {
   let s = "";
   for (let n = node; n !== null; n = n.parent) s = "/" + n.segment + s;
   return s;
 }
 
+/** One channel production (DESIGN.md §4). */
 export interface Production {
   behaviorId: string;
   keywordName: string;
-  vocabularyUri: string | null; // null for unknown keywords
+  /** `null` for unknown keywords. */
+  vocabularyUri: string | null;
   schemaRef: SchemaRef;
-  pathNode: PathNode | null; // path of the schema object (keyword appended on render)
+  /** Path of the schema object; the keyword segment is appended on render. */
+  pathNode: PathNode | null;
   cursor: Cursor;
   value: unknown;
 }
 
+/** One assertion failure. */
 export interface ErrorRecord {
-  keywordName: string | null; // null: the schema itself failed (boolean false)
+  /** `null` when the schema itself failed (boolean `false`). */
+  keywordName: string | null;
   schemaRef: SchemaRef;
   pathNode: PathNode | null;
   cursor: Cursor;
@@ -75,9 +86,11 @@ interface Frame {
   productions: Production[];
 }
 
-// One schema application, recorded only when tracing (M5 structured
-// outputs): hierarchical/verbose renderers need application boundaries and
-// per-branch validity, which the flat error list cannot reconstruct.
+/**
+ * One schema application, recorded only when tracing (M5 structured
+ * outputs): hierarchical/verbose renderers need application boundaries and
+ * per-branch validity, which the flat error list cannot reconstruct.
+ */
 export interface TraceNode {
   schemaRef: SchemaRef;
   pathNode: PathNode | null;
@@ -86,6 +99,7 @@ export interface TraceNode {
   children: TraceNode[];
 }
 
+/** Mutable state for one evaluation run: frames, errors, dynamic scope, and tracing. */
 export class EvalState {
   frames: Frame[] = [{ productions: [] }];
   errors: ErrorRecord[] = [];
@@ -108,10 +122,12 @@ export class EvalState {
     if (tracing) this.allProductions = [];
   }
 
+  /** True when tracing is active for this run. */
   get tracing(): boolean {
     return this.allProductions !== null;
   }
 
+  /** Opens a trace node for a schema application and links it under the current one. */
   traceEnter(
     schemaRef: SchemaRef,
     pathNode: PathNode | null,
@@ -131,18 +147,25 @@ export class EvalState {
     return node;
   }
 
+  /** Closes the current trace node with its final validity. */
   traceExit(node: TraceNode, valid: boolean): void {
     node.valid = valid;
     this.traceStack.pop();
   }
 
+  /** The innermost open frame. */
   get frame(): Frame {
     return this.frames[this.frames.length - 1]!;
   }
+  /** Productions retained at the root frame — the annotation result before retention filtering. */
   get rootProductions(): Production[] {
     return this.frames[0]!.productions;
   }
 
+  /**
+   * Records entry into a schema application for cycle detection.
+   * @throws InfiniteLoopError if this schema is already active at this cursor.
+   */
   enter(schemaRef: SchemaRef, cursor: Cursor): void {
     const key = `${schemaRef.baseUri}#${schemaRef.pointer}`;
     let keys = this.active.get(cursor);
@@ -157,6 +180,7 @@ export class EvalState {
     keys.add(key);
   }
 
+  /** Records exit from a schema application, releasing its cycle-detection entry. */
   exit(schemaRef: SchemaRef, cursor: Cursor): void {
     const keys = this.active.get(cursor)!;
     keys.delete(`${schemaRef.baseUri}#${schemaRef.pointer}`);
@@ -291,6 +315,12 @@ class KeywordContextImpl implements KeywordContext {
   }
 }
 
+/**
+ * Applies one schema to one instance cursor: pushes a frame, evaluates the
+ * dialect's keywords in order, merges or discards the frame per DESIGN.md §4.
+ * @throws InfiniteLoopError if the schema is already active at this cursor.
+ * @throws UnknownKeywordError if the dialect disallows an unknown keyword present in the schema.
+ */
 export function applySchema(
   state: EvalState,
   schemaRef: SchemaRef,
@@ -391,6 +421,7 @@ function evaluateKeyword(
   return entry.behavior.evaluate(value, cursor, ctx);
 }
 
+/** Evaluates an instance against a registered root schema, returning validity and final state. */
 export function runEvaluation(
   registry: SchemaRegistry,
   schemaUri: string,

@@ -3,6 +3,7 @@
 // Types are structural duplicates of @jse/core's Source* types so test-kit
 // stays dependency-free; the shapes must stay assignment-compatible.
 
+/** A JSON-representable value. */
 export type JsonValue =
   null | boolean | number | string | JsonValue[] | { [k: string]: JsonValue };
 
@@ -12,15 +13,18 @@ export interface SourcePosition {
   column: number;
   offset: number;
 }
+/** A range between two source positions. */
 export interface SourceSpan {
   start: SourcePosition;
   end: SourcePosition;
 }
+/** Key vs value spans for an object member; see \@jse/core's loader.ts SourceRange. */
 export interface SourceRange {
   key?: SourceSpan;
   value: SourceSpan;
 }
 
+/** A parsed document plus its source-position lookup, per the D17 loader interface. */
 export interface ParsedDocument {
   value: JsonValue;
   getRange: (pointer: string) => SourceRange | undefined;
@@ -29,6 +33,11 @@ export interface ParsedDocument {
 const escapePointer = (s: string): string =>
   s.replace(/~/g, "~0").replace(/\//g, "~1");
 
+/**
+ * Parses JSON text into a value plus a source-position lookup by JSON
+ * Pointer, exercising the D17 loader capability end to end.
+ * @throws SyntaxError on malformed JSON.
+ */
 export function parseJsonWithRanges(text: string): ParsedDocument {
   const ranges = new Map<string, SourceRange>();
   let i = 0;

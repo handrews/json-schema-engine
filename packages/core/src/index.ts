@@ -97,6 +97,7 @@ export { DIALECT_2020_12 } from "./keywords/vocab2020.js";
 export { DIALECT_2019_09 } from "./keywords/vocab2019.js";
 export { DIALECT_DRAFT_07, DIALECT_DRAFT_06 } from "./keywords/vocab7.js";
 
+/** Thrown by {@link EngineOptions.validateSchemas} when a registered schema fails its metaschema. */
 export class SchemaValidationError extends Error {
   constructor(
     message: string,
@@ -106,6 +107,7 @@ export class SchemaValidationError extends Error {
   }
 }
 
+/** Options for {@link Engine.evaluate}. */
 export interface EvaluateOptions {
   /**
    * Output structure (D6): "flag" (default), "list" (flat Basic-style
@@ -126,6 +128,7 @@ export interface EvaluateOptions {
   positions?: boolean;
 }
 
+/** The result of {@link Engine.evaluate}. */
 export interface Result {
   valid: boolean;
   errors?: ErrorUnit[];
@@ -140,6 +143,7 @@ export interface Result {
   outputDocument?: OutputUnit | OutputUnit[] | BasicOutputDocument;
 }
 
+/** Options for {@link Engine}'s constructor. */
 export interface EngineOptions {
   /** dialect for documents without $schema; default 2020-12 */
   defaultDialect?: string;
@@ -154,6 +158,11 @@ export interface EngineOptions {
   validateSchemas?: boolean;
 }
 
+/**
+ * \@jse/core public API: synchronous evaluation over registered schemas,
+ * with the 2020-12 dialect preloaded and async resource loading for
+ * `$ref` closures and `$vocabulary`-assembled dialects.
+ */
 export class Engine {
   readonly dialects = new DialectRegistry();
   private schemas: SchemaRegistry;
@@ -189,6 +198,7 @@ export class Engine {
     }
   }
 
+  /** Registers an additional resource loader, tried after existing ones (D7). */
   addLoader(loader: SchemaLoader): void {
     this.loaders.push(loader);
   }
@@ -250,6 +260,7 @@ export class Engine {
     return baseUri;
   }
 
+  /** Registers a vocabulary's keyword behaviors under its URI. */
   registerVocabulary(
     uri: string,
     keywords: Readonly<Record<string, KeywordBehavior>>,
@@ -257,6 +268,10 @@ export class Engine {
     this.dialects.registerVocabulary(uri, keywords);
   }
 
+  /**
+   * Assembles a dialect from already-registered vocabularies.
+   * @throws UnknownDialectError if a listed vocabulary is not registered.
+   */
   registerDialect(
     uri: string,
     vocabularyUris: readonly string[],
@@ -266,18 +281,18 @@ export class Engine {
   }
 
   /**
-   * Where a schema resource lives within its registered document (D17):
-   * translate a canonical resource URI to the containing document plus the
-   * resource root's document-rooted pointer, for source-position lookup.
+   * Where a schema resource lives within its registered document: the
+   * containing document plus the resource root's document-rooted pointer
+   * (D17 bridge; see loader.ts), for source-position lookup.
    */
   documentLocation(resourceUri: string) {
     return this.schemas.documentLocation(resourceUri);
   }
 
   /**
-   * Translate a canonical schema location (`resourceUri#/pointer`) to its
+   * Translates a canonical schema location (`resourceUri#/pointer`) to its
    * document, document-rooted pointer, and — when the document's loader
-   * reported positions — source range (D17).
+   * reported positions — source range (D17 bridge; see loader.ts).
    */
   locate(schemaLocation: string): SourceLocation | undefined {
     const { resource, fragment } = splitFragment(schemaLocation);
@@ -290,9 +305,13 @@ export class Engine {
       : { documentUri: loc.documentUri, pointer, range };
   }
 
-  // Overloads narrow `outputDocument`'s shape for the common literal-option
-  // call sites; the general signature keeps the full union for dynamic
-  // options objects (e.g. options built from a variable).
+  /**
+   * Evaluates an instance against a registered schema.
+   *
+   * These overloads narrow `outputDocument`'s shape for the common
+   * literal-option call sites; the general signature keeps the full union
+   * for dynamic options objects (e.g. options built from a variable).
+   */
   evaluate(
     schemaUri: string,
     instance: JsonValue,
@@ -326,9 +345,7 @@ export class Engine {
     // Tracing is only worth its cost (TraceNode per application) when a
     // structured document is requested; flag/legacy-list stay trace-free.
     const structured = outputKind === "list" || outputKind === "hierarchical";
-    // Without tracing, productions no consumer declares and no annotation
-    // path can retain are elided at produce time (D5/M5.5); channel
-    // consumers are unaffected because consumed ids always record.
+    // Without tracing, elision applies (D5/M5.5; see output.ts makeRecordPredicate).
     const shouldRecord = structured
       ? null
       : makeRecordPredicate(
@@ -533,5 +550,6 @@ export class Engine {
   }
 }
 
+/** Creates a new {@link Engine}. */
 export const createEngine = (options?: EngineOptions): Engine =>
   new Engine(options);

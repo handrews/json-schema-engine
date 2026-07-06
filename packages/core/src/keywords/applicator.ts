@@ -1,15 +1,16 @@
 // Applicator vocabulary.
 //
 // EXEMPLARS: `anyOf` (in-place applicator class — subschemas applied at the
-// *same* cursor; all branches evaluated because successful branches
-// contribute productions) and `properties` (child applicator class — child
-// cursors, produces its evaluated-name annotation).
+// same cursor; see engine.ts for channel merge/discard semantics) and
+// `properties` (child applicator class — child cursors, produces its
+// evaluated-name annotation).
 
 import { JsonValue, isObject, schemaRegExp } from "../json.js";
 import { KeywordBehavior, StaticFacts } from "../dialect.js";
 import { childCursor } from "../cursor.js";
 import { SELF, mapPositions } from "./core.js";
 
+/** 2020-12 applicator vocabulary URI. */
 export const VOCAB_APPLICATOR =
   "https://json-schema.org/draft/2020-12/vocab/applicator";
 
@@ -19,6 +20,7 @@ const arrayPositions = (value: JsonValue): StaticFacts =>
   Array.isArray(value) ? { subschemas: value.map((_, i) => [i]) } : {};
 const selfPosition = (): StaticFacts => SELF;
 
+/** `allOf`: every subschema must match, at the same cursor. */
 export const allOf: KeywordBehavior = {
   id: id("allOf"),
   analyze: arrayPositions,
@@ -31,14 +33,11 @@ export const allOf: KeywordBehavior = {
   },
 };
 
+/** EXEMPLAR (in-place applicator class): every branch runs, even after a match (DESIGN.md §4 rule 6; see engine.ts). */
 export const anyOf: KeywordBehavior = {
   id: id("anyOf"),
   analyze: arrayPositions,
   evaluate: (value, cursor, ctx) => {
-    // Every branch is evaluated: successful branches merge their productions
-    // even when an earlier branch already satisfied anyOf (DESIGN.md §4.6 —
-    // the M6 compiler may short-circuit only when StaticFacts proves nothing
-    // consumes).
     let ok = false;
     (value as JsonValue[]).forEach((_, i) => {
       if (ctx.apply(["anyOf", i], cursor)) ok = true;
@@ -51,6 +50,7 @@ export const anyOf: KeywordBehavior = {
   },
 };
 
+/** `oneOf`: exactly one subschema must match, at the same cursor. */
 export const oneOf: KeywordBehavior = {
   id: id("oneOf"),
   analyze: arrayPositions,
@@ -64,6 +64,7 @@ export const oneOf: KeywordBehavior = {
   },
 };
 
+/** `not`: the subschema must not match. */
 export const not: KeywordBehavior = {
   id: id("not"),
   analyze: selfPosition,
@@ -74,8 +75,11 @@ export const not: KeywordBehavior = {
   },
 };
 
-// then/else are inert on their own; `if` drives them. Their behaviors exist
-// so the registration walk identifies $id/$anchor inside them.
+/**
+ * `if`: drives `then`/`else`, which are inert on their own — their own
+ * behaviors exist only so the registration walk identifies `$id`/`$anchor`
+ * inside them.
+ */
 export const ifKeyword: KeywordBehavior = {
   id: id("if"),
   analyze: selfPosition,
@@ -89,6 +93,7 @@ export const ifKeyword: KeywordBehavior = {
   },
 };
 
+/** `dependentSchemas`: applies a named subschema when the property is present. */
 export const dependentSchemas: KeywordBehavior = {
   id: id("dependentSchemas"),
   analyze: mapPositions,
@@ -107,6 +112,7 @@ export const dependentSchemas: KeywordBehavior = {
   },
 };
 
+/** EXEMPLAR (child applicator class): child cursors, produces the matched property names. */
 export const properties: KeywordBehavior = {
   id: id("properties"),
   analyze: mapPositions,
@@ -131,6 +137,7 @@ export const properties: KeywordBehavior = {
   },
 };
 
+/** `patternProperties`: applies to properties whose name matches a pattern; produces the matched names. */
 export const patternProperties: KeywordBehavior = {
   id: id("patternProperties"),
   analyze: mapPositions,
@@ -158,14 +165,16 @@ export const patternProperties: KeywordBehavior = {
   },
 };
 
+/**
+ * `additionalProperties`: applies to properties not matched by sibling
+ * `properties`/`patternProperties` — statically derivable from the schema
+ * object, no channel involvement (contrast `unevaluatedProperties`).
+ */
 export const additionalProperties: KeywordBehavior = {
   id: id("additionalProperties"),
   analyze: selfPosition,
   evaluate: (_value, cursor, ctx) => {
     if (!isObject(cursor.value)) return true;
-    // Defined against sibling properties/patternProperties only — statically
-    // derivable from the schema object, no channel involvement (an example of
-    // "same result, different mechanism"; contrast unevaluatedProperties).
     const names = isObject(ctx.schema.properties)
       ? new Set(Object.keys(ctx.schema.properties))
       : new Set<string>();
@@ -190,6 +199,7 @@ export const additionalProperties: KeywordBehavior = {
   },
 };
 
+/** `prefixItems`: applies each subschema to the array item at its index; produces the largest applied index. */
 export const prefixItems: KeywordBehavior = {
   id: id("prefixItems"),
   analyze: arrayPositions,
@@ -210,6 +220,7 @@ export const prefixItems: KeywordBehavior = {
   },
 };
 
+/** `items`: applies to array items past sibling `prefixItems`; produces `true` when it applied to any item. */
 export const items: KeywordBehavior = {
   id: id("items"),
   analyze: selfPosition,
@@ -231,6 +242,10 @@ export const items: KeywordBehavior = {
   },
 };
 
+/**
+ * `contains`: at least one array item must match (range configurable by
+ * sibling `minContains`/`maxContains`); produces matched indexes.
+ */
 export const contains: KeywordBehavior = {
   id: id("contains"),
   analyze: selfPosition,
@@ -263,8 +278,10 @@ export const contains: KeywordBehavior = {
   },
 };
 
-// The instance is the property *name* (a string), not the object — same
-// child-applicator shape as `properties`, but the applied value is the key.
+/**
+ * `propertyNames`: applies the subschema to each property name (as a string
+ * instance), not to the object itself.
+ */
 export const propertyNames: KeywordBehavior = {
   id: id("propertyNames"),
   analyze: selfPosition,
@@ -279,6 +296,7 @@ export const propertyNames: KeywordBehavior = {
   },
 };
 
+/** The 2020-12 applicator vocabulary's keyword behaviors, by name. */
 export const applicatorVocabulary: Record<string, KeywordBehavior> = {
   allOf,
   anyOf,

@@ -3,17 +3,22 @@
 // tested (`__proto__`/`toString`/`constructor` are legal property names);
 // regex compiled in unicode mode with fallback; length in code points.
 
+/** A JSON-representable value. */
 export type JsonValue =
   null | boolean | number | string | JsonValue[] | { [k: string]: JsonValue };
 
+/** The seven JSON Schema primitive type names, including the `integer` subtype. */
 export type JsonType =
   "null" | "boolean" | "number" | "integer" | "string" | "array" | "object";
 
+/** True for JSON objects, excluding arrays and `null`. */
 export const isObject = (v: unknown): v is Record<string, JsonValue> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
-// The primitive type of an instance value ("integer" is a numeric subtype
-// handled by the type keyword, never returned here).
+/**
+ * The primitive type of an instance value. `"integer"` is a numeric subtype
+ * handled by the `type` keyword and is never returned here.
+ */
 export function jsonTypeOf(v: JsonValue): Exclude<JsonType, "integer"> {
   if (v === null) return "null";
   if (Array.isArray(v)) return "array";
@@ -29,8 +34,10 @@ export function jsonTypeOf(v: JsonValue): Exclude<JsonType, "integer"> {
   }
 }
 
-// JSON equality per the spec: same type and value, object member order
-// insignificant.
+/**
+ * JSON equality per the spec: same type and value, object member order
+ * insignificant.
+ */
 export function jsonEqual(a: JsonValue, b: JsonValue): boolean {
   if (a === b) return true;
   if (Array.isArray(a)) {
@@ -52,7 +59,7 @@ export function jsonEqual(a: JsonValue, b: JsonValue): boolean {
   return false;
 }
 
-// String length in code points (minLength/maxLength).
+/** String length in Unicode code points, per `minLength`/`maxLength`. */
 export function codePointLength(s: string): number {
   let n = 0;
   for (let i = 0; i < s.length; i++) {
@@ -63,8 +70,11 @@ export function codePointLength(s: string): number {
   return n;
 }
 
-// ECMA-262 regex in unicode mode where possible (required for \p{...}
-// property escapes), falling back for patterns invalid under the u flag.
+/**
+ * Compiles an ECMA-262 regex in unicode mode where possible (required for
+ * `\p{...}` property escapes), falling back for patterns invalid under the
+ * `u` flag.
+ */
 export function schemaRegExp(pattern: string): RegExp {
   try {
     return new RegExp(pattern, "u");
@@ -73,9 +83,10 @@ export function schemaRegExp(pattern: string): RegExp {
   }
 }
 
-// JSON Pointer segment escaping (RFC 6901).
+/** Escapes a JSON Pointer segment (RFC 6901). */
 export const escapeSegment = (s: string): string =>
   s.replace(/~/g, "~0").replace(/\//g, "~1");
 
+/** Unescapes a JSON Pointer segment (RFC 6901). */
 export const unescapeSegment = (s: string): string =>
   s.replace(/~1/g, "/").replace(/~0/g, "~");

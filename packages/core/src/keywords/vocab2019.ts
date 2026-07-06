@@ -37,18 +37,25 @@ import {
 } from "./applicator.js";
 import { validationVocabulary } from "./validation.js";
 
+/** 2019-09 core vocabulary URI. */
 export const VOCAB_CORE_2019_09 = VOCAB_CORE_2019;
+/** 2019-09 applicator vocabulary URI. */
 export const VOCAB_APPLICATOR_2019 =
   "https://json-schema.org/draft/2019-09/vocab/applicator";
+/** 2019-09 validation vocabulary URI. */
 export const VOCAB_VALIDATION_2019 =
   "https://json-schema.org/draft/2019-09/vocab/validation";
+/** 2019-09 meta-data vocabulary URI. */
 export const VOCAB_META_DATA_2019 =
   "https://json-schema.org/draft/2019-09/vocab/meta-data";
+/** 2019-09 format vocabulary URI. */
 export const VOCAB_FORMAT_2019 =
   "https://json-schema.org/draft/2019-09/vocab/format";
+/** 2019-09 content vocabulary URI. */
 export const VOCAB_CONTENT_2019 =
   "https://json-schema.org/draft/2019-09/vocab/content";
 
+/** 2019-09 dialect URI. */
 export const DIALECT_2019_09 = "https://json-schema.org/draft/2019-09/schema";
 
 const id = (name: string): string => `${VOCAB_APPLICATOR_2019}#${name}`;
@@ -70,12 +77,14 @@ const core2019Vocabulary: Record<string, KeywordBehavior> = {
   $recursiveAnchor,
 };
 
-// items (2019-09 form): a schema value applies to every element (produces
-// `true`, matching 2020-12 items' post-prefixItems annotation shape); an
-// array value (tuple) applies element-wise to the first N and produces the
-// largest index reached, or `true` when it covers the whole array — this is
-// the pre-2020-12 keyword that prefixItems/items later split in two, so its
-// annotation shape mirrors 2020-12 prefixItems'.
+/**
+ * `items` (2019-09 form): a schema value applies to every element (produces
+ * `true`, matching 2020-12 `items`' post-`prefixItems` annotation shape); an
+ * array value (tuple) applies element-wise to the first N and produces the
+ * largest index reached, or `true` when it covers the whole array — this is
+ * the pre-2020-12 keyword that `prefixItems`/`items` later split in two, so
+ * its annotation shape mirrors 2020-12 `prefixItems`'.
+ */
 export const items2019: KeywordBehavior = {
   id: id("items"),
   analyze: (value): StaticFacts =>
@@ -104,11 +113,14 @@ export const items2019: KeywordBehavior = {
   },
 };
 
-// additionalItems: applies only when the sibling `items` is present *and* an
-// array (tuple form) — a schema-form `items` already covers every element, so
-// additionalItems "does nothing" against it (suite: "when items is schema,
-// additionalItems does nothing"). Sibling-read, same pattern as if/then/else
-// and contains' minContains/maxContains siblings.
+/**
+ * `additionalItems`: applies only when the sibling `items` is present *and*
+ * an array (tuple form) — a schema-form `items` already covers every
+ * element, so `additionalItems` "does nothing" against it (suite: "when
+ * items is schema, additionalItems does nothing"). Sibling-read, same
+ * pattern as `if`/`then`/`else` and `contains`' `minContains`/`maxContains`
+ * siblings.
+ */
 export const additionalItems: KeywordBehavior = {
   id: id("additionalItems"),
   analyze: (): StaticFacts => SELF,
@@ -128,9 +140,8 @@ export const additionalItems: KeywordBehavior = {
       )
         ok = false;
     }
-    // Boolean annotation (applied to any element or not) — additionalItems
-    // has no index-range shape of its own; unevaluatedItems only needs "did
-    // this cover the rest" from this producer.
+    // Boolean annotation: additionalItems has no index-range shape of its
+    // own, only whether it applied to any element.
     if (applied) ctx.produce(true);
     return ok;
   },
@@ -286,6 +297,7 @@ const contentVocabulary2019 = Object.fromEntries(
   ]),
 );
 
+/** Registers the 2019-09 vocabularies and dialect. */
 export function registerDialect2019(registry: DialectRegistry): void {
   registry.registerVocabulary(VOCAB_CORE_2019_09, core2019Vocabulary);
   registry.registerVocabulary(VOCAB_APPLICATOR_2019, applicator2019Vocabulary);
