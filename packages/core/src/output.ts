@@ -8,7 +8,8 @@
 import { escapeSegment } from "./json.js";
 import { instancePointer } from "./cursor.js";
 import {
-  ErrorRecord, PathNode, Production, TraceNode, materializePath,
+  ErrorRecord, PathNode, Production, RecordPredicate, TraceNode,
+  materializePath,
 } from "./engine.js";
 import { SourceLocation } from "./loader.js";
 
@@ -85,29 +86,50 @@ export function renderAnnotation(
 // channel visibility), so deny lists here can never hide a production from
 // ctx.visible() — the concern the M5.5 elision milestone must keep separate.
 
+const NO_CONSUMED_IDS: ReadonlySet<string> = new Set();
+
+/**
+ * Produce-time recording decision (D5/M5.5): record iff someone might read
+ * the production — a declared channel consumer (`consumedIds`), or the
+ * annotation output path (collection on, and the retention allow/deny lists
+ * do not rule the keyword out). The `keep` predicate runs only at render:
+ * recording a superset of what it keeps is correct, eliding on its behalf
+ * would not be. This is also selectRetained's list stage, so the two can
+ * never disagree.
+ */
+export function makeRecordPredicate(
+  consumedIds: ReadonlySet<string>,
+  collectAnnotations: boolean,
+  retention: RetentionPolicy | undefined,
+): RecordPredicate {
+  if (!collectAnnotations) {
+    return (behaviorId) => consumedIds.has(behaviorId);
+  }
+  const allow = retention?.keywords !== undefined || retention?.vocabularies !== undefined
+    ? { names: new Set(retention.keywords ?? []), vocabs: new Set(retention.vocabularies ?? []) }
+    : null;
+  const denyNames = new Set(retention?.excludeKeywords ?? []);
+  const denyVocabs = new Set(retention?.excludeVocabularies ?? []);
+  return (behaviorId, keywordName, vocabularyUri) => {
+    if (consumedIds.has(behaviorId)) return true;
+    if (allow !== null && !allow.names.has(keywordName)
+      && !(vocabularyUri !== null && allow.vocabs.has(vocabularyUri))) {
+      return false;
+    }
+    return !denyNames.has(keywordName)
+      && !(vocabularyUri !== null && denyVocabs.has(vocabularyUri));
+  };
+}
+
 /** The retention decision on raw productions, shared by every renderer. */
 export function selectRetained(
   productions: readonly Production[],
   retention: RetentionPolicy | undefined,
   vocabulary: LocationVocabulary,
 ): Production[] {
-  let selected = [...productions];
-  if (retention?.keywords !== undefined || retention?.vocabularies !== undefined) {
-    const names = new Set(retention.keywords ?? []);
-    const vocabs = new Set(retention.vocabularies ?? []);
-    selected = selected.filter(
-      (p) => names.has(p.keywordName)
-        || (p.vocabularyUri !== null && vocabs.has(p.vocabularyUri)),
-    );
-  }
-  if (retention?.excludeKeywords !== undefined || retention?.excludeVocabularies !== undefined) {
-    const names = new Set(retention.excludeKeywords ?? []);
-    const vocabs = new Set(retention.excludeVocabularies ?? []);
-    selected = selected.filter(
-      (p) => !names.has(p.keywordName)
-        && !(p.vocabularyUri !== null && vocabs.has(p.vocabularyUri)),
-    );
-  }
+  const byLists = makeRecordPredicate(NO_CONSUMED_IDS, true, retention);
+  let selected = productions.filter(
+    (p) => byLists(p.behaviorId, p.keywordName, p.vocabularyUri));
   if (retention?.keep) {
     const keep = retention.keep;
     selected = selected.filter((p) => keep(renderAnnotation(p, vocabulary)));

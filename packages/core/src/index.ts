@@ -15,8 +15,8 @@ import { runEvaluation } from "./engine.js";
 import { LoadedDocument, SchemaLoader, SourceLocation, SourceRange } from "./loader.js";
 import {
   AnnotationUnit, BasicOutputDocument, ErrorUnit, LocationVocabulary, OutputUnit,
-  RetentionPolicy, applyRetention, renderBasic, renderDetailed, renderError,
-  renderHierarchical, renderList, renderVerbose,
+  RetentionPolicy, applyRetention, makeRecordPredicate, renderBasic,
+  renderDetailed, renderError, renderHierarchical, renderList, renderVerbose,
 } from "./output.js";
 import { DIALECT_2020_12, registerStandardDialects } from "./keywords/vocab2020.js";
 import { METASCHEMAS_2020_12 } from "./keywords/metaschemas2020.js";
@@ -41,7 +41,9 @@ export {
 export { SchemaRegistry } from "./registry.js";
 export type { DocumentLocation } from "./registry.js";
 export { UnresolvableRefError } from "./uri.js";
-export { InfiniteLoopError, UnknownKeywordError } from "./engine.js";
+export {
+  InfiniteLoopError, UndeclaredConsumptionError, UnknownKeywordError,
+} from "./engine.js";
 export type {
   AnnotationUnit, BasicOutputDocument, ErrorUnit, LocationVocabulary, OutputUnit,
   RetentionPolicy,
@@ -252,8 +254,15 @@ export class Engine {
     // Tracing is only worth its cost (TraceNode per application) when a
     // structured document is requested; flag/legacy-list stay trace-free.
     const structured = outputKind === "list" || outputKind === "hierarchical";
+    // Without tracing, productions no consumer declares and no annotation
+    // path can retain are elided at produce time (D5/M5.5); channel
+    // consumers are unaffected because consumed ids always record.
+    const shouldRecord = structured ? null : makeRecordPredicate(
+      this.schemas.consumedIds(),
+      options.collectAnnotations ?? false,
+      options.retention);
     const { valid, state } =
-      runEvaluation(this.schemas, schemaUri, instance, structured);
+      runEvaluation(this.schemas, schemaUri, instance, structured, shouldRecord);
 
     const result: Result = { valid };
     if (!valid && outputKind === "list") {

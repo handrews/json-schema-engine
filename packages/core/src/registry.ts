@@ -27,6 +27,9 @@ export class SchemaRegistry {
   private anchors = new Map<string, SchemaRef>();     // "resource#anchor"
   private dynamicAnchors = new Map<string, SchemaRef>(); // $dynamicAnchor only (D8)
   private recursiveRoots = new Set<string>();         // 2019-09 $recursiveAnchor at root
+  // Union of StaticFacts.consumes over every registered keyword occurrence:
+  // the elision predicate's "someone might read this" side (D5/M5.5).
+  private consumedBehaviorIds = new Set<string>();
   private documentDialects = new Map<string, string>(); // resource URI -> dialect URI
   private resourceLocations = new Map<string, DocumentLocation>();
   // Retrieval URI -> declared $id base, when they differ: the document must
@@ -113,6 +116,7 @@ export class SchemaRegistry {
       const behavior = dialect.keywords.get(name)?.behavior;
       const facts = behavior?.analyze?.(value!);
       if (!facts) continue;
+      for (const c of facts.consumes ?? []) this.consumedBehaviorIds.add(c);
       for (const ref of facts.references ?? []) {
         try {
           this.pendingResources.add(splitFragment(resolveUri(ref, baseUri)).resource);
@@ -175,6 +179,11 @@ export class SchemaRegistry {
 
   hasRecursiveRoot(resourceUri: string): boolean {
     return this.recursiveRoots.has(this.canonical(resourceUri));
+  }
+
+  /** Production behavior ids some registered keyword declares it consumes. */
+  consumedIds(): ReadonlySet<string> {
+    return this.consumedBehaviorIds;
   }
 
   private canonical(resourceUri: string): string {

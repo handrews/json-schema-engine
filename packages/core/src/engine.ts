@@ -22,6 +22,19 @@ import { SchemaRegistry } from "./registry.js";
 
 export class InfiniteLoopError extends Error {}
 export class UnknownKeywordError extends Error {}
+export class UndeclaredConsumptionError extends Error {}
+
+/**
+ * Produce-time elision (D5/M5.5): when set, a production is recorded only if
+ * this returns true. Correctness rests on two invariants: consumed behavior
+ * ids (per registry-accumulated StaticFacts.consumes) always record, and the
+ * predicate is never set while tracing (verbose output needs everything).
+ */
+export type RecordPredicate = (
+  behaviorId: string,
+  keywordName: string,
+  vocabularyUri: string | null,
+) => boolean;
 
 // Evaluation-path node: one pre-escaped segment, parent-linked, materialized
 // only when a unit escapes to output.
@@ -81,7 +94,11 @@ export class EvalState {
   private traceStack: TraceNode[] = [];
   private active = new Map<Cursor, Set<string>>();
 
-  constructor(public registry: SchemaRegistry, tracing = false) {
+  constructor(
+    public registry: SchemaRegistry,
+    tracing = false,
+    public shouldRecord: RecordPredicate | null = null,
+  ) {
     if (tracing) this.allProductions = [];
   }
 
@@ -189,6 +206,11 @@ class KeywordContextImpl implements KeywordContext {
   }
 
   produce(value: unknown): void {
+    const record = this.state.shouldRecord;
+    if (record
+      && !record(this.entry.behaviorId, this.entry.name, this.entry.vocabularyUri)) {
+      return;
+    }
     const production = {
       behaviorId: this.entry.behaviorId,
       keywordName: this.entry.name,
@@ -205,6 +227,17 @@ class KeywordContextImpl implements KeywordContext {
   }
 
   visible(behaviorIds: readonly string[]): readonly ProductionView[] {
+    // Under elision, reading an id nobody declared via StaticFacts.consumes
+    // means the productions may already be gone — fail loud, not wrong.
+    if (this.state.shouldRecord !== null) {
+      const consumed = this.state.registry.consumedIds();
+      for (const id of behaviorIds) {
+        if (!consumed.has(id)) {
+          throw new UndeclaredConsumptionError(
+            `'${this.entry.behaviorId}' reads '${id}' without declaring it in analyze().consumes`);
+        }
+      }
+    }
     return this.state.frame.productions.filter(
       (p) => p.cursor === this.cursor && behaviorIds.includes(p.behaviorId),
     );
@@ -268,8 +301,10 @@ export function applySchema(
       }
       // Unknown keywords are collected as annotations: the keyword's value is
       // the annotation value (spec SHOULD).
+      const behaviorId = unknownKeywordId(name);
+      if (state.shouldRecord && !state.shouldRecord(behaviorId, name, null)) continue;
       const production = {
-        behaviorId: unknownKeywordId(name),
+        behaviorId,
         keywordName: name,
         vocabularyUri: null,
         schemaRef,
@@ -313,8 +348,9 @@ export function runEvaluation(
   schemaUri: string,
   instance: JsonValue,
   tracing = false,
+  shouldRecord: RecordPredicate | null = null,
 ): { valid: boolean; state: EvalState } {
-  const state = new EvalState(registry, tracing);
+  const state = new EvalState(registry, tracing, tracing ? null : shouldRecord);
   const valid = applySchema(state, registry.rootRef(schemaUri), rootCursor(instance), null);
   return { valid, state };
 }
