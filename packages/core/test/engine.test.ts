@@ -279,6 +279,16 @@ describe("$recursiveRef/$recursiveAnchor (D8 degenerate case)", () => {
 });
 
 describe("legacy dialect keyword sets (D11/D18)", () => {
+  it("accepts a defaultDialect spelled with the canonical empty fragment", () => {
+    const engine = createEngine({
+      defaultDialect: "http://json-schema.org/draft-07/schema#",
+    });
+    const uri = engine.registerSchema(
+      { items: [{ type: "boolean" }] }, "https://legacy.example/frag-dialect");
+    expect(engine.evaluate(uri, [true]).valid).toBe(true);
+    expect(engine.evaluate(uri, [3]).valid).toBe(false);
+  });
+
   it("treats post-draft-07 validation keywords as unknown in draft-07", async () => {
     const { DIALECT_DRAFT_07 } = await import("@jse/core");
     const engine = createEngine({ defaultDialect: DIALECT_DRAFT_07 });

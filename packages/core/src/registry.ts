@@ -53,7 +53,9 @@ export class SchemaRegistry {
     dialectUri?: string,
     getRange?: (pointer: string) => SourceRange | undefined,
   ): string {
-    let effectiveDialect = dialectUri ?? this.defaultDialectUri;
+    // Dialect URIs are compared fragment-free: "…/draft-07/schema#" (the
+    // canonical in-the-wild $schema spelling) names the same dialect.
+    let effectiveDialect = splitFragment(dialectUri ?? this.defaultDialectUri).resource;
     if (isObject(schema) && typeof schema.$schema === "string") {
       effectiveDialect = splitFragment(resolveUri(schema.$schema, retrievalUri)).resource;
     }

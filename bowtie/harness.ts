@@ -6,7 +6,12 @@
 import * as readline from "node:readline";
 import { createEngine, JsonValue, SchemaLoader } from "../packages/core/src/index.js";
 
-const DIALECT_2020_12 = "https://json-schema.org/draft/2020-12/schema";
+const DIALECTS = [
+  "https://json-schema.org/draft/2020-12/schema",
+  "https://json-schema.org/draft/2019-09/schema",
+  "http://json-schema.org/draft-07/schema",
+  "http://json-schema.org/draft-06/schema",
+];
 // Neutral base for case schemas without $id; http-scheme so relative
 // references resolve through URL.
 const RETRIEVAL_URI = "https://bowtie.example/schema";
@@ -22,7 +27,7 @@ interface BowtieCase {
   tests: BowtieTest[];
 }
 
-let currentDialect = DIALECT_2020_12;
+let currentDialect = DIALECTS[0]!;
 
 const send = (response: unknown): void => {
   process.stdout.write(JSON.stringify(response) + "\n");
@@ -43,7 +48,7 @@ async function handle(line: string): Promise<void> {
           language: "javascript",
           name: "jse",
           version: "0.0.0",
-          dialects: [DIALECT_2020_12],
+          dialects: DIALECTS,
           homepage: "https://github.com/handrews/json-schema-engine",
           issues: "https://github.com/handrews/json-schema-engine/issues",
           source: "https://github.com/handrews/json-schema-engine",
@@ -53,7 +58,7 @@ async function handle(line: string): Promise<void> {
     }
     case "dialect": {
       currentDialect = request.dialect as string;
-      send({ ok: request.dialect === DIALECT_2020_12 });
+      send({ ok: DIALECTS.includes(currentDialect) });
       return;
     }
     case "run": {

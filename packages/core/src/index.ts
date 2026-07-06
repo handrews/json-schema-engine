@@ -100,7 +100,8 @@ export class Engine {
 
   constructor(options: EngineOptions = {}) {
     registerStandardDialects(this.dialects);
-    this.defaultDialect = options.defaultDialect ?? DIALECT_2020_12;
+    this.defaultDialect =
+      splitFragment(options.defaultDialect ?? DIALECT_2020_12).resource;
     this.schemas = new SchemaRegistry(this.dialects, this.defaultDialect);
     this.loaders = [...(options.loaders ?? [])];
     this.validateSchemas = options.validateSchemas ?? false;
@@ -270,7 +271,7 @@ export class Engine {
     retrievalUri: string,
     dialectUri?: string,
   ): Promise<void> {
-    let effective = dialectUri ?? this.defaultDialect;
+    let effective = splitFragment(dialectUri ?? this.defaultDialect).resource;
     if (isObject(schema) && typeof schema.$schema === "string") {
       effective = splitFragment(resolveUri(schema.$schema, retrievalUri)).resource;
     }
