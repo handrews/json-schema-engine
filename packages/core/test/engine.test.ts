@@ -34,6 +34,50 @@ describe("cycle guard", () => {
   });
 });
 
+describe("source-position prefix table (D17)", () => {
+  const A = "https://pos.example/A";
+  const B = "https://pos.example/B";
+  const C = "https://pos.example/C";
+
+  function registered() {
+    const engine = createEngine();
+    engine.registerSchema({
+      $id: A,
+      $defs: {
+        inner: {
+          $id: B,
+          required: ["x"],
+          $defs: { deep: { $id: C, type: "string" } },
+        },
+      },
+      $ref: B,
+    }, "https://pos.example/doc");
+    return engine;
+  }
+
+  it("maps resource URIs to document-rooted pointers, nested included", () => {
+    const engine = registered();
+    expect(engine.documentLocation(A)).toEqual({ documentUri: A, pointer: "" });
+    expect(engine.documentLocation(B)).toEqual({ documentUri: A, pointer: "/$defs/inner" });
+    expect(engine.documentLocation(C))
+      .toEqual({ documentUri: A, pointer: "/$defs/inner/$defs/deep" });
+    expect(engine.documentLocation("https://pos.example/unknown")).toBeUndefined();
+  });
+
+  it("translates a canonical error location to a document pointer", () => {
+    const engine = registered();
+    const r = engine.evaluate(A, {}, { output: "list" });
+    expect(r.valid).toBe(false);
+    const unit = r.errors!.find((e) => e.error.includes("'x'"))!;
+    expect(unit.schemaLocation).toBe(`${B}#/required`);
+    // schemaLocation = resourceUri + "#" + ptr; document pointer = prefix + ptr
+    const [resourceUri, ptr] = unit.schemaLocation!.split("#");
+    const loc = engine.documentLocation(resourceUri!)!;
+    expect(loc.documentUri).toBe(A);
+    expect(loc.pointer + ptr).toBe("/$defs/inner/required");
+  });
+});
+
 describe("custom vocabularies and dialects (D2)", () => {
   const VOCAB = "https://dialect.example/vocab/each";
   const DIALECT = "https://dialect.example/dialect";

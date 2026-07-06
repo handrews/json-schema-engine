@@ -12,10 +12,20 @@ import { resolveUri, splitFragment, UnresolvableRefError } from "./uri.js";
 import { SchemaRef } from "./ref.js";
 import { Dialect, DialectRegistry } from "./dialect.js";
 
+// Where a schema resource physically lives: the registered document that
+// contains it and the JSON Pointer from that document's root to the
+// resource's root. Canonical schema locations are resource-rooted; loaders
+// report source positions document-rooted (D17) — this is the bridge.
+export interface DocumentLocation {
+  documentUri: string;
+  pointer: string;
+}
+
 export class SchemaRegistry {
   private documents = new Map<string, JsonValue>();   // resource URI -> schema node
   private anchors = new Map<string, SchemaRef>();     // "resource#anchor"
   private documentDialects = new Map<string, string>(); // resource URI -> dialect URI
+  private resourceLocations = new Map<string, DocumentLocation>();
 
   constructor(
     private dialectRegistry: DialectRegistry,
@@ -40,11 +50,19 @@ export class SchemaRegistry {
     }
     this.documents.set(baseUri, schema);
     this.documentDialects.set(baseUri, effectiveDialect);
-    this.walk(schema, baseUri, "", dialect);
+    this.resourceLocations.set(baseUri, { documentUri: baseUri, pointer: "" });
+    this.walk(schema, baseUri, "", baseUri, "", dialect);
     return baseUri;
   }
 
-  private walk(node: JsonValue, baseUri: string, pointer: string, dialect: Dialect): void {
+  private walk(
+    node: JsonValue,
+    baseUri: string,
+    pointer: string,
+    documentUri: string,
+    docPointer: string, // pointer from the registered document's root
+    dialect: Dialect,
+  ): void {
     if (!isObject(node)) return;
 
     if (pointer !== "" && typeof node.$id === "string") {
@@ -52,6 +70,7 @@ export class SchemaRegistry {
       pointer = "";
       this.documents.set(baseUri, node);
       this.documentDialects.set(baseUri, dialect.uri);
+      this.resourceLocations.set(baseUri, { documentUri, pointer: docPointer });
     }
     if (typeof node.$anchor === "string") {
       this.anchors.set(`${baseUri}#${node.$anchor}`, { node, baseUri, pointer });
@@ -63,16 +82,28 @@ export class SchemaRegistry {
       if (!positions) continue;
       for (const relPath of positions) {
         let child: JsonValue = value!;
-        let childPointer = pointer + "/" + escapeSegment(name);
+        let suffix = "/" + escapeSegment(name);
         for (const seg of relPath) {
           child = (Array.isArray(child)
             ? child[seg as number]
             : (child as Record<string, JsonValue>)[seg as string]) as JsonValue;
-          childPointer += "/" + escapeSegment(String(seg));
+          suffix += "/" + escapeSegment(String(seg));
         }
-        this.walk(child, baseUri, childPointer, dialect);
+        this.walk(child, baseUri, pointer + suffix, documentUri, docPointer + suffix, dialect);
       }
     }
+  }
+
+  /**
+   * The registered document containing a schema resource, and the resource
+   * root's pointer from that document's root (D17). A canonical location
+   * `(resourceUri, ptr)` corresponds to document pointer
+   * `documentLocation(resourceUri).pointer + ptr` for source-position lookup.
+   * Undefined for resources the registration walk never saw (e.g. an $id
+   * inside an unknown keyword reached only by pointer navigation).
+   */
+  documentLocation(resourceUri: string): DocumentLocation | undefined {
+    return this.resourceLocations.get(resourceUri);
   }
 
   dialectFor(baseUri: string): Dialect {

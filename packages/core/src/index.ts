@@ -21,6 +21,7 @@ export type {
 } from "./dialect.js";
 export { DialectRegistry, UnknownDialectError } from "./dialect.js";
 export { SchemaRegistry } from "./registry.js";
+export type { DocumentLocation } from "./registry.js";
 export { UnresolvableRefError } from "./uri.js";
 export { InfiniteLoopError, UnknownKeywordError } from "./engine.js";
 export type {
@@ -69,6 +70,15 @@ export class Engine {
 
   registerDialect(uri: string, vocabularyUris: readonly string[], options?: DialectOptions): void {
     this.dialects.registerDialect(uri, vocabularyUris, options);
+  }
+
+  /**
+   * Where a schema resource lives within its registered document (D17):
+   * translate a canonical resource URI to the containing document plus the
+   * resource root's document-rooted pointer, for source-position lookup.
+   */
+  documentLocation(resourceUri: string) {
+    return this.schemas.documentLocation(resourceUri);
   }
 
   evaluate(schemaUri: string, instance: JsonValue, options: EvaluateOptions = {}): Result {
