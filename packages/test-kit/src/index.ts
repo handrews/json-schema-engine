@@ -23,6 +23,29 @@ export type JsonValue =
 export const isObject = (v: unknown): v is Record<string, JsonValue> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
+export {
+  Prng,
+  deriveSeed,
+  mutateInstance,
+  mutateChain,
+  instancePool,
+  NUMERIC_EDGES,
+  STRING_EDGES,
+  PROTO_TRAP_KEYS,
+  POINTER_ESCAPE_KEYS,
+} from "./fuzz.js";
+export {
+  runSide,
+  outcomesAgree,
+  describeOutcome,
+  minimizeDivergence,
+} from "./differential.js";
+export type {
+  SideOutcome,
+  DifferentialSubject,
+  Divergence,
+} from "./differential.js";
+
 export { parseJsonWithRanges } from "./positions.js";
 export type {
   ParsedDocument,

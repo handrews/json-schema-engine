@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "bench": "tsx spike/bench.ts",
+    "fuzz": "tsx scripts/fuzz.ts",
     "test": "vitest run",
     "check-types": "tsc --noEmit",
     "lint": "eslint .",
