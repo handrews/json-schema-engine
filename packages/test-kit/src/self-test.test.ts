@@ -32,8 +32,8 @@ const notImplemented = (): boolean => {
 };
 
 describe("@jse/test-kit runSuiteFiles (collect mode)", () => {
-  it("skips every case when the file's only keyword is declared unsupported", () => {
-    const summary = runSuiteFiles({
+  it("skips every case when the file's only keyword is declared unsupported", async () => {
+    const summary = await runSuiteFiles({
       suiteDir: SUITE_DIR,
       files: ["type"],
       unsupportedKeywords: ["type"],
@@ -47,8 +47,8 @@ describe("@jse/test-kit runSuiteFiles (collect mode)", () => {
     expect(summary.cases.every((c) => c.status === "skipped")).toBe(true);
   });
 
-  it("counts run/passed/failed correctly for an always-true evaluator", () => {
-    const summary = runSuiteFiles({
+  it("counts run/passed/failed correctly for an always-true evaluator", async () => {
+    const summary = await runSuiteFiles({
       suiteDir: SUITE_DIR,
       files: ["enum"],
       unsupportedKeywords: [],
@@ -66,8 +66,8 @@ describe("@jse/test-kit runSuiteFiles (collect mode)", () => {
     expect(summary.files).toEqual([{ name: "enum", run: 51, passed: 22, skipped: 0 }]);
   });
 
-  it("reports thrown evaluator errors as skips, not silent passes", () => {
-    const summary = runSuiteFiles({
+  it("reports thrown evaluator errors as skips, not silent passes", async () => {
+    const summary = await runSuiteFiles({
       suiteDir: SUITE_DIR,
       files: ["enum"],
       unsupportedKeywords: [],

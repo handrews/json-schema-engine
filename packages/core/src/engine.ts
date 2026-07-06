@@ -12,6 +12,7 @@
 //     retention never affects rule 4.
 
 import { JsonValue, isObject, escapeSegment } from "./json.js";
+import { resolveUri, splitFragment } from "./uri.js";
 import { Cursor, rootCursor } from "./cursor.js";
 import { SchemaRef } from "./ref.js";
 import {
@@ -58,6 +59,9 @@ interface Frame { productions: Production[] }
 export class EvalState {
   frames: Frame[] = [{ productions: [] }];
   errors: ErrorRecord[] = [];
+  // Dynamic scope (D8): resources entered by schema application, outermost
+  // first. Duplicates are fine — resolution takes the first (outermost) hit.
+  dynamicScope: string[] = [];
   private active = new Map<Cursor, Set<string>>();
 
   constructor(public registry: SchemaRegistry) {}
@@ -109,6 +113,23 @@ class KeywordContextImpl implements KeywordContext {
 
   resolveRef(ref: string): SchemaRef {
     return this.state.registry.resolveRef(ref, this.schemaRef.baseUri);
+  }
+
+  resolveDynamic(ref: string): SchemaRef {
+    const registry = this.state.registry;
+    // Lexical resolution first (spec: the initial target must exist); the
+    // rebinding below only applies to plain-name fragments minted by a
+    // dynamic anchor — pointer fragments behave exactly like $ref.
+    const target = registry.resolveRef(ref, this.schemaRef.baseUri);
+    const { resource, fragment } =
+      splitFragment(resolveUri(ref, this.schemaRef.baseUri));
+    if (fragment === null || fragment === "" || fragment.startsWith("/")) return target;
+    if (registry.dynamicAnchor(resource, fragment) === undefined) return target;
+    for (const scopeUri of this.state.dynamicScope) {
+      const hit = registry.dynamicAnchor(scopeUri, fragment);
+      if (hit !== undefined) return hit;
+    }
+    return target;
   }
 
   applyResolved(target: SchemaRef): boolean {
@@ -166,6 +187,7 @@ export function applySchema(
   const dialect: Dialect = state.registry.dialectFor(schemaRef.baseUri);
 
   state.enter(schemaRef, cursor);
+  state.dynamicScope.push(schemaRef.baseUri);
   state.frames.push({ productions: [] });
   let valid = true;
   try {
@@ -194,6 +216,7 @@ export function applySchema(
   } finally {
     const frame = state.frames.pop()!;
     if (valid) state.frame.productions.push(...frame.productions);
+    state.dynamicScope.pop();
     state.exit(schemaRef, cursor);
   }
   return valid;

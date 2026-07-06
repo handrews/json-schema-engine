@@ -10,6 +10,7 @@ import { instancePointer } from "./cursor.js";
 import {
   ErrorRecord, PathNode, Production, materializePath,
 } from "./engine.js";
+import { SourceLocation } from "./loader.js";
 
 export type LocationVocabulary = "modern" | "2020-12";
 
@@ -22,6 +23,8 @@ export interface ErrorUnit {
   // 2020-12
   keywordLocation?: string;
   absoluteKeywordLocation?: string;
+  /** schema-side source position, present with the `positions` option (D17) */
+  source?: SourceLocation;
 }
 
 export interface AnnotationUnit extends Omit<ErrorUnit, "error"> {

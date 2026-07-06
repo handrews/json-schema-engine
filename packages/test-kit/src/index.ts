@@ -21,6 +21,34 @@ export type JsonValue =
 export const isObject = (v: unknown): v is Record<string, JsonValue> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
+export {
+  parseJsonWithRanges,
+} from "./positions.js";
+export type {
+  ParsedDocument, SourcePosition, SourceRange, SourceSpan,
+} from "./positions.js";
+
+// Serves the official suite's `remotes/` tree for the URIs the suite files
+// reference; no HTTP server involved. Shaped to satisfy @jse/core's
+// SchemaLoader structurally (test-kit stays dependency-free). A URI outside
+// the base or a missing file is a loader miss (undefined), not an error —
+// per the loader contract.
+export function suiteRemotesLoader(
+  remotesDir: string,
+  baseUrl = "http://localhost:1234/",
+): (uri: string) => { value: JsonValue } | undefined {
+  return (uri) => {
+    if (!uri.startsWith(baseUrl)) return undefined;
+    try {
+      const text = readFileSync(
+        join(remotesDir, ...uri.slice(baseUrl.length).split("/")), "utf8");
+      return { value: JSON.parse(text) as JsonValue };
+    } catch {
+      return undefined;
+    }
+  };
+}
+
 // Keywords whose value is one schema.
 const SINGLE = new Set([
   "additionalProperties", "contains", "items", "not", "if", "then", "else",
@@ -85,7 +113,11 @@ export interface SuiteSummary {
 
 // One required evaluate callback: (schema, instance) => boolean, throwing is
 // allowed and is reported as an "errored" case (not a bug in the runner).
-export type Evaluate = (schema: JsonValue, instance: JsonValue) => boolean;
+// May be async — remote-ref cases need loader I/O before evaluating.
+export type Evaluate = (
+  schema: JsonValue,
+  instance: JsonValue,
+) => boolean | Promise<boolean>;
 
 // Alternative callback for evaluators that need the schema's retrieval URI
 // (e.g. to register it before evaluating, for $ref resolution).
@@ -93,7 +125,7 @@ export type RegisterAndEvaluate = (
   schema: JsonValue,
   retrievalUri: string,
   instance: JsonValue,
-) => boolean;
+) => boolean | Promise<boolean>;
 
 export interface OnSkipInfo {
   file: string;
@@ -119,7 +151,7 @@ const DEFAULT_RETRIEVAL_BASE = "https://suite.example/schema";
 // case-level results plus per-file/overall totals. No test-framework
 // dependency — this is the primary API; runSuiteFilesVitest is a thin wrapper
 // over it.
-export function runSuiteFiles(options: RunSuiteFilesOptions): SuiteSummary {
+export async function runSuiteFiles(options: RunSuiteFilesOptions): Promise<SuiteSummary> {
   const { suiteDir, files, evaluate, registerAndEvaluate, onSkip } = options;
   if (!evaluate && !registerAndEvaluate) {
     throw new Error("runSuiteFiles requires either evaluate or registerAndEvaluate");
@@ -159,9 +191,9 @@ export function runSuiteFiles(options: RunSuiteFilesOptions): SuiteSummary {
       for (const test of group.tests) {
         fileRun++;
         try {
-          const valid = registerAndEvaluate
+          const valid = await (registerAndEvaluate
             ? registerAndEvaluate(group.schema, retrievalBase, test.data)
-            : evaluate!(group.schema, test.data);
+            : evaluate!(group.schema, test.data));
           if (valid === test.valid) {
             filePassed++;
             cases.push({ file, group: group.description, description: test.description, status: "passed" });
@@ -199,7 +231,7 @@ export function runSuiteFiles(options: RunSuiteFilesOptions): SuiteSummary {
 export interface VitestLike {
   describe: (name: string, fn: () => void) => void;
   it: {
-    (name: string, fn: () => void): void;
+    (name: string, fn: () => void | Promise<void>): void;
     skip: (name: string, fn: () => void) => void;
   };
   expect: (actual: unknown, message?: string) => { toBe: (expected: unknown) => void };
@@ -244,12 +276,12 @@ export function runSuiteFilesVitest(options: RunSuiteFilesVitestOptions): void {
 
         describe(group.description, () => {
           for (const test of group.tests) {
-            it(test.description, () => {
+            it(test.description, async () => {
               let valid: boolean;
               try {
-                valid = registerAndEvaluate
+                valid = await (registerAndEvaluate
                   ? registerAndEvaluate(group.schema, retrievalBase, test.data)
-                  : evaluate!(group.schema, test.data);
+                  : evaluate!(group.schema, test.data));
               } catch (e) {
                 const message = e instanceof Error ? e.message : String(e);
                 const reason = `error: ${message}`;

@@ -86,6 +86,8 @@ interface KeywordBehavior<V = JsonValue> {
 
 interface StaticFacts {
   subschemas?: SubschemaPosition[];       // where child schemas live
+  references?: string[];                  // reference URIs in the keyword value
+                                          // (drives transitive loading, D7)
   produces?: ProductionKind[];            // channel productions it can emit
   consumes?: ProductionKind[];            // channel productions it reads
   evaluatesNames?: StaticNameSet;         // static contribution to evaluated props
@@ -96,8 +98,10 @@ interface StaticFacts {
 
 Engine-owned context services (the only path to descent, locations, and the
 channel — this is what makes D1's compiler contract enforceable):
-`ctx.applyChild(segments, cursor)`, `ctx.applyRef(target)`, `ctx.produce(value)`,
-`ctx.visibleProductions(kinds)`, `ctx.error(params)`. See `prototype/engine.ts`
+`ctx.applyChild(segments, cursor)`, `ctx.applyRef(target)`,
+`ctx.resolveDynamic(ref)` (D8 rebinding; the engine owns the dynamic-scope
+stack), `ctx.produce(value)`, `ctx.visibleProductions(kinds)`,
+`ctx.error(params)`. See `prototype/engine.ts`
 (`KwApi`) for the working miniature, including exemplars of each keyword class:
 assertion (`pattern`), in-place applicator (`anyOf`), child applicator
 (`properties`), channel consumer (`unevaluatedProperties`), annotation-only
@@ -153,6 +157,11 @@ assertion (`pattern`), in-place applicator (`anyOf`), child applicator
 | M8 | `ajv-compat`: API surface, error mapping (D13), formats parity, loud failure for `code`-keywords and `$data` (§7); PoC against a fastify app and an OpenAPI validator | judgment (surface) + patterned (mapping tables) | Compat test suite green; both PoCs validate real traffic |
 | M9 | `bench` harness (compile/first/hot/annotations-on × corpora), Bowtie onboarding PR, docs | patterned | Published Bowtie report; bench reproducible in CI |
 | M10 | `dialect-legacy`: draft-04/06 | patterned | draft4/draft6 suites green |
+
+**Status note (M3, 2026-07-05):** all M3 done-signal legs are green except
+the local Bowtie run — the dev machine has no container runtime
+(bowtie/docker/podman all absent), which Bowtie requires. That leg is owed;
+run it alongside M9's Bowtie onboarding or earlier once podman is installed.
 
 Session protocol for a milestone: read this file §1–§5 + the milestone row;
 run the done-signal first (red); implement; done-signal green; conformance

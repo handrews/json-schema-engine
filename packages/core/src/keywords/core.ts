@@ -44,9 +44,19 @@ export const notImplemented = (id: string, milestone: string): KeywordBehavior =
     },
   });
 
+const referenceFacts = (value: JsonValue): StaticFacts =>
+  typeof value === "string" ? { references: [value] } : {};
+
 export const $ref: KeywordBehavior = {
   id: `${VOCAB_CORE}#$ref`,
+  analyze: referenceFacts,
   evaluate: (value, _cursor, ctx) => ctx.applyResolved(ctx.resolveRef(value as string)),
+};
+
+export const $dynamicRef: KeywordBehavior = {
+  id: `${VOCAB_CORE}#$dynamicRef`,
+  analyze: (value) => ({ ...referenceFacts(value), dynamicScopeSensitive: true }),
+  evaluate: (value, _cursor, ctx) => ctx.applyResolved(ctx.resolveDynamic(value as string)),
 };
 
 export const $defs: KeywordBehavior = {
@@ -57,15 +67,16 @@ export const $defs: KeywordBehavior = {
 
 export const coreVocabulary: Record<string, KeywordBehavior> = {
   $ref,
+  $dynamicRef,
   $defs,
   $id: structural(`${VOCAB_CORE}#$id`),
   $schema: structural(`${VOCAB_CORE}#$schema`),
   $anchor: structural(`${VOCAB_CORE}#$anchor`),
+  // Dynamic-anchor indexing happens in the registration walk (D8).
+  $dynamicAnchor: structural(`${VOCAB_CORE}#$dynamicAnchor`),
   $vocabulary: structural(`${VOCAB_CORE}#$vocabulary`),
   // $comment's value MUST NOT be collected as an annotation.
   $comment: structural(`${VOCAB_CORE}#$comment`),
-  $dynamicRef: notImplemented(`${VOCAB_CORE}#$dynamicRef`, "M3"),
-  $dynamicAnchor: notImplemented(`${VOCAB_CORE}#$dynamicAnchor`, "M3"),
 };
 
 export { mapPositions, SELF };

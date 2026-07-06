@@ -11,6 +11,7 @@ import { JsonValue, isObject, escapeSegment, unescapeSegment } from "./json.js";
 import { resolveUri, splitFragment, UnresolvableRefError } from "./uri.js";
 import { SchemaRef } from "./ref.js";
 import { Dialect, DialectRegistry } from "./dialect.js";
+import { SourceRange } from "./loader.js";
 
 // Where a schema resource physically lives: the registered document that
 // contains it and the JSON Pointer from that document's root to the
@@ -24,8 +25,16 @@ export interface DocumentLocation {
 export class SchemaRegistry {
   private documents = new Map<string, JsonValue>();   // resource URI -> schema node
   private anchors = new Map<string, SchemaRef>();     // "resource#anchor"
+  private dynamicAnchors = new Map<string, SchemaRef>(); // $dynamicAnchor only (D8)
   private documentDialects = new Map<string, string>(); // resource URI -> dialect URI
   private resourceLocations = new Map<string, DocumentLocation>();
+  // Retrieval URI -> declared $id base, when they differ: the document must
+  // be reachable under both, but anchors and lexical bases live under $id.
+  private aliases = new Map<string, string>();
+  // External resources seen in reference values during registration walks,
+  // drained by the load closure (D7).
+  private pendingResources = new Set<string>();
+  private documentRanges = new Map<string, (pointer: string) => SourceRange | undefined>();
 
   constructor(
     private dialectRegistry: DialectRegistry,
@@ -37,20 +46,28 @@ export class SchemaRegistry {
    * (and must already be registered), else `dialectUri`, else the default.
    * Returns the document's canonical base URI.
    */
-  register(schema: JsonValue, retrievalUri: string, dialectUri?: string): string {
+  register(
+    schema: JsonValue,
+    retrievalUri: string,
+    dialectUri?: string,
+    getRange?: (pointer: string) => SourceRange | undefined,
+  ): string {
     let effectiveDialect = dialectUri ?? this.defaultDialectUri;
     if (isObject(schema) && typeof schema.$schema === "string") {
       effectiveDialect = splitFragment(resolveUri(schema.$schema, retrievalUri)).resource;
     }
     const dialect = this.dialectRegistry.getDialect(effectiveDialect);
 
-    let baseUri = splitFragment(retrievalUri).resource;
+    const retrievalResource = splitFragment(retrievalUri).resource;
+    let baseUri = retrievalResource;
     if (isObject(schema) && typeof schema.$id === "string") {
       baseUri = splitFragment(resolveUri(schema.$id, baseUri)).resource;
     }
+    if (baseUri !== retrievalResource) this.aliases.set(retrievalResource, baseUri);
     this.documents.set(baseUri, schema);
     this.documentDialects.set(baseUri, effectiveDialect);
     this.resourceLocations.set(baseUri, { documentUri: baseUri, pointer: "" });
+    if (getRange) this.documentRanges.set(baseUri, getRange);
     this.walk(schema, baseUri, "", baseUri, "", dialect);
     return baseUri;
   }
@@ -75,10 +92,27 @@ export class SchemaRegistry {
     if (typeof node.$anchor === "string") {
       this.anchors.set(`${baseUri}#${node.$anchor}`, { node, baseUri, pointer });
     }
+    // A dynamic anchor is also a plain anchor for $ref purposes; only the
+    // dynamic-anchor index participates in $dynamicRef rebinding (D8).
+    if (typeof node.$dynamicAnchor === "string") {
+      const ref = { node, baseUri, pointer };
+      this.anchors.set(`${baseUri}#${node.$dynamicAnchor}`, ref);
+      this.dynamicAnchors.set(`${baseUri}#${node.$dynamicAnchor}`, ref);
+    }
 
     for (const [name, value] of Object.entries(node)) {
       const behavior = dialect.keywords.get(name)?.behavior;
-      const positions = behavior?.analyze?.(value!)?.subschemas;
+      const facts = behavior?.analyze?.(value!);
+      if (!facts) continue;
+      for (const ref of facts.references ?? []) {
+        try {
+          this.pendingResources.add(splitFragment(resolveUri(ref, baseUri)).resource);
+        } catch {
+          // Unresolvable now is not an error: evaluation reports it if the
+          // reference is actually followed.
+        }
+      }
+      const positions = facts.subschemas;
       if (!positions) continue;
       for (const relPath of positions) {
         let child: JsonValue = value!;
@@ -103,17 +137,50 @@ export class SchemaRegistry {
    * inside an unknown keyword reached only by pointer navigation).
    */
   documentLocation(resourceUri: string): DocumentLocation | undefined {
-    return this.resourceLocations.get(resourceUri);
+    return this.resourceLocations.get(this.canonical(resourceUri));
+  }
+
+  /** Source range for a document-rooted pointer, when the loader supplied one (D17). */
+  range(documentUri: string, pointer: string): SourceRange | undefined {
+    return this.documentRanges.get(documentUri)?.(pointer);
+  }
+
+  has(resourceUri: string): boolean {
+    return this.documents.has(resourceUri) || this.aliases.has(resourceUri);
+  }
+
+  document(resourceUri: string): JsonValue | undefined {
+    return this.documents.get(this.canonical(resourceUri));
+  }
+
+  /** External resources referenced but not yet registered; drained per call. */
+  takeUnresolved(): string[] {
+    const missing = [...this.pendingResources].filter((r) => !this.has(r));
+    this.pendingResources.clear();
+    return missing;
+  }
+
+  dynamicAnchor(resourceUri: string, name: string): SchemaRef | undefined {
+    return this.dynamicAnchors.get(`${this.canonical(resourceUri)}#${name}`);
+  }
+
+  private canonical(resourceUri: string): string {
+    return this.aliases.get(resourceUri) ?? resourceUri;
+  }
+
+  dialectUriFor(baseUri: string): string {
+    const uri = this.documentDialects.get(this.canonical(baseUri));
+    if (uri === undefined) throw new UnresolvableRefError(`unknown schema '${baseUri}'`);
+    return uri;
   }
 
   dialectFor(baseUri: string): Dialect {
-    const uri = this.documentDialects.get(baseUri);
-    if (uri === undefined) throw new UnresolvableRefError(`unknown schema '${baseUri}'`);
-    return this.dialectRegistry.getDialect(uri);
+    return this.dialectRegistry.getDialect(this.dialectUriFor(baseUri));
   }
 
   rootRef(uri: string): SchemaRef {
-    const { resource, fragment } = splitFragment(uri);
+    const { resource: rawResource, fragment } = splitFragment(uri);
+    const resource = this.canonical(rawResource);
     if (fragment !== null && fragment !== "") {
       return this.resolveRef(uri, resource);
     }
@@ -124,7 +191,9 @@ export class SchemaRegistry {
 
   /** Resolve a reference value against the referring schema's base URI. */
   resolveRef(ref: string, currentBase: string): SchemaRef {
-    const { resource, fragment } = splitFragment(resolveUri(ref, currentBase));
+    const resolved = splitFragment(resolveUri(ref, currentBase));
+    const resource = this.canonical(resolved.resource);
+    const fragment = resolved.fragment;
 
     if (fragment !== null && fragment !== "" && !fragment.startsWith("/")) {
       const hit = this.anchors.get(`${resource}#${fragment}`);

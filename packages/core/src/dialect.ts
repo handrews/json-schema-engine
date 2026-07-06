@@ -15,6 +15,11 @@ import { SchemaRef } from "./ref.js";
 export interface StaticFacts {
   /** paths to child schemas, relative to the keyword's value */
   subschemas?: readonly (readonly (string | number)[])[];
+  /**
+   * reference URIs this keyword's value points at (relative to the lexical
+   * base); drives transitive resource loading (D7)
+   */
+  references?: readonly string[];
   /** behavior ids of productions this keyword can emit */
   produces?: readonly string[];
   /** behavior ids of productions this keyword reads from the channel */
@@ -42,6 +47,12 @@ export interface KeywordContext {
   apply(segments: readonly (string | number)[], cursor: Cursor): boolean;
   /** resolve a reference against the current lexical base */
   resolveRef(ref: string): SchemaRef;
+  /**
+   * resolve a `$dynamicRef`-class reference (D8): lexical resolution first;
+   * when the initial target's anchor was created by a dynamic anchor, rebind
+   * to the outermost dynamic-scope resource with a matching dynamic anchor
+   */
+  resolveDynamic(ref: string): SchemaRef;
   /** apply a resolved reference target at the current cursor */
   applyResolved(target: SchemaRef): boolean;
   /** emit a production for this keyword at the current cursor */
@@ -77,6 +88,8 @@ export interface Dialect {
   keywords: ReadonlyMap<string, DialectKeyword>;
   /** evaluation order: phase 0 entries then phase 1 entries */
   ordered: readonly DialectKeyword[];
+  /** the vocabularies this dialect was assembled from, in order */
+  vocabularyUris: readonly string[];
   allowUnknownKeywords: boolean;
 }
 
@@ -86,6 +99,7 @@ export interface DialectOptions {
 }
 
 export class UnknownDialectError extends Error {}
+export class UnknownVocabularyError extends Error {}
 
 export class DialectRegistry {
   private vocabularies = new Map<string, Readonly<Record<string, KeywordBehavior>>>();
@@ -116,6 +130,7 @@ export class DialectRegistry {
       uri,
       keywords,
       ordered,
+      vocabularyUris: [...vocabularyUris],
       allowUnknownKeywords: options.allowUnknownKeywords ?? true,
     });
   }
@@ -128,6 +143,10 @@ export class DialectRegistry {
 
   hasDialect(uri: string): boolean {
     return this.dialects.has(uri);
+  }
+
+  hasVocabulary(uri: string): boolean {
+    return this.vocabularies.has(uri);
   }
 }
 

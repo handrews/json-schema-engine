@@ -4,7 +4,9 @@
 import { describe, it, expect } from "vitest";
 import {
   childCursor, createEngine, InfiniteLoopError, JsonValue, KeywordBehavior,
+  SchemaValidationError, UnknownVocabularyError,
 } from "@jse/core";
+import { parseJsonWithRanges } from "@jse/test-kit";
 
 describe("cycle guard", () => {
   it("throws on true reference cycles", () => {
@@ -75,6 +77,95 @@ describe("source-position prefix table (D17)", () => {
     const loc = engine.documentLocation(resourceUri!)!;
     expect(loc.documentUri).toBe(A);
     expect(loc.pointer + ptr).toBe("/$defs/inner/required");
+  });
+});
+
+describe("source positions (D17: getRange, locate, unit decoration)", () => {
+  const text = `{
+  "$id": "https://pos.example/root",
+  "$ref": "https://pos.example/leaf",
+  "$defs": {
+    "leaf": {
+      "$id": "https://pos.example/leaf",
+      "required": ["x"]
+    }
+  }
+}`;
+
+  async function loaded() {
+    const engine = createEngine({
+      loaders: [(uri) =>
+        uri === "https://pos.example/root" ? parseJsonWithRanges(text) : undefined],
+    });
+    const uri = await engine.load("https://pos.example/root");
+    return { engine, uri };
+  }
+
+  it("round-trips a position lookup through an embedded-$id resource", async () => {
+    const { engine, uri } = await loaded();
+    const r = engine.evaluate(uri, {}, { output: "list", positions: true });
+    expect(r.valid).toBe(false);
+    const unit = r.errors!.find((e) => e.error.includes("'x'"))!;
+    expect(unit.schemaLocation).toBe("https://pos.example/leaf#/required");
+
+    const source = unit.source!;
+    expect(source.documentUri).toBe("https://pos.example/root");
+    expect(source.pointer).toBe("/$defs/leaf/required");
+    // The range must point at the `"required": ["x"]` member in the source:
+    // key span at the keyword name, value span at the array.
+    const valueLine = text.split("\n")[source.range!.value.start.line - 1]!;
+    expect(valueLine).toContain('"required"');
+    expect(source.range!.key).toBeDefined();
+    expect(text.slice(source.range!.key!.start.offset!, source.range!.key!.end.offset!))
+      .toBe('"required"');
+
+    expect(engine.locate(unit.schemaLocation!)).toEqual(source);
+  });
+
+  it("locate degrades to pointer-only when the loader reports no positions", async () => {
+    const engine = createEngine();
+    engine.registerSchema(
+      { $defs: { s: { type: "number" } } }, "https://pos.example/plain");
+    expect(engine.locate("https://pos.example/plain#/$defs/s")).toEqual({
+      documentUri: "https://pos.example/plain",
+      pointer: "/$defs/s",
+    });
+  });
+});
+
+describe("$vocabulary processing and metaschema policy (M3)", () => {
+  const META = "https://policy.example/meta";
+  const CORE = "https://json-schema.org/draft/2020-12/vocab/core";
+  const VALIDATION = "https://json-schema.org/draft/2020-12/vocab/validation";
+
+  it("refuses a metaschema requiring an unknown vocabulary", async () => {
+    const engine = createEngine({
+      loaders: [(uri) => uri === META
+        ? { value: { $id: META, $vocabulary: {
+            [CORE]: true, "https://example.com/vocab/nonexistent": true } } }
+        : undefined],
+    });
+    await expect(engine.loadSchema({ $schema: META }, "https://policy.example/s"))
+      .rejects.toThrow(UnknownVocabularyError);
+  });
+
+  it("validates load targets against their metaschema when enabled", async () => {
+    const metaschema: JsonValue = {
+      $id: META,
+      $vocabulary: { [CORE]: true, [VALIDATION]: true },
+      type: ["object", "boolean"],
+      properties: { maxLength: { type: "integer" } },
+    };
+    const engine = createEngine({
+      validateSchemas: true,
+      loaders: [(uri) => uri === META ? { value: metaschema } : undefined],
+    });
+    await expect(
+      engine.loadSchema({ $schema: META, maxLength: "long" }, "https://policy.example/bad"),
+    ).rejects.toThrow(SchemaValidationError);
+    await expect(
+      engine.loadSchema({ $schema: META, maxLength: 3 }, "https://policy.example/good"),
+    ).resolves.toBe("https://policy.example/good");
   });
 });
 
