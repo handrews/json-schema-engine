@@ -8,7 +8,7 @@
 import { JsonValue, isObject, schemaRegExp } from "../json.js";
 import { KeywordBehavior, StaticFacts } from "../dialect.js";
 import { childCursor } from "../cursor.js";
-import { SELF, mapPositions, notImplemented } from "./core.js";
+import { SELF, mapPositions } from "./core.js";
 
 export const VOCAB_APPLICATOR = "https://json-schema.org/draft/2020-12/vocab/applicator";
 
@@ -209,13 +209,33 @@ export const contains: KeywordBehavior = {
     for (let i = 0; i < cursor.value.length; i++) {
       if (ctx.apply(["contains"], childCursor(cursor, i, cursor.value[i]!))) matched.push(i);
     }
-    if (matched.length === 0) {
-      ctx.error("no items match the contains subschema");
+    // minContains/maxContains are inert siblings (validation.ts) that turn
+    // the count into a range assertion instead of contains' own >=1 default;
+    // minContains: 0 with zero matches is valid (suite: "minContains = 0").
+    const min = typeof ctx.schema.minContains === "number" ? ctx.schema.minContains : 1;
+    const max = typeof ctx.schema.maxContains === "number" ? ctx.schema.maxContains : Infinity;
+    if (matched.length < min || matched.length > max) {
+      ctx.error(`${matched.length} item(s) match the contains subschema, expected ${min}-${max}`);
       return false;
     }
     // Annotation: matched indexes, or true when every item matched.
-    ctx.produce(matched.length === cursor.value.length ? true : matched);
+    if (matched.length > 0) ctx.produce(matched.length === cursor.value.length ? true : matched);
     return true;
+  },
+};
+
+// The instance is the property *name* (a string), not the object — same
+// child-applicator shape as `properties`, but the applied value is the key.
+export const propertyNames: KeywordBehavior = {
+  id: id("propertyNames"),
+  analyze: selfPosition,
+  evaluate: (_value, cursor, ctx) => {
+    if (!isObject(cursor.value)) return true;
+    let ok = true;
+    for (const name of Object.keys(cursor.value)) {
+      if (!ctx.apply(["propertyNames"], childCursor(cursor, name, name))) ok = false;
+    }
+    return ok;
   },
 };
 
@@ -234,5 +254,5 @@ export const applicatorVocabulary: Record<string, KeywordBehavior> = {
   prefixItems,
   items,
   contains,
-  propertyNames: notImplemented(id("propertyNames"), "M2"),
+  propertyNames,
 };

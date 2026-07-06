@@ -9,7 +9,6 @@ import {
 } from "../json.js";
 import { KeywordBehavior, KeywordContext } from "../dialect.js";
 import { Cursor } from "../cursor.js";
-import { notImplemented } from "./core.js";
 
 export const VOCAB_VALIDATION = "https://json-schema.org/draft/2020-12/vocab/validation";
 
@@ -39,6 +38,40 @@ export const pattern = assertion(
     typeof instance !== "string" || schemaRegExp(value as string).test(instance),
   () => "does not match required pattern",
 );
+
+// Number of digits after the decimal point in `n`'s shortest representation,
+// including exponential notation (1e-8 has 8). `%` on the raw floats fails
+// suite cases like 0.0075 % 0.0001 (binary rounding); scaling both operands
+// to integers by the same power of ten sidesteps that at the cost of this
+// string inspection.
+function decimalDigits(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  const s = Math.abs(n).toString();
+  const eIndex = s.indexOf("e");
+  if (eIndex !== -1) {
+    const mantissa = s.slice(0, eIndex);
+    const exponent = Number(s.slice(eIndex + 1));
+    const dot = mantissa.indexOf(".");
+    const mantissaDigits = dot === -1 ? 0 : mantissa.length - dot - 1;
+    return Math.max(0, mantissaDigits - exponent);
+  }
+  const dot = s.indexOf(".");
+  return dot === -1 ? 0 : s.length - dot - 1;
+}
+
+function isMultipleOf(instance: number, divisor: number): boolean {
+  const scale = 10 ** Math.max(decimalDigits(instance), decimalDigits(divisor));
+  const scaledInstance = instance * scale;
+  const scaledDivisor = divisor * scale;
+  // Suite case: the scaling itself can overflow to Infinity for huge
+  // instances against a small divisor; that must read as non-multiple, not
+  // throw or silently misvalidate.
+  if (Number.isFinite(scaledInstance) && Number.isFinite(scaledDivisor)) {
+    return Math.round(scaledInstance) % Math.round(scaledDivisor) === 0;
+  }
+  const quotient = instance / divisor;
+  return Number.isFinite(quotient) && Number.isInteger(quotient);
+}
 
 export const validationVocabulary: Record<string, KeywordBehavior> = {
   type: assertion(
@@ -127,10 +160,50 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
       return ok;
     },
   },
-  // Owed by M2 (DESIGN.md §5): loud placeholders, never silent misvalidation.
-  multipleOf: notImplemented(id("multipleOf"), "M2"),
-  uniqueItems: notImplemented(id("uniqueItems"), "M2"),
-  minContains: notImplemented(id("minContains"), "M2"),
-  maxContains: notImplemented(id("maxContains"), "M2"),
-  dependentRequired: notImplemented(id("dependentRequired"), "M2"),
+  multipleOf: assertion(
+    "multipleOf",
+    (value, instance) =>
+      typeof instance !== "number" || isMultipleOf(instance, value as number),
+    (value) => `must be a multiple of ${value}`,
+  ),
+  uniqueItems: {
+    id: id("uniqueItems"),
+    evaluate: (value, cursor, ctx) => {
+      if (value !== true || !Array.isArray(cursor.value)) return true;
+      const items = cursor.value;
+      for (let i = 0; i < items.length; i++) {
+        for (let j = i + 1; j < items.length; j++) {
+          if (jsonEqual(items[i]!, items[j]!)) {
+            ctx.error(`items at ${i} and ${j} are not unique`);
+            return false;
+          }
+        }
+      }
+      return true;
+    },
+  },
+  dependentRequired: {
+    id: id("dependentRequired"),
+    evaluate: (value, cursor, ctx) => {
+      if (!isObject(cursor.value)) return true;
+      const instance = cursor.value;
+      let ok = true;
+      for (const [name, deps] of Object.entries(value as Record<string, JsonValue>)) {
+        if (!Object.hasOwn(instance, name)) continue;
+        for (const dep of deps as string[]) {
+          if (!Object.hasOwn(instance, dep)) {
+            ctx.error(`'${name}' requires '${dep}' to be present`);
+            ok = false;
+          }
+        }
+      }
+      return ok;
+    },
+  },
+  // minContains/maxContains have no assertion of their own; `contains` reads
+  // them as inert siblings (applicator.ts), the same way `if` drives `then`/
+  // `else`. They must still be registered so unknown-keyword handling and the
+  // registration walk don't treat them as annotation-only or absent.
+  minContains: { id: id("minContains"), evaluate: () => true },
+  maxContains: { id: id("maxContains"), evaluate: () => true },
 };

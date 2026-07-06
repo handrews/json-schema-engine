@@ -22,15 +22,15 @@ const FILES = [
   "ref", "defs", "boolean_schema",
   "unevaluatedProperties", "unevaluatedItems",
   "infinite-loop-detection",
+  "anchor", "content", "default", "dependentRequired", "format",
+  "maxContains", "minContains", "multipleOf", "propertyNames", "uniqueItems",
 ];
 
-// 2020-12 keywords whose assertion/applicator semantics are owed by M2/M3;
-// core throws on them (loud placeholders), and the runner skips groups using
-// them in schema positions.
+// 2020-12 keywords whose dynamic-scope semantics are owed by M3; core throws
+// on them (loud placeholders), and the runner skips groups using them in
+// schema positions.
 const UNSUPPORTED = [
   "$dynamicRef", "$dynamicAnchor", "$recursiveRef", "$recursiveAnchor",
-  "multipleOf", "uniqueItems", "minContains", "maxContains",
-  "dependentRequired", "propertyNames",
 ];
 
 runSuiteFilesVitest({
@@ -42,7 +42,7 @@ runSuiteFilesVitest({
     const uri = engine.registerSchema(schema as JsonValue, retrievalUri);
     return engine.evaluate(uri, instance as JsonValue).valid;
   },
-  minRun: 800,
+  minRun: 1186,
   describe,
   it,
   expect: expect as never,
