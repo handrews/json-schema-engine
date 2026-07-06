@@ -7,7 +7,7 @@ import {
   jsonTypeOf,
   jsonEqual,
   codePointLength,
-  schemaRegExp,
+  canonicalKey,
 } from "../json.js";
 import { KeywordBehavior, KeywordContext } from "../dialect.js";
 import { Cursor } from "../cursor.js";
@@ -36,14 +36,26 @@ const typeMatches = (t: JsonValue, v: JsonValue): boolean =>
     ? typeof v === "number" && Number.isInteger(v)
     : jsonTypeOf(v) === t;
 
-/** EXEMPLAR (assertion class): inspect the instance, report one error on failure, return the verdict. */
-export const pattern = assertion(
-  "pattern",
-  (value, instance) =>
-    typeof instance !== "string" ||
-    schemaRegExp(value as string).test(instance),
-  () => "does not match required pattern",
-);
+/**
+ * EXEMPLAR (assertion class): inspect the instance, report one error on
+ * failure, return the verdict. `pattern` compiles its regex through the
+ * context so a caller-supplied engine and the per-engine cache apply
+ * (see regex.ts), and declares the pattern via analyze() so
+ * `rejectUnsafeRegex` can screen it at registration.
+ */
+export const pattern: KeywordBehavior = {
+  id: id("pattern"),
+  analyze: (value) => ({
+    regexes: typeof value === "string" ? [value] : [],
+  }),
+  evaluate: (value, cursor, ctx) => {
+    const instance = cursor.value;
+    if (typeof instance !== "string") return true;
+    if (ctx.compileRegex(value as string).test(instance)) return true;
+    ctx.error("does not match required pattern");
+    return false;
+  },
+};
 
 // Number of digits after the decimal point in `n`'s shortest representation,
 // including exponential notation (1e-8 has 8). `%` on the raw floats fails
@@ -188,13 +200,23 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
     evaluate: (value, cursor, ctx) => {
       if (value !== true || !Array.isArray(cursor.value)) return true;
       const items = cursor.value;
+      // Bucket by canonical key for near-linear detection; a key collision is
+      // confirmed with jsonEqual so distinct values that happen to share a key
+      // are never misreported as duplicates.
+      const seen = new Map<string, number[]>();
       for (let i = 0; i < items.length; i++) {
-        for (let j = i + 1; j < items.length; j++) {
-          if (jsonEqual(items[i]!, items[j]!)) {
-            ctx.error(`items at ${i} and ${j} are not unique`);
+        const bucket = seen.get(canonicalKey(items[i]!));
+        if (bucket === undefined) {
+          seen.set(canonicalKey(items[i]!), [i]);
+          continue;
+        }
+        for (const j of bucket) {
+          if (jsonEqual(items[j]!, items[i]!)) {
+            ctx.error(`items at ${j} and ${i} are not unique`);
             return false;
           }
         }
+        bucket.push(i);
       }
       return true;
     },

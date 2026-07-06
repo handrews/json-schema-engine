@@ -7,6 +7,7 @@
 import { JsonValue } from "./json.js";
 import { Cursor } from "./cursor.js";
 import { SchemaRef } from "./ref.js";
+import { CompiledRegex } from "./regex.js";
 
 /**
  * Static facts about one keyword occurrence, derived from its value alone.
@@ -25,6 +26,12 @@ export interface StaticFacts {
   produces?: readonly string[];
   /** behavior ids of productions this keyword reads from the channel */
   consumes?: readonly string[];
+  /**
+   * regular-expression values this keyword compiles (e.g. `pattern`, the
+   * property-name patterns of `patternProperties`); screened by
+   * `rejectUnsafeRegex` at registration (see regex.ts)
+   */
+  regexes?: readonly string[];
   /** participates in dynamic scope resolution ($dynamicRef and friends) */
   dynamicScopeSensitive?: boolean;
 }
@@ -56,6 +63,8 @@ export interface KeywordContext {
   resolveRecursive(ref: string): SchemaRef;
   /** apply a resolved reference target at the current cursor */
   applyResolved(target: SchemaRef): boolean;
+  /** compile a `pattern`/`patternProperties` regex through the engine's regex engine and cache (see regex.ts) */
+  compileRegex(pattern: string): CompiledRegex;
   /** emit a production for this keyword at the current cursor */
   produce(value: unknown): void;
   /** productions visible at the current cursor from the listed behaviors */

@@ -36,6 +36,23 @@ export interface DocumentLocation {
  */
 export class InvalidSchemaError extends Error {}
 
+/**
+ * Schema nesting (at registration) or schema-application nesting (at
+ * evaluation) exceeded {@link EngineOptions.maxDepth}. A bounded, catchable
+ * failure that replaces the native stack overflow deep input would otherwise
+ * cause; the engine remains usable afterward (each evaluation runs in fresh
+ * state). Raise `maxDepth` for legitimately deep documents, within what the
+ * runtime's own stack allows.
+ */
+export class MaxDepthExceededError extends Error {}
+
+/**
+ * Default schema/application nesting bound. Chosen below the native
+ * call-stack ceiling so the typed {@link MaxDepthExceededError} fires before
+ * a `RangeError`, while staying generous for real-world documents.
+ */
+export const DEFAULT_MAX_DEPTH = 512;
+
 /** One-line description of a non-schema value for error messages. */
 export function describeNonSchema(node: JsonValue): string {
   if (node === null) return "null";
@@ -63,10 +80,17 @@ export class SchemaRegistry {
     string,
     (pointer: string) => SourceRange | undefined
   >();
+  /**
+   * Called for each `pattern`/`patternProperties` regex during a
+   * registration walk, when set. The Engine installs this (after registering
+   * its trusted metaschemas) to enforce `rejectUnsafeRegex`.
+   */
+  onRegex?: (pattern: string, location: string) => void;
 
   constructor(
     private dialectRegistry: DialectRegistry,
     private defaultDialectUri: string,
+    private maxDepth: number = DEFAULT_MAX_DEPTH,
   ) {}
 
   /**
@@ -104,7 +128,7 @@ export class SchemaRegistry {
     this.documentDialects.set(baseUri, effectiveDialect);
     this.resourceLocations.set(baseUri, { documentUri: baseUri, pointer: "" });
     if (getRange) this.documentRanges.set(baseUri, getRange);
-    this.walk(schema, baseUri, "", baseUri, "", dialect);
+    this.walk(schema, baseUri, "", baseUri, "", dialect, 0);
     return baseUri;
   }
 
@@ -115,7 +139,14 @@ export class SchemaRegistry {
     documentUri: string,
     docPointer: string, // pointer from the registered document's root
     dialect: Dialect,
+    depth: number,
   ): void {
+    if (depth > this.maxDepth) {
+      throw new MaxDepthExceededError(
+        `schema nesting exceeds maxDepth (${this.maxDepth}) at ` +
+          `'${baseUri}#${pointer}'`,
+      );
+    }
     if (typeof node === "boolean") return;
     if (!isObject(node)) {
       throw new InvalidSchemaError(
@@ -152,6 +183,10 @@ export class SchemaRegistry {
       const facts = behavior?.analyze?.(value);
       if (!facts) continue;
       for (const c of facts.consumes ?? []) this.consumedBehaviorIds.add(c);
+      if (this.onRegex) {
+        const keywordLocation = `${baseUri}#${pointer}/${escapeSegment(name)}`;
+        for (const rx of facts.regexes ?? []) this.onRegex(rx, keywordLocation);
+      }
       for (const ref of facts.references ?? []) {
         try {
           this.pendingResources.add(
@@ -182,6 +217,7 @@ export class SchemaRegistry {
           documentUri,
           docPointer + suffix,
           dialect,
+          depth + 1,
         );
       }
     }

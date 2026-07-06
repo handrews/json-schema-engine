@@ -5,7 +5,7 @@
 // `properties` (child applicator class — child cursors, produces its
 // evaluated-name annotation).
 
-import { JsonValue, isObject, schemaRegExp } from "../json.js";
+import { JsonValue, isObject } from "../json.js";
 import { KeywordBehavior, StaticFacts } from "../dialect.js";
 import { childCursor } from "../cursor.js";
 import { SELF, mapPositions } from "./core.js";
@@ -140,13 +140,18 @@ export const properties: KeywordBehavior = {
 /** `patternProperties`: applies to properties whose name matches a pattern; produces the matched names. */
 export const patternProperties: KeywordBehavior = {
   id: id("patternProperties"),
-  analyze: mapPositions,
+  // Property-name patterns are declared as regexes so `rejectUnsafeRegex`
+  // can screen them at registration (see regex.ts).
+  analyze: (value) => ({
+    ...mapPositions(value),
+    regexes: isObject(value) ? Object.keys(value) : [],
+  }),
   evaluate: (value, cursor, ctx) => {
     if (!isObject(cursor.value)) return true;
     let ok = true;
     const matched = new Set<string>();
     for (const pattern of Object.keys(value as Record<string, JsonValue>)) {
-      const re = schemaRegExp(pattern);
+      const re = ctx.compileRegex(pattern);
       for (const name of Object.keys(cursor.value)) {
         if (re.test(name)) {
           matched.add(name);
@@ -179,7 +184,9 @@ export const additionalProperties: KeywordBehavior = {
       ? new Set(Object.keys(ctx.schema.properties))
       : new Set<string>();
     const patterns = isObject(ctx.schema.patternProperties)
-      ? Object.keys(ctx.schema.patternProperties).map((p) => schemaRegExp(p))
+      ? Object.keys(ctx.schema.patternProperties).map((p) =>
+          ctx.compileRegex(p),
+        )
       : [];
     let ok = true;
     const matched: string[] = [];

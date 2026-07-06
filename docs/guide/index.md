@@ -21,6 +21,8 @@ pages is executed by CI; examples are guaranteed to work as shown.
   with the same mechanism the built-in drafts use.
 - [Metaschemas](metaschemas.md) — `$vocabulary`-defined dialects and
   schema-against-metaschema validation.
+- [Security and resource limits](security.md) — evaluating untrusted schemas
+  and instances: ReDoS, recursion depth, array-uniqueness cost.
 
 ## TBD (planned, not yet stable)
 

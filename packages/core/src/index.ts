@@ -13,8 +13,14 @@ import {
   UnknownDialectError,
   UnknownVocabularyError,
 } from "./dialect.js";
-import { SchemaRegistry } from "./registry.js";
+import { DEFAULT_MAX_DEPTH, SchemaRegistry } from "./registry.js";
 import { runEvaluation } from "./engine.js";
+import {
+  RegexCache,
+  RegexEngine,
+  UnsafeRegexError,
+  detectUnsafeRegex,
+} from "./regex.js";
 import {
   LoadedDocument,
   SchemaLoader,
@@ -71,8 +77,15 @@ export {
   identifiers2019,
   identifiersLegacy,
 } from "./dialect.js";
-export { InvalidSchemaError, SchemaRegistry } from "./registry.js";
+export {
+  DEFAULT_MAX_DEPTH,
+  InvalidSchemaError,
+  MaxDepthExceededError,
+  SchemaRegistry,
+} from "./registry.js";
 export type { DocumentLocation } from "./registry.js";
+export { UnsafeRegexError, detectUnsafeRegex } from "./regex.js";
+export type { RegexEngine, CompiledRegex } from "./regex.js";
 export { UnresolvableRefError } from "./uri.js";
 export {
   InfiniteLoopError,
@@ -159,6 +172,27 @@ export interface EngineOptions {
    * loader for it to get the check.
    */
   validateSchemas?: boolean;
+  /**
+   * Compile `pattern`/`patternProperties` through this engine instead of the
+   * native `RegExp`. Supply a linear-time engine (e.g. RE2) to evaluate
+   * untrusted schemas without exposure to catastrophic backtracking (ReDoS).
+   * See docs/guide/security.md.
+   */
+  regexEngine?: RegexEngine;
+  /**
+   * Reject a schema at registration when a `pattern`/`patternProperties`
+   * regex looks exponential-time ({@link detectUnsafeRegex}), throwing
+   * {@link UnsafeRegexError}. A conservative static screen, off by default;
+   * a linear-time `regexEngine` remains the only hard guarantee.
+   */
+  rejectUnsafeRegex?: boolean;
+  /**
+   * Maximum schema-nesting (registration) and schema-application
+   * (evaluation) depth before {@link MaxDepthExceededError}. Bounds otherwise
+   * unbounded recursion on adversarial input; default
+   * {@link DEFAULT_MAX_DEPTH}.
+   */
+  maxDepth?: number;
 }
 
 /**
@@ -172,6 +206,8 @@ export class Engine {
   private defaultDialect: string;
   private loaders: SchemaLoader[];
   private validateSchemas: boolean;
+  private regexCache: RegexCache;
+  private maxDepth: number;
   // Dialect URIs whose assembly is in progress, to fail metaschema cycles.
   private assembling = new Set<string>();
 
@@ -180,7 +216,13 @@ export class Engine {
     this.defaultDialect = splitFragment(
       options.defaultDialect ?? DIALECT_2020_12,
     ).resource;
-    this.schemas = new SchemaRegistry(this.dialects, this.defaultDialect);
+    this.regexCache = new RegexCache(options.regexEngine);
+    this.maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH;
+    this.schemas = new SchemaRegistry(
+      this.dialects,
+      this.defaultDialect,
+      this.maxDepth,
+    );
     this.loaders = [...(options.loaders ?? [])];
     this.validateSchemas = options.validateSchemas ?? false;
     // Standard metaschemas are registered as ordinary schema resources so
@@ -198,6 +240,18 @@ export class Engine {
     }
     for (const [uri, doc] of METASCHEMAS_DRAFT_06) {
       this.schemas.register(doc, uri);
+    }
+    // Installed after the trusted metaschemas register, so the screen applies
+    // only to caller schemas (D20).
+    if (options.rejectUnsafeRegex) {
+      this.schemas.onRegex = (pattern, location) => {
+        const verdict = detectUnsafeRegex(pattern);
+        if (!verdict.safe) {
+          throw new UnsafeRegexError(
+            `unsafe regex at '${location}': ${verdict.reason}`,
+          );
+        }
+      };
     }
   }
 
@@ -362,6 +416,8 @@ export class Engine {
       instance,
       structured,
       shouldRecord,
+      this.regexCache,
+      this.maxDepth,
     );
 
     const result: Result = { valid };

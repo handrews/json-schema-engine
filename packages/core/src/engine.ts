@@ -23,10 +23,13 @@ import {
   unknownKeywordId,
 } from "./dialect.js";
 import {
+  DEFAULT_MAX_DEPTH,
   InvalidSchemaError,
+  MaxDepthExceededError,
   SchemaRegistry,
   describeNonSchema,
 } from "./registry.js";
+import { CompiledRegex, RegexCache } from "./regex.js";
 
 /** Thrown when a schema is re-entered at the same instance location (D8/cycle guard). */
 export class InfiniteLoopError extends Error {}
@@ -115,6 +118,8 @@ export class EvalState {
   // productions surface as droppedAnnotations in verbose outputs.
   traceRoot: TraceNode | null = null;
   allProductions: Production[] | null = null;
+  // Active schema-application nesting, bounded by maxDepth (see applySchema).
+  depth = 0;
   private traceStack: TraceNode[] = [];
   private active = new Map<Cursor, Set<string>>();
 
@@ -122,6 +127,8 @@ export class EvalState {
     public registry: SchemaRegistry,
     tracing = false,
     public shouldRecord: RecordPredicate | null = null,
+    public regexCache: RegexCache = new RegexCache(),
+    public maxDepth: number = DEFAULT_MAX_DEPTH,
   ) {
     if (tracing) this.allProductions = [];
   }
@@ -267,6 +274,10 @@ class KeywordContextImpl implements KeywordContext {
     return applySchema(this.state, target, this.cursor, pathNode);
   }
 
+  compileRegex(pattern: string): CompiledRegex {
+    return this.state.regexCache.compile(pattern);
+  }
+
   produce(value: unknown): void {
     const record = this.state.shouldRecord;
     if (
@@ -326,6 +337,26 @@ class KeywordContextImpl implements KeywordContext {
  * @throws UnknownKeywordError if the dialect disallows an unknown keyword present in the schema.
  */
 export function applySchema(
+  state: EvalState,
+  schemaRef: SchemaRef,
+  cursor: Cursor,
+  pathNode: PathNode | null,
+): boolean {
+  if (state.depth >= state.maxDepth) {
+    throw new MaxDepthExceededError(
+      `schema application exceeds maxDepth (${state.maxDepth}) at ` +
+        `'${schemaRef.baseUri}#${schemaRef.pointer}'`,
+    );
+  }
+  state.depth++;
+  try {
+    return applySchemaAtDepth(state, schemaRef, cursor, pathNode);
+  } finally {
+    state.depth--;
+  }
+}
+
+function applySchemaAtDepth(
   state: EvalState,
   schemaRef: SchemaRef,
   cursor: Cursor,
@@ -440,13 +471,35 @@ export function runEvaluation(
   instance: JsonValue,
   tracing = false,
   shouldRecord: RecordPredicate | null = null,
+  regexCache: RegexCache = new RegexCache(),
+  maxDepth: number = DEFAULT_MAX_DEPTH,
 ): { valid: boolean; state: EvalState } {
-  const state = new EvalState(registry, tracing, tracing ? null : shouldRecord);
-  const valid = applySchema(
-    state,
-    registry.rootRef(schemaUri),
-    rootCursor(instance),
-    null,
+  const state = new EvalState(
+    registry,
+    tracing,
+    tracing ? null : shouldRecord,
+    regexCache,
+    maxDepth,
   );
+  let valid: boolean;
+  try {
+    valid = applySchema(
+      state,
+      registry.rootRef(schemaUri),
+      rootCursor(instance),
+      null,
+    );
+  } catch (err) {
+    // Backstop: if maxDepth is set above the runtime's own stack ceiling, a
+    // native overflow surfaces as a RangeError. Convert it to the same typed,
+    // catchable error so callers never face an uncatchable-by-type crash.
+    if (err instanceof RangeError && /call stack/i.test(err.message)) {
+      throw new MaxDepthExceededError(
+        `evaluation exceeded the native call stack (maxDepth=${maxDepth}); ` +
+          `reduce nesting or lower maxDepth`,
+      );
+    }
+    throw err;
+  }
   return { valid, state };
 }

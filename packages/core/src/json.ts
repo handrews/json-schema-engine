@@ -59,6 +59,20 @@ export function jsonEqual(a: JsonValue, b: JsonValue): boolean {
   return false;
 }
 
+/**
+ * A canonical string key for JSON equality: two values share a key exactly
+ * when {@link jsonEqual} holds (object member order made insignificant by
+ * sorting keys). Used to bucket values for near-linear duplicate detection;
+ * callers confirm bucket collisions with {@link jsonEqual} since distinct
+ * values could, in principle, collide on the key.
+ */
+export function canonicalKey(value: JsonValue): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonicalKey).join(",")}]`;
+  const keys = Object.keys(value).sort();
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalKey(value[k]!)}`).join(",")}}`;
+}
+
 /** String length in Unicode code points, per `minLength`/`maxLength`. */
 export function codePointLength(s: string): number {
   let n = 0;

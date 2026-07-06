@@ -83,6 +83,8 @@ assert.deepEqual(titles?.map((t) => t.instanceLocation).sort(), ["", "/name"]);
 ## Documentation
 
 - [User guide](docs/guide/index.md) — task-oriented, example-driven.
+- [Security and resource limits](docs/guide/security.md) — evaluating
+  untrusted schemas and instances (ReDoS, recursion depth, uniqueness cost).
 - API reference — generated from source: `npm run docs:api`, output in
   `docs/reference/`.
 - [CONTRIBUTING.md](CONTRIBUTING.md) — build, test, and contribution

@@ -375,12 +375,9 @@ describe("$recursiveRef/$recursiveAnchor (D8 degenerate case)", () => {
 describe("non-schema values in schema positions (D19)", () => {
   it("rejects a non-schema document root at registration", () => {
     const engine = createEngine();
-    expect(() =>
-      engine.registerSchema(
-        42 as unknown as JsonValue,
-        "https://d19.example/root",
-      ),
-    ).toThrow(InvalidSchemaError);
+    expect(() => engine.registerSchema(42, "https://d19.example/root")).toThrow(
+      InvalidSchemaError,
+    );
   });
 
   it("rejects a non-schema in a claimed schema position at registration", () => {
