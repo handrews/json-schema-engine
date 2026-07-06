@@ -14,8 +14,8 @@ import { SchemaRegistry } from "./registry.js";
 import { runEvaluation } from "./engine.js";
 import { LoadedDocument, SchemaLoader, SourceLocation, SourceRange } from "./loader.js";
 import {
-  AnnotationUnit, ErrorUnit, LocationVocabulary, RetentionPolicy,
-  applyRetention, renderError,
+  AnnotationUnit, ErrorUnit, LocationVocabulary, OutputUnit, RetentionPolicy,
+  applyRetention, renderError, renderHierarchical,
 } from "./output.js";
 import { DIALECT_2020_12, registerStandardDialects } from "./keywords/vocab2020.js";
 import { METASCHEMAS_2020_12 } from "./keywords/metaschemas2020.js";
@@ -42,7 +42,7 @@ export type { DocumentLocation } from "./registry.js";
 export { UnresolvableRefError } from "./uri.js";
 export { InfiniteLoopError, UnknownKeywordError } from "./engine.js";
 export type {
-  AnnotationUnit, ErrorUnit, LocationVocabulary, RetentionPolicy,
+  AnnotationUnit, ErrorUnit, LocationVocabulary, OutputUnit, RetentionPolicy,
 } from "./output.js";
 export type {
   LoadedDocument, SchemaLoader, SourceLocation, SourcePosition, SourceRange,
@@ -59,10 +59,19 @@ export class SchemaValidationError extends Error {
 }
 
 export interface EvaluateOptions {
-  /** "flag" (default) or "list" (flat Basic-style units) */
-  output?: "flag" | "list";
+  /**
+   * Output structure (D6): "flag" (default), "list" (flat Basic-style
+   * units in Result.errors/annotations), or "hierarchical" (nested output
+   * document in Result.outputDocument, evaluation-trace shaped).
+   */
+  output?: "flag" | "list" | "hierarchical";
   /** location field names; default "modern" = evaluationPath/schemaLocation */
   locations?: LocationVocabulary;
+  /**
+   * Hierarchical only: keep valid, annotation-free units instead of pruning
+   * them (the old Verbose format is verbose + locations "2020-12").
+   */
+  verbose?: boolean;
   collectAnnotations?: boolean;
   retention?: RetentionPolicy;
   /** decorate units with schema-side source positions when available (D17) */
@@ -73,6 +82,8 @@ export interface Result {
   valid: boolean;
   errors?: ErrorUnit[];
   annotations?: AnnotationUnit[];
+  /** spec-shaped structured output document (hierarchical) */
+  outputDocument?: OutputUnit;
 }
 
 export interface EngineOptions {
@@ -209,7 +220,9 @@ export class Engine {
 
   evaluate(schemaUri: string, instance: JsonValue, options: EvaluateOptions = {}): Result {
     const vocabulary = options.locations ?? "modern";
-    const { valid, state } = runEvaluation(this.schemas, schemaUri, instance);
+    const structured = options.output === "hierarchical";
+    const { valid, state } =
+      runEvaluation(this.schemas, schemaUri, instance, structured);
 
     const result: Result = { valid };
     if (!valid && (options.output ?? "flag") === "list") {
@@ -217,6 +230,11 @@ export class Engine {
     }
     if (valid && options.collectAnnotations) {
       result.annotations = applyRetention(state.rootProductions, options.retention, vocabulary);
+    }
+    if (structured) {
+      result.outputDocument = renderHierarchical(
+        state.traceRoot!, state.errors, state.allProductions ?? [],
+        { vocabulary, verbose: options.verbose, retention: options.retention });
     }
     if (options.positions) {
       this.decorate(result.errors);

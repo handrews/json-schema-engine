@@ -56,15 +56,50 @@ export interface ErrorRecord {
 
 interface Frame { productions: Production[] }
 
+// One schema application, recorded only when tracing (M5 structured
+// outputs): hierarchical/verbose renderers need application boundaries and
+// per-branch validity, which the flat error list cannot reconstruct.
+export interface TraceNode {
+  schemaRef: SchemaRef;
+  pathNode: PathNode | null;
+  cursor: Cursor;
+  valid: boolean;
+  children: TraceNode[];
+}
+
 export class EvalState {
   frames: Frame[] = [{ productions: [] }];
   errors: ErrorRecord[] = [];
   // Dynamic scope (D8): resources entered by schema application, outermost
   // first. Duplicates are fine — resolution takes the first (outermost) hit.
   dynamicScope: string[] = [];
+  // Tracing (opt-in, zero cost when off): every application as a tree, and
+  // every production regardless of frame discard — failed-branch
+  // productions surface as droppedAnnotations in verbose outputs.
+  traceRoot: TraceNode | null = null;
+  allProductions: Production[] | null = null;
+  private traceStack: TraceNode[] = [];
   private active = new Map<Cursor, Set<string>>();
 
-  constructor(public registry: SchemaRegistry) {}
+  constructor(public registry: SchemaRegistry, tracing = false) {
+    if (tracing) this.allProductions = [];
+  }
+
+  get tracing(): boolean { return this.allProductions !== null; }
+
+  traceEnter(schemaRef: SchemaRef, pathNode: PathNode | null, cursor: Cursor): TraceNode {
+    const node: TraceNode = { schemaRef, pathNode, cursor, valid: true, children: [] };
+    const parent = this.traceStack[this.traceStack.length - 1];
+    if (parent) parent.children.push(node);
+    else this.traceRoot = node;
+    this.traceStack.push(node);
+    return node;
+  }
+
+  traceExit(node: TraceNode, valid: boolean): void {
+    node.valid = valid;
+    this.traceStack.pop();
+  }
 
   get frame(): Frame { return this.frames[this.frames.length - 1]!; }
   get rootProductions(): Production[] { return this.frames[0]!.productions; }
@@ -154,7 +189,7 @@ class KeywordContextImpl implements KeywordContext {
   }
 
   produce(value: unknown): void {
-    this.state.frame.productions.push({
+    const production = {
       behaviorId: this.entry.behaviorId,
       keywordName: this.entry.name,
       vocabularyUri: this.entry.vocabularyUri,
@@ -162,7 +197,11 @@ class KeywordContextImpl implements KeywordContext {
       pathNode: this.pathNode,
       cursor: this.cursor,
       value,
-    });
+    };
+    this.state.frame.productions.push(production);
+    // Frames discard on failure; the trace keeps everything so verbose
+    // outputs can report droppedAnnotations.
+    this.state.allProductions?.push(production);
   }
 
   visible(behaviorIds: readonly string[]): readonly ProductionView[] {
@@ -196,6 +235,9 @@ export function applySchema(
         message: "schema is false",
       });
     }
+    if (state.tracing) {
+      state.traceExit(state.traceEnter(schemaRef, pathNode, cursor), node);
+    }
     return node;
   }
   if (!isObject(node)) return true;
@@ -208,6 +250,8 @@ export function applySchema(
   state.enter(schemaRef, cursor);
   state.dynamicScope.push(schemaRef.baseUri);
   state.frames.push({ productions: [] });
+  const traceNode = state.tracing
+    ? state.traceEnter(schemaRef, pathNode, cursor) : null;
   let valid = true;
   try {
     for (const entry of dialect.ordered) {
@@ -224,7 +268,7 @@ export function applySchema(
       }
       // Unknown keywords are collected as annotations: the keyword's value is
       // the annotation value (spec SHOULD).
-      state.frame.productions.push({
+      const production = {
         behaviorId: unknownKeywordId(name),
         keywordName: name,
         vocabularyUri: null,
@@ -232,11 +276,14 @@ export function applySchema(
         pathNode,
         cursor,
         value: node[name],
-      });
+      };
+      state.frame.productions.push(production);
+      state.allProductions?.push(production);
     }
   } finally {
     const frame = state.frames.pop()!;
     if (valid) state.frame.productions.push(...frame.productions);
+    if (traceNode) state.traceExit(traceNode, valid);
     state.dynamicScope.pop();
     state.exit(schemaRef, cursor);
   }
@@ -265,8 +312,9 @@ export function runEvaluation(
   registry: SchemaRegistry,
   schemaUri: string,
   instance: JsonValue,
+  tracing = false,
 ): { valid: boolean; state: EvalState } {
-  const state = new EvalState(registry);
+  const state = new EvalState(registry, tracing);
   const valid = applySchema(state, registry.rootRef(schemaUri), rootCursor(instance), null);
   return { valid, state };
 }

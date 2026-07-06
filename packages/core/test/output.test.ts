@@ -82,3 +82,65 @@ describe("output rendering", () => {
     expect(r.errors![0]!.instanceLocation).toBe("/a~1b~0c");
   });
 });
+
+describe("hierarchical output (M5 exemplar)", () => {
+  const hSchema: JsonValue = {
+    title: "root",
+    type: "object",
+    properties: {
+      name: { title: "the name", type: "string" },
+      size: { type: "integer" },
+    },
+  };
+
+  function run(instance: JsonValue, verbose = false) {
+    const engine = createEngine();
+    const uri = engine.registerSchema(hSchema, "https://h.example/schema");
+    return engine.evaluate(uri, instance, { output: "hierarchical", verbose });
+  }
+
+  it("nests failing branches with modern location fields", () => {
+    const r = run({ name: 3 });
+    expect(r.valid).toBe(false);
+    const root = r.outputDocument!;
+    expect(root.valid).toBe(false);
+    expect(root.evaluationPath).toBe("");
+    expect(root.instanceLocation).toBe("");
+    const nameUnit = root.details!.find((d) => d.instanceLocation === "/name")!;
+    expect(nameUnit.valid).toBe(false);
+    expect(nameUnit.evaluationPath).toBe("/properties/name");
+    expect(nameUnit.schemaLocation)
+      .toBe("https://h.example/schema#/properties/name");
+    expect(nameUnit.errors!.type).toContain("string");
+  });
+
+  it("prunes contribution-free units, keeps annotations on valid ones", () => {
+    const r = run({ name: "x" });
+    expect(r.valid).toBe(true);
+    const root = r.outputDocument!;
+    expect(root.annotations!.title).toBe("root");
+    const nameUnit = root.details!.find((d) => d.instanceLocation === "/name")!;
+    expect(nameUnit.annotations!.title).toBe("the name");
+    // `size` is absent from the instance: its subschema is never applied.
+    expect(root.details!.every((d) => d.instanceLocation !== "/size")).toBe(true);
+  });
+
+  it("verbose keeps valid, annotation-free units", () => {
+    const engine = createEngine();
+    const uri = engine.registerSchema(
+      { properties: { n: { type: "integer" } } }, "https://h.example/plain");
+    const terse = engine.evaluate(uri, { n: 1 }, { output: "hierarchical" });
+    const verbose = engine.evaluate(uri, { n: 1 },
+      { output: "hierarchical", verbose: true });
+    expect(terse.outputDocument!.details).toBeUndefined();
+    expect(verbose.outputDocument!.details!.length).toBe(1);
+    expect(verbose.outputDocument!.details![0]!.valid).toBe(true);
+  });
+
+  it("reports droppedAnnotations on failed units", () => {
+    const r = run({ name: 3 });
+    const nameUnit = r.outputDocument!.details!.find(
+      (d) => d.instanceLocation === "/name")!;
+    expect(nameUnit.droppedAnnotations!.title).toBe("the name");
+  });
+});
