@@ -6,6 +6,7 @@ import {
   childCursor,
   createEngine,
   InfiniteLoopError,
+  InvalidSchemaError,
   JsonValue,
   KeywordBehavior,
   SchemaValidationError,
@@ -368,6 +369,70 @@ describe("$recursiveRef/$recursiveAnchor (D8 degenerate case)", () => {
     expect(engine.evaluate(BASE, { children: [{ data: 42 }] }).valid).toBe(
       true,
     );
+  });
+});
+
+describe("non-schema values in schema positions (D19)", () => {
+  it("rejects a non-schema document root at registration", () => {
+    const engine = createEngine();
+    expect(() =>
+      engine.registerSchema(
+        42 as unknown as JsonValue,
+        "https://d19.example/root",
+      ),
+    ).toThrow(InvalidSchemaError);
+  });
+
+  it("rejects a non-schema in a claimed schema position at registration", () => {
+    const engine = createEngine();
+    expect(() =>
+      engine.registerSchema({ not: "not-a-schema" }, "https://d19.example/not"),
+    ).toThrow(InvalidSchemaError);
+    expect(() =>
+      engine.registerSchema(
+        { properties: { a: [true] } },
+        "https://d19.example/props",
+      ),
+    ).toThrow(InvalidSchemaError);
+  });
+
+  it("dialect decides what is a schema position: tuple items", async () => {
+    const shape: JsonValue = { items: [{ type: "string" }] };
+    const { DIALECT_DRAFT_07 } = await import("@jse/core");
+    const legacy = createEngine({ defaultDialect: DIALECT_DRAFT_07 });
+    // Valid draft-07: array-form items claims each element, not the array.
+    expect(
+      legacy.evaluate(
+        legacy.registerSchema(shape, "https://d19.example/legacy"),
+        ["x"],
+      ).valid,
+    ).toBe(true);
+    // Invalid 2020-12: items claims its whole value as one schema.
+    const modern = createEngine();
+    expect(() =>
+      modern.registerSchema(shape, "https://d19.example/modern"),
+    ).toThrow(InvalidSchemaError);
+  });
+
+  it("boolean subschemas remain valid everywhere", () => {
+    const engine = createEngine();
+    const uri = engine.registerSchema(
+      { properties: { a: true, b: false } },
+      "https://d19.example/booleans",
+    );
+    expect(engine.evaluate(uri, { a: 1 }).valid).toBe(true);
+    expect(engine.evaluate(uri, { b: 1 }).valid).toBe(false);
+  });
+
+  it("backstops $refs that point into unwalked non-schema data", () => {
+    const engine = createEngine();
+    // x-data is an unknown keyword: the walk never descends into it, so
+    // only the evaluation-time backstop can catch the bad target.
+    const uri = engine.registerSchema(
+      { "x-data": { num: 5 }, $ref: "#/x-data/num" },
+      "https://d19.example/ref-into-data",
+    );
+    expect(() => engine.evaluate(uri, 1)).toThrow(InvalidSchemaError);
   });
 });
 

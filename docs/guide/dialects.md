@@ -52,13 +52,19 @@ assert.equal(engine.evaluate(uri, [3]).valid, false);
 In draft-07, `items` accepts either a single schema (applied to every
 element) or an array of subschemas (positional, tuple-style). In 2020-12,
 tuple validation moved to `prefixItems` and `items` accepts only a single
-schema — an **array** value for `items` is not valid 2020-12. The engine
-treats such a value as having no effect; `validateSchemas: true` rejects
-the document instead (see [Metaschemas](metaschemas.md)).
+schema. An **array** value for `items` is not a valid 2020-12 schema, so
+registration rejects the document with `InvalidSchemaError` — a non-schema
+value in a schema position always fails loud rather than being silently
+ignored.
 
 ```ts
 import assert from "node:assert";
-import { createEngine, DIALECT_2020_12, DIALECT_DRAFT_07 } from "@jse/core";
+import {
+  createEngine,
+  DIALECT_2020_12,
+  DIALECT_DRAFT_07,
+  InvalidSchemaError,
+} from "@jse/core";
 
 const shape = { items: [{ type: "string" }, { type: "integer" }] };
 
@@ -70,29 +76,35 @@ const legacyUri = legacy.registerSchema(
 assert.equal(legacy.evaluate(legacyUri, ["a", 1]).valid, true);
 assert.equal(legacy.evaluate(legacyUri, [1, "a"]).valid, false);
 
+// The same document under 2020-12: the array is a non-schema in a schema
+// position (tuples belong to prefixItems), so registration throws.
 const modern = createEngine({ defaultDialect: DIALECT_2020_12 });
-const modernUri = modern.registerSchema(
-  shape,
-  "https://example.com/modern-items",
+assert.throws(
+  () => modern.registerSchema(shape, "https://example.com/modern-items"),
+  InvalidSchemaError,
 );
-// The same document under 2020-12: `items` ignores its array value, so
-// there is no tuple check at all — every array is valid.
-assert.equal(modern.evaluate(modernUri, [1, "a"]).valid, true);
 ```
 
-Catch the mistake at registration time with `validateSchemas`:
+The structural check covers schema positions only. Invalid keyword
+**values** — a string where `minLength` requires an integer — are the
+metaschema's job; opt in with `validateSchemas` (see
+[Metaschemas](metaschemas.md)):
 
 ```ts
 import assert from "node:assert";
 import { createEngine, SchemaValidationError } from "@jse/core";
 
+// Accepted structurally; behavior of the bad value is undefined.
+createEngine().registerSchema(
+  { minLength: "3" },
+  "https://example.com/bad-value",
+);
+
+// Rejected against the bundled 2020-12 metaschema.
 const strict = createEngine({ validateSchemas: true });
 assert.throws(
   () =>
-    strict.registerSchema(
-      { items: [{ type: "string" }] },
-      "https://example.com/invalid-2020-12",
-    ),
+    strict.registerSchema({ minLength: "3" }, "https://example.com/checked"),
   SchemaValidationError,
 );
 ```

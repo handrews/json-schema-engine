@@ -71,7 +71,7 @@ export {
   identifiers2019,
   identifiersLegacy,
 } from "./dialect.js";
-export { SchemaRegistry } from "./registry.js";
+export { InvalidSchemaError, SchemaRegistry } from "./registry.js";
 export type { DocumentLocation } from "./registry.js";
 export { UnresolvableRefError } from "./uri.js";
 export {

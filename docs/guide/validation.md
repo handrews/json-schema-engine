@@ -116,7 +116,10 @@ assert.equal(engine.evaluate(uri, [1, "a"]).valid, false);
 ## Schema registration errors
 
 `registerSchema` throws `UnknownDialectError` for an unregistered `$schema`
-value. Evaluation throws `UnresolvableRefError` when a followed reference
-has no registered target, and `InfiniteLoopError` on true reference cycles.
-Loading referenced documents asynchronously is covered in
+value, and `InvalidSchemaError` when a schema position holds a value that
+is not a schema (not an object or boolean) — see
+[Dialects](dialects.md) for an example. Evaluation throws
+`UnresolvableRefError` when a followed reference has no registered target,
+and `InfiniteLoopError` on true reference cycles. Loading referenced
+documents asynchronously is covered in
 [Loaders and remote references](loaders.md).

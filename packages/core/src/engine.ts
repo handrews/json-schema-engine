@@ -22,7 +22,11 @@ import {
   ProductionView,
   unknownKeywordId,
 } from "./dialect.js";
-import { SchemaRegistry } from "./registry.js";
+import {
+  InvalidSchemaError,
+  SchemaRegistry,
+  describeNonSchema,
+} from "./registry.js";
 
 /** Thrown when a schema is re-entered at the same instance location (D8/cycle guard). */
 export class InfiniteLoopError extends Error {}
@@ -343,7 +347,15 @@ export function applySchema(
     }
     return node;
   }
-  if (!isObject(node)) return true;
+  // Backstop for the registration walk's eager D19 check: a position the
+  // walk never saw (e.g. a $ref whose pointer lands inside an unknown
+  // keyword's value) still fails loud when applied, never silently passes.
+  if (!isObject(node)) {
+    throw new InvalidSchemaError(
+      `non-schema value (${describeNonSchema(node)}) applied as a schema ` +
+        `at '${schemaRef.baseUri}#${schemaRef.pointer}'`,
+    );
+  }
 
   const dialect: Dialect = state.registry.dialectFor(schemaRef.baseUri);
 

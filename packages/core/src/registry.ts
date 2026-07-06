@@ -23,6 +23,25 @@ export interface DocumentLocation {
   pointer: string;
 }
 
+/**
+ * A value that is not a schema (neither an object nor a boolean) was found
+ * where a schema is required (D19): in a keyword-claimed schema position at
+ * registration, or applied as a schema during evaluation. Keyword-value
+ * validity beyond schema shape is not checked here — that is metaschema
+ * validation's job ({@link EngineOptions.validateSchemas}).
+ *
+ * When thrown during registration, the document may be partially indexed;
+ * re-register a corrected document under the same URI, or discard the
+ * engine.
+ */
+export class InvalidSchemaError extends Error {}
+
+/** One-line description of a non-schema value for error messages. */
+export function describeNonSchema(node: JsonValue): string {
+  if (node === null) return "null";
+  return Array.isArray(node) ? "array" : typeof node;
+}
+
 /** Schema registration, identifier indexing, and reference resolution. */
 export class SchemaRegistry {
   private documents = new Map<string, JsonValue>(); // resource URI -> schema node
@@ -97,7 +116,13 @@ export class SchemaRegistry {
     docPointer: string, // pointer from the registered document's root
     dialect: Dialect,
   ): void {
-    if (!isObject(node)) return;
+    if (typeof node === "boolean") return;
+    if (!isObject(node)) {
+      throw new InvalidSchemaError(
+        `non-schema value (${describeNonSchema(node)}) in schema position ` +
+          `'${baseUri}#${pointer}'`,
+      );
+    }
 
     const ids = dialect.identifiers(node);
     if (pointer !== "" && ids.baseId !== undefined) {
