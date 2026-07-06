@@ -1,7 +1,8 @@
 # Contributing
 
-This document covers setup, testing, and project conventions. Architecture
-and design rationale live in [DESIGN.md](DESIGN.md); do not look for them
+This document covers setup, testing, and project conventions. The system
+overview and diagram live in [docs/architecture.md](docs/architecture.md);
+decision rationale lives in [DESIGN.md](DESIGN.md); do not look for either
 here.
 
 ## Setup

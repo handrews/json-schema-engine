@@ -180,7 +180,7 @@ export class SchemaRegistry {
 
     for (const [name, value] of Object.entries(node)) {
       const behavior = dialect.keywords.get(name)?.behavior;
-      const facts = behavior?.analyze?.(value);
+      const facts = behavior?.analyze?.(value, { schema: node });
       if (!facts) continue;
       for (const c of facts.consumes ?? []) this.consumedBehaviorIds.add(c);
       if (this.onRegex) {

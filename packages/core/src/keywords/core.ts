@@ -17,6 +17,7 @@ const mapPositions = (value: JsonValue): StaticFacts =>
 /** Identifier/reserved keywords: no evaluation behavior, no annotation. */
 export const structural = (id: string): KeywordBehavior => ({
   id,
+  analyze: () => ({ produces: [] }),
   evaluate: () => true,
 });
 
@@ -33,6 +34,7 @@ export const inertSubschema = (id: string): KeywordBehavior => ({
 /** EXEMPLAR (annotation-only class): the keyword's value is its annotation. */
 export const annotationOnly = (id: string): KeywordBehavior => ({
   id,
+  analyze: () => ({ produces: [id] }),
   evaluate: (value, _cursor, ctx) => {
     ctx.produce(value);
     return true;
@@ -54,7 +56,15 @@ export const notImplemented = (
 });
 
 const referenceFacts = (value: JsonValue): StaticFacts =>
-  typeof value === "string" ? { references: [value] } : {};
+  typeof value === "string"
+    ? {
+        references: [value],
+        // The resolved target applies in place, unconditionally.
+        applications: [
+          { path: [], mode: "inPlace", conditional: false, asserts: true },
+        ],
+      }
+    : {};
 
 /**
  * EXEMPLAR (reference class): resolve against the lexical base, apply the

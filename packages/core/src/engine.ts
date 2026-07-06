@@ -481,18 +481,29 @@ export function runEvaluation(
     regexCache,
     maxDepth,
   );
-  let valid: boolean;
+  const valid = applyWithOverflowBackstop(
+    state,
+    registry.rootRef(schemaUri),
+    rootCursor(instance),
+    null,
+    maxDepth,
+  );
+  return { valid, state };
+}
+
+// Backstop: if maxDepth is set above the runtime's own stack ceiling, a
+// native overflow surfaces as a RangeError. Convert it to the same typed,
+// catchable error so callers never face an uncatchable-by-type crash.
+function applyWithOverflowBackstop(
+  state: EvalState,
+  target: SchemaRef,
+  cursor: Cursor,
+  pathNode: PathNode | null,
+  maxDepth: number,
+): boolean {
   try {
-    valid = applySchema(
-      state,
-      registry.rootRef(schemaUri),
-      rootCursor(instance),
-      null,
-    );
+    return applySchema(state, target, cursor, pathNode);
   } catch (err) {
-    // Backstop: if maxDepth is set above the runtime's own stack ceiling, a
-    // native overflow surfaces as a RangeError. Convert it to the same typed,
-    // catchable error so callers never face an uncatchable-by-type crash.
     if (err instanceof RangeError && /call stack/i.test(err.message)) {
       throw new MaxDepthExceededError(
         `evaluation exceeded the native call stack (maxDepth=${maxDepth}); ` +
@@ -501,5 +512,52 @@ export function runEvaluation(
     }
     throw err;
   }
-  return { valid, state };
+}
+
+/** Options for {@link evaluateFragment}: state pre-seeded by a compiled caller. */
+export interface FragmentOptions {
+  /** dynamic scope inherited from the caller's path, outermost first (D8) */
+  dynamicScope?: readonly string[];
+  /** evaluation-path prefix for output locations */
+  pathNode?: PathNode | null;
+  /** depth already consumed by the caller's nesting (D20 combined budget) */
+  depth?: number;
+  /** produce-time elision predicate (D5); null records everything */
+  shouldRecord?: RecordPredicate | null;
+  regexCache?: RegexCache;
+  maxDepth?: number;
+}
+
+/**
+ * Evaluates one schema fragment with pre-seeded state: the compiled tier's
+ * trampoline into the interpreter (M6), used for dynamic islands and for
+ * fallback units alike. Returns the fragment's verdict, its errors, and its
+ * root frame's surviving productions — cursor identities intact, so a
+ * compiled caller can merge them under channel rule 3 and filter under
+ * rule 4 exactly as an interpreted parent would.
+ */
+export function evaluateFragment(
+  registry: SchemaRegistry,
+  target: SchemaRef,
+  cursor: Cursor,
+  options: FragmentOptions = {},
+): { valid: boolean; errors: ErrorRecord[]; productions: Production[] } {
+  const maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH;
+  const state = new EvalState(
+    registry,
+    false,
+    options.shouldRecord ?? null,
+    options.regexCache ?? new RegexCache(),
+    maxDepth,
+  );
+  state.dynamicScope.push(...(options.dynamicScope ?? []));
+  state.depth = options.depth ?? 0;
+  const valid = applyWithOverflowBackstop(
+    state,
+    target,
+    cursor,
+    options.pathNode ?? null,
+    maxDepth,
+  );
+  return { valid, errors: state.errors, productions: state.rootProductions };
 }

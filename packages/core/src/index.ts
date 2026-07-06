@@ -91,7 +91,35 @@ export {
   InfiniteLoopError,
   UndeclaredConsumptionError,
   UnknownKeywordError,
+  evaluateFragment,
+  materializePath,
 } from "./engine.js";
+export type {
+  ErrorRecord,
+  FragmentOptions,
+  PathNode,
+  Production,
+  RecordPredicate,
+} from "./engine.js";
+export { escapeSegment, unescapeSegment } from "./json.js";
+export type {
+  AnalyzeContext,
+  IndexCoverage,
+  NameCoverage,
+  SubschemaApplication,
+} from "./dialect.js";
+export { lowerIR } from "./lowering.js";
+export type {
+  LowerApply,
+  LowerCursor,
+  LowerExpr,
+  LowerHelper,
+  LowerMessage,
+  LowerProduceValue,
+  LowerStmt,
+  LoweringContext,
+} from "./lowering.js";
+export { RegexCache, defaultRegexEngine } from "./regex.js";
 export type {
   AnnotationUnit,
   BasicOutputDocument,
@@ -258,6 +286,20 @@ export class Engine {
   /** Registers an additional resource loader, tried after existing ones (D7). */
   addLoader(loader: SchemaLoader): void {
     this.loaders.push(loader);
+  }
+
+  /**
+   * The engine's schema registry — the compiler tier's read surface (M6):
+   * resolved refs, per-resource dialects, identifier indexes. Mutations go
+   * through the Engine methods, not the registry.
+   */
+  get registry(): SchemaRegistry {
+    return this.schemas;
+  }
+
+  /** The engine's compiled-pattern cache, shared with compiled artifacts (M6). */
+  get patternCache(): RegexCache {
+    return this.regexCache;
   }
 
   /**

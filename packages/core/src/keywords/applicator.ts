@@ -6,7 +6,11 @@
 // evaluated-name annotation).
 
 import { JsonValue, isObject } from "../json.js";
-import { KeywordBehavior, StaticFacts } from "../dialect.js";
+import {
+  KeywordBehavior,
+  StaticFacts,
+  SubschemaApplication,
+} from "../dialect.js";
 import { childCursor } from "../cursor.js";
 import { SELF, mapPositions } from "./core.js";
 
@@ -16,14 +20,34 @@ export const VOCAB_APPLICATOR =
 
 const id = (name: string): string => `${VOCAB_APPLICATOR}#${name}`;
 
-const arrayPositions = (value: JsonValue): StaticFacts =>
-  Array.isArray(value) ? { subschemas: value.map((_, i) => [i]) } : {};
+// Facts helpers (D9a/planner edges). `conditional` marks alternatives whose
+// application depends on runtime branching, not merely instance shape.
+const arrayPositions = (value: JsonValue, conditional = false): StaticFacts =>
+  Array.isArray(value)
+    ? {
+        subschemas: value.map((_, i) => [i]),
+        applications: value.map((_, i): SubschemaApplication => ({
+          path: [i],
+          mode: "inPlace",
+          conditional,
+          asserts: true,
+        })),
+      }
+    : {};
 const selfPosition = (): StaticFacts => SELF;
+const selfApplication = (
+  mode: SubschemaApplication["mode"],
+  conditional: boolean,
+  asserts: boolean,
+): StaticFacts => ({
+  ...SELF,
+  applications: [{ path: [], mode, conditional, asserts }],
+});
 
 /** `allOf`: every subschema must match, at the same cursor. */
 export const allOf: KeywordBehavior = {
   id: id("allOf"),
-  analyze: arrayPositions,
+  analyze: (value) => arrayPositions(value),
   evaluate: (value, cursor, ctx) => {
     let ok = true;
     (value as JsonValue[]).forEach((_, i) => {
@@ -36,7 +60,7 @@ export const allOf: KeywordBehavior = {
 /** EXEMPLAR (in-place applicator class): every branch runs, even after a match (DESIGN.md §4 rule 6; see engine.ts). */
 export const anyOf: KeywordBehavior = {
   id: id("anyOf"),
-  analyze: arrayPositions,
+  analyze: (value) => arrayPositions(value, true),
   evaluate: (value, cursor, ctx) => {
     let ok = false;
     (value as JsonValue[]).forEach((_, i) => {
@@ -53,7 +77,7 @@ export const anyOf: KeywordBehavior = {
 /** `oneOf`: exactly one subschema must match, at the same cursor. */
 export const oneOf: KeywordBehavior = {
   id: id("oneOf"),
-  analyze: arrayPositions,
+  analyze: (value) => arrayPositions(value, true),
   evaluate: (value, cursor, ctx) => {
     let count = 0;
     (value as JsonValue[]).forEach((_, i) => {
@@ -67,7 +91,7 @@ export const oneOf: KeywordBehavior = {
 /** `not`: the subschema must not match. */
 export const not: KeywordBehavior = {
   id: id("not"),
-  analyze: selfPosition,
+  analyze: () => selfApplication("inPlace", false, true),
   evaluate: (_value, cursor, ctx) => {
     if (!ctx.apply(["not"], cursor)) return true;
     ctx.error("must not match the subschema");
@@ -82,7 +106,25 @@ export const not: KeywordBehavior = {
  */
 export const ifKeyword: KeywordBehavior = {
   id: id("if"),
-  analyze: selfPosition,
+  // `if` owns the application of its inert siblings (`then`/`else` behaviors
+  // only mark walk positions) — the sibling-context exemplar for analyze().
+  analyze: (_value, context) => {
+    const applications: SubschemaApplication[] = [
+      { path: [], mode: "inPlace", conditional: false, asserts: false },
+    ];
+    for (const branch of ["then", "else"] as const) {
+      if (context && Object.hasOwn(context.schema, branch)) {
+        applications.push({
+          path: [],
+          sibling: branch,
+          mode: "inPlace",
+          conditional: true,
+          asserts: true,
+        });
+      }
+    }
+    return { ...SELF, applications };
+  },
   evaluate: (_value, cursor, ctx) => {
     const condition = ctx.apply(["if"], cursor);
     if (condition && Object.hasOwn(ctx.schema, "then"))
@@ -96,7 +138,17 @@ export const ifKeyword: KeywordBehavior = {
 /** `dependentSchemas`: applies a named subschema when the property is present. */
 export const dependentSchemas: KeywordBehavior = {
   id: id("dependentSchemas"),
-  analyze: mapPositions,
+  analyze: (value) => ({
+    ...mapPositions(value),
+    applications: isObject(value)
+      ? Object.keys(value).map((k): SubschemaApplication => ({
+          path: [k],
+          mode: "inPlace",
+          conditional: true,
+          asserts: true,
+        }))
+      : [],
+  }),
   evaluate: (value, cursor, ctx) => {
     if (!isObject(cursor.value)) return true;
     let ok = true;
@@ -115,7 +167,21 @@ export const dependentSchemas: KeywordBehavior = {
 /** EXEMPLAR (child applicator class): child cursors, produces the matched property names. */
 export const properties: KeywordBehavior = {
   id: id("properties"),
-  analyze: mapPositions,
+  analyze: (value) => ({
+    ...mapPositions(value),
+    produces: [id("properties")],
+    evaluatesNames: isObject(value)
+      ? { kind: "names", names: Object.keys(value) }
+      : { kind: "names", names: [] },
+    applications: isObject(value)
+      ? Object.keys(value).map((k): SubschemaApplication => ({
+          path: [k],
+          mode: "childByKey",
+          conditional: false,
+          asserts: true,
+        }))
+      : [],
+  }),
   evaluate: (value, cursor, ctx) => {
     if (!isObject(cursor.value)) return true;
     let ok = true;
@@ -145,6 +211,19 @@ export const patternProperties: KeywordBehavior = {
   analyze: (value) => ({
     ...mapPositions(value),
     regexes: isObject(value) ? Object.keys(value) : [],
+    produces: [id("patternProperties")],
+    evaluatesNames: {
+      kind: "patterns",
+      patterns: isObject(value) ? Object.keys(value) : [],
+    },
+    applications: isObject(value)
+      ? Object.keys(value).map((k): SubschemaApplication => ({
+          path: [k],
+          mode: "childSweep",
+          conditional: false,
+          asserts: true,
+        }))
+      : [],
   }),
   evaluate: (value, cursor, ctx) => {
     if (!isObject(cursor.value)) return true;
@@ -177,7 +256,12 @@ export const patternProperties: KeywordBehavior = {
  */
 export const additionalProperties: KeywordBehavior = {
   id: id("additionalProperties"),
-  analyze: selfPosition,
+  // Post-success, the sibling trio covers every present name (D9a "all").
+  analyze: () => ({
+    ...selfApplication("childSweep", false, true),
+    produces: [id("additionalProperties")],
+    evaluatesNames: { kind: "all" },
+  }),
   evaluate: (_value, cursor, ctx) => {
     if (!isObject(cursor.value)) return true;
     const names = isObject(ctx.schema.properties)
@@ -209,7 +293,22 @@ export const additionalProperties: KeywordBehavior = {
 /** `prefixItems`: applies each subschema to the array item at its index; produces the largest applied index. */
 export const prefixItems: KeywordBehavior = {
   id: id("prefixItems"),
-  analyze: arrayPositions,
+  analyze: (value) => ({
+    ...arrayPositions(value),
+    produces: [id("prefixItems")],
+    evaluatesIndexes: {
+      kind: "prefix",
+      count: Array.isArray(value) ? value.length : 0,
+    },
+    applications: Array.isArray(value)
+      ? value.map((_, i): SubschemaApplication => ({
+          path: [i],
+          mode: "childByIndex",
+          conditional: false,
+          asserts: true,
+        }))
+      : [],
+  }),
   evaluate: (value, cursor, ctx) => {
     if (!Array.isArray(cursor.value)) return true;
     const schemas = value as JsonValue[];
@@ -230,7 +329,18 @@ export const prefixItems: KeywordBehavior = {
 /** `items`: applies to array items past sibling `prefixItems`; produces `true` when it applied to any item. */
 export const items: KeywordBehavior = {
   id: id("items"),
-  analyze: selfPosition,
+  // Coverage starts after the sibling prefixItems — the same read
+  // evaluate() performs through ctx.schema, statically (AnalyzeContext).
+  analyze: (_value, context) => ({
+    ...selfApplication("childSweep", false, true),
+    produces: [id("items")],
+    evaluatesIndexes: {
+      kind: "allFrom",
+      start: Array.isArray(context?.schema.prefixItems)
+        ? context.schema.prefixItems.length
+        : 0,
+    },
+  }),
   evaluate: (_value, cursor, ctx) => {
     if (!Array.isArray(cursor.value)) return true;
     // Applies past the sibling prefixItems (statically known per spec).
@@ -255,7 +365,13 @@ export const items: KeywordBehavior = {
  */
 export const contains: KeywordBehavior = {
   id: id("contains"),
-  analyze: selfPosition,
+  // Per-item probes don't individually assert (the count does), and which
+  // indexes end up evaluated is instance-dependent: coverage is dynamic.
+  analyze: () => ({
+    ...selfApplication("childSweep", false, false),
+    produces: [id("contains")],
+    evaluatesIndexes: { kind: "dynamic" },
+  }),
   evaluate: (_value, cursor, ctx) => {
     if (!Array.isArray(cursor.value)) return true;
     const matched: number[] = [];

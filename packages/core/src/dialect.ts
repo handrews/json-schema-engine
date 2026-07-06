@@ -8,6 +8,48 @@ import { JsonValue } from "./json.js";
 import { Cursor } from "./cursor.js";
 import { SchemaRef } from "./ref.js";
 import { CompiledRegex } from "./regex.js";
+import { LoweringContext } from "./lowering.js";
+
+/**
+ * Static contribution of one keyword to the evaluated-property-name set of
+ * its schema object (D9a). A coverage is a *predicate description*, not
+ * necessarily a finite set: `patterns` still lowers (hoisted regexes in the
+ * sweep test); only `dynamic` forces runtime evaluated-set tracking.
+ */
+export type NameCoverage =
+  | { kind: "names"; names: readonly string[] }
+  | { kind: "patterns"; patterns: readonly string[] }
+  | { kind: "all" }
+  | { kind: "dynamic" };
+
+/** Static contribution to the evaluated-index coverage of an array (D9a). */
+export type IndexCoverage =
+  | { kind: "prefix"; count: number }
+  | { kind: "allFrom"; start: number }
+  | { kind: "all" }
+  | { kind: "dynamic" };
+
+/**
+ * How a keyword applies one subschema — the compilation planner's edge
+ * facts, richer than `subschemas` (which only says where children live and
+ * keeps driving the registration walk).
+ */
+export interface SubschemaApplication {
+  /** position relative to the keyword's value; [] is the value itself. A leading "../name" is expressed via `sibling` instead. */
+  path: readonly (string | number)[];
+  /** set when the applied subschema is a sibling keyword's value (if → then/else) */
+  sibling?: string;
+  mode:
+    | "inPlace" // same cursor (allOf/anyOf/oneOf/not/if/$ref)
+    | "childByKey" // fixed property name (properties entries)
+    | "childByIndex" // fixed array index (prefixItems entries)
+    | "childSweep" // runtime-determined children (items, *Properties sweeps)
+    | "propertyName"; // applied to the property NAME as instance
+  /** application depends on runtime branching (anyOf/oneOf alternatives, if-guarded), not merely instance shape */
+  conditional: boolean;
+  /** the subschema's verdict feeds this keyword's verdict (false for if's condition role and contains' per-item probes) */
+  asserts: boolean;
+}
 
 /**
  * Static facts about one keyword occurrence, derived from its value alone.
@@ -34,6 +76,26 @@ export interface StaticFacts {
   regexes?: readonly string[];
   /** participates in dynamic scope resolution ($dynamicRef and friends) */
   dynamicScopeSensitive?: boolean;
+  /** static evaluated-name contribution (D9a; see {@link NameCoverage}) */
+  evaluatesNames?: NameCoverage;
+  /** static evaluated-index contribution (D9a; see {@link IndexCoverage}) */
+  evaluatesIndexes?: IndexCoverage;
+  /**
+   * how this keyword applies its subschemas — planner edge facts
+   * ({@link SubschemaApplication}); `subschemas` remains the registration
+   * walk's position list
+   */
+  applications?: readonly SubschemaApplication[];
+}
+
+/**
+ * Context for {@link KeywordBehavior.analyze}: the keyword's containing
+ * schema object, for sibling-dependent facts (`items` starts after
+ * `prefixItems`; `if` declares applications for sibling `then`/`else`) —
+ * the same sibling reads `evaluate()` performs through `ctx.schema`.
+ */
+export interface AnalyzeContext {
+  readonly schema: Readonly<Record<string, JsonValue>>;
 }
 
 /** Minimal view of a channel production, for consumer keywords. */
@@ -82,9 +144,22 @@ export interface KeywordBehavior {
    * run after all phase 0 keywords have merged their productions.
    */
   readonly phase?: 0 | 1;
-  /** static facts; also drives the registration walk's descent */
-  analyze?(value: JsonValue): StaticFacts;
+  /**
+   * Static facts; also drives the registration walk's descent. The context
+   * (sibling access) is supplied by every caller; implementations that need
+   * no sibling facts ignore it.
+   */
+  analyze?(value: JsonValue, context?: AnalyzeContext): StaticFacts;
   evaluate(value: JsonValue, cursor: Cursor, ctx: KeywordContext): boolean;
+  /**
+   * Optional compiler lowering (D1/D9): describe this keyword's compiled
+   * form as IR through the {@link LoweringContext} — never JavaScript text.
+   * Absent ⇒ schema objects containing this keyword become interpreted
+   * units (the trampoline fallback). Keep `lower` beside `evaluate` and
+   * share their error-message builders: the differential gate compares
+   * error text.
+   */
+  lower?(value: JsonValue, lctx: LoweringContext): void;
 }
 
 /** A keyword's binding within one dialect: its name there, behavior, and owning vocabulary. */

@@ -34,6 +34,11 @@ export const unevaluatedProperties: KeywordBehavior = {
       additionalProperties.id,
       `${VOCAB_UNEVALUATED}#unevaluatedProperties`,
     ],
+    produces: [`${VOCAB_UNEVALUATED}#unevaluatedProperties`],
+    evaluatesNames: { kind: "all" },
+    applications: [
+      { path: [], mode: "childSweep", conditional: false, asserts: true },
+    ],
   }),
   evaluate: (_value, cursor, ctx) => {
     if (!isObject(cursor.value)) return true;
@@ -75,6 +80,11 @@ export const unevaluatedItems: KeywordBehavior = {
       items.id,
       contains.id,
       `${VOCAB_UNEVALUATED}#unevaluatedItems`,
+    ],
+    produces: [`${VOCAB_UNEVALUATED}#unevaluatedItems`],
+    evaluatesIndexes: { kind: "all" },
+    applications: [
+      { path: [], mode: "childSweep", conditional: false, asserts: true },
     ],
   }),
   evaluate: (_value, cursor, ctx) => {
