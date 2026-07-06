@@ -26,6 +26,7 @@ export class SchemaRegistry {
   private documents = new Map<string, JsonValue>();   // resource URI -> schema node
   private anchors = new Map<string, SchemaRef>();     // "resource#anchor"
   private dynamicAnchors = new Map<string, SchemaRef>(); // $dynamicAnchor only (D8)
+  private recursiveRoots = new Set<string>();         // 2019-09 $recursiveAnchor at root
   private documentDialects = new Map<string, string>(); // resource URI -> dialect URI
   private resourceLocations = new Map<string, DocumentLocation>();
   // Retrieval URI -> declared $id base, when they differ: the document must
@@ -60,8 +61,9 @@ export class SchemaRegistry {
 
     const retrievalResource = splitFragment(retrievalUri).resource;
     let baseUri = retrievalResource;
-    if (isObject(schema) && typeof schema.$id === "string") {
-      baseUri = splitFragment(resolveUri(schema.$id, baseUri)).resource;
+    const rootIds = isObject(schema) ? dialect.identifiers(schema) : {};
+    if (rootIds.baseId !== undefined) {
+      baseUri = splitFragment(resolveUri(rootIds.baseId, baseUri)).resource;
     }
     if (baseUri !== retrievalResource) this.aliases.set(retrievalResource, baseUri);
     this.documents.set(baseUri, schema);
@@ -82,22 +84,27 @@ export class SchemaRegistry {
   ): void {
     if (!isObject(node)) return;
 
-    if (pointer !== "" && typeof node.$id === "string") {
-      baseUri = splitFragment(resolveUri(node.$id, baseUri)).resource;
+    const ids = dialect.identifiers(node as Record<string, JsonValue>);
+    if (pointer !== "" && ids.baseId !== undefined) {
+      baseUri = splitFragment(resolveUri(ids.baseId, baseUri)).resource;
       pointer = "";
       this.documents.set(baseUri, node);
       this.documentDialects.set(baseUri, dialect.uri);
       this.resourceLocations.set(baseUri, { documentUri, pointer: docPointer });
     }
-    if (typeof node.$anchor === "string") {
-      this.anchors.set(`${baseUri}#${node.$anchor}`, { node, baseUri, pointer });
+    for (const anchor of ids.anchors ?? []) {
+      this.anchors.set(`${baseUri}#${anchor}`, { node, baseUri, pointer });
     }
     // A dynamic anchor is also a plain anchor for $ref purposes; only the
     // dynamic-anchor index participates in $dynamicRef rebinding (D8).
-    if (typeof node.$dynamicAnchor === "string") {
+    if (ids.dynamicAnchor !== undefined) {
       const ref = { node, baseUri, pointer };
-      this.anchors.set(`${baseUri}#${node.$dynamicAnchor}`, ref);
-      this.dynamicAnchors.set(`${baseUri}#${node.$dynamicAnchor}`, ref);
+      this.anchors.set(`${baseUri}#${ids.dynamicAnchor}`, ref);
+      this.dynamicAnchors.set(`${baseUri}#${ids.dynamicAnchor}`, ref);
+    }
+    // $recursiveAnchor participates in rebinding only at a resource root.
+    if (ids.recursiveAnchor === true && pointer === "") {
+      this.recursiveRoots.add(baseUri);
     }
 
     for (const [name, value] of Object.entries(node)) {
@@ -164,6 +171,10 @@ export class SchemaRegistry {
     return this.dynamicAnchors.get(`${this.canonical(resourceUri)}#${name}`);
   }
 
+  hasRecursiveRoot(resourceUri: string): boolean {
+    return this.recursiveRoots.has(this.canonical(resourceUri));
+  }
+
   private canonical(resourceUri: string): string {
     return this.aliases.get(resourceUri) ?? resourceUri;
   }
@@ -207,7 +218,9 @@ export class SchemaRegistry {
       return { node: root, baseUri: resource, pointer: "" };
     }
 
-    // JSON Pointer navigation, tracking $id-induced base changes on the way.
+    // JSON Pointer navigation, tracking identifier-induced base changes on
+    // the way, per the target document's dialect (D18).
+    const identifiers = this.dialectFor(resource).identifiers;
     let node: JsonValue = root;
     let baseUri = resource;
     let pointer = "";
@@ -224,9 +237,12 @@ export class SchemaRegistry {
         throw new UnresolvableRefError(`pointer '${fragment}' not found in '${resource}'`);
       }
       pointer += "/" + escapeSegment(seg);
-      if (isObject(node) && typeof node.$id === "string") {
-        baseUri = splitFragment(resolveUri(node.$id, baseUri)).resource;
-        pointer = "";
+      if (isObject(node)) {
+        const baseId = identifiers(node).baseId;
+        if (baseId !== undefined) {
+          baseUri = splitFragment(resolveUri(baseId, baseUri)).resource;
+          pointer = "";
+        }
       }
     }
     return { node, baseUri, pointer };
@@ -237,6 +253,7 @@ export class SchemaRegistry {
    * canonical location and lexical base.
    */
   child(ref: SchemaRef, segments: readonly (string | number)[]): SchemaRef {
+    const identifiers = this.dialectFor(ref.baseUri).identifiers;
     let node: JsonValue = ref.node;
     let { baseUri, pointer } = ref;
     for (const seg of segments) {
@@ -244,9 +261,12 @@ export class SchemaRegistry {
         ? node[seg as number]
         : (node as Record<string, JsonValue>)[seg as string]) as JsonValue;
       pointer += "/" + escapeSegment(String(seg));
-      if (isObject(node) && typeof node.$id === "string") {
-        baseUri = splitFragment(resolveUri(node.$id, baseUri)).resource;
-        pointer = "";
+      if (isObject(node)) {
+        const baseId = identifiers(node).baseId;
+        if (baseId !== undefined) {
+          baseUri = splitFragment(resolveUri(baseId, baseUri)).resource;
+          pointer = "";
+        }
       }
     }
     return { node, baseUri, pointer };

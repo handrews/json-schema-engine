@@ -5,6 +5,7 @@ import { describe, it, expect } from "vitest";
 import {
   childCursor, createEngine, InfiniteLoopError, JsonValue, KeywordBehavior,
   SchemaValidationError, UnknownVocabularyError,
+  identifiersLegacy, identifiers2019,
 } from "@jse/core";
 import { parseJsonWithRanges } from "@jse/test-kit";
 
@@ -184,6 +185,96 @@ describe("$vocabulary processing and metaschema policy (M3)", () => {
     await expect(
       engine.loadSchema({ $schema: META, maxLength: 3 }, "https://policy.example/good"),
     ).resolves.toBe("https://policy.example/good");
+  });
+});
+
+describe("identifier strategies and legacy $ref semantics (D18)", () => {
+  const LEGACY = "urn:jse:test:dialect:legacy";
+  const V2020 = "https://json-schema.org/draft/2020-12/vocab/";
+
+  function legacyEngine() {
+    const engine = createEngine();
+    engine.registerDialect(LEGACY,
+      [`${V2020}core`, `${V2020}applicator`, `${V2020}validation`],
+      { identifiers: identifiersLegacy, refIgnoresSiblings: true });
+    return engine;
+  }
+
+  it("treats siblings of $ref as absent when refIgnoresSiblings is set", () => {
+    const engine = legacyEngine();
+    const uri = engine.registerSchema({
+      $defs: { s: { type: "string" } },
+      $ref: "#/$defs/s",
+      type: "number",
+    }, "https://legacy.example/ref-siblings", LEGACY);
+    expect(engine.evaluate(uri, "hi").valid).toBe(true);
+    expect(engine.evaluate(uri, 3).valid).toBe(false);
+  });
+
+  it("mints anchors from plain-fragment $id, without a base change", () => {
+    const engine = legacyEngine();
+    const uri = engine.registerSchema({
+      $defs: { a: { $id: "#foo", type: "integer" } },
+      $ref: "#foo",
+    }, "https://legacy.example/id-anchor", LEGACY);
+    expect(engine.evaluate(uri, 5).valid).toBe(true);
+    expect(engine.evaluate(uri, "x").valid).toBe(false);
+  });
+
+  it("ignores a sibling $id next to $ref for base resolution", () => {
+    const engine = legacyEngine();
+    const uri = engine.registerSchema({
+      $defs: {
+        s: { type: "string" },
+        viaRef: { $id: "https://legacy.example/elsewhere", $ref: "#/$defs/s" },
+      },
+      $ref: "#/$defs/viaRef",
+    }, "https://legacy.example/sibling-id", LEGACY);
+    // If the sibling $id changed the base, "#/$defs/s" would not resolve.
+    expect(engine.evaluate(uri, "ok").valid).toBe(true);
+  });
+});
+
+describe("$recursiveRef/$recursiveAnchor (D8 degenerate case)", () => {
+  const DIALECT = "urn:jse:test:dialect:2019ish";
+  const V2020 = "https://json-schema.org/draft/2020-12/vocab/";
+  const BASE = "https://rec.example/tree";
+  const EXT = "https://rec.example/strict-tree";
+
+  async function engineWithTrees() {
+    const { $recursiveRef, $recursiveAnchor } = await import("../src/keywords/core.js");
+    const engine = createEngine();
+    engine.registerVocabulary("urn:jse:test:vocab:recursive",
+      { $recursiveRef, $recursiveAnchor });
+    engine.registerDialect(DIALECT,
+      [`${V2020}core`, `${V2020}applicator`, `${V2020}validation`,
+        "urn:jse:test:vocab:recursive"],
+      { identifiers: identifiers2019 });
+    engine.registerSchema({
+      $id: BASE,
+      $recursiveAnchor: true,
+      type: "object",
+      properties: {
+        data: true,
+        children: { type: "array", items: { $recursiveRef: "#" } },
+      },
+    }, BASE, DIALECT);
+    engine.registerSchema({
+      $id: EXT,
+      $recursiveAnchor: true,
+      $ref: BASE,
+      properties: { data: { type: "string" } },
+    }, EXT, DIALECT);
+    return engine;
+  }
+
+  it("rebinds to the outermost recursive-anchored resource", async () => {
+    const engine = await engineWithTrees();
+    // Through EXT, the recursion must re-enter EXT (data must be a string)…
+    expect(engine.evaluate(EXT, { children: [{ data: "ok" }] }).valid).toBe(true);
+    expect(engine.evaluate(EXT, { children: [{ data: 42 }] }).valid).toBe(false);
+    // …while BASE alone accepts any data.
+    expect(engine.evaluate(BASE, { children: [{ data: 42 }] }).valid).toBe(true);
   });
 });
 

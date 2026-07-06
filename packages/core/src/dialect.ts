@@ -53,6 +53,13 @@ export interface KeywordContext {
    * to the outermost dynamic-scope resource with a matching dynamic anchor
    */
   resolveDynamic(ref: string): SchemaRef;
+  /**
+   * resolve a 2019-09 `$recursiveRef` (D8's degenerate case): lexical
+   * resolution first; when the target resource root carries
+   * `$recursiveAnchor: true`, rebind to the outermost dynamic-scope resource
+   * whose root also does
+   */
+  resolveRecursive(ref: string): SchemaRef;
   /** apply a resolved reference target at the current cursor */
   applyResolved(target: SchemaRef): boolean;
   /** emit a production for this keyword at the current cursor */
@@ -82,6 +89,53 @@ export interface DialectKeyword {
   vocabularyUri: string;
 }
 
+// Identifier syntax varies by draft (D18): 2020-12 has $id/$anchor/
+// $dynamicAnchor; 2019-09 replaces the dynamic pair with boolean
+// $recursiveAnchor; draft-07/06 mint anchors from plain-fragment $id and
+// have no anchor keywords at all. The extractor is dialect data consumed by
+// the registry's walk and pointer navigation — keyword behaviors stay
+// syntax-free.
+export interface IdentifierFacts {
+  /** value that changes the lexical base (and starts a schema resource) */
+  baseId?: string;
+  /** plain-name anchors minted at this schema object */
+  anchors?: readonly string[];
+  /** anchor participating in $dynamicRef rebinding (D8) */
+  dynamicAnchor?: string;
+  /** 2019-09 $recursiveAnchor; effective at a resource root */
+  recursiveAnchor?: boolean;
+}
+
+export type IdentifierExtractor = (
+  node: Record<string, JsonValue>,
+) => IdentifierFacts;
+
+export const identifiers2020: IdentifierExtractor = (node) => ({
+  ...(typeof node.$id === "string" ? { baseId: node.$id } : {}),
+  ...(typeof node.$anchor === "string" ? { anchors: [node.$anchor] } : {}),
+  ...(typeof node.$dynamicAnchor === "string"
+    ? { dynamicAnchor: node.$dynamicAnchor } : {}),
+});
+
+export const identifiers2019: IdentifierExtractor = (node) => ({
+  ...(typeof node.$id === "string" ? { baseId: node.$id } : {}),
+  ...(typeof node.$anchor === "string" ? { anchors: [node.$anchor] } : {}),
+  ...(node.$recursiveAnchor === true ? { recursiveAnchor: true } : {}),
+});
+
+// draft-07/06: a schema object containing $ref has no identifiers at all —
+// the suite's "$ref prevents a sibling $id from changing the base uri" —
+// and a plain-fragment $id is an anchor, not a base change.
+export const identifiersLegacy: IdentifierExtractor = (node) => {
+  if (Object.hasOwn(node, "$ref")) return {};
+  const id = node.$id;
+  if (typeof id !== "string") return {};
+  if (id.startsWith("#")) {
+    return id.length > 1 ? { anchors: [id.slice(1)] } : {};
+  }
+  return { baseId: id };
+};
+
 export interface Dialect {
   uri: string;
   /** name -> entry */
@@ -91,11 +145,18 @@ export interface Dialect {
   /** the vocabularies this dialect was assembled from, in order */
   vocabularyUris: readonly string[];
   allowUnknownKeywords: boolean;
+  identifiers: IdentifierExtractor;
+  /** draft-07/06: siblings of $ref are treated as if absent */
+  refIgnoresSiblings: boolean;
 }
 
 export interface DialectOptions {
   /** unknown keywords are collected as annotations (spec SHOULD); default true */
   allowUnknownKeywords?: boolean;
+  /** identifier syntax for this dialect (D18); default 2020-12 */
+  identifiers?: IdentifierExtractor;
+  /** draft-07/06 $ref semantics: siblings are ignored, not evaluated */
+  refIgnoresSiblings?: boolean;
 }
 
 export class UnknownDialectError extends Error {}
@@ -132,6 +193,8 @@ export class DialectRegistry {
       ordered,
       vocabularyUris: [...vocabularyUris],
       allowUnknownKeywords: options.allowUnknownKeywords ?? true,
+      identifiers: options.identifiers ?? identifiers2020,
+      refIgnoresSiblings: options.refIgnoresSiblings ?? false,
     });
   }
 

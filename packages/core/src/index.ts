@@ -19,6 +19,8 @@ import {
 } from "./output.js";
 import { DIALECT_2020_12, registerStandardDialects } from "./keywords/vocab2020.js";
 import { METASCHEMAS_2020_12 } from "./keywords/metaschemas2020.js";
+import { VOCAB_CORE_2019 } from "./keywords/core.js";
+import { identifiers2019, identifiers2020 } from "./dialect.js";
 
 export type { JsonValue, JsonType } from "./json.js";
 export type { Cursor } from "./cursor.js";
@@ -26,9 +28,11 @@ export { rootCursor, childCursor, instancePointer } from "./cursor.js";
 export type { SchemaRef } from "./ref.js";
 export type {
   KeywordBehavior, KeywordContext, StaticFacts, ProductionView, DialectOptions,
+  IdentifierFacts, IdentifierExtractor,
 } from "./dialect.js";
 export {
   DialectRegistry, UnknownDialectError, UnknownVocabularyError,
+  identifiers2020, identifiers2019, identifiersLegacy,
 } from "./dialect.js";
 export { SchemaRegistry } from "./registry.js";
 export type { DocumentLocation } from "./registry.js";
@@ -278,9 +282,13 @@ export class Engine {
     const declared = isObject(meta) ? meta.$vocabulary : undefined;
     if (!isObject(declared)) {
       // The spec leaves $vocabulary-less metaschemas open; the least-surprise
-      // reading is the default dialect's vocabulary set.
-      this.dialects.registerDialect(
-        uri, this.dialects.getDialect(this.defaultDialect).vocabularyUris);
+      // reading is the default dialect's vocabulary set and syntax options.
+      const base = this.dialects.getDialect(this.defaultDialect);
+      this.dialects.registerDialect(uri, base.vocabularyUris, {
+        allowUnknownKeywords: base.allowUnknownKeywords,
+        identifiers: base.identifiers,
+        refIgnoresSiblings: base.refIgnoresSiblings,
+      });
       return;
     }
     const uris: string[] = [];
@@ -294,7 +302,11 @@ export class Engine {
       // Unknown optional vocabularies are skipped; their keywords fall to
       // unknown-keyword annotation handling (spec MUST for false).
     }
-    this.dialects.registerDialect(uri, uris);
+    // Identifier syntax travels with the core vocabulary (D18): a dialect
+    // assembled around the 2019-09 core gets 2019-09 identifier handling.
+    this.dialects.registerDialect(uri, uris, {
+      identifiers: uris.includes(VOCAB_CORE_2019) ? identifiers2019 : identifiers2020,
+    });
   }
 
   private maybeValidate(baseUri: string): void {

@@ -132,6 +132,22 @@ class KeywordContextImpl implements KeywordContext {
     return target;
   }
 
+  resolveRecursive(ref: string): SchemaRef {
+    const registry = this.state.registry;
+    // 2019-09: the reference is "#"; anything with a non-empty fragment
+    // behaves like $ref. Rebinding is all-or-nothing on the root-level
+    // $recursiveAnchor flag rather than a named anchor.
+    const target = registry.resolveRef(ref, this.schemaRef.baseUri);
+    const { resource, fragment } =
+      splitFragment(resolveUri(ref, this.schemaRef.baseUri));
+    if (fragment !== null && fragment !== "") return target;
+    if (!registry.hasRecursiveRoot(resource)) return target;
+    for (const scopeUri of this.state.dynamicScope) {
+      if (registry.hasRecursiveRoot(scopeUri)) return registry.rootRef(scopeUri);
+    }
+    return target;
+  }
+
   applyResolved(target: SchemaRef): boolean {
     const pathNode = { parent: this.pathNode, segment: escapeSegment(this.entry.name) };
     return applySchema(this.state, target, this.cursor, pathNode);
@@ -186,16 +202,21 @@ export function applySchema(
 
   const dialect: Dialect = state.registry.dialectFor(schemaRef.baseUri);
 
+  // draft-07/06 (D18): a $ref makes every sibling keyword act as if absent.
+  const refOnly = dialect.refIgnoresSiblings && Object.hasOwn(node, "$ref");
+
   state.enter(schemaRef, cursor);
   state.dynamicScope.push(schemaRef.baseUri);
   state.frames.push({ productions: [] });
   let valid = true;
   try {
     for (const entry of dialect.ordered) {
+      if (refOnly && entry.name !== "$ref") continue;
       if (!Object.hasOwn(node, entry.name)) continue;
       if (!evaluateKeyword(state, schemaRef, entry, cursor, pathNode)) valid = false;
     }
     for (const name of Object.keys(node)) {
+      if (refOnly) break;
       if (dialect.keywords.has(name)) continue;
       if (!dialect.allowUnknownKeywords) {
         throw new UnknownKeywordError(

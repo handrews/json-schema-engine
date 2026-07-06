@@ -59,6 +59,20 @@ export const $dynamicRef: KeywordBehavior = {
   evaluate: (value, _cursor, ctx) => ctx.applyResolved(ctx.resolveDynamic(value as string)),
 };
 
+// 2019-09 core vocabulary (for the M4 dialect): $recursiveRef/$recursiveAnchor
+// are D8's degenerate case — resolution lives in the engine, anchor indexing
+// in the registry's identifier extractor, so both behaviors are one-liners.
+export const VOCAB_CORE_2019 = "https://json-schema.org/draft/2019-09/vocab/core";
+
+export const $recursiveRef: KeywordBehavior = {
+  id: `${VOCAB_CORE_2019}#$recursiveRef`,
+  analyze: (value) => ({ ...referenceFacts(value), dynamicScopeSensitive: true }),
+  evaluate: (value, _cursor, ctx) => ctx.applyResolved(ctx.resolveRecursive(value as string)),
+};
+
+export const $recursiveAnchor: KeywordBehavior =
+  structural(`${VOCAB_CORE_2019}#$recursiveAnchor`);
+
 export const $defs: KeywordBehavior = {
   id: `${VOCAB_CORE}#$defs`,
   analyze: mapPositions,
