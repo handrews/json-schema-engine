@@ -77,7 +77,7 @@ describe("source-position prefix table (D17)", () => {
     const [resourceUri, ptr] = unit.schemaLocation!.split("#");
     const loc = engine.documentLocation(resourceUri!)!;
     expect(loc.documentUri).toBe(A);
-    expect(loc.pointer + ptr).toBe("/$defs/inner/required");
+    expect(loc.pointer + ptr!).toBe("/$defs/inner/required");
   });
 });
 
@@ -117,13 +117,13 @@ describe("source positions (D17: getRange, locate, unit decoration)", () => {
     const valueLine = text.split("\n")[source.range!.value.start.line - 1]!;
     expect(valueLine).toContain('"required"');
     expect(source.range!.key).toBeDefined();
-    expect(text.slice(source.range!.key!.start.offset!, source.range!.key!.end.offset!))
+    expect(text.slice(source.range!.key!.start.offset, source.range!.key!.end.offset))
       .toBe('"required"');
 
     expect(engine.locate(unit.schemaLocation!)).toEqual(source);
   });
 
-  it("locate degrades to pointer-only when the loader reports no positions", async () => {
+  it("locate degrades to pointer-only when the loader reports no positions", () => {
     const engine = createEngine();
     engine.registerSchema(
       { $defs: { s: { type: "number" } } }, "https://pos.example/plain");
@@ -316,7 +316,7 @@ describe("custom vocabularies and dialects (D2)", () => {
       let ok = true;
       for (const [name, member] of Object.entries(cursor.value)) {
         if (!ctx.apply(["eachValue"],
-          childCursor(cursor, name, member as JsonValue))) ok = false;
+          childCursor(cursor, name, member))) ok = false;
       }
       return ok;
     },

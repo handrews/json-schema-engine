@@ -74,11 +74,11 @@ export function unsupportedIn(
   if (!isObject(schema)) return found;
   for (const [k, v] of Object.entries(schema)) {
     if (unsupportedKeywords.has(k)) found.add(k);
-    if (SINGLE.has(k)) unsupportedIn(v!, unsupportedKeywords, found);
+    if (SINGLE.has(k)) unsupportedIn(v, unsupportedKeywords, found);
     else if (ARRAY.has(k) && Array.isArray(v)) {
-      v.forEach((s) => unsupportedIn(s!, unsupportedKeywords, found));
+      v.forEach((s) => unsupportedIn(s, unsupportedKeywords, found));
     } else if (MAP.has(k) && isObject(v)) {
-      Object.values(v).forEach((s) => unsupportedIn(s!, unsupportedKeywords, found));
+      Object.values(v).forEach((s) => unsupportedIn(s, unsupportedKeywords, found));
     }
   }
   return found;
@@ -388,6 +388,8 @@ export function runSuiteFilesVitest(options: RunSuiteFilesVitestOptions): void {
         if (unsupported.size > 0) {
           const reason = `uses ${[...unsupported].join(", ")}`;
           skips.push(`${file}: ${group.description} [${reason}]`);
+          // Empty body: vitest's `it.skip` requires a callback even though a skipped test never runs it.
+          // eslint-disable-next-line @typescript-eslint/no-empty-function
           it.skip(`${group.description} [${reason}]`, () => {});
           options.onSkip?.({ file, group: group.description, reason });
           continue;

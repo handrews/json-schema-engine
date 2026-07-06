@@ -64,7 +64,7 @@ async function handle(line: string): Promise<void> {
     case "run": {
       const seq = request.seq;
       try {
-        const testCase = request.case as unknown as BowtieCase;
+        const testCase = request.case as BowtieCase;
         const registry = testCase.registry ?? {};
         const loader: SchemaLoader = (uri) =>
           Object.hasOwn(registry, uri)

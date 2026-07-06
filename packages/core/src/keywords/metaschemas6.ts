@@ -4,7 +4,7 @@
 // fragment is stripped to the resource URI.
 import { JsonValue } from "../json.js";
 
-export const METASCHEMAS_DRAFT_06: ReadonlyArray<readonly [string, JsonValue]> = [
+export const METASCHEMAS_DRAFT_06: readonly (readonly [string, JsonValue])[] = [
   ["http://json-schema.org/draft-06/schema", {
     "$schema": "http://json-schema.org/draft-06/schema#",
     "$id": "http://json-schema.org/draft-06/schema#",

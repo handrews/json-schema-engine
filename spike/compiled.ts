@@ -72,8 +72,8 @@ export function userFlag(d: unknown): boolean {
 
   const tags = d.tags;
   if (!Array.isArray(tags) || tags.length > 10) return false;
-  for (let i = 0; i < tags.length; i++) {
-    if (typeof tags[i] !== "string") return false;
+  for (const tag of tags) {
+    if (typeof tag !== "string") return false;
   }
 
   if ("address" in d) {

@@ -89,7 +89,7 @@ export class SchemaRegistry {
   ): void {
     if (!isObject(node)) return;
 
-    const ids = dialect.identifiers(node as Record<string, JsonValue>);
+    const ids = dialect.identifiers(node);
     if (pointer !== "" && ids.baseId !== undefined) {
       baseUri = splitFragment(resolveUri(ids.baseId, baseUri)).resource;
       pointer = "";
@@ -114,7 +114,7 @@ export class SchemaRegistry {
 
     for (const [name, value] of Object.entries(node)) {
       const behavior = dialect.keywords.get(name)?.behavior;
-      const facts = behavior?.analyze?.(value!);
+      const facts = behavior?.analyze?.(value);
       if (!facts) continue;
       for (const c of facts.consumes ?? []) this.consumedBehaviorIds.add(c);
       for (const ref of facts.references ?? []) {
@@ -128,7 +128,7 @@ export class SchemaRegistry {
       const positions = facts.subschemas;
       if (!positions) continue;
       for (const relPath of positions) {
-        let child: JsonValue = value!;
+        let child: JsonValue = value;
         let suffix = "/" + escapeSegment(name);
         for (const seg of relPath) {
           child = (Array.isArray(child)
@@ -232,17 +232,17 @@ export class SchemaRegistry {
     // JSON Pointer navigation, tracking identifier-induced base changes on
     // the way, per the target document's dialect (D18).
     const identifiers = this.dialectFor(resource).identifiers;
-    let node: JsonValue = root;
+    let node: JsonValue | undefined = root;
     let baseUri = resource;
     let pointer = "";
     for (const rawSeg of fragment.slice(1).split("/")) {
       const seg = unescapeSegment(rawSeg);
       if (Array.isArray(node)) {
-        node = node[Number(seg)] as JsonValue;
+        node = node[Number(seg)];
       } else if (isObject(node) && Object.hasOwn(node, seg)) {
-        node = node[seg] as JsonValue;
+        node = node[seg];
       } else {
-        node = undefined as unknown as JsonValue;
+        node = undefined;
       }
       if (node === undefined) {
         throw new UnresolvableRefError(`pointer '${fragment}' not found in '${resource}'`);

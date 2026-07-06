@@ -52,8 +52,8 @@ for (const { draft, defaultDialect } of DRAFTS) {
         // engine's public "list" + "2020-12" combination (index.ts wiring).
         renderDocument: (schema, retrievalUri, data) => {
           const engine = createEngine({ defaultDialect });
-          const uri = engine.registerSchema(schema as JsonValue, retrievalUri);
-          const result = engine.evaluate(uri, data as JsonValue,
+          const uri = engine.registerSchema(schema, retrievalUri);
+          const result = engine.evaluate(uri, data,
             { output: "list", locations: "2020-12" });
           return result.outputDocument as unknown as JsonValue;
         },
@@ -65,8 +65,8 @@ for (const { draft, defaultDialect } of DRAFTS) {
           const meta = outputSchemaDoc(draft);
           validatorEngine.registerSchema(meta, meta.$id);
           const schemaId = (outputSchema as { $id?: string }).$id ?? outputSchemaUri;
-          const uri = validatorEngine.registerSchema(outputSchema as JsonValue, schemaId);
-          return validatorEngine.evaluate(uri, document as JsonValue).valid;
+          const uri = validatorEngine.registerSchema(outputSchema, schemaId);
+          return validatorEngine.evaluate(uri, document).valid;
         },
       });
 

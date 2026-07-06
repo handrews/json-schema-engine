@@ -5,7 +5,7 @@ import { describe, it, expect } from "vitest";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runSuiteFilesVitest, suiteRemotesLoader } from "@jse/test-kit";
-import { createEngine, JsonValue, DIALECT_2019_09 } from "@jse/core";
+import { createEngine, DIALECT_2019_09 } from "@jse/core";
 
 const SUITE_ROOT = join(dirname(fileURLToPath(import.meta.url)),
   "..", "..", "..", "test-suite");
@@ -35,8 +35,8 @@ runSuiteFilesVitest({
       defaultDialect: DIALECT_2019_09,
       loaders: [suiteRemotesLoader(REMOTES_DIR)],
     });
-    const uri = await engine.loadSchema(schema as JsonValue, retrievalUri);
-    return engine.evaluate(uri, instance as JsonValue).valid;
+    const uri = await engine.loadSchema(schema, retrievalUri);
+    return engine.evaluate(uri, instance).valid;
   },
   minRun: 1234,
   describe,

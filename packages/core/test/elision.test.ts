@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import { describe, it, expect } from "vitest";
 import { runSuiteFilesVitest, suiteRemotesLoader } from "@jse/test-kit";
 import {
-  createEngine, DialectRegistry, SchemaRegistry, JsonValue,
+  createEngine, DialectRegistry, SchemaRegistry,
   UndeclaredConsumptionError, KeywordBehavior,
   DIALECT_2020_12, DIALECT_2019_09, DIALECT_DRAFT_07, DIALECT_DRAFT_06,
 } from "@jse/core";
@@ -43,9 +43,9 @@ for (const [dir, dialect, minRun] of DRAFTS) {
       const engine = createEngine({
         defaultDialect: dialect, loaders: [suiteRemotesLoader(REMOTES_DIR)],
       });
-      const uri = await engine.loadSchema(schema as JsonValue, retrievalUri);
-      const elided = engine.evaluate(uri, instance as JsonValue).valid;
-      const traced = engine.evaluate(uri, instance as JsonValue,
+      const uri = await engine.loadSchema(schema, retrievalUri);
+      const elided = engine.evaluate(uri, instance).valid;
+      const traced = engine.evaluate(uri, instance,
         { output: "hierarchical", verbose: true }).valid;
       if (elided !== traced) {
         throw new Error(`elision divergence: flag=${elided} traced=${traced}`);

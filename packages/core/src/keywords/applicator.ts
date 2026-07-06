@@ -42,6 +42,9 @@ export const anyOf: KeywordBehavior = {
     (value as JsonValue[]).forEach((_, i) => {
       if (ctx.apply(["anyOf", i], cursor)) ok = true;
     });
+    // Mutated inside the forEach closure above; the checker doesn't track that
+    // reassignment for a read after the callback returns.
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (!ok) ctx.error("no branch matched");
     return ok;
   },

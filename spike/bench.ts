@@ -3,7 +3,10 @@
 
 import { Bench } from "tinybench";
 import Ajv2020Mod from "ajv/dist/2020.js";
-// CJS interop: at runtime module.exports is the class and also carries .default
+// CJS interop: at runtime module.exports is the class and also carries .default,
+// but ajv's own types declare `.default` as always present, so TS can't see this
+// as a real possibility.
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
 const Ajv2020 = Ajv2020Mod.default ?? Ajv2020Mod;
 import { registerSchema, validate } from "@hyperjump/json-schema/draft-2020-12";
 import { BASIC } from "@hyperjump/json-schema/experimental";
@@ -61,43 +64,43 @@ function expectVerdict(
 expectVerdict("user/valid", true, {
   ours: userFlag(userValid),
   oursList: userList(userValid).valid,
-  ajv: ajvUser(userValid) as boolean,
+  ajv: ajvUser(userValid),
   hyperjump: hjUser(userValid).valid,
 });
 expectVerdict("user/invalid", false, {
   ours: userFlag(userInvalid),
   oursList: userList(userInvalid).valid,
-  ajv: ajvUser(userInvalid) as boolean,
+  ajv: ajvUser(userInvalid),
   hyperjump: hjUser(userInvalid).valid,
 });
 expectVerdict("user/invalidMulti", false, {
   ours: userFlag(userInvalidMulti),
   oursList: userList(userInvalidMulti).valid,
-  ajv: ajvUser(userInvalidMulti) as boolean,
+  ajv: ajvUser(userInvalidMulti),
   hyperjump: hjUser(userInvalidMulti).valid,
 });
 expectVerdict("event/valid", true, {
   ours: eventFlag(eventValid),
   oursList: eventList(eventValid).valid,
-  ajv: ajvEvent(eventValid) as boolean,
+  ajv: ajvEvent(eventValid),
   hyperjump: hjEvent(eventValid).valid,
 });
 expectVerdict("event/invalid", false, {
   ours: eventFlag(eventInvalid),
   oursList: eventList(eventInvalid).valid,
-  ajv: ajvEvent(eventInvalid) as boolean,
+  ajv: ajvEvent(eventInvalid),
   hyperjump: hjEvent(eventInvalid).valid,
 });
 expectVerdict("profile/valid", true, {
   ours: profileFlag(profileValid),
   oursAnnotated: profileAnnotated(profileValid).valid,
-  ajv: ajvProfile(profileValid) as boolean,
+  ajv: ajvProfile(profileValid),
   hyperjump: hjProfile(profileValid).valid,
 });
 expectVerdict("profile/invalid", false, {
   ours: profileFlag(profileInvalid),
   oursAnnotated: profileAnnotated(profileInvalid).valid,
-  ajv: ajvProfile(profileInvalid) as boolean,
+  ajv: ajvProfile(profileInvalid),
   hyperjump: hjProfile(profileInvalid).valid,
 });
 
@@ -180,7 +183,7 @@ for (const group of groups) {
   console.log(`## ${group.name}`);
   for (const task of bench.tasks) {
     const r = task.result;
-    const opsSec = r && "latency" in r ? 1000 / r.latency.mean : NaN;
+    const opsSec = "latency" in r ? 1000 / r.latency.mean : NaN;
     hz[task.name] = opsSec;
     console.log(`  ${task.name.padEnd(45)} ${Math.round(opsSec).toLocaleString("en-US").padStart(14)} ops/s`);
   }
@@ -198,7 +201,7 @@ let gatePass = true;
 for (const { group, hz } of results) {
   if (!group.gated) continue;
   const ours = hz["ours(compiled)"]!;
-  const theirs = hz["ajv"]!;
+  const theirs = hz.ajv!;
   const ratio = theirs / ours;
   const ok = ratio <= 1.5;
   if (!ok) gatePass = false;

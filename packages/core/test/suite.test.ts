@@ -6,7 +6,7 @@ import { describe, it, expect } from "vitest";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runSuiteFilesVitest, suiteRemotesLoader } from "@jse/test-kit";
-import { createEngine, JsonValue } from "@jse/core";
+import { createEngine } from "@jse/core";
 
 const SUITE_ROOT = join(dirname(fileURLToPath(import.meta.url)),
   "..", "..", "..", "test-suite");
@@ -39,8 +39,8 @@ runSuiteFilesVitest({
   unsupportedKeywords: UNSUPPORTED,
   registerAndEvaluate: async (schema, retrievalUri, instance) => {
     const engine = createEngine({ loaders: [suiteRemotesLoader(REMOTES_DIR)] });
-    const uri = await engine.loadSchema(schema as JsonValue, retrievalUri);
-    return engine.evaluate(uri, instance as JsonValue).valid;
+    const uri = await engine.loadSchema(schema, retrievalUri);
+    return engine.evaluate(uri, instance).valid;
   },
   minRun: 1280,
   describe,

@@ -77,13 +77,13 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
   type: assertion(
     "type",
     (value, instance) => Array.isArray(value)
-      ? value.some((t) => typeMatches(t!, instance))
+      ? value.some((t) => typeMatches(t, instance))
       : typeMatches(value, instance),
     (value) => `expected type ${JSON.stringify(value)}`,
   ),
   enum: assertion(
     "enum",
-    (value, instance) => (value as JsonValue[]).some((x) => jsonEqual(x!, instance)),
+    (value, instance) => (value as JsonValue[]).some((x) => jsonEqual(x, instance)),
     () => "not one of the allowed values",
   ),
   const: assertion(
@@ -96,55 +96,55 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
     "minLength",
     (value, instance) =>
       typeof instance !== "string" || codePointLength(instance) >= (value as number),
-    (value) => `must be at least ${value} characters`,
+    (value) => `must be at least ${value as number} characters`,
   ),
   maxLength: assertion(
     "maxLength",
     (value, instance) =>
       typeof instance !== "string" || codePointLength(instance) <= (value as number),
-    (value) => `must be at most ${value} characters`,
+    (value) => `must be at most ${value as number} characters`,
   ),
   minimum: assertion(
     "minimum",
     (value, instance) => typeof instance !== "number" || instance >= (value as number),
-    (value) => `must be >= ${value}`,
+    (value) => `must be >= ${value as number}`,
   ),
   maximum: assertion(
     "maximum",
     (value, instance) => typeof instance !== "number" || instance <= (value as number),
-    (value) => `must be <= ${value}`,
+    (value) => `must be <= ${value as number}`,
   ),
   exclusiveMinimum: assertion(
     "exclusiveMinimum",
     (value, instance) => typeof instance !== "number" || instance > (value as number),
-    (value) => `must be > ${value}`,
+    (value) => `must be > ${value as number}`,
   ),
   exclusiveMaximum: assertion(
     "exclusiveMaximum",
     (value, instance) => typeof instance !== "number" || instance < (value as number),
-    (value) => `must be < ${value}`,
+    (value) => `must be < ${value as number}`,
   ),
   minItems: assertion(
     "minItems",
     (value, instance) => !Array.isArray(instance) || instance.length >= (value as number),
-    (value) => `must have at least ${value} items`,
+    (value) => `must have at least ${value as number} items`,
   ),
   maxItems: assertion(
     "maxItems",
     (value, instance) => !Array.isArray(instance) || instance.length <= (value as number),
-    (value) => `must have at most ${value} items`,
+    (value) => `must have at most ${value as number} items`,
   ),
   minProperties: assertion(
     "minProperties",
     (value, instance) =>
       !isObject(instance) || Object.keys(instance).length >= (value as number),
-    (value) => `must have at least ${value} properties`,
+    (value) => `must have at least ${value as number} properties`,
   ),
   maxProperties: assertion(
     "maxProperties",
     (value, instance) =>
       !isObject(instance) || Object.keys(instance).length <= (value as number),
-    (value) => `must have at most ${value} properties`,
+    (value) => `must have at most ${value as number} properties`,
   ),
   required: {
     id: id("required"),
@@ -164,7 +164,7 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
     "multipleOf",
     (value, instance) =>
       typeof instance !== "number" || isMultipleOf(instance, value as number),
-    (value) => `must be a multiple of ${value}`,
+    (value) => `must be a multiple of ${value as number}`,
   ),
   uniqueItems: {
     id: id("uniqueItems"),

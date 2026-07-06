@@ -102,7 +102,7 @@ describe("hierarchical output (M5 exemplar)", () => {
   it("nests failing branches with modern location fields", () => {
     const r = run({ name: 3 });
     expect(r.valid).toBe(false);
-    const root = r.outputDocument!;
+    const root = r.outputDocument;
     expect(root.valid).toBe(false);
     expect(root.evaluationPath).toBe("");
     expect(root.instanceLocation).toBe("");
@@ -117,7 +117,7 @@ describe("hierarchical output (M5 exemplar)", () => {
   it("prunes contribution-free units, keeps annotations on valid ones", () => {
     const r = run({ name: "x" });
     expect(r.valid).toBe(true);
-    const root = r.outputDocument!;
+    const root = r.outputDocument;
     expect(root.annotations!.title).toBe("root");
     const nameUnit = root.details!.find((d) => d.instanceLocation === "/name")!;
     expect(nameUnit.annotations!.title).toBe("the name");
@@ -132,14 +132,14 @@ describe("hierarchical output (M5 exemplar)", () => {
     const terse = engine.evaluate(uri, { n: 1 }, { output: "hierarchical" });
     const verbose = engine.evaluate(uri, { n: 1 },
       { output: "hierarchical", verbose: true });
-    expect(terse.outputDocument!.details).toBeUndefined();
-    expect(verbose.outputDocument!.details!.length).toBe(1);
-    expect(verbose.outputDocument!.details![0]!.valid).toBe(true);
+    expect(terse.outputDocument.details).toBeUndefined();
+    expect(verbose.outputDocument.details!.length).toBe(1);
+    expect(verbose.outputDocument.details![0]!.valid).toBe(true);
   });
 
   it("reports droppedAnnotations on failed units", () => {
     const r = run({ name: 3 });
-    const nameUnit = r.outputDocument!.details!.find(
+    const nameUnit = r.outputDocument.details!.find(
       (d) => d.instanceLocation === "/name")!;
     expect(nameUnit.droppedAnnotations!.title).toBe("the name");
   });
@@ -197,8 +197,8 @@ describe("Basic output document (M5)", () => {
       absoluteKeywordLocation: "https://output.example/schema#",
     });
     const bad = engine.evaluate(uri, {}, { output: "list", locations: "2020-12" });
-    expect(bad.outputDocument!.valid).toBe(false);
-    expect(bad.outputDocument!.errors).toContainEqual({
+    expect(bad.outputDocument.valid).toBe(false);
+    expect(bad.outputDocument.errors).toContainEqual({
       keywordLocation: "/allOf/0/$ref/required",
       absoluteKeywordLocation: "https://output.example/schema#/$defs/base/required",
       instanceLocation: "",
@@ -211,7 +211,7 @@ describe("modern LIST output document (M5)", () => {
   it("flattens hierarchical units with no details field", () => {
     const { engine, uri } = engineFor(schema);
     const r = engine.evaluate(uri, {}, { output: "list" });
-    const units = r.outputDocument!;
+    const units = r.outputDocument;
     expect(Array.isArray(units)).toBe(true);
     for (const u of units) expect(u).not.toHaveProperty("details");
     const failing = units.find((u) => u.instanceLocation === "" && !u.valid);
@@ -231,7 +231,7 @@ describe("Detailed/Verbose output documents (M5)", () => {
     const uri = engine.registerSchema(hSchema, "https://h.example/detailed");
     const r = engine.evaluate(uri, { name: 3 },
       { output: "hierarchical", locations: "2020-12" });
-    const root = r.outputDocument!;
+    const root = r.outputDocument;
     expect(root.keywordLocation).toBe("");
     expect(root).not.toHaveProperty("evaluationPath");
     const nameUnit = root.details!.find((d) => d.instanceLocation === "/name")!;
@@ -248,8 +248,8 @@ describe("Detailed/Verbose output documents (M5)", () => {
       { output: "hierarchical", locations: "2020-12" });
     const verbose = engine.evaluate(uri, { n: 1 },
       { output: "hierarchical", locations: "2020-12", verbose: true });
-    expect(detailed.outputDocument!.details).toBeUndefined();
-    expect(verbose.outputDocument!.details!.length).toBe(1);
-    expect(verbose.outputDocument!.details![0]!.valid).toBe(true);
+    expect(detailed.outputDocument.details).toBeUndefined();
+    expect(verbose.outputDocument.details!.length).toBe(1);
+    expect(verbose.outputDocument.details![0]!.valid).toBe(true);
   });
 });

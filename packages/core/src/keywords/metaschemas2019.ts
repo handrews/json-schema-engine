@@ -3,7 +3,7 @@
 // artifacts, BSD-licensed). Same role as metaschemas2020.ts.
 import { JsonValue } from "../json.js";
 
-export const METASCHEMAS_2019_09: ReadonlyArray<readonly [string, JsonValue]> = [
+export const METASCHEMAS_2019_09: readonly (readonly [string, JsonValue])[] = [
   ["https://json-schema.org/draft/2019-09/schema", {
     "$schema": "https://json-schema.org/draft/2019-09/schema",
     "$id": "https://json-schema.org/draft/2019-09/schema",

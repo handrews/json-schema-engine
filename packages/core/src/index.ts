@@ -88,9 +88,9 @@ export interface Result {
   annotations?: AnnotationUnit[];
   /**
    * Spec-shaped structured output document. Shape depends on `output`/
-   * `locations`: modern "list" -> OutputUnit[] (LIST), "2020-12" "list" ->
-   * BasicOutputDocument (Basic), modern "hierarchical" -> OutputUnit
-   * (HIERARCHICAL), "2020-12" "hierarchical" -> OutputUnit (Detailed, or
+   * `locations`: modern "list" -\> OutputUnit[] (LIST), "2020-12" "list" -\>
+   * BasicOutputDocument (Basic), modern "hierarchical" -\> OutputUnit
+   * (HIERARCHICAL), "2020-12" "hierarchical" -\> OutputUnit (Detailed, or
    * Verbose with `verbose: true`).
    */
   outputDocument?: OutputUnit | OutputUnit[] | BasicOutputDocument;
@@ -233,11 +233,7 @@ export class Engine {
   // options objects (e.g. options built from a variable).
   evaluate(
     schemaUri: string, instance: JsonValue,
-    options: EvaluateOptions & { output: "hierarchical"; locations?: "modern" },
-  ): Result & { outputDocument: OutputUnit };
-  evaluate(
-    schemaUri: string, instance: JsonValue,
-    options: EvaluateOptions & { output: "hierarchical"; locations: "2020-12" },
+    options: EvaluateOptions & { output: "hierarchical"; locations?: "modern" | "2020-12" },
   ): Result & { outputDocument: OutputUnit };
   evaluate(
     schemaUri: string, instance: JsonValue,

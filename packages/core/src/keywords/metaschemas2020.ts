@@ -6,7 +6,7 @@
 
 import { JsonValue } from "../json.js";
 
-export const METASCHEMAS_2020_12: ReadonlyArray<readonly [string, JsonValue]> = [
+export const METASCHEMAS_2020_12: readonly (readonly [string, JsonValue])[] = [
   ["https://json-schema.org/draft/2020-12/schema", {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://json-schema.org/draft/2020-12/schema",

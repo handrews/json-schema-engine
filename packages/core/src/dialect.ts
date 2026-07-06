@@ -138,7 +138,7 @@ export const identifiersLegacy: IdentifierExtractor = (node) => {
 
 export interface Dialect {
   uri: string;
-  /** name -> entry */
+  /** name -\> entry */
   keywords: ReadonlyMap<string, DialectKeyword>;
   /** evaluation order: phase 0 entries then phase 1 entries */
   ordered: readonly DialectKeyword[];
