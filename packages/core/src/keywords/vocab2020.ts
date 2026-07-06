@@ -5,6 +5,7 @@ import { coreVocabulary, VOCAB_CORE, annotationOnly } from "./core.js";
 import { applicatorVocabulary, VOCAB_APPLICATOR } from "./applicator.js";
 import { validationVocabulary, VOCAB_VALIDATION } from "./validation.js";
 import { unevaluatedVocabulary, VOCAB_UNEVALUATED } from "./unevaluated.js";
+import { registerDialect2019 } from "./vocab2019.js";
 
 export const VOCAB_META_DATA = "https://json-schema.org/draft/2020-12/vocab/meta-data";
 export const VOCAB_FORMAT_ANNOTATION =
@@ -48,4 +49,6 @@ export function registerStandardDialects(registry: DialectRegistry): void {
     VOCAB_FORMAT_ANNOTATION,
     VOCAB_CONTENT,
   ]);
+
+  registerDialect2019(registry);
 }

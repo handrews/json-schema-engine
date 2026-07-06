@@ -19,6 +19,7 @@ import {
 } from "./output.js";
 import { DIALECT_2020_12, registerStandardDialects } from "./keywords/vocab2020.js";
 import { METASCHEMAS_2020_12 } from "./keywords/metaschemas2020.js";
+import { METASCHEMAS_2019_09 } from "./keywords/metaschemas2019.js";
 import { VOCAB_CORE_2019 } from "./keywords/core.js";
 import { identifiers2019, identifiers2020 } from "./dialect.js";
 
@@ -46,6 +47,7 @@ export type {
   SourceSpan,
 } from "./loader.js";
 export { DIALECT_2020_12 } from "./keywords/vocab2020.js";
+export { DIALECT_2019_09 } from "./keywords/vocab2019.js";
 
 export class SchemaValidationError extends Error {
   constructor(message: string, readonly errors: readonly ErrorUnit[]) {
@@ -104,6 +106,9 @@ export class Engine {
     // check standard-dialect documents. Registered directly (not through
     // registerSchema) so the policy never self-validates them here.
     for (const [uri, doc] of METASCHEMAS_2020_12) {
+      this.schemas.register(doc, uri);
+    }
+    for (const [uri, doc] of METASCHEMAS_2019_09) {
       this.schemas.register(doc, uri);
     }
   }
