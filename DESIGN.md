@@ -341,3 +341,14 @@ Asserting-format nodes classify interpreted under compilation (Runtime
 format-table lowering deferred). Separately, compiled list/Basic output
 landed (D9e; commit 613ac51): compileList produces interpreter-exact flat
 error units — full-suite differential zero divergence, FUZZ_LIST leg.
+
+**Owner review (idn-hostname):** `isValidALabel` in
+packages/formats/src/idna.ts rejects any second `--` in an A-label's
+ASCII text after the `xn--` prefix (suite case `XN--aa---o47jg78q`,
+"contains '--' in the 3rd and 4th position"). This reading is consistent
+with every suite case but was inferred, not traced to a pinpoint RFC
+sentence — the block comment there records the reasoning (RFC 5890
+§2.3.1 R-LDH reservation). Working hypothesis: such a label is a "fake
+A-label" (RFC 5890 §2.3.2.1 terminology) and therefore invalid; confirm
+the correct citation (fake A-label vs. §4.4 canonical round-trip) and
+adjust the comment.
