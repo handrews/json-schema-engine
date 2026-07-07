@@ -28,6 +28,11 @@ import {
 } from "@jse/compiler";
 import { mapErrors, type AjvErrorObject } from "./errors.js";
 import {
+  anyMutation,
+  runMutationFixpoint,
+  type MutationOptions,
+} from "./mutate.js";
+import {
   checkDiscriminators,
   discriminatedOneOf,
   discriminatorBehavior,
@@ -206,16 +211,6 @@ export class Ajv {
       throw new AjvCompatUnsupportedError(
         "$data references",
         "keyword values sourced from the instance are excluded by design",
-      );
-    }
-    if (
-      opts.coerceTypes !== undefined ||
-      opts.useDefaults !== undefined ||
-      opts.removeAdditional !== undefined
-    ) {
-      throw new AjvCompatUnsupportedError(
-        "coerceTypes/useDefaults/removeAdditional",
-        "the data-modifying options arrive with the mutation milestone (M8.3)",
       );
     }
     if (opts.multipleOfPrecision !== undefined) {
@@ -616,14 +611,29 @@ export class Ajv {
       return doc === undefined ? undefined : walkPointer(doc, pointer);
     };
     const opts = this.opts;
+    const mutations: MutationOptions = {
+      coerceTypes: opts.coerceTypes,
+      useDefaults: opts.useDefaults,
+      removeAdditional: opts.removeAdditional,
+    };
+    const mutating = anyMutation(mutations);
     const fn = ((data: JsonValue): boolean => {
-      if (flagArtifact.validate(data)) {
+      let instance = data;
+      if (mutating) {
+        // In-place nested mutation, like AJV; a coerced TOP-LEVEL value
+        // only changes the validated value, never the caller's binding
+        // (fixture: coerce-top-level-scalar).
+        const holder = { value: data };
+        runMutationFixpoint(engine, uri, holder, mutations, resolveSchema);
+        instance = holder.value;
+      }
+      if (flagArtifact.validate(instance)) {
         fn.errors = null;
         return true;
       }
       listArtifact.current ??= compileList(engine, uri, { errorParams: true });
-      const { errors } = listArtifact.current.evaluateList(data);
-      let mapped = mapErrors(errors, data, {
+      const { errors } = listArtifact.current.evaluateList(instance);
+      let mapped = mapErrors(errors, instance, {
         rootBaseUri: rootBase,
         resolveSchema,
         allErrors: opts.allErrors === true,
@@ -631,7 +641,7 @@ export class Ajv {
         messages: opts.messages !== false,
       });
       if (this.errorPostProcessor !== undefined) {
-        mapped = this.errorPostProcessor(mapped, data, schema, "#");
+        mapped = this.errorPostProcessor(mapped, instance, schema, "#");
       }
       fn.errors = mapped;
       return false;

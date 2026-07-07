@@ -1,0 +1,827 @@
+{
+  "coerce-top-level-scalar": {
+    "dialect": "2020-12",
+    "options": {
+      "coerceTypes": true
+    },
+    "schema": {
+      "type": "number"
+    },
+    "data": "1",
+    "valid": true,
+    "dataAfter": "1",
+    "errors": null
+  },
+  "coerce-nested-string-to-number": {
+    "dialect": "2020-12",
+    "options": {
+      "coerceTypes": true
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "n": {
+          "type": "number"
+        }
+      }
+    },
+    "data": {
+      "n": "2.5"
+    },
+    "valid": true,
+    "dataAfter": {
+      "n": 2.5
+    },
+    "errors": null
+  },
+  "coerce-string-to-boolean": {
+    "dialect": "2020-12",
+    "options": {
+      "coerceTypes": true
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "b": {
+          "type": "boolean"
+        }
+      }
+    },
+    "data": {
+      "b": "true"
+    },
+    "valid": true,
+    "dataAfter": {
+      "b": true
+    },
+    "errors": null
+  },
+  "coerce-string-false-to-boolean": {
+    "dialect": "2020-12",
+    "options": {
+      "coerceTypes": true
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "b": {
+          "type": "boolean"
+        }
+      }
+    },
+    "data": {
+      "b": "false"
+    },
+    "valid": true,
+    "dataAfter": {
+      "b": false
+    },
+    "errors": null
+  },
+  "coerce-empty-string-to-null": {
+    "dialect": "2020-12",
+    "options": {
+      "coerceTypes": true
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "null"
+        }
+      }
+    },
+    "data": {
+      "x": ""
+    },
+    "valid": true,
+    "dataAfter": {
+      "x": null
+    },
+    "errors": null
+  },
+  "coerce-number-to-string": {
+    "dialect": "2020-12",
+    "options": {
+      "coerceTypes": true
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "s": {
+          "type": "string"
+        }
+      }
+    },
+    "data": {
+      "s": 7
+    },
+    "valid": true,
+    "dataAfter": {
+      "s": "7"
+    },
+    "errors": null
+  },
+  "coerce-zero-to-boolean": {
+    "dialect": "2020-12",
+    "options": {
+      "coerceTypes": true
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "b": {
+          "type": "boolean"
+        }
+      }
+    },
+    "data": {
+      "b": 0
+    },
+    "valid": true,
+    "dataAfter": {
+      "b": false
+    },
+    "errors": null
+  },
+  "coerce-null-to-number": {
+    "dialect": "2020-12",
+    "options": {
+      "coerceTypes": true
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "n": {
+          "type": "number"
+        }
+      }
+    },
+    "data": {
+      "n": null
+    },
+    "valid": true,
+    "dataAfter": {
+      "n": 0
+    },
+    "errors": null
+  },
+  "coerce-impossible": {
+    "dialect": "2020-12",
+    "options": {
+      "coerceTypes": true
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "n": {
+          "type": "number"
+        }
+      }
+    },
+    "data": {
+      "n": "abc"
+    },
+    "valid": false,
+    "dataAfter": {
+      "n": "abc"
+    },
+    "errors": [
+      {
+        "instancePath": "/n",
+        "schemaPath": "#/properties/n/type",
+        "keyword": "type",
+        "params": {
+          "type": "number"
+        },
+        "message": "must be number"
+      }
+    ]
+  },
+  "coerce-integer-rejects-fraction-string": {
+    "dialect": "2020-12",
+    "options": {
+      "coerceTypes": true
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "i": {
+          "type": "integer"
+        }
+      }
+    },
+    "data": {
+      "i": "2.5"
+    },
+    "valid": false,
+    "dataAfter": {
+      "i": "2.5"
+    },
+    "errors": [
+      {
+        "instancePath": "/i",
+        "schemaPath": "#/properties/i/type",
+        "keyword": "type",
+        "params": {
+          "type": "integer"
+        },
+        "message": "must be integer"
+      }
+    ]
+  },
+  "coerce-array-wrap": {
+    "dialect": "2020-12",
+    "options": {
+      "coerceTypes": "array"
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "data": {
+      "a": 3
+    },
+    "valid": true,
+    "dataAfter": {
+      "a": [3]
+    },
+    "errors": null
+  },
+  "coerce-array-unwrap": {
+    "dialect": "2020-12",
+    "options": {
+      "coerceTypes": "array"
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "s": {
+          "type": "string"
+        }
+      }
+    },
+    "data": {
+      "s": ["only"]
+    },
+    "valid": true,
+    "dataAfter": {
+      "s": "only"
+    },
+    "errors": null
+  },
+  "coerce-array-wrap-coerces-items": {
+    "dialect": "2020-12",
+    "options": {
+      "coerceTypes": "array"
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "data": {
+      "a": "4"
+    },
+    "valid": true,
+    "dataAfter": {
+      "a": [4]
+    },
+    "errors": null
+  },
+  "coerce-union-order": {
+    "dialect": "2020-12",
+    "options": {
+      "coerceTypes": true,
+      "allowUnionTypes": true
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "v": {
+          "type": ["boolean", "number"]
+        }
+      }
+    },
+    "data": {
+      "v": "1"
+    },
+    "valid": true,
+    "dataAfter": {
+      "v": 1
+    },
+    "errors": null
+  },
+  "coerce-in-array-items": {
+    "dialect": "2020-12",
+    "options": {
+      "coerceTypes": true
+    },
+    "schema": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      }
+    },
+    "data": ["1", "2", "x"],
+    "valid": false,
+    "dataAfter": [1, 2, "x"],
+    "errors": [
+      {
+        "instancePath": "/2",
+        "schemaPath": "#/items/type",
+        "keyword": "type",
+        "params": {
+          "type": "integer"
+        },
+        "message": "must be integer"
+      }
+    ]
+  },
+  "no-coerce-when-type-matches": {
+    "dialect": "2020-12",
+    "options": {
+      "coerceTypes": true
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "n": {
+          "type": "number"
+        }
+      }
+    },
+    "data": {
+      "n": 5
+    },
+    "valid": true,
+    "dataAfter": {
+      "n": 5
+    },
+    "errors": null
+  },
+  "defaults-insert-missing": {
+    "dialect": "2020-12",
+    "options": {
+      "useDefaults": true
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string",
+          "default": "A"
+        },
+        "b": {
+          "type": "number"
+        }
+      }
+    },
+    "data": {
+      "b": 1
+    },
+    "valid": true,
+    "dataAfter": {
+      "b": 1,
+      "a": "A"
+    },
+    "errors": null
+  },
+  "defaults-keep-present": {
+    "dialect": "2020-12",
+    "options": {
+      "useDefaults": true
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string",
+          "default": "A"
+        }
+      }
+    },
+    "data": {
+      "a": "keep"
+    },
+    "valid": true,
+    "dataAfter": {
+      "a": "keep"
+    },
+    "errors": null
+  },
+  "defaults-empty-mode": {
+    "dialect": "2020-12",
+    "options": {
+      "useDefaults": "empty"
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string",
+          "default": "A"
+        },
+        "b": {
+          "type": "string",
+          "default": "B"
+        }
+      }
+    },
+    "data": {
+      "a": null,
+      "b": ""
+    },
+    "valid": true,
+    "dataAfter": {
+      "a": "A",
+      "b": "B"
+    },
+    "errors": null
+  },
+  "defaults-object-value-identity": {
+    "dialect": "2020-12",
+    "options": {
+      "useDefaults": true
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "o": {
+          "type": "object",
+          "default": {
+            "seed": []
+          }
+        }
+      }
+    },
+    "data": {},
+    "valid": true,
+    "dataAfter": {
+      "o": {
+        "seed": ["polluted"]
+      }
+    },
+    "errors": null,
+    "secondInsertSeesMutation": false
+  },
+  "defaults-tuple-items-draft7": {
+    "dialect": "draft-07",
+    "options": {
+      "useDefaults": true
+    },
+    "schema": {
+      "type": "array",
+      "items": [
+        {
+          "type": "number",
+          "default": 1
+        },
+        {
+          "type": "number",
+          "default": 2
+        }
+      ]
+    },
+    "data": [],
+    "valid": true,
+    "dataAfter": [1, 2],
+    "errors": null
+  },
+  "defaults-nested-after-parent-default": {
+    "dialect": "2020-12",
+    "options": {
+      "useDefaults": true
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "o": {
+          "type": "object",
+          "default": {},
+          "properties": {
+            "x": {
+              "type": "number",
+              "default": 9
+            }
+          }
+        }
+      }
+    },
+    "data": {},
+    "valid": true,
+    "dataAfter": {
+      "o": {
+        "x": 9
+      }
+    },
+    "errors": null
+  },
+  "defaults-inside-allOf": {
+    "dialect": "2020-12",
+    "options": {
+      "useDefaults": true
+    },
+    "schema": {
+      "type": "object",
+      "allOf": [
+        {
+          "properties": {
+            "a": {
+              "type": "number",
+              "default": 3
+            }
+          }
+        }
+      ]
+    },
+    "data": {},
+    "valid": true,
+    "dataAfter": {
+      "a": 3
+    },
+    "errors": null
+  },
+  "remove-true-ap-false": {
+    "dialect": "2020-12",
+    "options": {
+      "removeAdditional": true
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "keep": {}
+      },
+      "additionalProperties": false
+    },
+    "data": {
+      "keep": 1,
+      "extra": 2
+    },
+    "valid": true,
+    "dataAfter": {
+      "keep": 1
+    },
+    "errors": null
+  },
+  "remove-true-ap-schema-keeps": {
+    "dialect": "2020-12",
+    "options": {
+      "removeAdditional": true
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "keep": {}
+      },
+      "additionalProperties": {
+        "type": "number"
+      }
+    },
+    "data": {
+      "keep": 1,
+      "bad": "str"
+    },
+    "valid": false,
+    "dataAfter": {
+      "keep": 1,
+      "bad": "str"
+    },
+    "errors": [
+      {
+        "instancePath": "/bad",
+        "schemaPath": "#/additionalProperties/type",
+        "keyword": "type",
+        "params": {
+          "type": "number"
+        },
+        "message": "must be number"
+      }
+    ]
+  },
+  "remove-true-no-ap-keeps": {
+    "dialect": "2020-12",
+    "options": {
+      "removeAdditional": true
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "keep": {}
+      }
+    },
+    "data": {
+      "keep": 1,
+      "extra": 2
+    },
+    "valid": true,
+    "dataAfter": {
+      "keep": 1,
+      "extra": 2
+    },
+    "errors": null
+  },
+  "remove-all-without-ap": {
+    "dialect": "2020-12",
+    "options": {
+      "removeAdditional": "all"
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "keep": {}
+      }
+    },
+    "data": {
+      "keep": 1,
+      "extra": 2
+    },
+    "valid": true,
+    "dataAfter": {
+      "keep": 1
+    },
+    "errors": null
+  },
+  "remove-all-bare-object-schema": {
+    "dialect": "2020-12",
+    "options": {
+      "removeAdditional": "all"
+    },
+    "schema": {
+      "type": "object"
+    },
+    "data": {
+      "a": 1
+    },
+    "valid": true,
+    "dataAfter": {
+      "a": 1
+    },
+    "errors": null
+  },
+  "remove-all-pattern-properties": {
+    "dialect": "2020-12",
+    "options": {
+      "removeAdditional": "all"
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "keep": {}
+      },
+      "patternProperties": {
+        "^x-": {}
+      }
+    },
+    "data": {
+      "keep": 1,
+      "x-ok": 2,
+      "drop": 3
+    },
+    "valid": true,
+    "dataAfter": {
+      "keep": 1,
+      "x-ok": 2
+    },
+    "errors": null
+  },
+  "remove-failing": {
+    "dialect": "2020-12",
+    "options": {
+      "removeAdditional": "failing"
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "keep": {}
+      },
+      "additionalProperties": {
+        "type": "number"
+      }
+    },
+    "data": {
+      "keep": 1,
+      "ok": 2,
+      "bad": "str"
+    },
+    "valid": true,
+    "dataAfter": {
+      "keep": 1,
+      "ok": 2
+    },
+    "errors": null
+  },
+  "remove-failing-ap-false": {
+    "dialect": "2020-12",
+    "options": {
+      "removeAdditional": "failing"
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "keep": {}
+      },
+      "additionalProperties": false
+    },
+    "data": {
+      "keep": 1,
+      "extra": 2
+    },
+    "valid": true,
+    "dataAfter": {
+      "keep": 1
+    },
+    "errors": null
+  },
+  "fastify-default-config": {
+    "dialect": "2020-12",
+    "options": {
+      "coerceTypes": "array",
+      "useDefaults": true,
+      "removeAdditional": true,
+      "allErrors": false,
+      "addUsedSchema": false
+    },
+    "schema": {
+      "type": "object",
+      "required": ["id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "page": {
+          "type": "integer",
+          "default": 1
+        }
+      }
+    },
+    "data": {
+      "id": "42",
+      "tags": "solo",
+      "junk": true
+    },
+    "valid": true,
+    "dataAfter": {
+      "id": 42,
+      "tags": ["solo"],
+      "page": 1
+    },
+    "errors": null
+  },
+  "fastify-config-invalid-after-mutation": {
+    "dialect": "2020-12",
+    "options": {
+      "coerceTypes": "array",
+      "useDefaults": true,
+      "removeAdditional": true,
+      "allErrors": false
+    },
+    "schema": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": {
+          "type": "integer"
+        }
+      }
+    },
+    "data": {
+      "id": "not-a-number"
+    },
+    "valid": false,
+    "dataAfter": {
+      "id": "not-a-number"
+    },
+    "errors": [
+      {
+        "instancePath": "/id",
+        "schemaPath": "#/properties/id/type",
+        "keyword": "type",
+        "params": {
+          "type": "integer"
+        },
+        "message": "must be integer"
+      }
+    ]
+  }
+}

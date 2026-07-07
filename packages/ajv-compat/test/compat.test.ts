@@ -180,11 +180,8 @@ describe("surface semantics", () => {
     ).toThrow(/unknown format/);
   });
 
-  it("loud failures: $data, code keywords, async, macro, mutation trio", () => {
+  it("loud failures: $data, code keywords, async, macro", () => {
     expect(() => new Ajv2020({ $data: true })).toThrow(
-      AjvCompatUnsupportedError,
-    );
-    expect(() => new Ajv2020({ coerceTypes: true })).toThrow(
       AjvCompatUnsupportedError,
     );
     const ajv = new Ajv2020();
