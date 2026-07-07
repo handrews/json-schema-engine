@@ -47,6 +47,11 @@ import {
   DIALECT_2020_12,
   registerStandardDialects,
 } from "./keywords/vocab2020.js";
+import {
+  VOCAB_FORMAT_ASSERTION,
+  assertingFormat,
+  type FormatTable,
+} from "./keywords/format.js";
 import { METASCHEMAS_2020_12 } from "./keywords/metaschemas2020.js";
 import { METASCHEMAS_2019_09 } from "./keywords/metaschemas2019.js";
 import { METASCHEMAS_DRAFT_07 } from "./keywords/metaschemas7.js";
@@ -146,6 +151,12 @@ export type {
   SourceSpan,
 } from "./loader.js";
 export { DIALECT_2020_12 } from "./keywords/vocab2020.js";
+export {
+  UnknownFormatError,
+  VOCAB_FORMAT_ASSERTION,
+  assertingFormat,
+} from "./keywords/format.js";
+export type { FormatDefinition, FormatTable } from "./keywords/format.js";
 export { DIALECT_2019_09 } from "./keywords/vocab2019.js";
 export { DIALECT_DRAFT_07, DIALECT_DRAFT_06 } from "./keywords/vocab7.js";
 
@@ -230,6 +241,19 @@ export interface EngineOptions {
    * {@link DEFAULT_MAX_DEPTH}.
    */
   maxDepth?: number;
+  /**
+   * Format implementations (M7; \@jse/formats supplies standard tables).
+   * Enables the format-assertion vocabulary: a `$vocabulary` dialect
+   * declaring it gets an asserting `format` that REFUSES unsupported
+   * formats at registration ({@link UnknownFormatError}).
+   */
+  formats?: FormatTable;
+  /**
+   * Assert recognized formats in the standard dialects (all drafts) —
+   * the spec's opt-in assertion configuration. Best effort: formats the
+   * table lacks fall back to annotation-only. Requires `formats`.
+   */
+  assertFormats?: boolean;
 }
 
 /**
@@ -249,7 +273,30 @@ export class Engine {
   private assembling = new Set<string>();
 
   constructor(options: EngineOptions = {}) {
-    registerStandardDialects(this.dialects);
+    if (options.assertFormats && !options.formats) {
+      throw new TypeError("assertFormats requires a formats table");
+    }
+    registerStandardDialects(
+      this.dialects,
+      options.assertFormats
+        ? {
+            format: (id) => assertingFormat(id, options.formats!, false),
+          }
+        : {},
+    );
+    // The format-assertion vocabulary exists whenever a table is supplied;
+    // without one, a dialect requiring it fails with UnknownVocabularyError,
+    // which is the correct "cannot honor the assertion promise" answer.
+    if (options.formats) {
+      const table = options.formats;
+      this.dialects.registerVocabulary(VOCAB_FORMAT_ASSERTION, {
+        format: assertingFormat(
+          `${VOCAB_FORMAT_ASSERTION}#format`,
+          table,
+          true,
+        ),
+      });
+    }
     this.defaultDialect = splitFragment(
       options.defaultDialect ?? DIALECT_2020_12,
     ).resource;

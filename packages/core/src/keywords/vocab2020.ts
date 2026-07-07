@@ -1,6 +1,6 @@
 // Assembly of the 2020-12 dialect from its vocabularies (DESIGN.md D2).
 
-import { DialectRegistry } from "../dialect.js";
+import { KeywordBehavior, DialectRegistry } from "../dialect.js";
 import { coreVocabulary, VOCAB_CORE, annotationOnly } from "./core.js";
 import { applicatorVocabulary, VOCAB_APPLICATOR } from "./applicator.js";
 import { validationVocabulary, VOCAB_VALIDATION } from "./validation.js";
@@ -33,11 +33,14 @@ const metaDataVocabulary = Object.fromEntries(
   ].map((name) => [name, annotationOnly(`${VOCAB_META_DATA}#${name}`)]),
 );
 
-// format is annotation-only under the Format-Annotation vocabulary; the
-// Format-Assertion vocabulary is M7's.
-const formatAnnotationVocabulary = {
-  format: annotationOnly(`${VOCAB_FORMAT_ANNOTATION}#format`),
-};
+/**
+ * Options for {@link registerStandardDialects} (M7): `format` replaces the
+ * default annotation-only `format` behavior in every standard dialect —
+ * the `assertFormats` best-effort configuration.
+ */
+export interface StandardDialectOptions {
+  format?: (id: string) => KeywordBehavior;
+}
 
 // content* keywords are never assertions.
 const contentVocabulary = Object.fromEntries(
@@ -48,16 +51,19 @@ const contentVocabulary = Object.fromEntries(
 );
 
 /** Registers the 2020-12, 2019-09, draft-07, and draft-06 vocabularies and dialects. */
-export function registerStandardDialects(registry: DialectRegistry): void {
+export function registerStandardDialects(
+  registry: DialectRegistry,
+  options: StandardDialectOptions = {},
+): void {
+  const format = options.format ?? annotationOnly;
   registry.registerVocabulary(VOCAB_CORE, coreVocabulary);
   registry.registerVocabulary(VOCAB_APPLICATOR, applicatorVocabulary);
   registry.registerVocabulary(VOCAB_VALIDATION, validationVocabulary);
   registry.registerVocabulary(VOCAB_UNEVALUATED, unevaluatedVocabulary);
   registry.registerVocabulary(VOCAB_META_DATA, metaDataVocabulary);
-  registry.registerVocabulary(
-    VOCAB_FORMAT_ANNOTATION,
-    formatAnnotationVocabulary,
-  );
+  registry.registerVocabulary(VOCAB_FORMAT_ANNOTATION, {
+    format: format(`${VOCAB_FORMAT_ANNOTATION}#format`),
+  });
   registry.registerVocabulary(VOCAB_CONTENT, contentVocabulary);
 
   registry.registerDialect(DIALECT_2020_12, [
@@ -70,7 +76,7 @@ export function registerStandardDialects(registry: DialectRegistry): void {
     VOCAB_CONTENT,
   ]);
 
-  registerDialect2019(registry);
-  registerDialect07(registry);
-  registerDialect06(registry);
+  registerDialect2019(registry, format);
+  registerDialect07(registry, format);
+  registerDialect06(registry, format);
 }

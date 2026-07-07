@@ -286,10 +286,6 @@ const metaDataVocabulary2019 = Object.fromEntries(
   ].map((name) => [name, annotationOnly(`${VOCAB_META_DATA_2019}#${name}`)]),
 );
 
-const formatVocabulary2019 = {
-  format: annotationOnly(`${VOCAB_FORMAT_2019}#format`),
-};
-
 const contentVocabulary2019 = Object.fromEntries(
   ["contentMediaType", "contentEncoding", "contentSchema"].map((name) => [
     name,
@@ -298,12 +294,17 @@ const contentVocabulary2019 = Object.fromEntries(
 );
 
 /** Registers the 2019-09 vocabularies and dialect. */
-export function registerDialect2019(registry: DialectRegistry): void {
+export function registerDialect2019(
+  registry: DialectRegistry,
+  format: (id: string) => KeywordBehavior = annotationOnly,
+): void {
   registry.registerVocabulary(VOCAB_CORE_2019_09, core2019Vocabulary);
   registry.registerVocabulary(VOCAB_APPLICATOR_2019, applicator2019Vocabulary);
   registry.registerVocabulary(VOCAB_VALIDATION_2019, validationVocabulary);
   registry.registerVocabulary(VOCAB_META_DATA_2019, metaDataVocabulary2019);
-  registry.registerVocabulary(VOCAB_FORMAT_2019, formatVocabulary2019);
+  registry.registerVocabulary(VOCAB_FORMAT_2019, {
+    format: format(`${VOCAB_FORMAT_2019}#format`),
+  });
   registry.registerVocabulary(VOCAB_CONTENT_2019, contentVocabulary2019);
 
   registry.registerDialect(

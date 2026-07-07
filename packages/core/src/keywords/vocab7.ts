@@ -182,10 +182,6 @@ const metaData07Vocabulary = Object.fromEntries(
   ),
 );
 
-const format07Vocabulary = {
-  format: annotationOnly(`${VOCAB_FORMAT_07}#format`),
-};
-
 const content07Vocabulary = Object.fromEntries(
   ["contentMediaType", "contentEncoding"].map((name) => [
     name,
@@ -224,10 +220,6 @@ const {
 } = metaData07Vocabulary;
 const metaData06Vocabulary = metaData06Rest;
 
-const format06Vocabulary = {
-  format: annotationOnly(`${VOCAB_FORMAT_06}#format`),
-};
-
 // draft-07/06 predate minContains/maxContains/dependentRequired: those names
 // are unknown keywords (annotation-only) in these dialects — registering the
 // 2020-12 behaviors would silently enforce assertions these drafts don't have.
@@ -239,12 +231,17 @@ const {
 } = validationVocabulary;
 
 /** Registers the draft-07 vocabularies and dialect. */
-export function registerDialect07(registry: DialectRegistry): void {
+export function registerDialect07(
+  registry: DialectRegistry,
+  format: (id: string) => KeywordBehavior = annotationOnly,
+): void {
   registry.registerVocabulary(VOCAB_CORE_07, core07Vocabulary);
   registry.registerVocabulary(VOCAB_APPLICATOR_07, applicator07Vocabulary);
   registry.registerVocabulary(VOCAB_VALIDATION_07, validationLegacyVocabulary);
   registry.registerVocabulary(VOCAB_META_DATA_07, metaData07Vocabulary);
-  registry.registerVocabulary(VOCAB_FORMAT_07, format07Vocabulary);
+  registry.registerVocabulary(VOCAB_FORMAT_07, {
+    format: format(`${VOCAB_FORMAT_07}#format`),
+  });
   registry.registerVocabulary(VOCAB_CONTENT_07, content07Vocabulary);
 
   registry.registerDialect(
@@ -262,12 +259,17 @@ export function registerDialect07(registry: DialectRegistry): void {
 }
 
 /** Registers the draft-06 vocabularies and dialect. */
-export function registerDialect06(registry: DialectRegistry): void {
+export function registerDialect06(
+  registry: DialectRegistry,
+  format: (id: string) => KeywordBehavior = annotationOnly,
+): void {
   registry.registerVocabulary(VOCAB_CORE_06, core06Vocabulary);
   registry.registerVocabulary(VOCAB_APPLICATOR_06, applicator06Vocabulary);
   registry.registerVocabulary(VOCAB_VALIDATION_06, validationLegacyVocabulary);
   registry.registerVocabulary(VOCAB_META_DATA_06, metaData06Vocabulary);
-  registry.registerVocabulary(VOCAB_FORMAT_06, format06Vocabulary);
+  registry.registerVocabulary(VOCAB_FORMAT_06, {
+    format: format(`${VOCAB_FORMAT_06}#format`),
+  });
 
   registry.registerDialect(
     DIALECT_DRAFT_06,
