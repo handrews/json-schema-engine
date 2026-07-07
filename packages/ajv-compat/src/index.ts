@@ -40,6 +40,9 @@ import {
 
 export type { AjvErrorObject } from "./errors.js";
 export type ErrorObject = AjvErrorObject;
+export { default as addFormats } from "./formats.js";
+export { default as ajvErrors } from "./ajv-errors.js";
+export { default as ajvKeywords } from "./ajv-keywords.js";
 
 /** Thrown for AJV surface this adapter deliberately does not emulate. */
 export class AjvCompatUnsupportedError extends Error {

@@ -23,10 +23,11 @@ pages is executed by CI; examples are guaranteed to work as shown.
   schema-against-metaschema validation.
 - [Security and resource limits](security.md) — evaluating untrusted schemas
   and instances: ReDoS, recursion depth, array-uniqueness cost.
+- [Migrating from AJV](ajv-migration.md) — the `@jse/ajv-compat` drop-in
+  surface: what is emulated, what fails loudly, documented divergences.
 
 ## TBD (planned, not yet stable)
 
 - Installation — the package is not yet published; the npm name is TBD.
 - Compiler tier (performance) — DESIGN.md M6.
 - Format assertions — DESIGN.md M7.
-- Migration from AJV — DESIGN.md M8.

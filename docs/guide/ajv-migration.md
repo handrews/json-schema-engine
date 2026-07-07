@@ -1,0 +1,129 @@
+# Migrating from AJV
+
+`@jse/ajv-compat` reproduces AJV v8's public API over the engine. Most
+code migrates by changing one import. Behavior is pinned against
+executed-AJV fixtures: verdicts, error objects (`keyword`,
+`instancePath`, `schemaPath`, `params`, `message`), `errorsText`, data
+mutation, and companion packages.
+
+```ts
+import { Ajv2020 } from "@jse/ajv-compat";
+
+const ajv = new Ajv2020({ allErrors: true });
+const validate = ajv.compile({
+  type: "object",
+  required: ["id"],
+  properties: { id: { type: "integer" } },
+});
+
+if (!validate({ id: "x" })) {
+  const first = validate.errors![0]!;
+  if (first.keyword !== "type" || first.instancePath !== "/id") {
+    throw new Error("unexpected mapping");
+  }
+  if (ajv.errorsText(validate.errors) !== "data/id must be integer") {
+    throw new Error("unexpected message");
+  }
+}
+```
+
+Class per draft, like AJV: `Ajv` (draft-07), `Ajv2019`, `Ajv2020`.
+
+## Emulated surface
+
+- `compile`, `compileAsync` (via `loadSchema`), `validate`, `addSchema`,
+  `addMetaSchema`, `getSchema`, `removeSchema` (key, `$id`, RegExp,
+  object), `validateSchema`, `errorsText`.
+- `addFormat` (string, RegExp, function, and object forms) and
+  `addKeyword` with the `validate` and `compile` definitions, including
+  `type` scoping and custom errors assigned to `validate.errors`.
+- `allErrors`, `verbose`, `messages`, `validateFormats`, `logger`, and
+  the strict-mode subset: unknown keywords and unknown formats reject at
+  compile time (`strictSchema: "log"` warns, `false` allows).
+- The data-modifying options — `coerceTypes` (including `"array"`),
+  `useDefaults` (including `"empty"`), `removeAdditional` (`true`,
+  `"all"`, `"failing"`) — run as a compat-layer pass over the engine's
+  outputs. Fastify's default configuration works unchanged:
+
+```ts
+import { Ajv } from "@jse/ajv-compat";
+
+const ajv = new Ajv({
+  coerceTypes: "array",
+  useDefaults: true,
+  removeAdditional: true,
+  allErrors: false,
+  strictSchema: false,
+  logger: false,
+});
+const validate = ajv.compile({
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    page: { type: "integer", default: 1 },
+    tags: { type: "array", items: { type: "string" } },
+  },
+});
+
+const query = { page: "3", tags: "a", junk: true };
+if (!validate(query)) throw new Error("should coerce");
+if (JSON.stringify(query) !== '{"page":3,"tags":["a"]}') {
+  throw new Error("unexpected mutation");
+}
+```
+
+- Companions: `addFormats` (ajv-formats parity over the engine's
+  RFC-grade implementations), `discriminator: true`, `ajvErrors`
+  (`errorMessage`), and the non-mutating `ajvKeywords` subset (`typeof`,
+  `instanceof`, `uniqueItemProperties`, `prohibited`).
+
+```ts
+import { Ajv2020, addFormats } from "@jse/ajv-compat";
+
+const ajv = new Ajv2020();
+addFormats(ajv);
+const validate = ajv.compile({ type: "string", format: "date-time" });
+if (!validate("2026-07-07T12:00:00Z") || validate("nope")) {
+  throw new Error("format assertion expected");
+}
+```
+
+## Not emulated (fails loudly)
+
+`AjvCompatUnsupportedError` is thrown instead of approximating:
+
+- **`code`-style custom keywords** (`KeywordCxt`, the codegen DSL): these
+  are AJV-implementation-coupled by definition. Port to the `validate` or
+  `compile` definition; the logic is usually a direct transcription.
+- **`$data` references**: excluded by design — keyword values sourced
+  from the instance make schema values instance-controlled.
+- **`$async` schemas, async keywords, async formats**: evaluation is
+  synchronous.
+- **`macro` keywords**: use `validate`/`compile` instead.
+- **`removeKeyword` of built-ins**: dialects assemble from whole
+  vocabularies.
+- ajv-keywords' `transform`/`dynamicDefaults` (data-modifying) and
+  `select*` (`$data`).
+
+`code.source` (standalone module emission) is not mapped; use
+`@jse/compiler`'s own standalone emission instead.
+
+## Documented divergences
+
+- **`strictNumbers`**: AJV rejects `NaN`/`Infinity` at validation time by
+  default. JSON-parsed data cannot contain them, so HTTP paths are
+  unaffected; hand-built JS objects diverge.
+- **Error list order and branch error sets** under `allErrors` can differ
+  inside `anyOf`/`oneOf`/`$ref`-heavy schemas (evaluation-strategy
+  artifacts). The official-suite differential ratchets the divergence
+  count; per-keyword shapes are fixture-pinned.
+- **Coercion inside `oneOf`**: AJV documents its own no-backtrack quirk
+  and recommends `anyOf`; the compat fixpoint may settle on a different
+  (schema-valid) coercion in those shapes.
+- **AJV's non-compliant corners** (`$dynamicRef`, parts of
+  `unevaluated*`): the compat layer follows the specification and the
+  official test suite, not the bug.
+- **Performance posture**: `allErrors: false` without mutating options
+  runs the compiled fail-fast artifact; error objects and the mutating
+  options take interpreter passes. Mutating configurations trade
+  throughput for drop-in behavior.

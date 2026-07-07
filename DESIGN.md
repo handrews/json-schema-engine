@@ -342,6 +342,33 @@ format-table lowering deferred). Separately, compiled list/Basic output
 landed (D9e; commit 613ac51): compileList produces interpreter-exact flat
 error units — full-suite differential zero divergence, FUZZ_LIST leg.
 
+**Status note (M8 ajv-compat, completed 2026-07-07):** @jse/ajv-compat
+delivers AJV v8's public surface over the engine, pinned end-to-end by
+EXECUTED-AJV fixtures (capture scripts in packages/ajv-compat/test/oracle;
+AJV source never read — D15). Prework M8.1 added the D13 structured error
+channel: ctx.error(message, params) + LowerParams IR, surfaced behind the
+opt-in `errorParams` flag in both tiers (goldens unchanged; the compiled
+list differential and FUZZ_LIST referee params, including field order).
+Emulated: schema management, compile/compileAsync, addFormat/addKeyword
+(validate/compile forms), errorsText, allErrors/verbose/messages,
+strictSchema subset, the mutation trio (coerceTypes/useDefaults/
+removeAdditional as a compat-layer evaluate→mutate→re-evaluate fixpoint —
+fastify's default config passes end-to-end), ajv-formats parity,
+discriminator (AJV replaces oneOf dispatch entirely — fixture-pinned),
+ajv-errors, non-mutating ajv-keywords subset. Loud failures per D14/§7:
+$data, code-style keywords, $async, macro, JTD, built-in removeKeyword.
+Gates: official-suite differential (compat matches the suite on all 1250
+registerable cases; AJV itself non-compliant on 30; error-object parity
+416/477 with the divergence count ratcheted), both DESIGN-mandated PoCs
+green (fastify validator-compiler under fastify's real default config
+with injected traffic; OpenAPI 3.1 document schemas incl. discriminator),
+migration guide docs/guide/ajv-migration.md (tested snippets). Deferred,
+recorded: FUZZ_AJV random differential (AJV's own non-compliance makes a
+random referee noisy; the deterministic suite differential + oracle
+fixtures cover the mapping), code.source standalone mapping, ajv-keywords
+transform/dynamicDefaults (ride the mutation machinery when demanded),
+ajv-i18n.
+
 **Owner review (idn-hostname):** `isValidALabel` in
 packages/formats/src/idna.ts rejects any second `--` in an A-label's
 ASCII text after the `xn--` prefix (suite case `XN--aa---o47jg78q`,
