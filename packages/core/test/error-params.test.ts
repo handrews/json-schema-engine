@@ -137,13 +137,19 @@ describe("errorParams pins (the params vocabulary)", () => {
     });
   });
 
-  it("oneOf reports the match count; anyOf/not stay empty", () => {
+  it("oneOf reports the passing branch indexes; anyOf/not stay empty", () => {
     const one = failures(
       { oneOf: [{ type: "integer" }, { minimum: 0 }] },
       3,
       "https://p.example/oneof",
     );
-    expect(only(one, "oneOf").params).toEqual({ matched: 2 });
+    expect(only(one, "oneOf").params).toEqual({ passing: [0, 1] });
+    const none = failures(
+      { oneOf: [{ type: "string" }] },
+      3,
+      "https://p.example/oneof0",
+    );
+    expect(only(none, "oneOf").params).toEqual({ passing: [] });
     const any = failures(
       { anyOf: [{ type: "string" }] },
       3,

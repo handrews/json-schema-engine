@@ -112,7 +112,7 @@ export const oneOf: KeywordBehavior = {
     if (schemas.length === 0) {
       lctx.emit(
         lowerIR.failWith(
-          { matched: lowerIR.constant(0) },
+          { passing: lowerIR.constant([]) },
           "matched 0 branches, expected exactly 1",
         ),
       );
@@ -127,19 +127,22 @@ export const oneOf: KeywordBehavior = {
     lctx.emit({
       kind: "combineCheck",
       message: ["matched ", { kind: "tally" }, " branches, expected exactly 1"],
-      params: { matched: { kind: "tally" } },
+      params: { passing: { kind: "tallyList" } },
     });
   },
   evaluate: (value, cursor, ctx) => {
-    let count = 0;
+    const passing: number[] = [];
     (value as JsonValue[]).forEach((_, i) => {
-      if (ctx.apply(["oneOf", i], cursor)) count++;
+      if (ctx.apply(["oneOf", i], cursor)) passing.push(i);
     });
-    if (count !== 1)
-      ctx.error(`matched ${count} branches, expected exactly 1`, {
-        matched: count,
-      });
-    return count === 1;
+    if (passing.length !== 1)
+      ctx.error(
+        `matched ${String(passing.length)} branches, expected exactly 1`,
+        {
+          passing,
+        },
+      );
+    return passing.length === 1;
   },
 };
 

@@ -182,7 +182,7 @@ describe("compiled list output ≡ interpreter (full local suite)", () => {
       got.errors.map((e) => [e.keyword ?? "(schema)", e.params]),
     );
     expect(byKeyword.uniqueItems).toEqual({ duplicates: [0, 2] });
-    expect(byKeyword.oneOf).toEqual({ matched: 2 });
+    expect(byKeyword.oneOf).toEqual({ passing: [0, 1] });
     expect(byKeyword.required).toEqual({ missingProperty: "id" });
   });
 

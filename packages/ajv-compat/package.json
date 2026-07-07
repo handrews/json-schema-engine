@@ -1,0 +1,25 @@
+{
+  "name": "@jse/ajv-compat",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Drop-in AJV v8 API surface over @jse/core (DESIGN.md M8): schema management, error mapping, formats, custom keywords, with typed loud failures for the AJV-implementation-coupled surface",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@jse/compiler": "*",
+    "@jse/core": "*",
+    "@jse/formats": "*"
+  },
+  "devDependencies": {
+    "@fastify/ajv-compiler": "^4.0.2",
+    "ajv": "^8.17.1",
+    "ajv-errors": "^3.0.0",
+    "ajv-formats": "^3.0.1",
+    "fastify": "^5.4.0",
+    "light-my-request": "^6.6.0"
+  }
+}

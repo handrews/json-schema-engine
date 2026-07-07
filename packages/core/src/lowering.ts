@@ -79,6 +79,12 @@ export type LowerExpr =
   /** the active combine-group tally (oneOf's match count) in a combineCheck message */
   | { readonly kind: "tally" }
   /**
+   * The passing branch INDEXES of the active combine group, as an array —
+   * combineCheck params only (oneOf reports which branches matched, not
+   * just how many; the ajv-compat mapping needs the indexes).
+   */
+  | { readonly kind: "tallyList" }
+  /**
    * A subschema application used as a boolean expression rather than a
    * statement (M6.4): `if`'s condition, `not`'s single negated apply, and
    * `contains`'/`oneOf`'s per-branch probes all need the verdict as a value,

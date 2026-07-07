@@ -315,17 +315,21 @@ class UnitContext {
   private paramsChunk(
     params: LowerParams | undefined,
     tallyVar?: CodeChunk,
+    tallyListVar?: CodeChunk,
   ): CodeChunk {
-    if (params === undefined) return js`{}`;
+    // pushError drops the chunk entirely when params are off — don't render
+    // (a tallyList reference has no accumulator to bind to in that mode).
+    if (!this.listParams || params === undefined) return js`{}`;
     const entries = Object.entries(params).map(([key, part]) => {
-      const value =
-        part.kind === "tally"
-          ? (() => {
-              if (!tallyVar)
-                throw new SerializeError("tally outside a counted check");
-              return tallyVar;
-            })()
-          : this.expr(part);
+      let value: CodeChunk;
+      if (part.kind === "tally" || part.kind === "tallyList") {
+        const bound = part.kind === "tally" ? tallyVar : tallyListVar;
+        if (!bound)
+          throw new SerializeError(part.kind + " outside a counted check");
+        value = bound;
+      } else {
+        value = this.expr(part);
+      }
       return js`${str(key)}: ${value}`;
     });
     return js`{ ${join(", ", entries)} }`;
@@ -439,17 +443,28 @@ class UnitContext {
     const flushOne = (message?: LowerMessage, params?: LowerParams) => {
       if (oneRun.length === 0) return;
       const c = counterVar(this.counters.tally++);
-      const incs = oneRun.map((call) => js`if (${call}) ${c}++;`);
       if (this.output === "list") {
+        // Params referencing the passing-branch indexes (tallyList) need an
+        // index accumulator next to the count; branch order IS run order.
+        const wantsList =
+          this.listParams &&
+          params !== undefined &&
+          Object.values(params).some((p) => p.kind === "tallyList");
+        const p = wantsList ? counterVar(this.counters.tally++) : undefined;
+        const incs = oneRun.map((call, k) =>
+          p
+            ? js`if (${call}) { ${c}++; ${p}.push(${num(k)}); }`
+            : js`if (${call}) ${c}++;`,
+        );
+        const decl = p ? js`let ${c} = 0; const ${p} = [];` : js`let ${c} = 0;`;
         const onFail = this.pushError(
           this.message(message ?? [{ kind: "tally" }, " branches matched"], c),
           true,
-          this.paramsChunk(params, c),
+          this.paramsChunk(params, c, p),
         );
-        out.push(
-          js`let ${c} = 0; ${join(" ", incs)} if (${c} !== 1) { ${onFail} }`,
-        );
+        out.push(js`${decl} ${join(" ", incs)} if (${c} !== 1) { ${onFail} }`);
       } else {
+        const incs = oneRun.map((call) => js`if (${call}) ${c}++;`);
         out.push(
           js`let ${c} = 0; ${join(" ", incs)} if (${c} !== 1) return false;`,
         );
@@ -846,8 +861,9 @@ class UnitContext {
         )})`;
       }
       case "tally":
+      case "tallyList":
         throw new SerializeError(
-          "'tally' is only meaningful inside a combineCheck message",
+          "'" + e.kind + "' is only meaningful inside a combineCheck message",
         );
       case "applyExpr":
         // Same call expression an `apply` statement builds; `fold` on this

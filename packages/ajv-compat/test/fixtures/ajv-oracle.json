@@ -1,0 +1,1227 @@
+{
+  "type-single": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "string"
+    },
+    "data": 42,
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/type",
+        "keyword": "type",
+        "params": {
+          "type": "string"
+        },
+        "message": "must be string"
+      }
+    ],
+    "errorsText": "data must be string"
+  },
+  "type-union": {
+    "dialect": "2020-12",
+    "options": {
+      "allowUnionTypes": true
+    },
+    "schema": {
+      "type": ["string", "null"]
+    },
+    "data": 42,
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/type",
+        "keyword": "type",
+        "params": {
+          "type": ["string", "null"]
+        },
+        "message": "must be string,null"
+      }
+    ],
+    "errorsText": "data must be string,null"
+  },
+  "enum": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "enum": [1, "a"]
+    },
+    "data": 2,
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/enum",
+        "keyword": "enum",
+        "params": {
+          "allowedValues": [1, "a"]
+        },
+        "message": "must be equal to one of the allowed values"
+      }
+    ],
+    "errorsText": "data must be equal to one of the allowed values"
+  },
+  "const": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "const": {
+        "x": 1
+      }
+    },
+    "data": 2,
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/const",
+        "keyword": "const",
+        "params": {
+          "allowedValue": {
+            "x": 1
+          }
+        },
+        "message": "must be equal to constant"
+      }
+    ],
+    "errorsText": "data must be equal to constant"
+  },
+  "required": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "required": ["a", "b"]
+    },
+    "data": {
+      "b": 1
+    },
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/required",
+        "keyword": "required",
+        "params": {
+          "missingProperty": "a"
+        },
+        "message": "must have required property 'a'"
+      }
+    ],
+    "errorsText": "data must have required property 'a'"
+  },
+  "required-multi-allErrors": {
+    "dialect": "2020-12",
+    "options": {
+      "allErrors": true
+    },
+    "schema": {
+      "type": "object",
+      "required": ["a", "b", "c"]
+    },
+    "data": {},
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/required",
+        "keyword": "required",
+        "params": {
+          "missingProperty": "a"
+        },
+        "message": "must have required property 'a'"
+      },
+      {
+        "instancePath": "",
+        "schemaPath": "#/required",
+        "keyword": "required",
+        "params": {
+          "missingProperty": "b"
+        },
+        "message": "must have required property 'b'"
+      },
+      {
+        "instancePath": "",
+        "schemaPath": "#/required",
+        "keyword": "required",
+        "params": {
+          "missingProperty": "c"
+        },
+        "message": "must have required property 'c'"
+      }
+    ],
+    "errorsText": "data must have required property 'a', data must have required property 'b', data must have required property 'c'"
+  },
+  "additionalProperties": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "properties": {
+        "a": {}
+      },
+      "additionalProperties": false
+    },
+    "data": {
+      "a": 1,
+      "extra": 2
+    },
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/additionalProperties",
+        "keyword": "additionalProperties",
+        "params": {
+          "additionalProperty": "extra"
+        },
+        "message": "must NOT have additional properties"
+      }
+    ],
+    "errorsText": "data must NOT have additional properties"
+  },
+  "nested-instancePath": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "data": {
+      "list": [1, "x"]
+    },
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "/list/1",
+        "schemaPath": "#/properties/list/items/type",
+        "keyword": "type",
+        "params": {
+          "type": "integer"
+        },
+        "message": "must be integer"
+      }
+    ],
+    "errorsText": "data/list/1 must be integer"
+  },
+  "minLength": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "string",
+      "minLength": 3
+    },
+    "data": "ab",
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/minLength",
+        "keyword": "minLength",
+        "params": {
+          "limit": 3
+        },
+        "message": "must NOT have fewer than 3 characters"
+      }
+    ],
+    "errorsText": "data must NOT have fewer than 3 characters"
+  },
+  "maxLength": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "string",
+      "maxLength": 1
+    },
+    "data": "ab",
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/maxLength",
+        "keyword": "maxLength",
+        "params": {
+          "limit": 1
+        },
+        "message": "must NOT have more than 1 characters"
+      }
+    ],
+    "errorsText": "data must NOT have more than 1 characters"
+  },
+  "minItems": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "array",
+      "minItems": 2
+    },
+    "data": [1],
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/minItems",
+        "keyword": "minItems",
+        "params": {
+          "limit": 2
+        },
+        "message": "must NOT have fewer than 2 items"
+      }
+    ],
+    "errorsText": "data must NOT have fewer than 2 items"
+  },
+  "maxItems": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "array",
+      "maxItems": 1
+    },
+    "data": [1, 2],
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/maxItems",
+        "keyword": "maxItems",
+        "params": {
+          "limit": 1
+        },
+        "message": "must NOT have more than 1 items"
+      }
+    ],
+    "errorsText": "data must NOT have more than 1 items"
+  },
+  "minProperties": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "minProperties": 2
+    },
+    "data": {
+      "a": 1
+    },
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/minProperties",
+        "keyword": "minProperties",
+        "params": {
+          "limit": 2
+        },
+        "message": "must NOT have fewer than 2 properties"
+      }
+    ],
+    "errorsText": "data must NOT have fewer than 2 properties"
+  },
+  "maxProperties": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "maxProperties": 1
+    },
+    "data": {
+      "a": 1,
+      "b": 2
+    },
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/maxProperties",
+        "keyword": "maxProperties",
+        "params": {
+          "limit": 1
+        },
+        "message": "must NOT have more than 1 properties"
+      }
+    ],
+    "errorsText": "data must NOT have more than 1 properties"
+  },
+  "minimum": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "number",
+      "minimum": 3
+    },
+    "data": 2,
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/minimum",
+        "keyword": "minimum",
+        "params": {
+          "comparison": ">=",
+          "limit": 3
+        },
+        "message": "must be >= 3"
+      }
+    ],
+    "errorsText": "data must be >= 3"
+  },
+  "maximum": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "number",
+      "maximum": 1
+    },
+    "data": 2,
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/maximum",
+        "keyword": "maximum",
+        "params": {
+          "comparison": "<=",
+          "limit": 1
+        },
+        "message": "must be <= 1"
+      }
+    ],
+    "errorsText": "data must be <= 1"
+  },
+  "exclusiveMinimum": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "number",
+      "exclusiveMinimum": 2
+    },
+    "data": 2,
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/exclusiveMinimum",
+        "keyword": "exclusiveMinimum",
+        "params": {
+          "comparison": ">",
+          "limit": 2
+        },
+        "message": "must be > 2"
+      }
+    ],
+    "errorsText": "data must be > 2"
+  },
+  "exclusiveMaximum": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "number",
+      "exclusiveMaximum": 2
+    },
+    "data": 2,
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/exclusiveMaximum",
+        "keyword": "exclusiveMaximum",
+        "params": {
+          "comparison": "<",
+          "limit": 2
+        },
+        "message": "must be < 2"
+      }
+    ],
+    "errorsText": "data must be < 2"
+  },
+  "multipleOf": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "number",
+      "multipleOf": 3
+    },
+    "data": 4,
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/multipleOf",
+        "keyword": "multipleOf",
+        "params": {
+          "multipleOf": 3
+        },
+        "message": "must be multiple of 3"
+      }
+    ],
+    "errorsText": "data must be multiple of 3"
+  },
+  "pattern": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "string",
+      "pattern": "^a"
+    },
+    "data": "b",
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/pattern",
+        "keyword": "pattern",
+        "params": {
+          "pattern": "^a"
+        },
+        "message": "must match pattern \"^a\""
+      }
+    ],
+    "errorsText": "data must match pattern \"^a\""
+  },
+  "uniqueItems": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "array",
+      "uniqueItems": true
+    },
+    "data": [1, 2, 1],
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/uniqueItems",
+        "keyword": "uniqueItems",
+        "params": {
+          "i": 2,
+          "j": 0
+        },
+        "message": "must NOT have duplicate items (items ## 0 and 2 are identical)"
+      }
+    ],
+    "errorsText": "data must NOT have duplicate items (items ## 0 and 2 are identical)"
+  },
+  "contains-min": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "array",
+      "contains": {
+        "type": "string"
+      },
+      "minContains": 2
+    },
+    "data": ["a", 1],
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/contains",
+        "keyword": "contains",
+        "params": {
+          "minContains": 2
+        },
+        "message": "must contain at least 2 valid item(s)"
+      }
+    ],
+    "errorsText": "data must contain at least 2 valid item(s)"
+  },
+  "contains-max": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "array",
+      "contains": {
+        "type": "string"
+      },
+      "maxContains": 1
+    },
+    "data": ["a", "b"],
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/contains",
+        "keyword": "contains",
+        "params": {
+          "minContains": 1,
+          "maxContains": 1
+        },
+        "message": "must contain at least 1 and no more than 1 valid item(s)"
+      }
+    ],
+    "errorsText": "data must contain at least 1 and no more than 1 valid item(s)"
+  },
+  "oneOf-two-matches": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "oneOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "minimum": 0
+        }
+      ]
+    },
+    "data": 3,
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/oneOf",
+        "keyword": "oneOf",
+        "params": {
+          "passingSchemas": [0, 1]
+        },
+        "message": "must match exactly one schema in oneOf"
+      }
+    ],
+    "errorsText": "data must match exactly one schema in oneOf"
+  },
+  "oneOf-no-match": {
+    "dialect": "2020-12",
+    "options": {
+      "allErrors": true
+    },
+    "schema": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "boolean"
+        }
+      ]
+    },
+    "data": 3,
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/oneOf/0/type",
+        "keyword": "type",
+        "params": {
+          "type": "string"
+        },
+        "message": "must be string"
+      },
+      {
+        "instancePath": "",
+        "schemaPath": "#/oneOf/1/type",
+        "keyword": "type",
+        "params": {
+          "type": "boolean"
+        },
+        "message": "must be boolean"
+      },
+      {
+        "instancePath": "",
+        "schemaPath": "#/oneOf",
+        "keyword": "oneOf",
+        "params": {
+          "passingSchemas": null
+        },
+        "message": "must match exactly one schema in oneOf"
+      }
+    ],
+    "errorsText": "data must be string, data must be boolean, data must match exactly one schema in oneOf"
+  },
+  "anyOf-no-match": {
+    "dialect": "2020-12",
+    "options": {
+      "allErrors": true
+    },
+    "schema": {
+      "anyOf": [
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "data": 3,
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/anyOf/0/type",
+        "keyword": "type",
+        "params": {
+          "type": "string"
+        },
+        "message": "must be string"
+      },
+      {
+        "instancePath": "",
+        "schemaPath": "#/anyOf",
+        "keyword": "anyOf",
+        "params": {},
+        "message": "must match a schema in anyOf"
+      }
+    ],
+    "errorsText": "data must be string, data must match a schema in anyOf"
+  },
+  "not": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "not": {
+        "type": "integer"
+      }
+    },
+    "data": 3,
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/not",
+        "keyword": "not",
+        "params": {},
+        "message": "must NOT be valid"
+      }
+    ],
+    "errorsText": "data must NOT be valid"
+  },
+  "if-then": {
+    "dialect": "2020-12",
+    "options": {
+      "allErrors": true
+    },
+    "schema": {
+      "if": {
+        "type": "integer"
+      },
+      "then": {
+        "minimum": 10
+      }
+    },
+    "data": 3,
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/then/minimum",
+        "keyword": "minimum",
+        "params": {
+          "comparison": ">=",
+          "limit": 10
+        },
+        "message": "must be >= 10"
+      },
+      {
+        "instancePath": "",
+        "schemaPath": "#/if",
+        "keyword": "if",
+        "params": {
+          "failingKeyword": "then"
+        },
+        "message": "must match \"then\" schema"
+      }
+    ],
+    "errorsText": "data must be >= 10, data must match \"then\" schema"
+  },
+  "propertyNames": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "propertyNames": {
+        "maxLength": 2
+      }
+    },
+    "data": {
+      "long": 1
+    },
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/propertyNames/maxLength",
+        "keyword": "maxLength",
+        "params": {
+          "limit": 2
+        },
+        "message": "must NOT have more than 2 characters",
+        "propertyName": "long"
+      },
+      {
+        "instancePath": "",
+        "schemaPath": "#/propertyNames",
+        "keyword": "propertyNames",
+        "params": {
+          "propertyName": "long"
+        },
+        "message": "property name must be valid"
+      }
+    ],
+    "errorsText": "data must NOT have more than 2 characters, data property name must be valid"
+  },
+  "dependentRequired": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "dependentRequired": {
+        "a": ["b"]
+      }
+    },
+    "data": {
+      "a": 1
+    },
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/dependentRequired",
+        "keyword": "dependentRequired",
+        "params": {
+          "property": "a",
+          "missingProperty": "b",
+          "depsCount": 1,
+          "deps": "b"
+        },
+        "message": "must have property b when property a is present"
+      }
+    ],
+    "errorsText": "data must have property b when property a is present"
+  },
+  "dependencies-draft7": {
+    "dialect": "draft-07",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "dependencies": {
+        "a": ["b"]
+      }
+    },
+    "data": {
+      "a": 1
+    },
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/dependencies",
+        "keyword": "dependencies",
+        "params": {
+          "property": "a",
+          "missingProperty": "b",
+          "depsCount": 1,
+          "deps": "b"
+        },
+        "message": "must have property b when property a is present"
+      }
+    ],
+    "errorsText": "data must have property b when property a is present"
+  },
+  "unevaluatedProperties": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "properties": {
+        "a": {}
+      },
+      "unevaluatedProperties": false
+    },
+    "data": {
+      "a": 1,
+      "extra": 2
+    },
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/unevaluatedProperties",
+        "keyword": "unevaluatedProperties",
+        "params": {
+          "unevaluatedProperty": "extra"
+        },
+        "message": "must NOT have unevaluated properties"
+      }
+    ],
+    "errorsText": "data must NOT have unevaluated properties"
+  },
+  "unevaluatedItems": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "array",
+      "prefixItems": [{}],
+      "unevaluatedItems": false
+    },
+    "data": [1, 2],
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/unevaluatedItems",
+        "keyword": "unevaluatedItems",
+        "params": {
+          "limit": 1
+        },
+        "message": "must NOT have more than 1 items"
+      }
+    ],
+    "errorsText": "data must NOT have more than 1 items"
+  },
+  "items-2020": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "data": [1],
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "/0",
+        "schemaPath": "#/items/type",
+        "keyword": "type",
+        "params": {
+          "type": "string"
+        },
+        "message": "must be string"
+      }
+    ],
+    "errorsText": "data/0 must be string"
+  },
+  "prefixItems": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "data": [1],
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "/0",
+        "schemaPath": "#/prefixItems/0/type",
+        "keyword": "type",
+        "params": {
+          "type": "string"
+        },
+        "message": "must be string"
+      }
+    ],
+    "errorsText": "data/0 must be string"
+  },
+  "additionalItems-draft7": {
+    "dialect": "draft-07",
+    "options": {},
+    "schema": {
+      "type": "array",
+      "items": [{}],
+      "additionalItems": false
+    },
+    "data": [1, 2],
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/additionalItems",
+        "keyword": "additionalItems",
+        "params": {
+          "limit": 1
+        },
+        "message": "must NOT have more than 1 items"
+      }
+    ],
+    "errorsText": "data must NOT have more than 1 items"
+  },
+  "format": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "string",
+      "format": "ipv4"
+    },
+    "data": "x",
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/format",
+        "keyword": "format",
+        "params": {
+          "format": "ipv4"
+        },
+        "message": "must match format \"ipv4\""
+      }
+    ],
+    "errorsText": "data must match format \"ipv4\""
+  },
+  "format-comparison": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "string",
+      "format": "date",
+      "formatMinimum": "2020-01-01"
+    },
+    "data": "2019-01-01",
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/formatMinimum",
+        "keyword": "formatMinimum",
+        "params": {
+          "comparison": ">=",
+          "limit": "2020-01-01"
+        },
+        "message": "should be >= 2020-01-01"
+      }
+    ],
+    "errorsText": "data should be >= 2020-01-01"
+  },
+  "ref-local": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "$defs": {
+        "positive": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "$ref": "#/$defs/positive"
+    },
+    "data": -1,
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/$defs/positive/minimum",
+        "keyword": "minimum",
+        "params": {
+          "comparison": ">=",
+          "limit": 0
+        },
+        "message": "must be >= 0"
+      }
+    ],
+    "errorsText": "data must be >= 0"
+  },
+  "ref-external-id": {
+    "dialect": "2020-12",
+    "options": {
+      "schemas": [
+        {
+          "$id": "https://oracle.example/pos",
+          "type": "number",
+          "minimum": 0
+        }
+      ]
+    },
+    "schema": {
+      "$ref": "https://oracle.example/pos"
+    },
+    "data": -1,
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "https://oracle.example/pos/minimum",
+        "keyword": "minimum",
+        "params": {
+          "comparison": ">=",
+          "limit": 0
+        },
+        "message": "must be >= 0"
+      }
+    ],
+    "errorsText": "data must be >= 0"
+  },
+  "discriminator": {
+    "dialect": "2020-12",
+    "options": {
+      "discriminator": true
+    },
+    "schema": {
+      "type": "object",
+      "discriminator": {
+        "propertyName": "kind"
+      },
+      "required": ["kind"],
+      "oneOf": [
+        {
+          "properties": {
+            "kind": {
+              "const": "a"
+            },
+            "x": {
+              "type": "number"
+            }
+          }
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "b"
+            }
+          }
+        }
+      ]
+    },
+    "data": {
+      "kind": "c"
+    },
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/discriminator",
+        "keyword": "discriminator",
+        "params": {
+          "error": "mapping",
+          "tag": "kind",
+          "tagValue": "c"
+        },
+        "message": "value of tag \"kind\" must be in oneOf"
+      }
+    ],
+    "errorsText": "data value of tag \"kind\" must be in oneOf"
+  },
+  "verbose-fields": {
+    "dialect": "2020-12",
+    "options": {
+      "verbose": true
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        }
+      }
+    },
+    "data": {
+      "a": 1
+    },
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "/a",
+        "schemaPath": "#/properties/a/type",
+        "keyword": "type",
+        "params": {
+          "type": "string"
+        },
+        "message": "must be string",
+        "schema": "string",
+        "parentSchema": {
+          "type": "string"
+        },
+        "data": 1
+      }
+    ],
+    "errorsText": "data/a must be string"
+  },
+  "false-schema": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "properties": {
+        "a": false
+      }
+    },
+    "data": {
+      "a": 1
+    },
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "/a",
+        "schemaPath": "#/properties/a/false schema",
+        "keyword": "false schema",
+        "params": {},
+        "message": "boolean schema is false"
+      }
+    ],
+    "errorsText": "data/a boolean schema is false"
+  },
+  "dependentRequired-two-deps": {
+    "dialect": "2020-12",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "dependentRequired": {
+        "a": ["b", "c"]
+      }
+    },
+    "data": {
+      "a": 1
+    },
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/dependentRequired",
+        "keyword": "dependentRequired",
+        "params": {
+          "property": "a",
+          "missingProperty": "b",
+          "depsCount": 2,
+          "deps": "b, c"
+        },
+        "message": "must have properties b, c when property a is present"
+      }
+    ],
+    "errorsText": "data must have properties b, c when property a is present"
+  },
+  "anyOf-pass-sibling-fail": {
+    "dialect": "2020-12",
+    "options": {
+      "allErrors": true
+    },
+    "schema": {
+      "type": "object",
+      "anyOf": [
+        {
+          "required": ["x"]
+        },
+        {
+          "required": ["y"]
+        }
+      ],
+      "required": ["z"]
+    },
+    "data": {
+      "y": 1
+    },
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/required",
+        "keyword": "required",
+        "params": {
+          "missingProperty": "z"
+        },
+        "message": "must have required property 'z'"
+      }
+    ],
+    "errorsText": "data must have required property 'z'"
+  }
+}
