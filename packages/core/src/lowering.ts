@@ -131,7 +131,11 @@ export type LowerStmt =
       readonly body: readonly LowerStmt[];
     }
   /** report this keyword's assertion failure at the current cursor */
-  | { readonly kind: "fail"; readonly message: LowerMessage }
+  | {
+      readonly kind: "fail";
+      readonly message: LowerMessage;
+      readonly params?: LowerParams;
+    }
   /** emit this keyword's production (channel rule 2) */
   | { readonly kind: "produce"; readonly value: LowerProduceValue }
   /**
@@ -147,7 +151,11 @@ export type LowerStmt =
    * fails. Emitted by the keyword's lower() so failure text stays keyword
    * knowledge (D1); the serializer folds it into the grouped check.
    */
-  | { readonly kind: "combineCheck"; readonly message: LowerMessage }
+  | {
+      readonly kind: "combineCheck";
+      readonly message: LowerMessage;
+      readonly params?: LowerParams;
+    }
   /**
    * `contains`'s shape: iterate array indexes 0..length-1 (like
    * `forEachIndex`, binding each index), counting the iterations where
@@ -166,6 +174,7 @@ export type LowerStmt =
       readonly min: number;
       readonly max: number;
       readonly outOfRangeMessage: LowerMessage;
+      readonly outOfRangeParams?: LowerParams;
     };
 
 /** How a keyword's lowered body applies one subschema. */
@@ -191,6 +200,8 @@ export interface LowerApply {
   readonly cursor: LowerCursor;
   /** failure message for folds that assert with their own error (negate) */
   readonly message?: LowerMessage;
+  /** structured params accompanying `message` (D13) */
+  readonly params?: LowerParams;
   /** how the application verdict folds into the keyword verdict */
   readonly fold:
     "allMustPass" | "anyMayPass" | "exactlyOne" | "negate" | "discard";
@@ -217,6 +228,15 @@ export type LowerCursor =
  * differential gate can compare error text exactly.
  */
 export type LowerMessage = readonly (string | LowerExpr)[];
+
+/**
+ * Structured failure params (D13): each value is an expression so runtime
+ * pieces (a swept key, a tally, a duplicate pair) sit next to compile-time
+ * constants (`lowerIR.constant`). Mirrors the interpreter's
+ * `ctx.error(message, params)` so the differential gate can compare params
+ * exactly.
+ */
+export type LowerParams = Readonly<Record<string, LowerExpr>>;
 
 /** A production value: a constant, or a runtime list collected by the body. */
 export type LowerProduceValue =
@@ -289,6 +309,11 @@ export const lowerIR = {
     right: LowerExpr,
   ): LowerExpr => ({ kind: "cmp", op, left, right }),
   fail: (...message: LowerMessage): LowerStmt => ({ kind: "fail", message }),
+  failWith: (params: LowerParams, ...message: LowerMessage): LowerStmt => ({
+    kind: "fail",
+    message,
+    params,
+  }),
   when: (
     cond: LowerExpr,
     then: readonly LowerStmt[],

@@ -10,8 +10,13 @@ import {
   codePointLength,
   firstDuplicatePair,
 } from "../json.js";
-import { KeywordBehavior, KeywordContext } from "../dialect.js";
-import { LowerExpr, LoweringContext, lowerIR } from "../lowering.js";
+import { ErrorParams, KeywordBehavior, KeywordContext } from "../dialect.js";
+import {
+  LowerExpr,
+  LoweringContext,
+  LowerParams,
+  lowerIR,
+} from "../lowering.js";
 import { Cursor } from "../cursor.js";
 
 /** 2020-12 validation vocabulary URI. */
@@ -24,11 +29,12 @@ const assertion = (
   name: string,
   test: (value: JsonValue, instance: JsonValue) => boolean,
   message: (value: JsonValue) => string,
+  params?: (value: JsonValue) => ErrorParams,
 ): KeywordBehavior => ({
   id: id(name),
   evaluate: (value: JsonValue, cursor: Cursor, ctx: KeywordContext) => {
     if (test(value, cursor.value)) return true;
-    ctx.error(message(value));
+    ctx.error(message(value), params?.(value));
     return false;
   },
 });
@@ -56,10 +62,16 @@ const guardedCompare =
           lowerIR.typeIs(lctx.instance, guardType),
           lowerIR.not(lowerIR.cmp(op, measure(lctx), lowerIR.constant(value))),
         ),
-        [lowerIR.fail(message(value))],
+        [lowerIR.failWith({ limit: lowerIR.constant(value) }, message(value))],
       ),
     );
   };
+/**
+ * The `limit` params shape shared by every guard-then-compare bounds
+ * keyword: minLength/maxLength, minItems/maxItems, minProperties/
+ * maxProperties, and minimum/maximum/exclusiveMinimum/exclusiveMaximum.
+ */
+const limitParams = (value: JsonValue): ErrorParams => ({ limit: value });
 const arrayLengthMeasure = (lctx: LoweringContext): LowerExpr =>
   lowerIR.helper("lengthOf", lctx.instance);
 const propertyCountMeasure = (lctx: LoweringContext): LowerExpr =>
@@ -87,7 +99,7 @@ export const pattern: KeywordBehavior = {
     const instance = cursor.value;
     if (typeof instance !== "string") return true;
     if (ctx.compileRegex(value as string).test(instance)) return true;
-    ctx.error("does not match required pattern");
+    ctx.error("does not match required pattern", { pattern: value });
     return false;
   },
   lower: (value, lctx) => {
@@ -97,7 +109,12 @@ export const pattern: KeywordBehavior = {
           lowerIR.typeIs(lctx.instance, "string"),
           lowerIR.not(lowerIR.regexTest(value as string, lctx.instance)),
         ),
-        [lowerIR.fail("does not match required pattern")],
+        [
+          lowerIR.failWith(
+            { pattern: lowerIR.constant(value) },
+            "does not match required pattern",
+          ),
+        ],
       ),
     );
   },
@@ -151,7 +168,10 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
       const ok = Array.isArray(value)
         ? value.some((t) => typeMatches(t, cursor.value))
         : typeMatches(value, cursor.value);
-      if (!ok) ctx.error(`expected type ${JSON.stringify(value)}`);
+      if (!ok)
+        ctx.error(`expected type ${JSON.stringify(value)}`, {
+          expected: value,
+        });
       return ok;
     },
     lower: (value, lctx) => {
@@ -160,7 +180,10 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
       )[];
       lctx.emit(
         lowerIR.when(lowerIR.not(lowerIR.typeIs(lctx.instance, ...types)), [
-          lowerIR.fail(`expected type ${JSON.stringify(value)}`),
+          lowerIR.failWith(
+            { expected: lowerIR.constant(value) },
+            `expected type ${JSON.stringify(value)}`,
+          ),
         ]),
       );
     },
@@ -171,15 +194,17 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
       (value, instance) =>
         (value as JsonValue[]).some((x) => jsonEqual(x, instance)),
       () => "not one of the allowed values",
+      (value) => ({ allowedValues: value }),
     ),
     lower: (value, lctx) => {
       const alternatives = value as JsonValue[];
+      const params: LowerParams = { allowedValues: lowerIR.constant(value) };
       // An empty enum can never match (some() over zero alternatives is
       // false); guard explicitly since lowerIR.or() with zero parts has no
       // meaningful "no alternatives matched" expression to negate.
       lctx.emit(
         alternatives.length === 0
-          ? lowerIR.fail("not one of the allowed values")
+          ? lowerIR.failWith(params, "not one of the allowed values")
           : lowerIR.when(
               lowerIR.not(
                 lowerIR.or(
@@ -192,7 +217,7 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
                   ),
                 ),
               ),
-              [lowerIR.fail("not one of the allowed values")],
+              [lowerIR.failWith(params, "not one of the allowed values")],
             ),
       );
     },
@@ -202,6 +227,7 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
       "const",
       (value, instance) => jsonEqual(value, instance),
       () => "does not equal the required constant",
+      (value) => ({ allowedValue: value }),
     ),
     lower: (value, lctx) => {
       lctx.emit(
@@ -209,7 +235,12 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
           lowerIR.not(
             lowerIR.helper("jsonEqual", lowerIR.constant(value), lctx.instance),
           ),
-          [lowerIR.fail("does not equal the required constant")],
+          [
+            lowerIR.failWith(
+              { allowedValue: lowerIR.constant(value) },
+              "does not equal the required constant",
+            ),
+          ],
         ),
       );
     },
@@ -222,6 +253,7 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
         typeof instance !== "string" ||
         codePointLength(instance) >= (value as number),
       (value) => `must be at least ${value as number} characters`,
+      limitParams,
     ),
     // Violation = code points < n. UTF-16 units bound points from above
     // (points <= units) and below (points >= units/2), so units alone decide
@@ -242,7 +274,12 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
               ),
             ),
           ),
-          [lowerIR.fail(`must be at least ${n} characters`)],
+          [
+            lowerIR.failWith(
+              { limit: lowerIR.constant(n) },
+              `must be at least ${n} characters`,
+            ),
+          ],
         ),
       );
     },
@@ -254,6 +291,7 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
         typeof instance !== "string" ||
         codePointLength(instance) <= (value as number),
       (value) => `must be at most ${value as number} characters`,
+      limitParams,
     ),
     // Violation = code points > n; units <= n implies points <= n, so the
     // expensive count runs only when units exceed the bound (D9).
@@ -274,7 +312,12 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
               lowerIR.constant(n),
             ),
           ),
-          [lowerIR.fail(`must be at most ${n} characters`)],
+          [
+            lowerIR.failWith(
+              { limit: lowerIR.constant(n) },
+              `must be at most ${n} characters`,
+            ),
+          ],
         ),
       );
     },
@@ -285,6 +328,7 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
       (value, instance) =>
         typeof instance !== "number" || instance >= (value as number),
       (value) => `must be >= ${value as number}`,
+      limitParams,
     ),
     lower: guardedCompare(
       "number",
@@ -299,6 +343,7 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
       (value, instance) =>
         typeof instance !== "number" || instance <= (value as number),
       (value) => `must be <= ${value as number}`,
+      limitParams,
     ),
     lower: guardedCompare(
       "number",
@@ -313,6 +358,7 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
       (value, instance) =>
         typeof instance !== "number" || instance > (value as number),
       (value) => `must be > ${value as number}`,
+      limitParams,
     ),
     lower: guardedCompare(
       "number",
@@ -327,6 +373,7 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
       (value, instance) =>
         typeof instance !== "number" || instance < (value as number),
       (value) => `must be < ${value as number}`,
+      limitParams,
     ),
     lower: guardedCompare(
       "number",
@@ -341,6 +388,7 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
       (value, instance) =>
         !Array.isArray(instance) || instance.length >= (value as number),
       (value) => `must have at least ${value as number} items`,
+      limitParams,
     ),
     lower: guardedCompare(
       "array",
@@ -355,6 +403,7 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
       (value, instance) =>
         !Array.isArray(instance) || instance.length <= (value as number),
       (value) => `must have at most ${value as number} items`,
+      limitParams,
     ),
     lower: guardedCompare(
       "array",
@@ -370,6 +419,7 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
         !isObject(instance) ||
         Object.keys(instance).length >= (value as number),
       (value) => `must have at least ${value as number} properties`,
+      limitParams,
     ),
     lower: guardedCompare(
       "object",
@@ -385,6 +435,7 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
         !isObject(instance) ||
         Object.keys(instance).length <= (value as number),
       (value) => `must have at most ${value as number} properties`,
+      limitParams,
     ),
     lower: guardedCompare(
       "object",
@@ -400,7 +451,9 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
       let ok = true;
       for (const name of value as string[]) {
         if (!Object.hasOwn(cursor.value, name)) {
-          ctx.error(`missing required property '${name}'`);
+          ctx.error(`missing required property '${name}'`, {
+            missingProperty: name,
+          });
           ok = false;
         }
       }
@@ -416,7 +469,12 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
                 target: lctx.instance,
                 key: name,
               }),
-              [lowerIR.fail(`missing required property '${name}'`)],
+              [
+                lowerIR.failWith(
+                  { missingProperty: lowerIR.constant(name) },
+                  `missing required property '${name}'`,
+                ),
+              ],
             ),
           ),
         ]),
@@ -429,6 +487,7 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
       (value, instance) =>
         typeof instance !== "number" || isMultipleOf(instance, value as number),
       (value) => `must be a multiple of ${value as number}`,
+      (value) => ({ multipleOf: value }),
     ),
     lower: (value, lctx) => {
       lctx.emit(
@@ -443,7 +502,12 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
               ),
             ),
           ),
-          [lowerIR.fail(`must be a multiple of ${value as number}`)],
+          [
+            lowerIR.failWith(
+              { multipleOf: lowerIR.constant(value) },
+              `must be a multiple of ${value as number}`,
+            ),
+          ],
         ),
       );
     },
@@ -455,7 +519,9 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
       const pair = firstDuplicatePair(cursor.value);
       if (pair === null) return true;
       const [j, i] = pair;
-      ctx.error(`items at ${j} and ${i} are not unique`);
+      ctx.error(`items at ${j} and ${i} are not unique`, {
+        duplicates: [j, i],
+      });
       return false;
     },
     // evaluate() returns true (vacuously) whenever `value !== true` — mirror
@@ -474,7 +540,8 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
             lowerIR.helper("hasDuplicateItems", lctx.instance),
           ),
           [
-            lowerIR.fail(
+            lowerIR.failWith(
+              { duplicates: pair },
               "items at ",
               { kind: "item", target: pair, index: lowerIR.constant(0) },
               " and ",
@@ -498,7 +565,10 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
         if (!Object.hasOwn(instance, name)) continue;
         for (const dep of deps as string[]) {
           if (!Object.hasOwn(instance, dep)) {
-            ctx.error(`'${name}' requires '${dep}' to be present`);
+            ctx.error(`'${name}' requires '${dep}' to be present`, {
+              property: name,
+              missingProperty: dep,
+            });
             ok = false;
           }
         }
@@ -519,7 +589,15 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
                       target: lctx.instance,
                       key: dep,
                     }),
-                    [lowerIR.fail(`'${name}' requires '${dep}' to be present`)],
+                    [
+                      lowerIR.failWith(
+                        {
+                          property: lowerIR.constant(name),
+                          missingProperty: lowerIR.constant(dep),
+                        },
+                        `'${name}' requires '${dep}' to be present`,
+                      ),
+                    ],
                   ),
                 ),
               ),

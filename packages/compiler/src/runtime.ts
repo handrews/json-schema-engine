@@ -86,6 +86,7 @@ export function makeRuntime(
   regexCache: RegexCache,
   patterns: readonly string[],
   maxDepth: number,
+  listParams = false,
 ): Runtime {
   const re = Object.create(null) as Record<
     string,
@@ -148,7 +149,7 @@ export function makeRuntime(
         options,
       );
       for (const record of result.errors) {
-        const unit = renderError(record, "modern");
+        const unit = renderError(record, "modern", listParams);
         unit.instanceLocation = ip + unit.instanceLocation;
         errs.push(unit);
       }

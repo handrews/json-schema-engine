@@ -10,6 +10,7 @@ import {
   type LowerCursor,
   type LowerExpr,
   type LowerMessage,
+  type LowerParams,
   type LowerStmt,
   type LoweringContext,
   type SchemaRegistry,
@@ -66,6 +67,7 @@ export function serializePlan(
   mode: EmitMode = "runtime",
   flags: EmitFlags = DEFAULT_FLAGS,
   output: EmitOutput = "flag",
+  listParams = false,
 ): string {
   if (output === "list" && mode === "standalone") {
     throw new SerializeError("standalone emission is flag-only (M6.5 scope)");
@@ -101,6 +103,7 @@ export function serializePlan(
         tableIndex,
         effFlags,
         output,
+        listParams,
       ),
     );
   }
@@ -175,6 +178,7 @@ function serializeUnit(
   tableIndex: Map<string, number>,
   flags: EmitFlags,
   output: EmitOutput,
+  listParams: boolean,
 ): {
   key: string;
   boolean: boolean;
@@ -187,9 +191,12 @@ function serializeUnit(
   if (typeof node === "boolean") {
     // List mode: `false` reports the interpreter's boolean-schema error
     // (keywordName null — no keyword suffix on either location).
+    // Structured-params mode: keywordName is null here, so the unit gets
+    // empty params and no keyword field (renderError's includeParams shape).
+    const falseParams = listParams ? js`, params: {}` : js``;
     const chunk =
       output === "list" && !node
-        ? js`function ${fn}(${V}, ${D}, ${S}, ${id("ep")}, ${id("ip")}, ${id("errs")}) { ${id("errs")}.push({ evaluationPath: ${id("ep")}, schemaLocation: ${str(unit.ref.baseUri + "#" + unit.ref.pointer)}, instanceLocation: ${id("ip")}, error: "schema is false" }); return false; }`
+        ? js`function ${fn}(${V}, ${D}, ${S}, ${id("ep")}, ${id("ip")}, ${id("errs")}) { ${id("errs")}.push({ evaluationPath: ${id("ep")}, schemaLocation: ${str(unit.ref.baseUri + "#" + unit.ref.pointer)}, instanceLocation: ${id("ip")}, error: "schema is false"${falseParams} }); return false; }`
         : js`function ${fn}() { return ${raw(String(node))}; }`;
     return { key: unit.key, boolean: true, chunk, inlined: new Set() };
   }
@@ -214,6 +221,7 @@ function serializeUnit(
     null,
     flags,
     output,
+    listParams,
   );
   const unitStmts = ctx.unitBody();
   // Depth guard (D20 combined budget) only where a chain can grow: a
@@ -278,6 +286,7 @@ class UnitContext {
     private guardParent: UnitContext | null = null,
     private flags: EmitFlags = DEFAULT_FLAGS,
     private output: EmitOutput = "flag",
+    private listParams = false,
   ) {}
 
   /**
@@ -299,14 +308,47 @@ class UnitContext {
   }
 
   /**
+   * Renders a LowerParams map to an object-literal expression, mirroring
+   * renderError's includeParams shape. `tallyVar` binds tally placeholders
+   * exactly as in {@link message}.
+   */
+  private paramsChunk(
+    params: LowerParams | undefined,
+    tallyVar?: CodeChunk,
+  ): CodeChunk {
+    if (params === undefined) return js`{}`;
+    const entries = Object.entries(params).map(([key, part]) => {
+      const value =
+        part.kind === "tally"
+          ? (() => {
+              if (!tallyVar)
+                throw new SerializeError("tally outside a counted check");
+              return tallyVar;
+            })()
+          : this.expr(part);
+      return js`${str(key)}: ${value}`;
+    });
+    return js`{ ${join(", ", entries)} }`;
+  }
+
+  /**
    * List-mode failure: mark the unit invalid and push an interpreter-exact
    * error unit (renderError's shape — keyword suffix escaped on both
    * paths). Unit objects materialize only here, on the failure path (D9e).
    */
-  private pushError(msg: CodeChunk, withKeyword = true): CodeChunk {
+  private pushError(
+    msg: CodeChunk,
+    withKeyword = true,
+    params?: CodeChunk,
+  ): CodeChunk {
     const suffix = withKeyword ? "/" + escapeSegment(this.currentKeyword) : "";
     const sloc = this.unit.ref.baseUri + "#" + this.unit.ref.pointer + suffix;
-    return js`ok = false; ${id("errs")}.push({ evaluationPath: ${id("ep")} + ${str(suffix)}, schemaLocation: ${str(sloc)}, instanceLocation: ${id("ip")}, error: ${msg} });`;
+    const extra = this.listParams
+      ? withKeyword
+        ? js`, keyword: ${str(this.currentKeyword)}, params: ${params ?? js`{}`}`
+        : js`, params: ${params ?? js`{}`}`
+      : js``;
+    return js`ok = false; ${id("errs")}.push({ evaluationPath: ${id("ep")} + ${str(suffix)}, schemaLocation: ${str(sloc)}, instanceLocation: ${id("ip")}, error: ${msg}${extra} });`;
   }
 
   /** The CSE'd object-test variable for this unit's own value. */
@@ -375,7 +417,7 @@ class UnitContext {
     const out: CodeChunk[] = [];
     let anyRun: CodeChunk[] = [];
     let oneRun: CodeChunk[] = [];
-    const flushAny = (message?: LowerMessage) => {
+    const flushAny = (message?: LowerMessage, params?: LowerParams) => {
       if (anyRun.length === 0) return;
       if (this.output === "list") {
         // Every branch runs (§7: list artifacts never short-circuit).
@@ -383,6 +425,8 @@ class UnitContext {
         const runs = anyRun.map((call) => js`if (${call}) ${a} = true;`);
         const onFail = this.pushError(
           this.message(message ?? ["no branch matched"]),
+          true,
+          this.paramsChunk(params),
         );
         out.push(
           js`let ${a} = false; ${join(" ", runs)} if (!${a}) { ${onFail} }`,
@@ -392,13 +436,15 @@ class UnitContext {
       }
       anyRun = [];
     };
-    const flushOne = (message?: LowerMessage) => {
+    const flushOne = (message?: LowerMessage, params?: LowerParams) => {
       if (oneRun.length === 0) return;
       const c = counterVar(this.counters.tally++);
       const incs = oneRun.map((call) => js`if (${call}) ${c}++;`);
       if (this.output === "list") {
         const onFail = this.pushError(
           this.message(message ?? [{ kind: "tally" }, " branches matched"], c),
+          true,
+          this.paramsChunk(params, c),
         );
         out.push(
           js`let ${c} = 0; ${join(" ", incs)} if (${c} !== 1) { ${onFail} }`,
@@ -423,8 +469,8 @@ class UnitContext {
       }
       if (stmt.kind === "combineCheck") {
         // Closes the pending run with the keyword's own failure message.
-        flushAny(stmt.message);
-        flushOne(stmt.message);
+        flushAny(stmt.message, stmt.params);
+        flushOne(stmt.message, stmt.params);
         continue;
       }
       flushAny();
@@ -476,7 +522,11 @@ class UnitContext {
       }
       case "fail":
         if (this.output === "list") {
-          return this.pushError(this.message(stmt.message));
+          return this.pushError(
+            this.message(stmt.message),
+            true,
+            this.paramsChunk(stmt.params),
+          );
         }
         // Flag mode: verdict-only, fail fast.
         return js`return false;`;
@@ -501,7 +551,11 @@ class UnitContext {
             : js`${c} < ${num(stmt.min)} || ${c} > ${max}`;
         const onFail =
           this.output === "list"
-            ? this.pushError(this.message(stmt.outOfRangeMessage, c))
+            ? this.pushError(
+                this.message(stmt.outOfRangeMessage, c),
+                true,
+                this.paramsChunk(stmt.outOfRangeParams, c),
+              )
             : js`return false;`;
         return js`${loop} if (${outOfRange}) { ${onFail} }`;
       }
@@ -521,6 +575,8 @@ class UnitContext {
         case "negate":
           return js`if (${call}) { ${this.pushError(
             this.message(apply.message ?? ["must not match the subschema"]),
+            true,
+            this.paramsChunk(apply.params),
           )} }`;
         default:
           break; // grouped folds handled by keywordStatements; discard by applyExpr
@@ -597,6 +653,8 @@ class UnitContext {
       new Set([...this.inlineStack, targetKey]),
       here ? this : null,
       this.flags,
+      this.output,
+      this.listParams,
     );
     const body = child.unitBody();
     if (child.calledUnit) this.calledUnit = true;
@@ -716,7 +774,7 @@ class UnitContext {
       const got = edge.app.path.map(String);
       // Sweep applications bind runtime segments; their planned path is the
       // static prefix (often empty).
-      if (want.filter((w) => w !== "*").join(" ") === got.join(" "))
+      if (want.filter((w) => w !== "*").join("\u0000") === got.join("\u0000"))
         return edge.targetKey;
     }
     throw new SerializeError(

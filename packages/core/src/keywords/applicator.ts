@@ -110,7 +110,12 @@ export const oneOf: KeywordBehavior = {
     // An empty oneOf can never match exactly one branch (count stays 0) —
     // same empty-run gap as anyOf above.
     if (schemas.length === 0) {
-      lctx.emit(lowerIR.fail("matched 0 branches, expected exactly 1"));
+      lctx.emit(
+        lowerIR.failWith(
+          { matched: lowerIR.constant(0) },
+          "matched 0 branches, expected exactly 1",
+        ),
+      );
       return;
     }
     schemas.forEach((_, i) => {
@@ -122,6 +127,7 @@ export const oneOf: KeywordBehavior = {
     lctx.emit({
       kind: "combineCheck",
       message: ["matched ", { kind: "tally" }, " branches, expected exactly 1"],
+      params: { matched: { kind: "tally" } },
     });
   },
   evaluate: (value, cursor, ctx) => {
@@ -129,7 +135,10 @@ export const oneOf: KeywordBehavior = {
     (value as JsonValue[]).forEach((_, i) => {
       if (ctx.apply(["oneOf", i], cursor)) count++;
     });
-    if (count !== 1) ctx.error(`matched ${count} branches, expected exactly 1`);
+    if (count !== 1)
+      ctx.error(`matched ${count} branches, expected exactly 1`, {
+        matched: count,
+      });
     return count === 1;
   },
 };
@@ -701,6 +710,13 @@ export const contains: KeywordBehavior = {
             { kind: "tally" },
             ` item(s) match the contains subschema, expected ${min}-${max}`,
           ],
+          outOfRangeParams: {
+            count: { kind: "tally" },
+            minContains: lowerIR.constant(min),
+            ...(Number.isFinite(max)
+              ? { maxContains: lowerIR.constant(max) }
+              : {}),
+          },
         },
       ]),
     );
@@ -725,6 +741,11 @@ export const contains: KeywordBehavior = {
     if (matched.length < min || matched.length > max) {
       ctx.error(
         `${matched.length} item(s) match the contains subschema, expected ${min}-${max}`,
+        {
+          count: matched.length,
+          minContains: min,
+          ...(Number.isFinite(max) ? { maxContains: max } : {}),
+        },
       );
       return false;
     }

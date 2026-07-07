@@ -38,7 +38,9 @@ const COMPILE_OPTS = {
 // FUZZ_LIST=1 referees list-output parity: both sides' full {valid, errors}
 // results are compared as canonical JSON (ordered — list artifacts never
 // short-circuit), riding the same outcome/minimizer machinery by encoding
-// each result as its own "error class".
+// each result as its own "error class". Structured params ride along
+// (errorParams on both sides), so the JSON comparison also referees the
+// M8.1 params channel — including field order.
 const LIST_MODE = process.env.FUZZ_LIST === "1";
 
 const SUITE_DIR = join(
@@ -92,7 +94,10 @@ function subjectFor(baseUri: string): DifferentialSubject {
       const uri = engine.registerSchema(schema, baseUri);
       if (LIST_MODE) {
         return runListSide((x) => {
-          const r = engine.evaluate(uri, x, { output: "list" });
+          const r = engine.evaluate(uri, x, {
+            output: "list",
+            errorParams: true,
+          });
           return { valid: r.valid, errors: r.errors ?? [] };
         })(instance);
       }
@@ -102,7 +107,10 @@ function subjectFor(baseUri: string): DifferentialSubject {
       const engine = createEngine();
       const uri = engine.registerSchema(schema, baseUri);
       if (LIST_MODE) {
-        const artifact = compileList(engine, uri, COMPILE_OPTS);
+        const artifact = compileList(engine, uri, {
+          ...COMPILE_OPTS,
+          errorParams: true,
+        });
         return runListSide((x) => {
           const r = artifact.evaluateList(x);
           return { valid: r.valid, errors: r.valid ? [] : r.errors };

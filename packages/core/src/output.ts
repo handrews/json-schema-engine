@@ -7,6 +7,7 @@
 
 import { escapeSegment } from "./json.js";
 import { instancePointer } from "./cursor.js";
+import { ErrorParams } from "./dialect.js";
 import {
   ErrorRecord,
   PathNode,
@@ -32,10 +33,20 @@ export interface ErrorUnit {
   absoluteKeywordLocation?: string;
   /** schema-side source position, present with the `positions` option (D17) */
   source?: SourceLocation;
+  /**
+   * Failing keyword name + structured failure data (D13), present with the
+   * `errorParams` option. Extensions beyond the spec output shapes, so
+   * opt-in; `keyword` is absent when the schema itself was boolean `false`.
+   */
+  keyword?: string;
+  params?: ErrorParams;
 }
 
 /** One rendered channel production. */
-export interface AnnotationUnit extends Omit<ErrorUnit, "error"> {
+export interface AnnotationUnit extends Omit<
+  ErrorUnit,
+  "error" | "keyword" | "params"
+> {
   keyword: string;
   vocabulary?: string;
   annotation: unknown;
@@ -83,8 +94,9 @@ function locations(
 export function renderError(
   record: ErrorRecord,
   vocabulary: LocationVocabulary,
+  includeParams = false,
 ): ErrorUnit {
-  return {
+  const unit: ErrorUnit = {
     ...locations(
       record.pathNode,
       record.keywordName,
@@ -94,6 +106,11 @@ export function renderError(
     instanceLocation: instancePointer(record.cursor),
     error: record.message,
   };
+  if (includeParams) {
+    if (record.keywordName !== null) unit.keyword = record.keywordName;
+    unit.params = record.params ?? {};
+  }
+  return unit;
 }
 
 /** Renders one channel production into its output unit. */

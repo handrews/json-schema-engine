@@ -120,6 +120,13 @@ export interface ProductionView {
  * §3), which is what makes locations compile-time constants for the M6
  * compiler.
  */
+/**
+ * Structured data about one failure, keyed per keyword (D13). Values are
+ * plain JSON so downstream mappers (ajv-compat) consume them mechanically
+ * instead of parsing message strings.
+ */
+export type ErrorParams = Readonly<Record<string, JsonValue>>;
+
 export interface KeywordContext {
   /** the current schema object (this keyword's siblings included) */
   readonly schema: Record<string, JsonValue>;
@@ -140,8 +147,8 @@ export interface KeywordContext {
   produce(value: unknown): void;
   /** productions visible at the current cursor from the listed behaviors */
   visible(behaviorIds: readonly string[]): readonly ProductionView[];
-  /** report an assertion failure for this keyword */
-  error(message: string): void;
+  /** report an assertion failure for this keyword, with optional structured params (D13) */
+  error(message: string, params?: ErrorParams): void;
 }
 
 /** A keyword's static analysis and evaluation semantics. */

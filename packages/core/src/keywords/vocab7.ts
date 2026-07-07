@@ -123,7 +123,10 @@ export const dependencies: KeywordBehavior = {
       if (Array.isArray(dep)) {
         for (const required of dep as string[]) {
           if (!Object.hasOwn(instance, required)) {
-            ctx.error(`'${name}' requires '${required}' to be present`);
+            ctx.error(`'${name}' requires '${required}' to be present`, {
+              property: name,
+              missingProperty: required,
+            });
             ok = false;
           }
         }

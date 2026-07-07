@@ -118,6 +118,7 @@ export {
 export { isMultipleOf } from "./keywords/validation.js";
 export type {
   AnalyzeContext,
+  ErrorParams,
   IndexCoverage,
   NameCoverage,
   SubschemaApplication,
@@ -130,6 +131,7 @@ export type {
   LowerExpr,
   LowerHelper,
   LowerMessage,
+  LowerParams,
   LowerProduceValue,
   LowerStmt,
   LoweringContext,
@@ -190,6 +192,12 @@ export interface EvaluateOptions {
   retention?: RetentionPolicy;
   /** decorate units with schema-side source positions when available (D17) */
   positions?: boolean;
+  /**
+   * Include `keyword` + structured `params` on each `Result.errors` unit
+   * (D13). Applies to the flat list surface only; the spec-shaped output
+   * documents never carry params.
+   */
+  errorParams?: boolean;
 }
 
 /** The result of {@link Engine.evaluate}. */
@@ -521,7 +529,9 @@ export class Engine {
 
     const result: Result = { valid };
     if (!valid && outputKind === "list") {
-      result.errors = state.errors.map((e) => renderError(e, vocabulary));
+      result.errors = state.errors.map((e) =>
+        renderError(e, vocabulary, options.errorParams ?? false),
+      );
     }
     if (valid && options.collectAnnotations) {
       result.annotations = applyRetention(

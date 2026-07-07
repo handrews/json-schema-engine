@@ -37,6 +37,15 @@ export interface CompileOptions {
   conservative?: boolean;
 }
 
+/** Options for {@link compileList}. */
+export interface ListCompileOptions extends CompileOptions {
+  /**
+   * Include `keyword` + structured `params` on each error unit, matching
+   * `Engine.evaluate(uri, x, { output: "list", errorParams: true })` (D13).
+   */
+  errorParams?: boolean;
+}
+
 /** A compiled list-mode result: interpreter-exact flat error units. */
 export interface CompiledListResult {
   valid: boolean;
@@ -123,7 +132,7 @@ export function compileValidator(
 export function compileList(
   engine: Engine,
   schemaUri: string,
-  options: CompileOptions = {},
+  options: ListCompileOptions = {},
 ): CompiledListArtifact {
   const plan = buildPlan(engine, schemaUri);
   const source = serializePlan(
@@ -134,12 +143,14 @@ export function compileList(
       ? { inline: false, plainData: false }
       : { inline: true, plainData: true },
     "list",
+    options.errorParams ?? false,
   );
   const runtime = makeRuntime(
     engine.registry,
     engine.patternCache,
     plan.patterns,
     options.maxDepth ?? DEFAULT_MAX_DEPTH,
+    options.errorParams ?? false,
   );
   const evaluateList = instantiateList<ErrorUnit>(
     source,

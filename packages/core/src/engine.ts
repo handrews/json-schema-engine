@@ -18,6 +18,7 @@ import { SchemaRef } from "./ref.js";
 import {
   Dialect,
   DialectKeyword,
+  ErrorParams,
   KeywordContext,
   ProductionView,
   unknownKeywordId,
@@ -87,6 +88,7 @@ export interface ErrorRecord {
   pathNode: PathNode | null;
   cursor: Cursor;
   message: string;
+  params?: ErrorParams;
 }
 
 interface Frame {
@@ -319,13 +321,14 @@ class KeywordContextImpl implements KeywordContext {
     );
   }
 
-  error(message: string): void {
+  error(message: string, params?: ErrorParams): void {
     this.state.errors.push({
       keywordName: this.entry.name,
       schemaRef: this.schemaRef,
       pathNode: this.pathNode,
       cursor: this.cursor,
       message,
+      ...(params === undefined ? {} : { params }),
     });
   }
 }

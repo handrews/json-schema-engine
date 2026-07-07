@@ -26,49 +26,60 @@ interface SuiteGroup {
   tests: { description: string; data: JsonValue }[];
 }
 
+const runFullSuite = (errorParams: boolean): number => {
+  let cases = 0;
+  for (const file of readdirSync(SUITE_DIR).filter((f) =>
+    f.endsWith(".json"),
+  )) {
+    const groups = JSON.parse(
+      readFileSync(join(SUITE_DIR, file), "utf8"),
+    ) as SuiteGroup[];
+    groups.forEach((group, gi) => {
+      const engine = createEngine();
+      let uri: string;
+      try {
+        uri = engine.registerSchema(
+          group.schema,
+          `https://list.example/${file}/${String(gi)}`,
+        );
+      } catch {
+        return; // remote-loader/D19 registration cases: other legs cover
+      }
+      const artifact = compileList(engine, uri, { errorParams });
+      for (const test of group.tests) {
+        cases++;
+        let interpreted: unknown, compiled: unknown;
+        try {
+          const r = engine.evaluate(uri, test.data, {
+            output: "list",
+            errorParams,
+          });
+          interpreted = { valid: r.valid, errors: r.errors ?? [] };
+        } catch (err) {
+          interpreted = (err as Error).constructor.name;
+        }
+        try {
+          const r = artifact.evaluateList(test.data);
+          compiled = { valid: r.valid, errors: r.valid ? [] : r.errors };
+        } catch (err) {
+          compiled = (err as Error).constructor.name;
+        }
+        expect(compiled, `${file}#${String(gi)} ${test.description}`).toEqual(
+          interpreted,
+        );
+      }
+    });
+  }
+  return cases;
+};
+
 describe("compiled list output ≡ interpreter (full local suite)", () => {
   it("agrees on every case, ordered", () => {
-    let cases = 0;
-    for (const file of readdirSync(SUITE_DIR).filter((f) =>
-      f.endsWith(".json"),
-    )) {
-      const groups = JSON.parse(
-        readFileSync(join(SUITE_DIR, file), "utf8"),
-      ) as SuiteGroup[];
-      groups.forEach((group, gi) => {
-        const engine = createEngine();
-        let uri: string;
-        try {
-          uri = engine.registerSchema(
-            group.schema,
-            `https://list.example/${file}/${String(gi)}`,
-          );
-        } catch {
-          return; // remote-loader/D19 registration cases: other legs cover
-        }
-        const artifact = compileList(engine, uri);
-        for (const test of group.tests) {
-          cases++;
-          let interpreted: unknown, compiled: unknown;
-          try {
-            const r = engine.evaluate(uri, test.data, { output: "list" });
-            interpreted = { valid: r.valid, errors: r.errors ?? [] };
-          } catch (err) {
-            interpreted = (err as Error).constructor.name;
-          }
-          try {
-            const r = artifact.evaluateList(test.data);
-            compiled = { valid: r.valid, errors: r.valid ? [] : r.errors };
-          } catch (err) {
-            compiled = (err as Error).constructor.name;
-          }
-          expect(compiled, `${file}#${String(gi)} ${test.description}`).toEqual(
-            interpreted,
-          );
-        }
-      });
-    }
-    expect(cases).toBeGreaterThan(1200);
+    expect(runFullSuite(false)).toBeGreaterThan(1200);
+  });
+
+  it("agrees on every case with structured params (M8.1)", () => {
+    expect(runFullSuite(true)).toBeGreaterThan(1200);
   });
 
   it("Basic adapter matches the interpreter's Basic document", () => {
@@ -120,6 +131,59 @@ describe("compiled list output ≡ interpreter (full local suite)", () => {
     const got = artifact.evaluateList(bad);
     expect(got.valid).toBe(false);
     expect(got).toEqual({ valid: expected.valid, errors: expected.errors });
+  });
+
+  it("island errors carry params through the list trampoline", () => {
+    const engine = createEngine();
+    const uri = engine.registerSchema(
+      {
+        $id: "https://list.example/dynp",
+        $dynamicAnchor: "n",
+        type: "object",
+        properties: {
+          children: { type: "array", items: { $dynamicRef: "#n" } },
+        },
+      },
+      "https://list.example/dynp",
+    );
+    const artifact = compileList(engine, uri, { errorParams: true });
+    const bad = { children: [{ children: "not-an-array" }] } as JsonValue;
+    const expected = engine.evaluate(uri, bad, {
+      output: "list",
+      errorParams: true,
+    });
+    const got = artifact.evaluateList(bad);
+    expect(got).toEqual({ valid: expected.valid, errors: expected.errors });
+    expect(got.errors.some((e) => e.keyword === "type")).toBe(true);
+  });
+
+  it("compiled params carry runtime pieces (duplicates, tally, sweeps)", () => {
+    const engine = createEngine();
+    const uri = engine.registerSchema(
+      {
+        type: "object",
+        properties: {
+          items: { uniqueItems: true },
+          pick: { oneOf: [{ type: "integer" }, { minimum: 0 }] },
+        },
+        required: ["id"],
+      },
+      "https://list.example/params",
+    );
+    const artifact = compileList(engine, uri, { errorParams: true });
+    const bad = { items: [1, 2, 1], pick: 3 } as JsonValue;
+    const expected = engine.evaluate(uri, bad, {
+      output: "list",
+      errorParams: true,
+    });
+    const got = artifact.evaluateList(bad);
+    expect(got).toEqual({ valid: false, errors: expected.errors });
+    const byKeyword = Object.fromEntries(
+      got.errors.map((e) => [e.keyword ?? "(schema)", e.params]),
+    );
+    expect(byKeyword.uniqueItems).toEqual({ duplicates: [0, 2] });
+    expect(byKeyword.oneOf).toEqual({ matched: 2 });
+    expect(byKeyword.required).toEqual({ missingProperty: "id" });
   });
 
   it("D9e: valid instances allocate no error units (flag parity preserved)", () => {

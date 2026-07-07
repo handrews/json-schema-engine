@@ -88,7 +88,7 @@ export function assertingFormat(
         return true;
       }
       if (definition.test(cursor.value)) return true;
-      ctx.error(`must match format '${value}'`);
+      ctx.error(`must match format '${value}'`, { format: value });
       return false;
     },
   };
