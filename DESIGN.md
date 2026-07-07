@@ -322,3 +322,22 @@ deferred: compiled list/Basic output + lazy unit materialization (D9e,
 with the M7-era output work), Set-vs-chain membership thresholds beyond
 the defaults (D9d — chains measured sufficient at suite scale), island
 re-entry (revisit trigger recorded in §7).
+
+**Status note (M7 + compiled list output, completed 2026-07-06):** M7
+formats delivered as @jse/formats: all 21 draft2020-12 optional formats
+implemented from their defining RFCs (D15), including full IDNA2008
+idn-hostname/idn-email (RFC 3492 Punycode both directions, RFC 5892
+Appendix A context rules + §2.6 exceptions, RFC 5893 bidi rule, NFC,
+ideographic label separators; Unicode data via ECMA-262 \p{...} escapes
+plus small cited tables in packages/formats/src/{idna,idn}.ts). Suite:
+2020-12/2019-09/draft-07/draft-06 optional-format legs green, zero skips
+(552+545+478+273 cases + idn legs), official format-assertion.json green
+through $vocabulary dialect assembly. Format contract: FormatDefinition is
+type-scoped (`types`, default ["string"]) so the OpenAPI format registry's
+number-scoped entries fit later; the format-assertion VOCABULARY refuses
+unsupported formats at registration (UnknownFormatError) while
+format-annotation + assertFormats stays best-effort (unknown → annotate).
+Asserting-format nodes classify interpreted under compilation (Runtime
+format-table lowering deferred). Separately, compiled list/Basic output
+landed (D9e; commit 613ac51): compileList produces interpreter-exact flat
+error units — full-suite differential zero divergence, FUZZ_LIST leg.

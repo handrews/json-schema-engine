@@ -1,15 +1,15 @@
-// Optional format suite, draft 2020-12, asserting configuration (M7).
-// FILES grows format-by-format as implementations land; the zero-skip
-// discipline applies to the listed files at every step. unknown.json runs
-// from day one: unrecognized formats annotate (best-effort assertFormats
-// posture), so its cases pass with no implementation at all.
+// Optional format suite, draft-06, asserting configuration (M7). draft-06's
+// optional/format/ directory is the smallest: no date.json, duration.json,
+// regex.json, relative-json-pointer.json, time.json, iri.json, or
+// iri-reference.json — FORMATS_DRAFT_06 already omits uuid/duration/iri/
+// iri-reference/idn-* consistently with what's absent here.
 
 import { describe, it, expect } from "vitest";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runSuiteFilesVitest } from "@jse/test-kit";
-import { createEngine } from "@jse/core";
-import { FORMATS_2020_12 } from "@jse/formats";
+import { createEngine, DIALECT_DRAFT_06 } from "@jse/core";
+import { FORMATS_DRAFT_06 } from "@jse/formats";
 
 const SUITE_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -18,33 +18,22 @@ const SUITE_DIR = join(
   "..",
   "test-suite",
   "tests",
-  "draft2020-12",
+  "draft6",
   "optional",
   "format",
 );
 
-// Exemplars now; the M7 fan-out appends one entry per landed format.
 const FILES = [
-  "uuid",
   "ipv6",
   "unknown",
-  "date",
-  "duration",
   "hostname",
   "ipv4",
   "json-pointer",
-  "relative-json-pointer",
-  "regex",
   "uri",
   "uri-reference",
   "uri-template",
   "email",
-  "iri",
-  "iri-reference",
   "date-time",
-  "time",
-  "idn-hostname",
-  "idn-email",
 ];
 
 runSuiteFilesVitest({
@@ -53,7 +42,8 @@ runSuiteFilesVitest({
   unsupportedKeywords: [],
   registerAndEvaluate: (schema, retrievalUri, instance) => {
     const engine = createEngine({
-      formats: FORMATS_2020_12,
+      defaultDialect: DIALECT_DRAFT_06,
+      formats: FORMATS_DRAFT_06,
       assertFormats: true,
     });
     const uri = engine.registerSchema(schema, retrievalUri);
