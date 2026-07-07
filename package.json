@@ -17,7 +17,8 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "docs:api": "typedoc"
+    "docs:api": "typedoc",
+    "csp:check": "tsx scripts/csp-check.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

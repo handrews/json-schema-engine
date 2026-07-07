@@ -13,11 +13,19 @@ import { instantiate, type CompiledValidate } from "./runtime-compile.js";
 export type { CompilationPlan, PlannedUnit, FallbackCause } from "./plan.js";
 export { buildPlan } from "./plan.js";
 export { serializePlan } from "./serialize.js";
+export { emitStandalone, StandaloneUnsupportedError } from "./standalone.js";
+export type { StandaloneOptions } from "./standalone.js";
 
 /** Options for {@link compileValidator}. */
 export interface CompileOptions {
   /** depth bound shared between compiled nesting and fragments; default core's */
   maxDepth?: number;
+  /**
+   * Disable the D9 optimizations (inlining, plain-data fast paths). Exists
+   * so the differential fuzzer referees both configurations; not a
+   * user-facing tuning knob.
+   */
+  conservative?: boolean;
 }
 
 /** A compiled artifact: the validator plus its plan and source (inspection/tests). */
@@ -38,7 +46,14 @@ export function compileValidator(
   options: CompileOptions = {},
 ): CompiledArtifact {
   const plan = buildPlan(engine, schemaUri);
-  const source = serializePlan(plan, engine.registry);
+  const source = serializePlan(
+    plan,
+    engine.registry,
+    "runtime",
+    options.conservative
+      ? { inline: false, plainData: false }
+      : { inline: true, plainData: true },
+  );
   const runtime = makeRuntime(
     engine.registry,
     engine.patternCache,

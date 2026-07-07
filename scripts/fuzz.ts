@@ -31,6 +31,11 @@ import {
   type SideOutcome,
 } from "@jse/test-kit";
 
+// FUZZ_CONSERVATIVE=1 referees the optimizations-off configuration (M6.5).
+const COMPILE_OPTS = {
+  conservative: process.env.FUZZ_CONSERVATIVE === "1",
+};
+
 const SUITE_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
   "..",
@@ -54,7 +59,7 @@ function subjectFor(baseUri: string): DifferentialSubject {
       try {
         const engine = createEngine();
         const uri = engine.registerSchema(schema, baseUri);
-        compileValidator(engine, uri);
+        compileValidator(engine, uri, COMPILE_OPTS);
         return true;
       } catch {
         return false;
@@ -68,7 +73,7 @@ function subjectFor(baseUri: string): DifferentialSubject {
     compiled(schema, instance): SideOutcome {
       const engine = createEngine();
       const uri = engine.registerSchema(schema, baseUri);
-      const artifact = compileValidator(engine, uri);
+      const artifact = compileValidator(engine, uri, COMPILE_OPTS);
       return runSide((x) => artifact.validate(x))(instance);
     },
   };
@@ -97,7 +102,7 @@ function main(): void {
       const baseUri = `https://fuzz.example/${file}/${String(gi)}`;
       try {
         const uri = engine.registerSchema(group.schema, baseUri);
-        compileValidator(engine, uri);
+        compileValidator(engine, uri, COMPILE_OPTS);
       } catch {
         return; // needs remote loaders / unassembled dialect — out of scope
       }
@@ -119,7 +124,7 @@ function main(): void {
     const engine = createEngine();
     const baseUri = `https://fuzz.example/${file}/${String(gi)}`;
     const uri = engine.registerSchema(group.schema, baseUri);
-    const artifact = compileValidator(engine, uri);
+    const artifact = compileValidator(engine, uri, COMPILE_OPTS);
     const interpret = runSide((x) => engine.evaluate(uri, x).valid);
     const validate = runSide((x) => artifact.validate(x));
 

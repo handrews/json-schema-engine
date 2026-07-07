@@ -234,8 +234,16 @@ describe("StaticFacts v2 exemplars (M6.1)", () => {
     expect(one.applications.every((a) => a.conditional)).toBe(true);
 
     const n = facts(not, true) as { applications: { path: unknown }[] };
+    // inverted: not's branch never contributes coverage on the
+    // parent-success path (D9a transitive licensing, M6.5).
     expect(n.applications).toEqual([
-      { path: [], mode: "inPlace", conditional: false, asserts: true },
+      {
+        path: [],
+        mode: "inPlace",
+        conditional: false,
+        asserts: true,
+        inverted: true,
+      },
     ]);
   });
 });

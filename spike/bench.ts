@@ -32,6 +32,8 @@ import {
   profileFlag,
   profileAnnotated,
 } from "./compiled.js";
+import { createEngine } from "@jse/core";
+import { compileValidator } from "@jse/compiler";
 
 // --- Set up competitors ----------------------------------------------------
 
@@ -56,6 +58,27 @@ const hjCompileMs = performance.now() - tCompileHj;
 
 const hjAnnotateProfile = await annotate("https://spike.example/profile");
 
+// The REAL compiler tier (M6.5 gate): artifacts from @jse/compiler, not the
+// hand-written shapes above (those stay as the spike's reference ceiling).
+const tCompileM6 = performance.now();
+const m6Engine = createEngine();
+const m6User = compileValidator(
+  m6Engine,
+  m6Engine.registerSchema(userSchema as never, "https://spike.example/user"),
+).validate;
+const m6Event = compileValidator(
+  m6Engine,
+  m6Engine.registerSchema(eventSchema as never, "https://spike.example/event"),
+).validate;
+const m6Profile = compileValidator(
+  m6Engine,
+  m6Engine.registerSchema(
+    profileSchema as never,
+    "https://spike.example/profile",
+  ),
+).validate;
+const m6CompileMs = performance.now() - tCompileM6;
+
 // --- Correctness oracle ----------------------------------------------------
 // Every implementation must agree on every verdict before any timing counts.
 
@@ -76,42 +99,49 @@ function expectVerdict(
 }
 
 expectVerdict("user/valid", true, {
+  oursM6: m6User(userValid),
   ours: userFlag(userValid),
   oursList: userList(userValid).valid,
   ajv: ajvUser(userValid),
   hyperjump: hjUser(userValid).valid,
 });
 expectVerdict("user/invalid", false, {
+  oursM6: m6User(userInvalid),
   ours: userFlag(userInvalid),
   oursList: userList(userInvalid).valid,
   ajv: ajvUser(userInvalid),
   hyperjump: hjUser(userInvalid).valid,
 });
 expectVerdict("user/invalidMulti", false, {
+  oursM6: m6User(userInvalidMulti),
   ours: userFlag(userInvalidMulti),
   oursList: userList(userInvalidMulti).valid,
   ajv: ajvUser(userInvalidMulti),
   hyperjump: hjUser(userInvalidMulti).valid,
 });
 expectVerdict("event/valid", true, {
+  oursM6: m6Event(eventValid),
   ours: eventFlag(eventValid),
   oursList: eventList(eventValid).valid,
   ajv: ajvEvent(eventValid),
   hyperjump: hjEvent(eventValid).valid,
 });
 expectVerdict("event/invalid", false, {
+  oursM6: m6Event(eventInvalid),
   ours: eventFlag(eventInvalid),
   oursList: eventList(eventInvalid).valid,
   ajv: ajvEvent(eventInvalid),
   hyperjump: hjEvent(eventInvalid).valid,
 });
 expectVerdict("profile/valid", true, {
+  oursM6: m6Profile(profileValid),
   ours: profileFlag(profileValid),
   oursAnnotated: profileAnnotated(profileValid).valid,
   ajv: ajvProfile(profileValid),
   hyperjump: hjProfile(profileValid).valid,
 });
 expectVerdict("profile/invalid", false, {
+  oursM6: m6Profile(profileInvalid),
   ours: profileFlag(profileInvalid),
   oursAnnotated: profileAnnotated(profileInvalid).valid,
   ajv: ajvProfile(profileInvalid),
@@ -155,6 +185,7 @@ const groups: Group[] = [
     gated: true,
     tasks: {
       "ours(compiled)": () => userFlag(userValid),
+      "ours(M6)": () => m6User(userValid),
       ajv: () => ajvUser(userValid),
       hyperjump: () => hjUser(userValid),
     },
@@ -164,6 +195,7 @@ const groups: Group[] = [
     gated: true,
     tasks: {
       "ours(compiled)": () => userFlag(userInvalid),
+      "ours(M6)": () => m6User(userInvalid),
       ajv: () => ajvUser(userInvalid),
       hyperjump: () => hjUser(userInvalid),
     },
@@ -173,6 +205,7 @@ const groups: Group[] = [
     gated: true,
     tasks: {
       "ours(compiled)": () => eventFlag(eventValid),
+      "ours(M6)": () => m6Event(eventValid),
       ajv: () => ajvEvent(eventValid),
       hyperjump: () => hjEvent(eventValid),
     },
@@ -182,6 +215,7 @@ const groups: Group[] = [
     gated: true,
     tasks: {
       "ours(compiled)": () => eventFlag(eventInvalid),
+      "ours(M6)": () => m6Event(eventInvalid),
       ajv: () => ajvEvent(eventInvalid),
       hyperjump: () => hjEvent(eventInvalid),
     },
@@ -232,6 +266,9 @@ for (const group of groups) {
 
 console.log(`ajv compile time (3 schemas): ${ajvCompileMs.toFixed(1)} ms`);
 console.log(
+  `@jse/compiler compile time (3 schemas): ${m6CompileMs.toFixed(1)} ms`,
+);
+console.log(
   `hyperjump register+compile time (3 schemas): ${hjCompileMs.toFixed(1)} ms`,
 );
 console.log("(ours: precompiled — models build-time/standalone emission)\n");
@@ -239,7 +276,7 @@ console.log("(ours: precompiled — models build-time/standalone emission)\n");
 let gatePass = true;
 for (const { group, hz } of results) {
   if (!group.gated) continue;
-  const ours = hz["ours(compiled)"]!;
+  const ours = hz["ours(M6)"] ?? hz["ours(compiled)"]!;
   const theirs = hz.ajv!;
   const ratio = theirs / ours;
   const ok = ratio <= 1.5;

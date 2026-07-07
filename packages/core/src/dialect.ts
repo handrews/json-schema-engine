@@ -51,6 +51,13 @@ export interface SubschemaApplication {
   conditional: boolean;
   /** the subschema's verdict feeds this keyword's verdict (false for if's condition role and contains' per-item probes) */
   asserts: boolean;
+  /**
+   * The verdict feeds NEGATED (`not`): subschema success fails the keyword.
+   * Coverage analysis (D9a) skips inverted edges — their productions never
+   * survive into the parent on the parent-success path (success fails the
+   * node; failure discards the frame).
+   */
+  inverted?: boolean;
 }
 
 /**

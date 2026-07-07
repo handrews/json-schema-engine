@@ -267,6 +267,23 @@ trace-shaped (renderList flattens renderHierarchical over the trace) and
 stay on the interpreter — a per-output-config fallback via the D5 artifact
 key, not a semantic hole.
 
+**Plain-data instance contract (M6.5).** Compiled artifacts assume the
+instance is plain JSON data — the output of `JSON.parse` or equivalent —
+with `Object.prototype` intact and no inherited enumerable properties. Under
+that contract, emitted code tests own-property presence with `x[key] !==
+undefined` and enumerates with a bare `for…in` (no per-property `Object.keys`
+array, no per-access `Object.hasOwn` call) — the dominant flag-mode cost in
+profiling; the plain-data forms run several times faster and lifted the
+spike schemas from ~3.5x slower than ajv to at/under parity. Two escape
+hatches preserve correctness: a `key` that exists on `Object.prototype`
+(`constructor`, `toString`, …) or is literally `__proto__` would
+false-positive through the chain, so those emit an explicit
+`hasOwnProperty.call`. The interpreter makes NO such assumption — it uses
+`Object.hasOwn` throughout — so a caller validating hand-built objects with a
+mutated prototype should use the interpreter (or the compiler once a
+strict-hygiene emit mode is added; not in M6). The differential fuzzer only
+feeds JSON-shaped data, matching the contract.
+
 **Planner ground rules.** The planner walks with public core APIs only
 (`rootRef`/`child`/`resolveRef`/`dialectFor` + `analyze(value, {schema})`),
 so it cannot disagree with the registration walk about schema positions.
@@ -282,3 +299,21 @@ spike/compiled.ts is the target shape, not a literal template), and shared
 runtime helpers (`jsonEqual`, `canonicalKey`, `codePointLength`,
 `escapeSegment`, the regex helper) are imported from core, never
 re-emitted — one implementation per semantic across both tiers.
+
+**Status note (M6, completed 2026-07-06):** all five sub-milestones green.
+Full draft2020-12 suite through the compiled tier: 1299 cases, 0 skips,
+totals identical to the interpreter leg. Differential fuzz: zero
+divergences across 500k+ cumulative cases, multiple seeds, optimizations on
+and off (`FUZZ_CONSERVATIVE=1`). Bench gate through the real compiler:
+ajv/ours 0.53–0.82 on the spike flag groups (was 2.2–3.2 before the M6.5
+lowerings: inlining, guard CSE, plain-data emission — the §7 contract —
+prologue hoisting, shared empty scope, conditional depth guards);
+compile time ~4x faster than ajv's. Standalone emission (D10): fully
+static schemas → self-contained ES modules; `npm run csp:check` re-runs
+332 suite groups + injection corpus (1164 verdicts) under
+`node --disallow-code-generation-from-strings`, zero failures; island
+schemas use the interpreter under CSP by design. Post-gate optimizations
+deferred: compiled list/Basic output + lazy unit materialization (D9e,
+with the M7-era output work), Set-vs-chain membership thresholds beyond
+the defaults (D9d — chains measured sufficient at suite scale), island
+re-entry (revisit trigger recorded in §7).

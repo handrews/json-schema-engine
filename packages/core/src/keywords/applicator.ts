@@ -132,7 +132,20 @@ export const oneOf: KeywordBehavior = {
 /** `not`: the subschema must not match. */
 export const not: KeywordBehavior = {
   id: id("not"),
-  analyze: () => selfApplication("inPlace", false, true),
+  analyze: () => ({
+    ...SELF,
+    applications: [
+      // inverted: success fails `not`, so this edge never contributes
+      // evaluated-coverage on the parent-success path (D9a).
+      {
+        path: [],
+        mode: "inPlace",
+        conditional: false,
+        asserts: true,
+        inverted: true,
+      },
+    ],
+  }),
   lower: (_value, lctx) => {
     lctx.emit({
       kind: "apply",

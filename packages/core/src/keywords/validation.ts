@@ -60,9 +60,6 @@ const guardedCompare =
       ),
     );
   };
-
-const lengthMeasure = (lctx: LoweringContext): LowerExpr =>
-  lowerIR.helper("codePointLength", lctx.instance);
 const arrayLengthMeasure = (lctx: LoweringContext): LowerExpr =>
   lowerIR.helper("lengthOf", lctx.instance);
 const propertyCountMeasure = (lctx: LoweringContext): LowerExpr =>
@@ -226,12 +223,29 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
         codePointLength(instance) >= (value as number),
       (value) => `must be at least ${value as number} characters`,
     ),
-    lower: guardedCompare(
-      "string",
-      lengthMeasure,
-      ">=",
-      (value) => `must be at least ${value as number} characters`,
-    ),
+    // Violation = code points < n. UTF-16 units bound points from above
+    // (points <= units) and below (points >= units/2), so units alone decide
+    // outside [n, 2n) — codePointLength runs only in that window (D9).
+    lower: (value, lctx) => {
+      const n = value as number;
+      const len = lowerIR.helper("lengthOf", lctx.instance);
+      const cpl = lowerIR.helper("codePointLength", lctx.instance);
+      lctx.emit(
+        lowerIR.when(
+          lowerIR.and(
+            lowerIR.typeIs(lctx.instance, "string"),
+            lowerIR.or(
+              lowerIR.cmp("<", len, lowerIR.constant(n)),
+              lowerIR.and(
+                lowerIR.cmp("<", len, lowerIR.constant(2 * n)),
+                lowerIR.cmp("<", cpl, lowerIR.constant(n)),
+              ),
+            ),
+          ),
+          [lowerIR.fail(`must be at least ${n} characters`)],
+        ),
+      );
+    },
   },
   maxLength: {
     ...assertion(
@@ -241,12 +255,29 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
         codePointLength(instance) <= (value as number),
       (value) => `must be at most ${value as number} characters`,
     ),
-    lower: guardedCompare(
-      "string",
-      lengthMeasure,
-      "<=",
-      (value) => `must be at most ${value as number} characters`,
-    ),
+    // Violation = code points > n; units <= n implies points <= n, so the
+    // expensive count runs only when units exceed the bound (D9).
+    lower: (value, lctx) => {
+      const n = value as number;
+      lctx.emit(
+        lowerIR.when(
+          lowerIR.and(
+            lowerIR.typeIs(lctx.instance, "string"),
+            lowerIR.cmp(
+              ">",
+              lowerIR.helper("lengthOf", lctx.instance),
+              lowerIR.constant(n),
+            ),
+            lowerIR.cmp(
+              ">",
+              lowerIR.helper("codePointLength", lctx.instance),
+              lowerIR.constant(n),
+            ),
+          ),
+          [lowerIR.fail(`must be at most ${n} characters`)],
+        ),
+      );
+    },
   },
   minimum: {
     ...assertion(

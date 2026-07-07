@@ -3,8 +3,9 @@
 Maintainer-facing overview of how the engine is put together. The decision
 record behind each element is [DESIGN.md](../DESIGN.md); the market and
 architecture analysis is [ANALYSIS.md](../ANALYSIS.md). This page describes
-the system as built through M6.1 (compiler contracts); the compiler tier
-itself lands across M6.2–M6.5.
+the system as built through M6.5: both tiers are operational — the full
+draft2020-12 suite passes through the compiled tier, and the differential
+fuzzer holds the two tiers verdict-identical.
 
 ## Two tiers, one keyword registry
 
@@ -44,7 +45,7 @@ flowchart TD
         OUT["output renderers\nflag · list · hierarchical ·\nBasic/Detailed/Verbose (D6)"]
         INT --> OUT
     end
-    subgraph COMP ["@jse/compiler (M6.2+)"]
+    subgraph COMP ["@jse/compiler"]
         PLAN["planner\nstatic units vs interpreted units\n(islands, fallbacks, cycles)"]
         LOWER["keyword lower() → IR"]
         EMIT["gated serializer\ntyped escapes only (D20)"]

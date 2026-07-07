@@ -5,7 +5,6 @@
 // DESIGN §7). All text assembly goes through the gated formatter (emit.ts).
 
 import {
-  type Dialect,
   type JsonValue,
   type LowerApply,
   type LowerCursor,
@@ -25,14 +24,36 @@ const T = id("T"); // interpreted-target table
 
 const unitFn = (index: number): CodeChunk => id("u" + String(index));
 const bindingVar = (n: number): CodeChunk => id("b" + String(n));
+const regexConst = (i: number): CodeChunk => id("r" + String(i));
 const counterVar = (n: number): CodeChunk => id("c" + String(n));
 
 class SerializeError extends Error {}
+
+/**
+ * Emission mode: "runtime" artifacts close over the Runtime object R
+ * (instantiated via new Function); "standalone" artifacts are self-contained
+ * ES modules whose preamble (standalone.ts) defines the same h_-named
+ * helpers, so the body serialization is identical.
+ */
+export type EmitMode = "runtime" | "standalone";
+
+/**
+ * Optimization switches (M6.5). `conservative` artifacts disable inlining
+ * and the plain-data fast paths — the fuzzer runs both configurations so an
+ * optimization can never change a verdict unnoticed.
+ */
+export interface EmitFlags {
+  inline: boolean;
+  plainData: boolean;
+}
+const DEFAULT_FLAGS: EmitFlags = { inline: true, plainData: true };
 
 /** Serializes one compilation plan into artifact source (flag mode). */
 export function serializePlan(
   plan: CompilationPlan,
   registry: SchemaRegistry,
+  mode: EmitMode = "runtime",
+  flags: EmitFlags = DEFAULT_FLAGS,
 ): string {
   // Assign function indexes to static units, table slots to interpreted.
   const fnIndex = new Map<string, number>();
@@ -43,22 +64,68 @@ export function serializePlan(
   }
   plan.targets.forEach((u, i) => tableIndex.set(u.key, i));
 
-  const functions: CodeChunk[] = [];
+  const rendered: {
+    key: string;
+    boolean: boolean;
+    chunk: CodeChunk;
+    inlined: ReadonlySet<string>;
+  }[] = [];
   for (const unit of plan.units.values()) {
     if (unit.kind !== "static") continue;
-    functions.push(serializeUnit(unit, plan, registry, fnIndex, tableIndex));
+    rendered.push(
+      serializeUnit(unit, plan, registry, fnIndex, tableIndex, flags),
+    );
   }
+  // Drop dead functions: units expanded into their caller (D9c) and boolean
+  // units (their applications folded to literals). The root always stays.
+  const inlinedEverywhere = new Set<string>();
+  for (const r of rendered) for (const k of r.inlined) inlinedEverywhere.add(k);
+  const functions = rendered
+    .filter(
+      (r) =>
+        r.key === plan.rootKey || (!inlinedEverywhere.has(r.key) && !r.boolean),
+    )
+    .map((r) => r.chunk);
 
   const root = plan.units.get(plan.rootKey)!;
   const rootCall =
     root.kind === "static"
-      ? js`${unitFn(fnIndex.get(root.key)!)}(${V}, 0, [])`
-      : js`${R}.frag(${T}[${num(tableIndex.get(root.key)!)}], ${V}, [], 0)`;
+      ? js`${unitFn(fnIndex.get(root.key)!)}(${V}, 0, ${id("h_s0")})`
+      : js`${id("h_frag")}(${T}[${num(tableIndex.get(root.key)!)}], ${V}, ${id("h_s0")}, 0)`;
 
+  // Prologue hoists (D9f): helper bindings, the depth bound, and one const
+  // per regex source — property/table lookups move out of the hot path.
+  // Standalone mode: the module preamble (standalone.ts) already defines the
+  // h_-named helpers; only the regex consts are emitted here, built through
+  // the preamble's u-flag-with-fallback constructor.
+  const prologue: CodeChunk[] = [];
+  if (mode === "runtime") {
+    prologue.push(
+      js`const { isObject: h_obj, isInteger: h_int, jsonEqual: h_eq, canonicalKey: h_ck, codePointLength: h_cpl, escapeSegment: h_esc, isMultipleOf: h_mof, hasDuplicateItems: h_dup, frag: h_frag, tooDeep: h_deep } = ${R};`,
+      js`const h_maxd = ${R}.maxDepth;`,
+      // Shared empty dynamic scope: units append-by-copy, never mutate.
+      js`const h_s0 = [];`,
+      js`const h_hop = Object.prototype.hasOwnProperty;`,
+    );
+  }
+  plan.patterns.forEach((source, i) => {
+    prologue.push(
+      mode === "runtime"
+        ? js`const ${regexConst(i)} = ${R}.re[${str(source)}];`
+        : js`const ${regexConst(i)} = ${id("h_rx")}(${str(source)});`,
+    );
+  });
+
+  const footer =
+    mode === "runtime"
+      ? js`\nreturn function validate(${V}) { return ${rootCall}; };\n`
+      : js`\nexport default function validate(${V}) { return ${rootCall}; };\n`;
   return frag(
-    raw('"use strict";\n'),
+    raw(mode === "runtime" ? '"use strict";\n' : ""),
+    join("\n", prologue),
+    raw("\n"),
     join("\n", functions),
-    js`\nreturn function validate(${V}) { return ${rootCall}; };\n`,
+    footer,
   ).text;
 }
 
@@ -68,18 +135,26 @@ function serializeUnit(
   registry: SchemaRegistry,
   fnIndex: Map<string, number>,
   tableIndex: Map<string, number>,
-): CodeChunk {
+  flags: EmitFlags,
+): {
+  key: string;
+  boolean: boolean;
+  chunk: CodeChunk;
+  inlined: ReadonlySet<string>;
+} {
   const fn = unitFn(fnIndex.get(unit.key)!);
   const node = unit.ref.node;
 
   if (typeof node === "boolean") {
-    return js`function ${fn}() { return ${raw(String(node))}; }`;
+    return {
+      key: unit.key,
+      boolean: true,
+      chunk: js`function ${fn}() { return ${raw(String(node))}; }`,
+      inlined: new Set(),
+    };
   }
 
-  const dialect: Dialect = registry.dialectFor(unit.ref.baseUri);
   const body: CodeChunk[] = [];
-  // Depth guard mirrors applySchema's (D20): combined budget with fragments.
-  body.push(js`if (${D} >= ${R}.maxDepth) ${R}.tooDeep(); ${D}++;`);
   if (unit.reachesInterpreted) {
     // Dynamic-scope contribution: appended once per application, duplicates
     // harmless (outermost-first resolution). Only threaded where a fragment
@@ -87,31 +162,54 @@ function serializeUnit(
     body.push(js`${S} = [...${S}, ${str(unit.ref.baseUri)}];`);
   }
 
-  const ctx = new UnitContext(unit, plan, registry, fnIndex, tableIndex);
-  for (const entry of dialect.ordered) {
-    const schema = node as Record<string, JsonValue>;
-    if (!Object.hasOwn(schema, entry.name)) continue;
-    const behavior = entry.behavior;
-    if (typeof behavior.lower !== "function") {
-      throw new SerializeError(
-        "planner accepted unlowerable keyword '" + entry.name + "' (bug)",
-      );
-    }
-    const stmts = ctx.collect(entry.name, (lctx) => {
-      behavior.lower!(schema[entry.name]!, lctx);
-    });
-    body.push(...ctx.keywordStatements(stmts));
+  const ctx = new UnitContext(
+    unit,
+    plan,
+    registry,
+    fnIndex,
+    tableIndex,
+    V,
+    { binding: 0, tally: 0, temp: 0 },
+    new Set([unit.key]),
+    null,
+    flags,
+  );
+  const unitStmts = ctx.unitBody();
+  // Depth guard (D20 combined budget) only where a chain can grow: a
+  // function that calls no unit/fragment cannot recurse, and its own entry
+  // was budgeted by every caller on the way down.
+  if (ctx.calledUnit) {
+    body.unshift(js`if (${D} >= ${id("h_maxd")}) ${id("h_deep")}(); ${D}++;`);
   }
+  const guard = ctx.guardDecl();
+  if (guard) body.push(guard);
+  body.push(...unitStmts);
 
   body.push(js`return true;`);
-  return js`function ${fn}(${V}, ${D}, ${S}) { ${join("\n", body)} }`;
+  return {
+    key: unit.key,
+    boolean: false,
+    chunk: js`function ${fn}(${V}, ${D}, ${S}) { ${join("\n", body)} }`,
+    inlined: ctx.inlinedKeys,
+  };
 }
 
 /** Per-unit serialization state: bindings, keyword context, apply targets. */
+interface Counters {
+  binding: number;
+  tally: number;
+  temp: number;
+}
+
 class UnitContext {
-  private bindingCounter = 0;
-  private counterCounter = 0;
   private currentKeyword = "";
+  // Object-guard CSE: one `const gN = (typeof x === "object" && …)` per
+  // unit value, prepended by the body builder when used. Inlined `here`-
+  // cursor children share the parent's guard (same value, same variable).
+  private objGuardVar: CodeChunk | null = null;
+  objGuardUsed = false;
+  /** set when this unit's body (incl. inlines) emits any unit/frag call */
+  calledUnit = false;
 
   constructor(
     private unit: PlannedUnit,
@@ -119,7 +217,53 @@ class UnitContext {
     private registry: SchemaRegistry,
     private fnIndex: Map<string, number>,
     private tableIndex: Map<string, number>,
+    /** JS variable holding this unit's instance value (V, or an inline temp) */
+    private valueVar: CodeChunk,
+    /** shared per-function counters so inlined bodies never collide */
+    private counters: Counters,
+    /** unit keys on the current inline chain (self-inline guard) */
+    private inlineStack: ReadonlySet<string>,
+    /** parent context sharing the same instance value (here-cursor inline) */
+    private guardParent: UnitContext | null = null,
+    private flags: EmitFlags = DEFAULT_FLAGS,
   ) {}
+
+  /** The CSE'd object-test variable for this unit's own value. */
+  ensureObjGuard(): CodeChunk {
+    if (this.guardParent) return this.guardParent.ensureObjGuard();
+    this.objGuardVar ??= id("g" + String(this.counters.temp++));
+    this.objGuardUsed = true;
+    return this.objGuardVar;
+  }
+
+  /** Declaration for the guard, when any statement used it. */
+  guardDecl(): CodeChunk | null {
+    if (this.guardParent || !this.objGuardUsed || !this.objGuardVar)
+      return null;
+    const x = this.valueVar;
+    return js`const ${this.objGuardVar} = (typeof ${x} === "object" && ${x} !== null && !Array.isArray(${x}));`;
+  }
+
+  /** Serialize every present keyword of this unit, in dialect order. */
+  unitBody(): CodeChunk[] {
+    const node = this.unit.ref.node as Record<string, JsonValue>;
+    const dialect = this.registry.dialectFor(this.unit.ref.baseUri);
+    const out: CodeChunk[] = [];
+    for (const entry of dialect.ordered) {
+      if (!Object.hasOwn(node, entry.name)) continue;
+      const behavior = entry.behavior;
+      if (typeof behavior.lower !== "function") {
+        throw new SerializeError(
+          "planner accepted unlowerable keyword '" + entry.name + "' (bug)",
+        );
+      }
+      const stmts = this.collect(entry.name, (lctx) => {
+        behavior.lower!(node[entry.name]!, lctx);
+      });
+      out.push(...this.keywordStatements(stmts));
+    }
+    return out;
+  }
 
   /** Run one keyword's lower() against a fresh LoweringContext, return its stmts. */
   collect(keyword: string, run: (lctx: LoweringContext) => void): LowerStmt[] {
@@ -131,7 +275,7 @@ class UnitContext {
       schema: unit.ref.node as Record<string, JsonValue>,
       staticCoverage: () => unit.coverage,
       emit: (...s) => stmts.push(...s),
-      binding: () => this.bindingCounter++,
+      binding: () => this.counters.binding++,
     };
     run(lctx);
     return stmts;
@@ -157,7 +301,7 @@ class UnitContext {
     };
     const flushOne = () => {
       if (oneRun.length === 0) return;
-      const c = counterVar(this.counterCounter++);
+      const c = counterVar(this.counters.tally++);
       const incs = oneRun.map((call) => js`if (${call}) ${c}++;`);
       out.push(
         js`let ${c} = 0; ${join(" ", incs)} if (${c} !== 1) return false;`,
@@ -205,7 +349,14 @@ class UnitContext {
           "\n",
           stmt.body.map((s) => this.statement(s)),
         );
-        return js`for (const ${b} of Object.keys(${this.expr(stmt.target)})) { ${body} }`;
+        // Plain for-in: under the plain-data instance contract (DESIGN §7)
+        // instances carry no inherited enumerables, so for-in ≡ Object.keys
+        // without the per-validation array allocation.
+        const t = this.expr(stmt.target);
+        if (this.flags.plainData) {
+          return js`for (const ${b} in ${t}) { ${body} }`;
+        }
+        return js`for (const ${b} of Object.keys(${t})) { ${body} }`;
       }
       case "forEachIndex": {
         const b = bindingVar(stmt.binding);
@@ -227,7 +378,7 @@ class UnitContext {
         return this.applyStatement(stmt.apply);
       case "countRange": {
         const b = bindingVar(stmt.binding);
-        const c = counterVar(this.counterCounter++);
+        const c = counterVar(this.counters.tally++);
         const loop = js`let ${c} = 0; for (let ${b} = 0; ${b} < ${this.expr(stmt.target)}.length; ${b}++) { if (${this.expr(stmt.countWhen)}) ${c}++; }`;
         const max = Number.isFinite(stmt.max) ? num(stmt.max) : null;
         const rangeCheck =
@@ -240,7 +391,14 @@ class UnitContext {
   }
 
   private applyStatement(apply: LowerApply): CodeChunk {
+    if (apply.fold === "allMustPass") {
+      const inlined = this.tryInline(apply);
+      if (inlined) return inlined;
+    }
     const call = this.applyCall(apply);
+    if (apply.fold === "allMustPass" && call.text === "true") return js``;
+    if (apply.fold === "allMustPass" && call.text === "false")
+      return js`return false;`;
     switch (apply.fold) {
       case "allMustPass":
         return js`if (!${call}) return false;`;
@@ -263,6 +421,70 @@ class UnitContext {
     }
   }
 
+  /**
+   * D9c inlining: a single-use, static, non-island, non-boolean target of an
+   * allMustPass apply expands into the caller — its lowered `return false`
+   * IS the caller's correct failure action, so the body drops in verbatim
+   * with the instance rebound to a temp. The inline stack guards
+   * self-recursion; recursive chains keep their function calls (the depth
+   * budget bounds them). Inlined units skip the per-call depth tick: their
+   * nesting is statically bounded, and maxDepth is a resource bound, not an
+   * exact-count contract (D20/§7).
+   */
+  private tryInline(apply: LowerApply): CodeChunk | null {
+    if (!this.flags.inline) return null;
+    let targetKey: string;
+    if (apply.ref !== undefined) {
+      targetKey = this.edgeTarget(apply.ref, null);
+    } else {
+      targetKey = this.edgeTarget(null, apply);
+    }
+    const target = this.plan.units.get(targetKey);
+    if (
+      target?.kind !== "static" ||
+      typeof target.ref.node === "boolean" ||
+      target.useCount !== 1 ||
+      target.reachesInterpreted ||
+      this.inlineStack.has(targetKey) ||
+      this.inlineStack.size > 32
+    ) {
+      return null;
+    }
+    // A `here` cursor applies at the same instance value: reuse the host's
+    // variable and its object guard instead of aliasing through a temp.
+    const here = apply.cursor.kind === "here";
+    const childVar = here
+      ? this.valueVar
+      : id("t" + String(this.counters.temp++));
+    const child = new UnitContext(
+      target,
+      this.plan,
+      this.registry,
+      this.fnIndex,
+      this.tableIndex,
+      childVar,
+      this.counters,
+      new Set([...this.inlineStack, targetKey]),
+      here ? this : null,
+      this.flags,
+    );
+    const body = child.unitBody();
+    if (child.calledUnit) this.calledUnit = true;
+    this.inlinedKeys.add(targetKey);
+    for (const k of child.inlinedKeys) this.inlinedKeys.add(k);
+    const parts: CodeChunk[] = [];
+    if (!here) {
+      parts.push(js`const ${childVar} = ${this.cursorValue(apply.cursor)};`);
+    }
+    const childGuard = child.guardDecl();
+    if (childGuard) parts.push(childGuard);
+    parts.push(...body);
+    return join("\n", parts);
+  }
+
+  /** Unit keys this context (transitively) inlined — their functions are omitted. */
+  readonly inlinedKeys = new Set<string>();
+
   private applyCall(apply: LowerApply): CodeChunk {
     // Resolve the target exactly as the planner did.
     let targetKey: string;
@@ -277,12 +499,18 @@ class UnitContext {
       throw new SerializeError("apply target '" + targetKey + "' not planned");
     }
     if (target.kind === "static") {
+      // Boolean subschemas fold to literals — no call, no unit function.
+      if (typeof target.ref.node === "boolean") {
+        return target.ref.node ? js`true` : js`false`;
+      }
       const fn = unitFn(this.fnIndex.get(targetKey)!);
-      const scope = this.unit.reachesInterpreted ? S : js`[]`;
+      const scope = this.unit.reachesInterpreted ? S : id("h_s0");
+      this.calledUnit = true;
       return js`${fn}(${valueExpr}, ${D}, ${scope})`;
     }
     const slot = num(this.tableIndex.get(targetKey)!);
-    return js`${R}.frag(${T}[${slot}], ${valueExpr}, ${S}, ${D})`;
+    this.calledUnit = true;
+    return js`${id("h_frag")}(${T}[${slot}], ${valueExpr}, ${S}, ${D})`;
   }
 
   // The planner recorded edges in keyword order; match an apply back to its
@@ -312,7 +540,7 @@ class UnitContext {
   }
 
   private cursorValue(cursor: LowerCursor): CodeChunk {
-    if (cursor.kind === "here") return V;
+    if (cursor.kind === "here") return this.valueVar;
     // propertyNames: the loop binding IS the instance (the key string),
     // not a child reached by descending from a parent cursor.
     if (cursor.kind === "key") return bindingVar(cursor.binding);
@@ -326,7 +554,7 @@ class UnitContext {
   expr(e: LowerExpr): CodeChunk {
     switch (e.kind) {
       case "instance":
-        return V;
+        return this.valueVar;
       case "const":
         return json(e.value);
       case "member":
@@ -338,18 +566,33 @@ class UnitContext {
       case "typeIs":
         return this.typeTest(e.target, e.types);
       case "hasOwn": {
-        const key = typeof e.key === "string" ? str(e.key) : this.expr(e.key);
-        return js`Object.hasOwn(${this.expr(e.target)}, ${key})`;
+        // Plain-data instance contract (DESIGN §7, M6.5): for JSON data,
+        // presence-of-own-key ≡ `!== undefined` — V8 executes the load ~8x
+        // faster than Object.hasOwn. Keys that exist on Object.prototype
+        // (constructor, toString, …) or are "__proto__" would false-positive
+        // through the prototype chain, so those keep an explicit own-check.
+        if (typeof e.key === "string") {
+          const dangerous = e.key === "__proto__" || e.key in Object.prototype;
+          if (this.flags.plainData && !dangerous) {
+            return js`(${this.expr(e.target)}[${str(e.key)}] !== undefined)`;
+          }
+          return js`${id("h_hop")}.call(${this.expr(e.target)}, ${str(e.key)})`;
+        }
+        return js`${id("h_hop")}.call(${this.expr(e.target)}, ${this.expr(e.key)})`;
       }
       case "cmp":
         return js`(${this.expr(e.left)} ${raw(e.op)} ${this.expr(e.right)})`;
       case "helper":
         return this.helperCall(e.helper, e.args);
-      case "regexTest":
-        if (!this.plan.patterns.includes(e.source)) {
-          this.plan.patterns.push(e.source); // coverage patterns arrive here
+      case "regexTest": {
+        let idx = this.plan.patterns.indexOf(e.source);
+        if (idx === -1) {
+          // Coverage patterns can first appear here; the prologue is built
+          // after all units serialize, so late additions still hoist.
+          idx = this.plan.patterns.push(e.source) - 1;
         }
-        return js`${R}.re[${str(e.source)}].test(${this.expr(e.target)})`;
+        return js`${regexConst(idx)}.test(${this.expr(e.target)})`;
+      }
       case "not":
         return js`!(${this.expr(e.expr)})`;
       case "logic": {
@@ -372,13 +615,18 @@ class UnitContext {
     const tests = types.map((t) => {
       switch (t) {
         case "object":
-          return js`${R}.isObject(${x})`;
+          // Inline (no helper call); CSE'd into one guard per unit value —
+          // repeated per-property object tests dominated flag-mode profiles.
+          if (x.text === this.valueVar.text && types.length === 1) {
+            return this.ensureObjGuard();
+          }
+          return js`(typeof ${x} === "object" && ${x} !== null && !Array.isArray(${x}))`;
         case "array":
           return js`Array.isArray(${x})`;
         case "null":
           return js`(${x} === null)`;
         case "integer":
-          return js`${R}.isInteger(${x})`;
+          return js`(typeof ${x} === "number" && Number.isInteger(${x}))`;
         case "string":
         case "boolean":
           return js`(typeof ${x} === ${str(t)})`;
@@ -392,7 +640,26 @@ class UnitContext {
   }
 
   private helperCall(helper: string, args: readonly LowerExpr[]): CodeChunk {
+    if (helper === "jsonEqual") {
+      const prim = args.find(
+        (a) =>
+          a.kind === "const" &&
+          (a.value === null || typeof a.value !== "object"),
+      );
+      const other = args.find((a) => a !== prim);
+      if (prim && other) {
+        return js`(${this.expr(other)} === ${this.expr(prim)})`;
+      }
+    }
     const rendered = args.map((a) => this.expr(a));
+    const hoisted: Record<string, string> = {
+      codePointLength: "h_cpl",
+      jsonEqual: "h_eq",
+      canonicalKey: "h_ck",
+      escapeSegment: "h_esc",
+      isMultipleOf: "h_mof",
+      hasDuplicateItems: "h_dup",
+    };
     switch (helper) {
       case "keysOf":
         return js`Object.keys(${rendered[0]!})`;
@@ -404,7 +671,7 @@ class UnitContext {
       case "escapeSegment":
       case "isMultipleOf":
       case "hasDuplicateItems":
-        return js`${R}.${id(helper)}(${join(", ", rendered)})`;
+        return js`${id(hoisted[helper]!)}(${join(", ", rendered)})`;
       default:
         throw new SerializeError("helper '" + helper + "' is not supported");
     }

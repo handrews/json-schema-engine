@@ -8,9 +8,7 @@ import {
   DIALECT_2020_12,
   UnresolvableRefError,
   type Engine,
-  type IndexCoverage,
   type JsonValue,
-  type NameCoverage,
   type SchemaRef,
   type StaticFacts,
   type SubschemaApplication,
@@ -51,6 +49,8 @@ export interface PlannedUnit {
   coverage: StaticNameCoverage | null;
   /** true when any apply path from this unit can reach an interpreted unit */
   reachesInterpreted: boolean;
+  /** number of planned edges targeting this unit (D9 inline licensing) */
+  useCount: number;
 }
 
 export interface CompilationPlan {
@@ -98,6 +98,7 @@ export function buildPlan(engine: Engine, schemaUri: string): CompilationPlan {
       edges: [],
       coverage: null,
       reachesInterpreted: false,
+      useCount: 0,
     };
     units.set(key, unit);
 
@@ -123,10 +124,7 @@ export function buildPlan(engine: Engine, schemaUri: string): CompilationPlan {
       facts: StaticFacts;
     }
     const present: KeywordPlan[] = [];
-    let hasInPlace = false;
     let consumerPresent = false;
-    const nameCoverages: NameCoverage[] = [];
-    const indexCoverages: IndexCoverage[] = [];
     for (const entry of dialect.ordered) {
       if (!Object.hasOwn(node, entry.name)) continue;
       const behavior = entry.behavior;
@@ -142,59 +140,42 @@ export function buildPlan(engine: Engine, schemaUri: string): CompilationPlan {
         unit.cause = "unlowerable";
         return unit;
       }
-      const isConsumer = (facts.consumes?.length ?? 0) > 0;
-      if (isConsumer) consumerPresent = true;
-      // A consumer's own coverage fact describes the state AFTER it runs;
-      // its sweep is licensed by prior contributors only.
-      if (facts.evaluatesNames && !isConsumer)
-        nameCoverages.push(facts.evaluatesNames);
-      if (facts.evaluatesIndexes && !isConsumer)
-        indexCoverages.push(facts.evaluatesIndexes);
-      for (const app of facts.applications ?? []) {
-        if (app.mode === "inPlace") hasInPlace = true;
-      }
+      if ((facts.consumes?.length ?? 0) > 0) consumerPresent = true;
       for (const rx of facts.regexes ?? []) patterns.add(rx);
       present.push({ name: entry.name, facts });
     }
     // Unknown keywords: annotation-only productions, elided in flag mode.
 
-    // Consumer licensing (slice rule): a channel consumer lowers only when
-    // every coverage contributor is this object's own static trio — any
-    // in-place application or dynamic coverage forces the interpreter.
+    // Consumer licensing (D9a): a consumer lowers only when its coverage
+    // kind is statically known — from this object's own contributors plus,
+    // transitively, unconditional asserting in-place applications (allOf
+    // conjuncts, $ref chains). Anything runtime-conditional (anyOf/oneOf/
+    // if/dependentSchemas branches, if's condition, dynamic references,
+    // cycles) makes that coverage kind dynamic and the node interpreted.
     if (consumerPresent) {
+      const halves = coverageHalves(registry, ref, new Set(), true);
+      const needsNames = present.some(
+        (k) => (k.facts.consumes?.length ?? 0) > 0 && k.facts.evaluatesNames,
+      );
+      const needsIndexes = present.some(
+        (k) => (k.facts.consumes?.length ?? 0) > 0 && k.facts.evaluatesIndexes,
+      );
       if (
-        hasInPlace ||
-        nameCoverages.some((c) => c.kind === "dynamic") ||
-        indexCoverages.some((c) => c.kind === "dynamic")
+        (needsNames && halves.name === null) ||
+        (needsIndexes && halves.index === null)
       ) {
         unit.kind = "interpreted";
         unit.cause = "unlowerable";
         return unit;
       }
-      const names = new Set<string>();
-      const patternList: string[] = [];
-      let coversAllNames = false;
-      for (const c of nameCoverages) {
-        if (c.kind === "names") for (const n of c.names) names.add(n);
-        else if (c.kind === "patterns") patternList.push(...c.patterns);
-        else if (c.kind === "all") coversAllNames = true;
-      }
-      let prefixCount = 0;
-      let coversAllIndexes = false;
-      for (const c of indexCoverages) {
-        if (c.kind === "prefix") prefixCount = Math.max(prefixCount, c.count);
-        else if (c.kind === "allFrom" || c.kind === "all") {
-          coversAllIndexes = true;
-        }
-      }
       unit.coverage = {
-        names: [...names],
-        patterns: patternList,
-        coversAllNames,
-        prefixCount,
-        coversAllIndexes,
+        names: halves.name ? [...halves.name.names] : [],
+        patterns: halves.name ? halves.name.patterns : [],
+        coversAllNames: halves.name?.all ?? false,
+        prefixCount: halves.index?.prefix ?? 0,
+        coversAllIndexes: halves.index?.all ?? false,
       };
-      for (const p of patternList) patterns.add(p);
+      for (const pat of unit.coverage.patterns) patterns.add(pat);
     }
 
     // Resolve application edges; plan children.
@@ -262,6 +243,11 @@ export function buildPlan(engine: Engine, schemaUri: string): CompilationPlan {
     }
   }
 
+  for (const unit of units.values()) {
+    if (unit.kind !== "static") continue;
+    for (const edge of unit.edges) units.get(edge.targetKey)!.useCount++;
+  }
+
   const targets = [...units.values()].filter((u) => u.kind === "interpreted");
   return {
     rootKey: root.key,
@@ -269,4 +255,110 @@ export function buildPlan(engine: Engine, schemaUri: string): CompilationPlan {
     patterns: [...patterns],
     targets,
   };
+}
+
+/** Per-kind static coverage: null = dynamic (statically unknowable). */
+interface CoverageHalves {
+  name: { names: Set<string>; patterns: string[]; all: boolean } | null;
+  index: { prefix: number; all: boolean } | null;
+}
+
+/**
+ * The evaluated-coverage a schema node contributes at its own cursor (D9a),
+ * including — transitively — unconditional asserting in-place applications.
+ * `excludeConsumers` is true only for the licensing node itself: a
+ * consumer's own coverage fact describes the state AFTER it runs. Inside
+ * transitive targets, consumer facts count (post-success contribution).
+ * Facts come from analyze() and are valid regardless of which tier
+ * evaluates the target, so contribution is independent of compilability.
+ */
+function coverageHalves(
+  registry: import("@jse/core").SchemaRegistry,
+  ref: SchemaRef,
+  visiting: Set<string>,
+  excludeConsumers: boolean,
+): CoverageHalves {
+  const key = unitKey(ref);
+  if (visiting.has(key)) return { name: null, index: null }; // cycle
+  visiting.add(key);
+  try {
+    const node = ref.node;
+    if (typeof node === "boolean") {
+      // Contributes nothing; `false` fails the parent, making coverage moot.
+      return {
+        name: { names: new Set(), patterns: [], all: false },
+        index: { prefix: 0, all: false },
+      };
+    }
+    if (!isObj(node)) return { name: null, index: null };
+    const dialect = registry.dialectFor(ref.baseUri);
+    if (dialect.uri !== DIALECT_2020_12) return { name: null, index: null };
+
+    const acc: CoverageHalves = {
+      name: { names: new Set(), patterns: [], all: false },
+      index: { prefix: 0, all: false },
+    };
+    const fold = (h: CoverageHalves): void => {
+      if (acc.name && h.name) {
+        for (const n of h.name.names) acc.name.names.add(n);
+        acc.name.patterns.push(...h.name.patterns);
+        acc.name.all ||= h.name.all;
+      } else acc.name = null;
+      if (acc.index && h.index) {
+        acc.index.prefix = Math.max(acc.index.prefix, h.index.prefix);
+        acc.index.all ||= h.index.all;
+      } else acc.index = null;
+    };
+
+    for (const entry of dialect.ordered) {
+      if (!Object.hasOwn(node, entry.name)) continue;
+      const value = node[entry.name]!;
+      const facts = entry.behavior.analyze?.(value, { schema: node }) ?? {};
+      if (facts.dynamicScopeSensitive) return { name: null, index: null };
+      const isConsumer = (facts.consumes?.length ?? 0) > 0;
+      if (!(excludeConsumers && isConsumer)) {
+        if (acc.name && facts.evaluatesNames) {
+          const c = facts.evaluatesNames;
+          if (c.kind === "dynamic") acc.name = null;
+          else if (c.kind === "all") acc.name.all = true;
+          else if (c.kind === "names")
+            for (const n of c.names) acc.name.names.add(n);
+          else acc.name.patterns.push(...c.patterns);
+        }
+        if (acc.index && facts.evaluatesIndexes) {
+          const c = facts.evaluatesIndexes;
+          if (c.kind === "dynamic") acc.index = null;
+          else if (c.kind === "prefix")
+            acc.index.prefix = Math.max(acc.index.prefix, c.count);
+          // allFrom's start is bounded by this node's own prefix
+          // contribution (items starts after sibling prefixItems), so the
+          // per-node union covers everything.
+          else acc.index.all = true;
+        }
+      }
+      for (const app of facts.applications ?? []) {
+        if (app.mode !== "inPlace") continue; // child cursors: no contribution here
+        if (app.inverted) continue; // never survives the parent-success path
+        if (app.conditional || !app.asserts) {
+          // Runtime-conditional contribution (branching, or if's condition
+          // merging only on its own success): statically unknowable.
+          return { name: null, index: null };
+        }
+        let target: SchemaRef;
+        try {
+          target =
+            app.ref !== undefined
+              ? registry.resolveRef(app.ref, ref.baseUri)
+              : registry.child(ref, [app.sibling ?? entry.name, ...app.path]);
+        } catch {
+          return { name: null, index: null };
+        }
+        fold(coverageHalves(registry, target, visiting, false));
+      }
+      if (!acc.name && !acc.index) return acc; // both dynamic already
+    }
+    return acc;
+  } finally {
+    visiting.delete(key);
+  }
 }
