@@ -14,6 +14,7 @@ import {
   AjvCompatUnsupportedError,
   type Options,
 } from "../src/index.js";
+import addFormats from "../src/formats.js";
 
 interface FixtureCase {
   dialect: "draft-07" | "2020-12";
@@ -37,11 +38,7 @@ const FIXTURE = JSON.parse(
   ),
 ) as Record<string, FixtureCase>;
 
-const SKIP = new Set([
-  "discriminator", // M8.4
-  "format-comparison", // M8.4 (ajv-formats keywords option)
-  "format", // needs the M8.4 ajv-formats parity module for the table
-]);
+const SKIP = new Set<string>([]);
 
 describe("Ajv class ≡ AJV oracle (end-to-end)", () => {
   for (const [name, c] of Object.entries(FIXTURE)) {
@@ -53,6 +50,13 @@ describe("Ajv class ≡ AJV oracle (end-to-end)", () => {
         logger: false,
       };
       const ajv = c.dialect === "2020-12" ? new Ajv2020(opts) : new Ajv(opts);
+      // The oracle's `format`/`format-comparison` cases were captured with
+      // ajv-formats registered (test/oracle/capture.ts); the fixture's own
+      // `options` doesn't carry that (it's a constructor option, not one) —
+      // only these two names need the parity module wired in here.
+      if (name === "format" || name === "format-comparison") {
+        addFormats(ajv, { keywords: true });
+      }
       const validate = ajv.compile(c.schema);
       expect(validate(c.data), "verdict").toBe(c.valid);
       expect(validate.errors).toEqual(c.valid ? null : c.errors);

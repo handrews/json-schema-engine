@@ -27,6 +27,11 @@ import {
   type CompiledListArtifact,
 } from "@jse/compiler";
 import { mapErrors, type AjvErrorObject } from "./errors.js";
+import {
+  checkDiscriminators,
+  discriminatedOneOf,
+  discriminatorBehavior,
+} from "./discriminator.js";
 
 export type { AjvErrorObject } from "./errors.js";
 export type ErrorObject = AjvErrorObject;
@@ -68,9 +73,10 @@ export interface Options {
   coerceTypes?: boolean | "array";
   useDefaults?: boolean | "empty";
   removeAdditional?: boolean | "all" | "failing";
-  // Loud failures.
-  $data?: boolean;
+  /** OpenAPI-style oneOf branch selection (M8.4; see discriminator.ts) */
   discriminator?: boolean;
+  // Loud failure.
+  $data?: boolean;
   // Accepted-and-ignored codegen/perf hints.
   inlineRefs?: boolean | number;
   loopRequired?: number;
@@ -178,6 +184,13 @@ export class Ajv {
   private readonly compiledByObject = new WeakMap<object, CompiledEntry>();
   private readonly compiledByRef = new Map<string, CompiledEntry>();
   private anonymousCount = 0;
+  /** ajv-errors' hook (M8.4): applied to the mapped error list, after mapErrors. */
+  private errorPostProcessor?: (
+    errors: AjvErrorObject[],
+    instance: JsonValue,
+    schema: JsonValue,
+    rootSchemaPath: string,
+  ) => AjvErrorObject[];
 
   constructor(opts: Options = {}) {
     this.opts = { ...opts };
@@ -193,12 +206,6 @@ export class Ajv {
       throw new AjvCompatUnsupportedError(
         "$data references",
         "keyword values sourced from the instance are excluded by design",
-      );
-    }
-    if (opts.discriminator === true) {
-      throw new AjvCompatUnsupportedError(
-        "the discriminator option",
-        "arrives with the companion-keyword milestone (M8.4)",
       );
     }
     if (
@@ -458,6 +465,24 @@ export class Ajv {
     return this;
   }
 
+  /**
+   * ajv-errors' integration point (M8.4; see ajv-errors.ts): registers a
+   * pass over the mapped error list and marks `errorMessage` as a known
+   * (annotation-only) keyword for strict mode — it never reaches the
+   * engine as a real keyword, since ajv-errors.ts post-processes the
+   * already-mapped AJV error objects instead.
+   */
+  setErrorPostProcessor(
+    processor: (
+      errors: AjvErrorObject[],
+      instance: JsonValue,
+      schema: JsonValue,
+      rootSchemaPath: string,
+    ) => AjvErrorObject[],
+  ): void {
+    this.errorPostProcessor = processor;
+  }
+
   // ---- internals -----------------------------------------------------------
 
   private invalidate(): void {
@@ -475,10 +500,18 @@ export class Ajv {
   }
 
   private compatBehaviors(): Record<string, KeywordBehavior> | undefined {
-    if (this.customKeywords.size === 0) return undefined;
+    if (this.customKeywords.size === 0 && this.opts.discriminator !== true) {
+      return undefined;
+    }
     const behaviors: Record<string, KeywordBehavior> = {};
     for (const [name, def] of this.customKeywords) {
       behaviors[name] = toBehavior(name, def, this.opts.$data === true);
+    }
+    if (this.opts.discriminator === true) {
+      behaviors.discriminator = discriminatorBehavior;
+      // Replaces the base dialect's oneOf entirely (COMPAT_VOCAB is merged
+      // in last, so same-name entries win — see dialect.ts registerDialect).
+      behaviors.oneOf = discriminatedOneOf;
     }
     return behaviors;
   }
@@ -533,6 +566,16 @@ export class Ajv {
 
   private compileAt(schema: JsonValue, key?: string): ValidateFunction {
     this.strictSchemaCheck(schema);
+    if (this.opts.discriminator === true) {
+      // Same eager timing as AJV: discriminator's structural requirements
+      // throw from compile(), before any data is validated (oracle:
+      // ajv.compile() itself throws for these, never validate()). Local
+      // pointer resolution only — cross-document $ref branches route
+      // through the real engine at evaluation time (discriminatorBehavior).
+      checkDiscriminators(schema, (ref) => ({
+        node: resolveLocalPointer(schema, ref),
+      }));
+    }
     const engine = this.engine();
     const retrieval = key ?? this.rootUriFor(schema);
     const uri = engine.registerSchema(
@@ -580,13 +623,17 @@ export class Ajv {
       }
       listArtifact.current ??= compileList(engine, uri, { errorParams: true });
       const { errors } = listArtifact.current.evaluateList(data);
-      fn.errors = mapErrors(errors, data, {
+      let mapped = mapErrors(errors, data, {
         rootBaseUri: rootBase,
         resolveSchema,
         allErrors: opts.allErrors === true,
         verbose: opts.verbose === true,
         messages: opts.messages !== false,
       });
+      if (this.errorPostProcessor !== undefined) {
+        mapped = this.errorPostProcessor(mapped, data, schema, "#");
+      }
+      fn.errors = mapped;
       return false;
     }) as ValidateFunction;
     fn.errors = null;
@@ -610,6 +657,8 @@ export class Ajv {
     const dialect = this.engine().dialects.getDialect(this.dialectUri());
     const known = new Set(dialect.ordered.map((e) => e.name));
     for (const name of this.customKeywords.keys()) known.add(name);
+    if (this.opts.discriminator === true) known.add("discriminator");
+    if (this.errorPostProcessor !== undefined) known.add("errorMessage");
     const formats = this.formatTable();
     const checkFormats = this.opts.validateFormats !== false;
     const visit = (node: JsonValue): void => {
@@ -678,6 +727,19 @@ const walkPointer = (
     else return undefined;
   }
   return node;
+};
+
+/** Same-document "#/..." fragment resolution for the eager discriminator
+ * check (compileAt runs before schema registration, so the real engine's
+ * cross-document resolver isn't available yet). */
+const resolveLocalPointer = (doc: JsonValue, ref: string): JsonValue => {
+  const hash = ref.indexOf("#");
+  const pointer = hash === -1 ? "" : ref.slice(hash + 1);
+  const target = walkPointer(doc, pointer);
+  if (target === undefined) {
+    throw new Error(`discriminator: cannot resolve "${ref}"`);
+  }
+  return target;
 };
 
 const toFormatDefinition = (name: string, format: Format): FormatDefinition => {

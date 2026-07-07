@@ -7,9 +7,20 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createEngine, DIALECT_DRAFT_07, type JsonValue } from "@jse/core";
+import {
+  createEngine,
+  DIALECT_2020_12,
+  DIALECT_DRAFT_07,
+  type JsonValue,
+} from "@jse/core";
 import { FORMATS_2020_12 } from "@jse/formats";
 import { mapErrors } from "../src/errors.js";
+import { Ajv2020 } from "../src/index.js";
+import addFormats from "../src/formats.js";
+import {
+  discriminatedOneOf,
+  discriminatorBehavior,
+} from "../src/discriminator.js";
 
 interface FixtureCase {
   dialect: "draft-07" | "2020-12";
@@ -33,12 +44,23 @@ const FIXTURE = JSON.parse(
   ),
 ) as Record<string, FixtureCase>;
 
-// Cases whose surface belongs to later sub-milestones or other tests.
+// Cases whose surface belongs to another test in this file.
 const SKIP = new Set([
-  "discriminator", // M8.4 companion keyword
-  "format-comparison", // M8.4 ajv-formats comparison keywords
   "verbose-fields", // verbose enrichment pinned separately below
 ]);
+
+// format-comparison's formatMinimum/Maximum keywords only exist behind the
+// Ajv class's addKeyword/toBehavior bridge (formats.ts's addFormats calls
+// it) — routing this one case through the full class still exercises
+// mapErrors (the class calls it internally), without duplicating the
+// comparator logic here just for a raw-engine registration.
+const runViaAjvClass = (name: string, c: FixtureCase): void => {
+  const ajv = new Ajv2020({ logger: false });
+  addFormats(ajv, { keywords: true });
+  const validate = ajv.compile(c.schema);
+  expect(validate(c.data), `${name}: verdict`).toBe(c.valid);
+  expect(validate.errors, name).toEqual(c.valid ? null : c.errors);
+};
 
 const ROOT = "https://compat.example/root";
 
@@ -58,7 +80,7 @@ const walk = (doc: JsonValue, pointer: string): JsonValue | undefined => {
 const runCase = (name: string, c: FixtureCase) => {
   const docs = new Map<string, JsonValue>([[ROOT, c.schema]]);
   const engine = createEngine({
-    ...(name === "format" || name === "format-comparison"
+    ...(name === "format"
       ? { formats: FORMATS_2020_12, assertFormats: true }
       : {}),
     ...(c.dialect === "draft-07" ? { defaultDialect: DIALECT_DRAFT_07 } : {}),
@@ -68,7 +90,24 @@ const runCase = (name: string, c: FixtureCase) => {
     engine.registerSchema(extra, id);
     docs.set(id, extra);
   }
-  const uri = engine.registerSchema(c.schema, ROOT);
+  // discriminator (M8.4) replaces the base dialect's oneOf wholesale — same
+  // vocabulary-merge mechanism the Ajv class uses (index.ts compatBehaviors).
+  let dialectUri: string | undefined;
+  if (name === "discriminator") {
+    const base = engine.dialects.getDialect(
+      c.dialect === "draft-07" ? DIALECT_DRAFT_07 : DIALECT_2020_12,
+    );
+    engine.registerVocabulary("urn:test:discriminator", {
+      discriminator: discriminatorBehavior,
+      oneOf: discriminatedOneOf,
+    });
+    engine.registerDialect("urn:test:discriminator-dialect", [
+      ...base.vocabularyUris,
+      "urn:test:discriminator",
+    ]);
+    dialectUri = "urn:test:discriminator-dialect";
+  }
+  const uri = engine.registerSchema(c.schema, ROOT, dialectUri);
   const result = engine.evaluate(uri, c.data, {
     output: "list",
     errorParams: true,
@@ -95,7 +134,8 @@ describe("mapErrors ≡ AJV oracle", () => {
   for (const [name, c] of Object.entries(FIXTURE)) {
     if (SKIP.has(name) || c.compileError !== undefined) continue;
     it(name, () => {
-      runCase(name, c);
+      if (name === "format-comparison") runViaAjvClass(name, c);
+      else runCase(name, c);
     });
   }
 

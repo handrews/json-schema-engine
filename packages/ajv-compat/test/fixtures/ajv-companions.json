@@ -1,0 +1,1302 @@
+{
+  "format-table": {
+    "names": [
+      "binary",
+      "byte",
+      "date",
+      "date-time",
+      "double",
+      "duration",
+      "email",
+      "float",
+      "hostname",
+      "int32",
+      "int64",
+      "ipv4",
+      "ipv6",
+      "iso-date-time",
+      "iso-time",
+      "json-pointer",
+      "json-pointer-uri-fragment",
+      "password",
+      "regex",
+      "relative-json-pointer",
+      "time",
+      "uri",
+      "uri-reference",
+      "uri-template",
+      "url",
+      "uuid"
+    ]
+  },
+  "iso-time": {
+    "format": "iso-time",
+    "values": [
+      {
+        "value": "10:00:00",
+        "valid": true
+      },
+      {
+        "value": "10:00:00Z",
+        "valid": true
+      },
+      {
+        "value": "10:00:00+01:00",
+        "valid": true
+      },
+      {
+        "value": "not-a-time",
+        "valid": false
+      },
+      {
+        "value": "10:00",
+        "valid": false
+      },
+      {
+        "value": "24:00:00",
+        "valid": false
+      },
+      {
+        "value": "23:59:60Z",
+        "valid": true
+      },
+      {
+        "value": "10:00:00+23:59",
+        "valid": true
+      },
+      {
+        "value": "10:00:00+24:00",
+        "valid": false
+      }
+    ]
+  },
+  "iso-date-time": {
+    "format": "iso-date-time",
+    "values": [
+      {
+        "value": "2020-01-01T10:00:00",
+        "valid": true
+      },
+      {
+        "value": "2020-01-01T10:00:00Z",
+        "valid": true
+      },
+      {
+        "value": "2020-01-01",
+        "valid": false
+      },
+      {
+        "value": "not-a-datetime",
+        "valid": false
+      },
+      {
+        "value": "2020-01-01T10:00:00+01:00",
+        "valid": true
+      },
+      {
+        "value": "2020-02-30T10:00:00Z",
+        "valid": false
+      },
+      {
+        "value": "2020-01-01 10:00:00Z",
+        "valid": true
+      },
+      {
+        "value": "2020-01-01X10:00:00Z",
+        "valid": false
+      }
+    ]
+  },
+  "int32": {
+    "format": "int32",
+    "values": [
+      {
+        "value": 0,
+        "valid": true
+      },
+      {
+        "value": 2147483647,
+        "valid": true
+      },
+      {
+        "value": 2147483648,
+        "valid": false
+      },
+      {
+        "value": -2147483648,
+        "valid": true
+      },
+      {
+        "value": -2147483649,
+        "valid": false
+      },
+      {
+        "value": 1.5,
+        "valid": false
+      }
+    ]
+  },
+  "int64": {
+    "format": "int64",
+    "values": [
+      {
+        "value": 0,
+        "valid": true
+      },
+      {
+        "value": 9007199254740991,
+        "valid": true
+      },
+      {
+        "value": 1.5,
+        "valid": false
+      }
+    ]
+  },
+  "float": {
+    "format": "float",
+    "values": [
+      {
+        "value": 0,
+        "valid": true
+      },
+      {
+        "value": 1.5,
+        "valid": true
+      },
+      {
+        "value": null,
+        "valid": true
+      },
+      {
+        "value": null,
+        "valid": true
+      }
+    ]
+  },
+  "double": {
+    "format": "double",
+    "values": [
+      {
+        "value": 0,
+        "valid": true
+      },
+      {
+        "value": 1.5,
+        "valid": true
+      },
+      {
+        "value": null,
+        "valid": true
+      },
+      {
+        "value": null,
+        "valid": true
+      }
+    ]
+  },
+  "password": {
+    "format": "password",
+    "values": [
+      {
+        "value": "anything",
+        "valid": true
+      },
+      {
+        "value": 5,
+        "valid": true
+      },
+      {
+        "value": null,
+        "valid": true
+      }
+    ]
+  },
+  "binary": {
+    "format": "binary",
+    "values": [
+      {
+        "value": "anything",
+        "valid": true
+      },
+      {
+        "value": 5,
+        "valid": true
+      },
+      {
+        "value": null,
+        "valid": true
+      }
+    ]
+  },
+  "byte": {
+    "format": "byte",
+    "values": [
+      {
+        "value": "",
+        "valid": true
+      },
+      {
+        "value": "aGVsbG8=",
+        "valid": true
+      },
+      {
+        "value": "not base64!!",
+        "valid": false
+      },
+      {
+        "value": "abc",
+        "valid": false
+      },
+      {
+        "value": "AAAA",
+        "valid": true
+      },
+      {
+        "value": "AAA=",
+        "valid": true
+      },
+      {
+        "value": "AA",
+        "valid": false
+      }
+    ]
+  },
+  "json-pointer-uri-fragment": {
+    "format": "json-pointer-uri-fragment",
+    "values": [
+      {
+        "value": "#/a/b",
+        "valid": true
+      },
+      {
+        "value": "#",
+        "valid": true
+      },
+      {
+        "value": "/a/b",
+        "valid": false
+      },
+      {
+        "value": "#/a~0b",
+        "valid": true
+      },
+      {
+        "value": "not-a-fragment ptr",
+        "valid": false
+      }
+    ]
+  },
+  "url": {
+    "format": "url",
+    "values": [
+      {
+        "value": "https://example.com",
+        "valid": true
+      },
+      {
+        "value": "http://foo.com/path?q=1#frag",
+        "valid": true
+      },
+      {
+        "value": "http://foo.com?q=1",
+        "valid": false
+      },
+      {
+        "value": "mailto:a@b.com",
+        "valid": false
+      },
+      {
+        "value": "http://999.999.999.999",
+        "valid": false
+      },
+      {
+        "value": "http://foo",
+        "valid": false
+      }
+    ]
+  },
+  "date-min-fail": {
+    "schema": {
+      "type": "string",
+      "format": "date",
+      "formatMinimum": "2020-01-01"
+    },
+    "data": "2019-01-01",
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/formatMinimum",
+        "keyword": "formatMinimum",
+        "params": {
+          "comparison": ">=",
+          "limit": "2020-01-01"
+        },
+        "message": "should be >= 2020-01-01"
+      }
+    ]
+  },
+  "date-max": {
+    "schema": {
+      "type": "string",
+      "format": "date",
+      "formatMaximum": "2020-01-01"
+    },
+    "data": "2020-01-02",
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/formatMaximum",
+        "keyword": "formatMaximum",
+        "params": {
+          "comparison": "<=",
+          "limit": "2020-01-01"
+        },
+        "message": "should be <= 2020-01-01"
+      }
+    ]
+  },
+  "time-exclusiveMin-utc-normalized": {
+    "schema": {
+      "type": "string",
+      "format": "time",
+      "formatExclusiveMinimum": "05:00:00Z"
+    },
+    "data": "06:00:00+01:00",
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/formatExclusiveMinimum",
+        "keyword": "formatExclusiveMinimum",
+        "params": {
+          "comparison": ">",
+          "limit": "05:00:00Z"
+        },
+        "message": "should be > 05:00:00Z"
+      }
+    ]
+  },
+  "time-min-utc-normalized-pass": {
+    "schema": {
+      "type": "string",
+      "format": "time",
+      "formatMinimum": "05:00:00Z"
+    },
+    "data": "03:00:00-03:00",
+    "valid": true,
+    "errors": null
+  },
+  "formatMinimum-non-string-vacuous": {
+    "schema": {
+      "format": "date",
+      "formatMinimum": "2020-01-01"
+    },
+    "data": 5,
+    "valid": true,
+    "errors": null
+  },
+  "string-form": {
+    "schema": {
+      "type": "object",
+      "required": ["foo"],
+      "properties": {
+        "foo": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "errorMessage": "should be an object with an integer property foo only"
+    },
+    "data": {
+      "foo": "a",
+      "bar": 2
+    },
+    "options": {},
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/errorMessage",
+        "keyword": "errorMessage",
+        "params": {
+          "errors": [
+            {
+              "instancePath": "",
+              "schemaPath": "#/additionalProperties",
+              "keyword": "additionalProperties",
+              "params": {
+                "additionalProperty": "bar"
+              },
+              "message": "must NOT have additional properties",
+              "emUsed": true
+            },
+            {
+              "instancePath": "/foo",
+              "schemaPath": "#/properties/foo/type",
+              "keyword": "type",
+              "params": {
+                "type": "integer"
+              },
+              "message": "must be integer",
+              "emUsed": true
+            }
+          ]
+        },
+        "message": "should be an object with an integer property foo only"
+      }
+    ]
+  },
+  "per-keyword": {
+    "schema": {
+      "type": "object",
+      "required": ["foo"],
+      "properties": {
+        "foo": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "errorMessage": {
+        "type": "should be an object",
+        "required": "should have property foo",
+        "additionalProperties": "should not have properties other than foo"
+      }
+    },
+    "data": {
+      "foo": "a",
+      "bar": 2
+    },
+    "options": {},
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "/foo",
+        "schemaPath": "#/properties/foo/type",
+        "keyword": "type",
+        "params": {
+          "type": "integer"
+        },
+        "message": "must be integer"
+      },
+      {
+        "instancePath": "",
+        "schemaPath": "#/errorMessage",
+        "keyword": "errorMessage",
+        "params": {
+          "errors": [
+            {
+              "instancePath": "",
+              "schemaPath": "#/additionalProperties",
+              "keyword": "additionalProperties",
+              "params": {
+                "additionalProperty": "bar"
+              },
+              "message": "must NOT have additional properties",
+              "emUsed": true
+            }
+          ]
+        },
+        "message": "should not have properties other than foo"
+      }
+    ]
+  },
+  "per-property-required": {
+    "schema": {
+      "type": "object",
+      "required": ["foo", "bar"],
+      "properties": {
+        "foo": {
+          "type": "integer"
+        },
+        "bar": {
+          "type": "string"
+        }
+      },
+      "errorMessage": {
+        "required": {
+          "foo": "should have an integer property \"foo\"",
+          "bar": "should have a string property \"bar\""
+        }
+      }
+    },
+    "data": {},
+    "options": {},
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/errorMessage",
+        "keyword": "errorMessage",
+        "params": {
+          "errors": [
+            {
+              "instancePath": "",
+              "schemaPath": "#/required",
+              "keyword": "required",
+              "params": {
+                "missingProperty": "foo"
+              },
+              "message": "must have required property 'foo'",
+              "emUsed": true
+            }
+          ]
+        },
+        "message": "should have an integer property \"foo\""
+      },
+      {
+        "instancePath": "",
+        "schemaPath": "#/errorMessage",
+        "keyword": "errorMessage",
+        "params": {
+          "errors": [
+            {
+              "instancePath": "",
+              "schemaPath": "#/required",
+              "keyword": "required",
+              "params": {
+                "missingProperty": "bar"
+              },
+              "message": "must have required property 'bar'",
+              "emUsed": true
+            }
+          ]
+        },
+        "message": "should have a string property \"bar\""
+      }
+    ]
+  },
+  "properties-map-through-allof": {
+    "schema": {
+      "type": "object",
+      "required": ["foo", "bar"],
+      "allOf": [
+        {
+          "properties": {
+            "foo": {
+              "type": "integer",
+              "minimum": 2
+            },
+            "bar": {
+              "type": "string",
+              "minLength": 2
+            }
+          },
+          "additionalProperties": false
+        }
+      ],
+      "errorMessage": {
+        "properties": {
+          "foo": "data.foo should be integer >= 2",
+          "bar": "data.bar should be string with length >= 2"
+        }
+      }
+    },
+    "data": {
+      "foo": 1,
+      "bar": "a"
+    },
+    "options": {},
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "/foo",
+        "schemaPath": "#/errorMessage",
+        "keyword": "errorMessage",
+        "params": {
+          "errors": [
+            {
+              "instancePath": "/foo",
+              "schemaPath": "#/allOf/0/properties/foo/minimum",
+              "keyword": "minimum",
+              "params": {
+                "comparison": ">=",
+                "limit": 2
+              },
+              "message": "must be >= 2",
+              "emUsed": true
+            }
+          ]
+        },
+        "message": "data.foo should be integer >= 2"
+      },
+      {
+        "instancePath": "/bar",
+        "schemaPath": "#/errorMessage",
+        "keyword": "errorMessage",
+        "params": {
+          "errors": [
+            {
+              "instancePath": "/bar",
+              "schemaPath": "#/allOf/0/properties/bar/minLength",
+              "keyword": "minLength",
+              "params": {
+                "limit": 2
+              },
+              "message": "must NOT have fewer than 2 characters",
+              "emUsed": true
+            }
+          ]
+        },
+        "message": "data.bar should be string with length >= 2"
+      }
+    ]
+  },
+  "default-catchall": {
+    "schema": {
+      "type": "object",
+      "required": ["foo", "bar"],
+      "errorMessage": {
+        "type": "data should be an object",
+        "_": "data should have properties \"foo\" and \"bar\" only"
+      }
+    },
+    "data": {},
+    "options": {},
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/errorMessage",
+        "keyword": "errorMessage",
+        "params": {
+          "errors": [
+            {
+              "instancePath": "",
+              "schemaPath": "#/required",
+              "keyword": "required",
+              "params": {
+                "missingProperty": "foo"
+              },
+              "message": "must have required property 'foo'",
+              "emUsed": true
+            },
+            {
+              "instancePath": "",
+              "schemaPath": "#/required",
+              "keyword": "required",
+              "params": {
+                "missingProperty": "bar"
+              },
+              "message": "must have required property 'bar'",
+              "emUsed": true
+            }
+          ]
+        },
+        "message": "data should have properties \"foo\" and \"bar\" only"
+      }
+    ]
+  },
+  "items-repeat": {
+    "schema": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "errorMessage": "must be integer"
+      }
+    },
+    "data": ["x", "y", 5],
+    "options": {},
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "/0",
+        "schemaPath": "#/items/errorMessage",
+        "keyword": "errorMessage",
+        "params": {
+          "errors": [
+            {
+              "instancePath": "/0",
+              "schemaPath": "#/items/type",
+              "keyword": "type",
+              "params": {
+                "type": "integer"
+              },
+              "message": "must be integer",
+              "emUsed": true
+            }
+          ]
+        },
+        "message": "must be integer"
+      },
+      {
+        "instancePath": "/1",
+        "schemaPath": "#/items/errorMessage",
+        "keyword": "errorMessage",
+        "params": {
+          "errors": [
+            {
+              "instancePath": "/1",
+              "schemaPath": "#/items/type",
+              "keyword": "type",
+              "params": {
+                "type": "integer"
+              },
+              "message": "must be integer",
+              "emUsed": true
+            }
+          ]
+        },
+        "message": "must be integer"
+      }
+    ]
+  },
+  "nested-errorMessage": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "foo": {
+          "type": "integer",
+          "errorMessage": "foo must be integer"
+        }
+      },
+      "required": ["foo"],
+      "errorMessage": {
+        "required": "foo is required"
+      }
+    },
+    "data": {
+      "foo": "x"
+    },
+    "options": {},
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "/foo",
+        "schemaPath": "#/properties/foo/errorMessage",
+        "keyword": "errorMessage",
+        "params": {
+          "errors": [
+            {
+              "instancePath": "/foo",
+              "schemaPath": "#/properties/foo/type",
+              "keyword": "type",
+              "params": {
+                "type": "integer"
+              },
+              "message": "must be integer",
+              "emUsed": true
+            }
+          ]
+        },
+        "message": "foo must be integer"
+      }
+    ]
+  },
+  "outer-covers-inner-replaced": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "foo": {
+          "type": "integer",
+          "errorMessage": "foo must be integer"
+        }
+      },
+      "errorMessage": "outer bad"
+    },
+    "data": {
+      "foo": "x"
+    },
+    "options": {},
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "/foo",
+        "schemaPath": "#/properties/foo/errorMessage",
+        "keyword": "errorMessage",
+        "params": {
+          "errors": [
+            {
+              "instancePath": "/foo",
+              "schemaPath": "#/properties/foo/type",
+              "keyword": "type",
+              "params": {
+                "type": "integer"
+              },
+              "message": "must be integer",
+              "emUsed": true
+            }
+          ]
+        },
+        "message": "foo must be integer"
+      }
+    ]
+  },
+  "keepErrors": {
+    "schema": {
+      "type": "string",
+      "errorMessage": "must be string"
+    },
+    "data": 5,
+    "options": {
+      "keepErrors": true
+    },
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/type",
+        "keyword": "type",
+        "params": {
+          "type": "string"
+        },
+        "message": "must be string",
+        "emUsed": true
+      },
+      {
+        "instancePath": "",
+        "schemaPath": "#/errorMessage",
+        "keyword": "errorMessage",
+        "params": {
+          "errors": [
+            {
+              "instancePath": "",
+              "schemaPath": "#/type",
+              "keyword": "type",
+              "params": {
+                "type": "string"
+              },
+              "message": "must be string",
+              "emUsed": true
+            }
+          ]
+        },
+        "message": "must be string"
+      }
+    ]
+  },
+  "singleError-same-path": {
+    "schema": {
+      "type": "string",
+      "minLength": 5,
+      "pattern": "^a",
+      "errorMessage": {
+        "minLength": "too short",
+        "pattern": "must start with a"
+      }
+    },
+    "data": "b",
+    "options": {
+      "singleError": true
+    },
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/errorMessage",
+        "keyword": "errorMessage",
+        "params": {
+          "errors": [
+            {
+              "instancePath": "",
+              "schemaPath": "#/minLength",
+              "keyword": "minLength",
+              "params": {
+                "limit": 5
+              },
+              "message": "must NOT have fewer than 5 characters",
+              "emUsed": true
+            },
+            {
+              "instancePath": "",
+              "schemaPath": "#/pattern",
+              "keyword": "pattern",
+              "params": {
+                "pattern": "^a"
+              },
+              "message": "must match pattern \"^a\"",
+              "emUsed": true
+            }
+          ]
+        },
+        "message": "too short;must start with a"
+      }
+    ]
+  },
+  "singleError-custom-sep": {
+    "schema": {
+      "type": "string",
+      "minLength": 5,
+      "pattern": "^a",
+      "errorMessage": {
+        "minLength": "too short",
+        "pattern": "must start with a"
+      }
+    },
+    "data": "b",
+    "options": {
+      "singleError": " | "
+    },
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/errorMessage",
+        "keyword": "errorMessage",
+        "params": {
+          "errors": [
+            {
+              "instancePath": "",
+              "schemaPath": "#/minLength",
+              "keyword": "minLength",
+              "params": {
+                "limit": 5
+              },
+              "message": "must NOT have fewer than 5 characters",
+              "emUsed": true
+            },
+            {
+              "instancePath": "",
+              "schemaPath": "#/pattern",
+              "keyword": "pattern",
+              "params": {
+                "pattern": "^a"
+              },
+              "message": "must match pattern \"^a\"",
+              "emUsed": true
+            }
+          ]
+        },
+        "message": "too short | must start with a"
+      }
+    ]
+  },
+  "per-keyword-no-single": {
+    "schema": {
+      "type": "string",
+      "minLength": 5,
+      "pattern": "^a",
+      "errorMessage": {
+        "minLength": "too short",
+        "pattern": "must start with a"
+      }
+    },
+    "data": "b",
+    "options": {},
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/errorMessage",
+        "keyword": "errorMessage",
+        "params": {
+          "errors": [
+            {
+              "instancePath": "",
+              "schemaPath": "#/minLength",
+              "keyword": "minLength",
+              "params": {
+                "limit": 5
+              },
+              "message": "must NOT have fewer than 5 characters",
+              "emUsed": true
+            }
+          ]
+        },
+        "message": "too short"
+      },
+      {
+        "instancePath": "",
+        "schemaPath": "#/errorMessage",
+        "keyword": "errorMessage",
+        "params": {
+          "errors": [
+            {
+              "instancePath": "",
+              "schemaPath": "#/pattern",
+              "keyword": "pattern",
+              "params": {
+                "pattern": "^a"
+              },
+              "message": "must match pattern \"^a\"",
+              "emUsed": true
+            }
+          ]
+        },
+        "message": "must start with a"
+      }
+    ]
+  },
+  "template-pointer": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "size": {
+          "type": "number",
+          "minimum": 4
+        }
+      },
+      "errorMessage": {
+        "properties": {
+          "size": "size should be a number bigger or equal to 4, current value is ${/size}"
+        }
+      }
+    },
+    "data": {
+      "size": 2
+    },
+    "options": {},
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "/size",
+        "schemaPath": "#/errorMessage",
+        "keyword": "errorMessage",
+        "params": {
+          "errors": [
+            {
+              "instancePath": "/size",
+              "schemaPath": "#/properties/size/minimum",
+              "keyword": "minimum",
+              "params": {
+                "comparison": ">=",
+                "limit": 4
+              },
+              "message": "must be >= 4",
+              "emUsed": true
+            }
+          ]
+        },
+        "message": "size should be a number bigger or equal to 4, current value is 2"
+      }
+    ]
+  },
+  "template-relative-pointer-propname": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "size": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": {
+        "not": true,
+        "errorMessage": "extra property is ${0#}"
+      }
+    },
+    "data": {
+      "extra": 1
+    },
+    "options": {},
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "/extra",
+        "schemaPath": "#/additionalProperties/errorMessage",
+        "keyword": "errorMessage",
+        "params": {
+          "errors": [
+            {
+              "instancePath": "/extra",
+              "schemaPath": "#/additionalProperties/not",
+              "keyword": "not",
+              "params": {},
+              "message": "must NOT be valid",
+              "emUsed": true
+            }
+          ]
+        },
+        "message": "extra property is \"extra\""
+      }
+    ]
+  },
+  "prefixItems-nested": {
+    "schema": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "object",
+          "properties": {
+            "x": {
+              "type": "integer"
+            }
+          }
+        }
+      ],
+      "errorMessage": "bad prefix"
+    },
+    "data": [
+      {
+        "x": "a"
+      }
+    ],
+    "options": {},
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/errorMessage",
+        "keyword": "errorMessage",
+        "params": {
+          "errors": [
+            {
+              "instancePath": "/0/x",
+              "schemaPath": "#/prefixItems/0/properties/x/type",
+              "keyword": "type",
+              "params": {
+                "type": "integer"
+              },
+              "message": "must be integer",
+              "emUsed": true
+            }
+          ]
+        },
+        "message": "bad prefix"
+      }
+    ]
+  },
+  "typeof-pass": {
+    "schema": {
+      "typeof": "number"
+    },
+    "data": 5,
+    "valid": true,
+    "errors": null
+  },
+  "typeof-fail": {
+    "schema": {
+      "typeof": "undefined"
+    },
+    "data": null,
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/typeof",
+        "keyword": "typeof",
+        "params": {},
+        "message": "must pass \"typeof\" keyword validation"
+      }
+    ]
+  },
+  "typeof-array": {
+    "schema": {
+      "typeof": ["undefined", "object"]
+    },
+    "data": null,
+    "valid": true,
+    "errors": null
+  },
+  "instanceof-array-pass": {
+    "schema": {
+      "instanceof": "Array"
+    },
+    "data": [],
+    "valid": true,
+    "errors": null
+  },
+  "instanceof-fail": {
+    "schema": {
+      "instanceof": "Array"
+    },
+    "data": {},
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/instanceof",
+        "keyword": "instanceof",
+        "params": {},
+        "message": "must pass \"instanceof\" keyword validation"
+      }
+    ]
+  },
+  "uniqueItemProperties-dup": {
+    "schema": {
+      "type": "array",
+      "uniqueItemProperties": ["id"]
+    },
+    "data": [
+      {
+        "id": 1
+      },
+      {
+        "id": 1
+      }
+    ],
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/uniqueItemProperties",
+        "keyword": "uniqueItemProperties",
+        "params": {},
+        "message": "must pass \"uniqueItemProperties\" keyword validation"
+      }
+    ]
+  },
+  "uniqueItemProperties-both-missing": {
+    "schema": {
+      "uniqueItemProperties": ["id"]
+    },
+    "data": [
+      {
+        "foo": 1
+      },
+      {
+        "bar": 2
+      }
+    ],
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/uniqueItemProperties",
+        "keyword": "uniqueItemProperties",
+        "params": {},
+        "message": "must pass \"uniqueItemProperties\" keyword validation"
+      }
+    ]
+  },
+  "uniqueItemProperties-one-missing-pass": {
+    "schema": {
+      "uniqueItemProperties": ["id"]
+    },
+    "data": [
+      {
+        "id": 1
+      },
+      {
+        "foo": 2
+      }
+    ],
+    "valid": true,
+    "errors": null
+  },
+  "prohibited-fail": {
+    "schema": {
+      "type": "object",
+      "prohibited": ["foo", "bar"]
+    },
+    "data": {
+      "foo": 1
+    },
+    "valid": false,
+    "errors": [
+      {
+        "instancePath": "",
+        "schemaPath": "#/prohibited/not",
+        "keyword": "not",
+        "params": {},
+        "message": "must NOT be valid"
+      },
+      {
+        "instancePath": "",
+        "schemaPath": "#/prohibited",
+        "keyword": "prohibited",
+        "params": {},
+        "message": "must pass \"prohibited\" keyword validation"
+      }
+    ]
+  },
+  "prohibited-non-object-vacuous": {
+    "schema": {
+      "prohibited": ["foo"]
+    },
+    "data": "nope",
+    "valid": true,
+    "errors": null
+  }
+}
