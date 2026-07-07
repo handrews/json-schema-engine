@@ -76,6 +76,8 @@ export type LowerExpr =
       readonly op: "and" | "or";
       readonly parts: readonly LowerExpr[];
     }
+  /** the active combine-group tally (oneOf's match count) in a combineCheck message */
+  | { readonly kind: "tally" }
   /**
    * A subschema application used as a boolean expression rather than a
    * statement (M6.4): `if`'s condition, `not`'s single negated apply, and
@@ -102,7 +104,8 @@ export type LowerHelper =
   | "keysOf" // Object.keys
   | "lengthOf" // .length of a string or array (UTF-16 units / element count)
   | "isMultipleOf"
-  | "hasDuplicateItems";
+  | "hasDuplicateItems"
+  | "firstDuplicatePair";
 
 /** A statement-level IR node. */
 export type LowerStmt =
@@ -138,6 +141,13 @@ export type LowerStmt =
    * and scope threading, exactly as the engine does for the interpreter.
    */
   | { readonly kind: "apply"; readonly apply: LowerApply }
+  /**
+   * Closes the immediately preceding run of anyMayPass/exactlyOne applies:
+   * the keyword fails (with `message`) when the run's combined verdict
+   * fails. Emitted by the keyword's lower() so failure text stays keyword
+   * knowledge (D1); the serializer folds it into the grouped check.
+   */
+  | { readonly kind: "combineCheck"; readonly message: LowerMessage }
   /**
    * `contains`'s shape: iterate array indexes 0..length-1 (like
    * `forEachIndex`, binding each index), counting the iterations where
@@ -179,6 +189,8 @@ export interface LowerApply {
   readonly ref?: string;
   /** instance cursor for the application */
   readonly cursor: LowerCursor;
+  /** failure message for folds that assert with their own error (negate) */
+  readonly message?: LowerMessage;
   /** how the application verdict folds into the keyword verdict */
   readonly fold:
     "allMustPass" | "anyMayPass" | "exactlyOne" | "negate" | "discard";

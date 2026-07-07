@@ -9,11 +9,13 @@ import {
   type LowerApply,
   type LowerCursor,
   type LowerExpr,
+  type LowerMessage,
   type LowerStmt,
   type LoweringContext,
   type SchemaRegistry,
 } from "@jse/core";
 import { CodeChunk, frag, id, join, js, num, raw, str, json } from "./emit.js";
+import { escapeSegment } from "@jse/core";
 import type { CompilationPlan, PlannedUnit } from "./plan.js";
 
 const V = id("v"); // instance parameter
@@ -46,6 +48,15 @@ export interface EmitFlags {
   inline: boolean;
   plainData: boolean;
 }
+
+/**
+ * Output tier of the artifact (D10/M7-adjacent): "flag" = verdict-only,
+ * fail-fast, zero allocation on the hot path; "list" = full error
+ * collection with interpreter-exact units — no fail-fast, no
+ * short-circuit, every branch runs (DESIGN §7 licensing), and error-unit
+ * objects materialize only on failure paths (D9e).
+ */
+export type EmitOutput = "flag" | "list";
 const DEFAULT_FLAGS: EmitFlags = { inline: true, plainData: true };
 
 /** Serializes one compilation plan into artifact source (flag mode). */
@@ -54,7 +65,16 @@ export function serializePlan(
   registry: SchemaRegistry,
   mode: EmitMode = "runtime",
   flags: EmitFlags = DEFAULT_FLAGS,
+  output: EmitOutput = "flag",
 ): string {
+  if (output === "list" && mode === "standalone") {
+    throw new SerializeError("standalone emission is flag-only (M6.5 scope)");
+  }
+  // List mode disables inlining and boolean-literal folding: shared units
+  // carry the evaluation-path/instance-pointer parameters, and a `false`
+  // subschema must report "schema is false" rather than fold away.
+  const effFlags: EmitFlags =
+    output === "list" ? { ...flags, inline: false } : flags;
   // Assign function indexes to static units, table slots to interpreted.
   const fnIndex = new Map<string, number>();
   const tableIndex = new Map<string, number>();
@@ -73,25 +93,41 @@ export function serializePlan(
   for (const unit of plan.units.values()) {
     if (unit.kind !== "static") continue;
     rendered.push(
-      serializeUnit(unit, plan, registry, fnIndex, tableIndex, flags),
+      serializeUnit(
+        unit,
+        plan,
+        registry,
+        fnIndex,
+        tableIndex,
+        effFlags,
+        output,
+      ),
     );
   }
   // Drop dead functions: units expanded into their caller (D9c) and boolean
   // units (their applications folded to literals). The root always stays.
   const inlinedEverywhere = new Set<string>();
   for (const r of rendered) for (const k of r.inlined) inlinedEverywhere.add(k);
+  // List mode calls boolean-false units (they report "schema is false"),
+  // so their functions survive the dead-function filter there.
   const functions = rendered
     .filter(
       (r) =>
-        r.key === plan.rootKey || (!inlinedEverywhere.has(r.key) && !r.boolean),
+        r.key === plan.rootKey ||
+        (!inlinedEverywhere.has(r.key) && (!r.boolean || output === "list")),
     )
     .map((r) => r.chunk);
 
   const root = plan.units.get(plan.rootKey)!;
+  const ERRS = id("errs");
   const rootCall =
-    root.kind === "static"
-      ? js`${unitFn(fnIndex.get(root.key)!)}(${V}, 0, ${id("h_s0")})`
-      : js`${id("h_frag")}(${T}[${num(tableIndex.get(root.key)!)}], ${V}, ${id("h_s0")}, 0)`;
+    output === "list"
+      ? root.kind === "static"
+        ? js`${unitFn(fnIndex.get(root.key)!)}(${V}, 0, ${id("h_s0")}, "", "", ${ERRS})`
+        : js`${id("h_fragl")}(${T}[${num(tableIndex.get(root.key)!)}], ${V}, ${id("h_s0")}, 0, "", "", ${ERRS})`
+      : root.kind === "static"
+        ? js`${unitFn(fnIndex.get(root.key)!)}(${V}, 0, ${id("h_s0")})`
+        : js`${id("h_frag")}(${T}[${num(tableIndex.get(root.key)!)}], ${V}, ${id("h_s0")}, 0)`;
 
   // Prologue hoists (D9f): helper bindings, the depth bound, and one const
   // per regex source — property/table lookups move out of the hot path.
@@ -101,7 +137,7 @@ export function serializePlan(
   const prologue: CodeChunk[] = [];
   if (mode === "runtime") {
     prologue.push(
-      js`const { isObject: h_obj, isInteger: h_int, jsonEqual: h_eq, canonicalKey: h_ck, codePointLength: h_cpl, escapeSegment: h_esc, isMultipleOf: h_mof, hasDuplicateItems: h_dup, frag: h_frag, tooDeep: h_deep } = ${R};`,
+      js`const { isObject: h_obj, isInteger: h_int, jsonEqual: h_eq, canonicalKey: h_ck, codePointLength: h_cpl, escapeSegment: h_esc, isMultipleOf: h_mof, hasDuplicateItems: h_dup, firstDuplicatePair: h_fdp, frag: h_frag, fragList: h_fragl, tooDeep: h_deep } = ${R};`,
       js`const h_maxd = ${R}.maxDepth;`,
       // Shared empty dynamic scope: units append-by-copy, never mutate.
       js`const h_s0 = [];`,
@@ -117,9 +153,11 @@ export function serializePlan(
   });
 
   const footer =
-    mode === "runtime"
-      ? js`\nreturn function validate(${V}) { return ${rootCall}; };\n`
-      : js`\nexport default function validate(${V}) { return ${rootCall}; };\n`;
+    output === "list"
+      ? js`\nreturn function evaluateList(${V}) { const ${ERRS} = []; const ok = ${rootCall}; return { valid: ok, errors: ${ERRS} }; };\n`
+      : mode === "runtime"
+        ? js`\nreturn function validate(${V}) { return ${rootCall}; };\n`
+        : js`\nexport default function validate(${V}) { return ${rootCall}; };\n`;
   return frag(
     raw(mode === "runtime" ? '"use strict";\n' : ""),
     join("\n", prologue),
@@ -136,6 +174,7 @@ function serializeUnit(
   fnIndex: Map<string, number>,
   tableIndex: Map<string, number>,
   flags: EmitFlags,
+  output: EmitOutput,
 ): {
   key: string;
   boolean: boolean;
@@ -146,12 +185,13 @@ function serializeUnit(
   const node = unit.ref.node;
 
   if (typeof node === "boolean") {
-    return {
-      key: unit.key,
-      boolean: true,
-      chunk: js`function ${fn}() { return ${raw(String(node))}; }`,
-      inlined: new Set(),
-    };
+    // List mode: `false` reports the interpreter's boolean-schema error
+    // (keywordName null — no keyword suffix on either location).
+    const chunk =
+      output === "list" && !node
+        ? js`function ${fn}(${V}, ${D}, ${S}, ${id("ep")}, ${id("ip")}, ${id("errs")}) { ${id("errs")}.push({ evaluationPath: ${id("ep")}, schemaLocation: ${str(unit.ref.baseUri + "#" + unit.ref.pointer)}, instanceLocation: ${id("ip")}, error: "schema is false" }); return false; }`
+        : js`function ${fn}() { return ${raw(String(node))}; }`;
+    return { key: unit.key, boolean: true, chunk, inlined: new Set() };
   }
 
   const body: CodeChunk[] = [];
@@ -173,6 +213,7 @@ function serializeUnit(
     new Set([unit.key]),
     null,
     flags,
+    output,
   );
   const unitStmts = ctx.unitBody();
   // Depth guard (D20 combined budget) only where a chain can grow: a
@@ -183,8 +224,18 @@ function serializeUnit(
   }
   const guard = ctx.guardDecl();
   if (guard) body.push(guard);
+  if (output === "list") body.push(js`let ok = true;`);
   body.push(...unitStmts);
 
+  if (output === "list") {
+    body.push(js`return ok;`);
+    return {
+      key: unit.key,
+      boolean: false,
+      chunk: js`function ${fn}(${V}, ${D}, ${S}, ${id("ep")}, ${id("ip")}, ${id("errs")}) { ${join("\n", body)} }`,
+      inlined: ctx.inlinedKeys,
+    };
+  }
   body.push(js`return true;`);
   return {
     key: unit.key,
@@ -226,7 +277,37 @@ class UnitContext {
     /** parent context sharing the same instance value (here-cursor inline) */
     private guardParent: UnitContext | null = null,
     private flags: EmitFlags = DEFAULT_FLAGS,
+    private output: EmitOutput = "flag",
   ) {}
+
+  /**
+   * Renders a LowerMessage to a string expression. `tallyVar` binds the
+   * message's tally placeholder (combine/count checks).
+   */
+  private message(msg: LowerMessage, tallyVar?: CodeChunk): CodeChunk {
+    const parts = msg.map((part) => {
+      if (typeof part === "string") return str(part);
+      if (part.kind === "tally") {
+        if (!tallyVar)
+          throw new SerializeError("tally outside a counted check");
+        return js`String(${tallyVar})`;
+      }
+      return js`String(${this.expr(part)})`;
+    });
+    if (parts.length === 0) return str("");
+    return parts.length === 1 ? parts[0]! : js`(${join(" + ", parts)})`;
+  }
+
+  /**
+   * List-mode failure: mark the unit invalid and push an interpreter-exact
+   * error unit (renderError's shape — keyword suffix escaped on both
+   * paths). Unit objects materialize only here, on the failure path (D9e).
+   */
+  private pushError(msg: CodeChunk, withKeyword = true): CodeChunk {
+    const suffix = withKeyword ? "/" + escapeSegment(this.currentKeyword) : "";
+    const sloc = this.unit.ref.baseUri + "#" + this.unit.ref.pointer + suffix;
+    return js`ok = false; ${id("errs")}.push({ evaluationPath: ${id("ep")} + ${str(suffix)}, schemaLocation: ${str(sloc)}, instanceLocation: ${id("ip")}, error: ${msg} });`;
+  }
 
   /** The CSE'd object-test variable for this unit's own value. */
   ensureObjGuard(): CodeChunk {
@@ -294,18 +375,39 @@ class UnitContext {
     const out: CodeChunk[] = [];
     let anyRun: CodeChunk[] = [];
     let oneRun: CodeChunk[] = [];
-    const flushAny = () => {
+    const flushAny = (message?: LowerMessage) => {
       if (anyRun.length === 0) return;
-      out.push(js`if (!(${join(" || ", anyRun)})) return false;`);
+      if (this.output === "list") {
+        // Every branch runs (§7: list artifacts never short-circuit).
+        const a = counterVar(this.counters.tally++);
+        const runs = anyRun.map((call) => js`if (${call}) ${a} = true;`);
+        const onFail = this.pushError(
+          this.message(message ?? ["no branch matched"]),
+        );
+        out.push(
+          js`let ${a} = false; ${join(" ", runs)} if (!${a}) { ${onFail} }`,
+        );
+      } else {
+        out.push(js`if (!(${join(" || ", anyRun)})) return false;`);
+      }
       anyRun = [];
     };
-    const flushOne = () => {
+    const flushOne = (message?: LowerMessage) => {
       if (oneRun.length === 0) return;
       const c = counterVar(this.counters.tally++);
       const incs = oneRun.map((call) => js`if (${call}) ${c}++;`);
-      out.push(
-        js`let ${c} = 0; ${join(" ", incs)} if (${c} !== 1) return false;`,
-      );
+      if (this.output === "list") {
+        const onFail = this.pushError(
+          this.message(message ?? [{ kind: "tally" }, " branches matched"], c),
+        );
+        out.push(
+          js`let ${c} = 0; ${join(" ", incs)} if (${c} !== 1) { ${onFail} }`,
+        );
+      } else {
+        out.push(
+          js`let ${c} = 0; ${join(" ", incs)} if (${c} !== 1) return false;`,
+        );
+      }
       oneRun = [];
     };
     for (const stmt of stmts) {
@@ -317,6 +419,12 @@ class UnitContext {
       if (stmt.kind === "apply" && stmt.apply.fold === "exactlyOne") {
         flushAny();
         oneRun.push(this.applyCall(stmt.apply));
+        continue;
+      }
+      if (stmt.kind === "combineCheck") {
+        // Closes the pending run with the keyword's own failure message.
+        flushAny(stmt.message);
+        flushOne(stmt.message);
         continue;
       }
       flushAny();
@@ -367,8 +475,10 @@ class UnitContext {
         return js`for (let ${b} = ${num(stmt.start ?? 0)}; ${b} < ${this.expr(stmt.target)}.length; ${b}++) { ${body} }`;
       }
       case "fail":
-        // Flag mode: verdict-only, fail fast. (List-mode artifacts render
-        // the message parts; M6.5.)
+        if (this.output === "list") {
+          return this.pushError(this.message(stmt.message));
+        }
+        // Flag mode: verdict-only, fail fast.
         return js`return false;`;
       case "produce":
         // Flag mode: productions are elided (nothing observes them —
@@ -376,16 +486,24 @@ class UnitContext {
         return js``;
       case "apply":
         return this.applyStatement(stmt.apply);
+      case "combineCheck":
+        throw new SerializeError(
+          "combineCheck must directly follow its anyMayPass/exactlyOne run",
+        );
       case "countRange": {
         const b = bindingVar(stmt.binding);
         const c = counterVar(this.counters.tally++);
         const loop = js`let ${c} = 0; for (let ${b} = 0; ${b} < ${this.expr(stmt.target)}.length; ${b}++) { if (${this.expr(stmt.countWhen)}) ${c}++; }`;
         const max = Number.isFinite(stmt.max) ? num(stmt.max) : null;
-        const rangeCheck =
+        const outOfRange =
           max === null
-            ? js`if (${c} < ${num(stmt.min)}) return false;`
-            : js`if (${c} < ${num(stmt.min)} || ${c} > ${max}) return false;`;
-        return js`${loop} ${rangeCheck}`;
+            ? js`${c} < ${num(stmt.min)}`
+            : js`${c} < ${num(stmt.min)} || ${c} > ${max}`;
+        const onFail =
+          this.output === "list"
+            ? this.pushError(this.message(stmt.outOfRangeMessage, c))
+            : js`return false;`;
+        return js`${loop} if (${outOfRange}) { ${onFail} }`;
       }
     }
   }
@@ -396,6 +514,18 @@ class UnitContext {
       if (inlined) return inlined;
     }
     const call = this.applyCall(apply);
+    if (this.output === "list") {
+      switch (apply.fold) {
+        case "allMustPass":
+          return js`if (!${call}) ok = false;`;
+        case "negate":
+          return js`if (${call}) { ${this.pushError(
+            this.message(apply.message ?? ["must not match the subschema"]),
+          )} }`;
+        default:
+          break; // grouped folds handled by keywordStatements; discard by applyExpr
+      }
+    }
     if (apply.fold === "allMustPass" && call.text === "true") return js``;
     if (apply.fold === "allMustPass" && call.text === "false")
       return js`return false;`;
@@ -499,18 +629,73 @@ class UnitContext {
       throw new SerializeError("apply target '" + targetKey + "' not planned");
     }
     if (target.kind === "static") {
-      // Boolean subschemas fold to literals — no call, no unit function.
+      // Boolean subschemas fold to literals — except in list mode, where a
+      // `false` schema must report its "schema is false" error unit.
       if (typeof target.ref.node === "boolean") {
-        return target.ref.node ? js`true` : js`false`;
+        if (this.output !== "list") {
+          return target.ref.node ? js`true` : js`false`;
+        }
+        if (target.ref.node) return js`true`;
       }
       const fn = unitFn(this.fnIndex.get(targetKey)!);
       const scope = this.unit.reachesInterpreted ? S : id("h_s0");
       this.calledUnit = true;
+      if (this.output === "list") {
+        return js`${fn}(${valueExpr}, ${D}, ${scope}, ${this.applyEp(apply)}, ${this.applyIp(apply)}, ${id("errs")})`;
+      }
       return js`${fn}(${valueExpr}, ${D}, ${scope})`;
     }
     const slot = num(this.tableIndex.get(targetKey)!);
     this.calledUnit = true;
+    if (this.output === "list") {
+      return js`${id("h_fragl")}(${T}[${slot}], ${valueExpr}, ${S}, ${D}, ${this.applyEp(apply)}, ${this.applyIp(apply)}, ${id("errs")})`;
+    }
     return js`${id("h_frag")}(${T}[${slot}], ${valueExpr}, ${S}, ${D})`;
+  }
+
+  /**
+   * The child's evaluation-path prefix: the caller's `ep` plus this apply's
+   * constant segment chain — the keyword name (or the driven sibling's, or
+   * just the reference keyword for ref applies) plus any static path
+   * segments. Bindings never appear in apply paths (only in cursors), so
+   * the suffix is always a compile-time constant.
+   */
+  private applyEp(apply: LowerApply): CodeChunk {
+    const segments =
+      apply.sibling !== undefined
+        ? [apply.sibling, ...apply.path]
+        : [this.currentKeyword, ...apply.path];
+    const suffix = segments
+      .map((seg) => {
+        if (typeof seg === "object") {
+          throw new SerializeError("binding segments are cursor-only");
+        }
+        return "/" + escapeSegment(String(seg));
+      })
+      .join("");
+    return js`${id("ep")} + ${str(suffix)}`;
+  }
+
+  /** The child's instance-pointer prefix (RFC 6901-escaped at runtime for swept names). */
+  private applyIp(apply: LowerApply): CodeChunk {
+    const cursor = apply.cursor;
+    if (cursor.kind === "here") return id("ip");
+    if (cursor.kind === "key") {
+      // propertyNames: the violation's instance location points at the
+      // property itself (interpreter: childCursor(parent, name, name)).
+      return js`${id("ip")} + "/" + ${id("h_esc")}(String(${bindingVar(cursor.binding)}))`;
+    }
+    if (cursor.of.kind !== "here") {
+      throw new SerializeError("nested child cursors are not emitted (M6)");
+    }
+    const seg = cursor.segment;
+    if (typeof seg === "string") {
+      return js`${id("ip")} + ${str("/" + escapeSegment(seg))}`;
+    }
+    if (typeof seg === "number") {
+      return js`${id("ip")} + ${str("/" + String(seg))}`;
+    }
+    return js`${id("ip")} + "/" + ${id("h_esc")}(String(${this.expr(seg)}))`;
   }
 
   // The planner recorded edges in keyword order; match an apply back to its
@@ -602,6 +787,10 @@ class UnitContext {
           e.parts.map((p) => this.expr(p)),
         )})`;
       }
+      case "tally":
+        throw new SerializeError(
+          "'tally' is only meaningful inside a combineCheck message",
+        );
       case "applyExpr":
         // Same call expression an `apply` statement builds; `fold` on this
         // apply is not consulted here (it governs how a wrapping statement
@@ -659,6 +848,7 @@ class UnitContext {
       escapeSegment: "h_esc",
       isMultipleOf: "h_mof",
       hasDuplicateItems: "h_dup",
+      firstDuplicatePair: "h_fdp",
     };
     switch (helper) {
       case "keysOf":
@@ -671,6 +861,7 @@ class UnitContext {
       case "escapeSegment":
       case "isMultipleOf":
       case "hasDuplicateItems":
+      case "firstDuplicatePair":
         return js`${id(hoisted[helper]!)}(${join(", ", rendered)})`;
       default:
         throw new SerializeError("helper '" + helper + "' is not supported");

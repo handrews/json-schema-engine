@@ -4,10 +4,14 @@
 
 import {
   MaxDepthExceededError,
+  renderError,
+  type ErrorUnit,
+  type PathNode,
   canonicalKey,
   codePointLength,
   escapeSegment,
   evaluateFragment,
+  firstDuplicatePair,
   hasDuplicateItems,
   isMultipleOf,
   jsonEqual,
@@ -42,6 +46,7 @@ export interface Runtime {
   readonly escapeSegment: typeof escapeSegment;
   readonly isMultipleOf: typeof isMultipleOf;
   readonly hasDuplicateItems: typeof hasDuplicateItems;
+  readonly firstDuplicatePair: typeof firstDuplicatePair;
   /** compiled RegExp by pattern source */
   readonly re: Record<string, { test(s: string): boolean }>;
   /** the artifact's depth bound (D20), shared with trampolined fragments */
@@ -58,6 +63,20 @@ export interface Runtime {
     value: JsonValue,
     scope: readonly string[],
     depth: number,
+  ): boolean;
+  /**
+   * List-mode trampoline: evaluates the fragment with the caller's
+   * evaluation-path prefix, maps its error records to interpreter-exact
+   * units (instance locations re-rooted under `ip`), and appends them.
+   */
+  fragList(
+    target: SchemaRef,
+    value: JsonValue,
+    scope: readonly string[],
+    depth: number,
+    ep: string,
+    ip: string,
+    errs: ErrorUnit[],
   ): boolean;
 }
 
@@ -90,6 +109,7 @@ export function makeRuntime(
     escapeSegment,
     isMultipleOf,
     hasDuplicateItems,
+    firstDuplicatePair,
     re,
     maxDepth,
     tooDeep: () => {
@@ -107,6 +127,32 @@ export function makeRuntime(
       };
       return evaluateFragment(registry, target, rootCursor(value), options)
         .valid;
+    },
+    fragList: (target, value, scope, depth, ep, ip, errs) => {
+      // One synthetic pre-escaped PathNode segment reproduces the caller's
+      // whole evaluation-path prefix (materializePath joins on "/").
+      const pathNode: PathNode | null =
+        ep === "" ? null : { parent: null, segment: ep.slice(1) };
+      const options: FragmentOptions = {
+        dynamicScope: scope,
+        depth,
+        regexCache,
+        maxDepth,
+        shouldRecord,
+        pathNode,
+      };
+      const result = evaluateFragment(
+        registry,
+        target,
+        rootCursor(value),
+        options,
+      );
+      for (const record of result.errors) {
+        const unit = renderError(record, "modern");
+        unit.instanceLocation = ip + unit.instanceLocation;
+        errs.push(unit);
+      }
+      return result.valid;
     },
   };
 }

@@ -464,13 +464,24 @@ export const validationVocabulary: Record<string, KeywordBehavior> = {
     // but the assertion itself does not depend on them: any duplicate fails).
     lower: (value, lctx) => {
       if (value !== true) return;
+      // The pair lookup in the message runs only on the failure path
+      // (D9e), so the duplicate scan's cost is not doubled for valid data.
+      const pair = lowerIR.helper("firstDuplicatePair", lctx.instance);
       lctx.emit(
         lowerIR.when(
           lowerIR.and(
             lowerIR.typeIs(lctx.instance, "array"),
             lowerIR.helper("hasDuplicateItems", lctx.instance),
           ),
-          [lowerIR.fail("items are not unique")],
+          [
+            lowerIR.fail(
+              "items at ",
+              { kind: "item", target: pair, index: lowerIR.constant(0) },
+              " and ",
+              { kind: "item", target: pair, index: lowerIR.constant(1) },
+              " are not unique",
+            ),
+          ],
         ),
       );
     },

@@ -260,12 +260,17 @@ artifacts run all branches so the error multiset matches the interpreter
 exactly. The lowering IR's `combine` is eager by definition; short-circuit
 is a licensed serializer optimization, never an IR semantic.
 
-**Compiled-output scope.** Compiled artifacts serve flag, flat
-`Result.errors`/`Result.annotations`, and the 2020-12 Basic document.
-Modern-vocabulary LIST and all hierarchical/verbose documents are
-trace-shaped (renderList flattens renderHierarchical over the trace) and
-stay on the interpreter — a per-output-config fallback via the D5 artifact
-key, not a semantic hole.
+**Compiled-output scope (amended post-M6, D9e delivered).** Compiled
+artifacts serve flag, flat error lists (`compileList` — interpreter-exact
+units, same order; list artifacts never short-circuit and run every
+branch), and the 2020-12 Basic document's error side. Compiled
+**annotation** collection would require channel frames in emitted code and
+stays on the interpreter (the Basic adapter omits `annotations` on valid
+instances; the per-output-config artifact key makes the interpreter a clean
+fallback). Modern-vocabulary LIST documents and all hierarchical/verbose
+documents are trace-shaped (renderList flattens renderHierarchical over the
+trace) and stay on the interpreter. D9e is realized in list emission:
+error-unit objects and message strings materialize only on failure paths.
 
 **Plain-data instance contract (M6.5).** Compiled artifacts assume the
 instance is plain JSON data — the output of `JSON.parse` or equivalent —

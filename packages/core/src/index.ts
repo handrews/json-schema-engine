@@ -110,6 +110,7 @@ export {
   canonicalKey,
   codePointLength,
   escapeSegment,
+  firstDuplicatePair,
   hasDuplicateItems,
   jsonEqual,
   unescapeSegment,
@@ -122,7 +123,7 @@ export type {
   SubschemaApplication,
 } from "./dialect.js";
 export { lowerIR } from "./lowering.js";
-export { makeRecordPredicate } from "./output.js";
+export { makeRecordPredicate, renderError } from "./output.js";
 export type {
   LowerApply,
   LowerCursor,

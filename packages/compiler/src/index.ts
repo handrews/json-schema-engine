@@ -4,11 +4,20 @@
 // interpreter through core's evaluateFragment, so the compiled artifact is
 // exactly as correct as the interpreter — never less complete.
 
-import { DEFAULT_MAX_DEPTH, type Engine, type JsonValue } from "@jse/core";
+import {
+  DEFAULT_MAX_DEPTH,
+  type Engine,
+  type ErrorUnit,
+  type JsonValue,
+} from "@jse/core";
 import { buildPlan, type CompilationPlan } from "./plan.js";
 import { serializePlan } from "./serialize.js";
 import { makeRuntime } from "./runtime.js";
-import { instantiate, type CompiledValidate } from "./runtime-compile.js";
+import {
+  instantiate,
+  instantiateList,
+  type CompiledValidate,
+} from "./runtime-compile.js";
 
 export type { CompilationPlan, PlannedUnit, FallbackCause } from "./plan.js";
 export { buildPlan } from "./plan.js";
@@ -26,6 +35,38 @@ export interface CompileOptions {
    * user-facing tuning knob.
    */
   conservative?: boolean;
+}
+
+/** A compiled list-mode result: interpreter-exact flat error units. */
+export interface CompiledListResult {
+  valid: boolean;
+  errors: ErrorUnit[];
+}
+
+/** A compiled list-mode artifact (see {@link compileList}). */
+export interface CompiledListArtifact {
+  /** evaluate with full error collection ({@link CompiledListResult}) */
+  evaluateList(instance: JsonValue): CompiledListResult;
+  /**
+   * The same result renamed to the 2020-12 Basic document field names.
+   * Matches the interpreter's Basic document exactly for INVALID instances;
+   * valid ones omit `annotations` (compiled annotation collection is out of
+   * scope — DESIGN §7 — use the interpreter when annotations are needed).
+   */
+  basic(instance: JsonValue): {
+    valid: boolean;
+    keywordLocation: string;
+    absoluteKeywordLocation: string;
+    instanceLocation: string;
+    errors?: {
+      keywordLocation: string;
+      absoluteKeywordLocation: string;
+      instanceLocation: string;
+      error: string;
+    }[];
+  };
+  plan: CompilationPlan;
+  source: string;
 }
 
 /** A compiled artifact: the validator plus its plan and source (inspection/tests). */
@@ -67,6 +108,66 @@ export function compileValidator(
   );
   return {
     validate: (instance: JsonValue) => validate(instance),
+    plan,
+    source,
+  };
+}
+
+/**
+ * Compile a registered schema into a list-output validator (D9e): flat,
+ * interpreter-exact error units — the same elements
+ * `Engine.evaluate(uri, x, { output: "list" }).errors` yields, in the same
+ * order (list artifacts never short-circuit; every branch runs, DESIGN §7).
+ * Error-unit objects materialize only on failure paths.
+ */
+export function compileList(
+  engine: Engine,
+  schemaUri: string,
+  options: CompileOptions = {},
+): CompiledListArtifact {
+  const plan = buildPlan(engine, schemaUri);
+  const source = serializePlan(
+    plan,
+    engine.registry,
+    "runtime",
+    options.conservative
+      ? { inline: false, plainData: false }
+      : { inline: true, plainData: true },
+    "list",
+  );
+  const runtime = makeRuntime(
+    engine.registry,
+    engine.patternCache,
+    plan.patterns,
+    options.maxDepth ?? DEFAULT_MAX_DEPTH,
+  );
+  const evaluateList = instantiateList<ErrorUnit>(
+    source,
+    runtime,
+    plan.targets.map((t) => t.ref),
+  );
+  const root = engine.registry.rootRef(schemaUri);
+  const rootLocation = `${root.baseUri}#${root.pointer}`;
+  return {
+    evaluateList,
+    basic: (instance) => {
+      const { valid, errors } = evaluateList(instance);
+      const doc: ReturnType<CompiledListArtifact["basic"]> = {
+        valid,
+        keywordLocation: "",
+        absoluteKeywordLocation: rootLocation,
+        instanceLocation: "",
+      };
+      if (!valid) {
+        doc.errors = errors.map((e) => ({
+          keywordLocation: e.evaluationPath!,
+          absoluteKeywordLocation: e.schemaLocation!,
+          instanceLocation: e.instanceLocation,
+          error: e.error,
+        }));
+      }
+      return doc;
+    },
     plan,
     source,
   };

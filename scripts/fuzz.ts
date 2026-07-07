@@ -18,7 +18,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createEngine, type JsonValue } from "@jse/core";
-import { compileValidator } from "@jse/compiler";
+import { compileList, compileValidator } from "@jse/compiler";
 import {
   Prng,
   deriveSeed,
@@ -35,6 +35,11 @@ import {
 const COMPILE_OPTS = {
   conservative: process.env.FUZZ_CONSERVATIVE === "1",
 };
+// FUZZ_LIST=1 referees list-output parity: both sides' full {valid, errors}
+// results are compared as canonical JSON (ordered — list artifacts never
+// short-circuit), riding the same outcome/minimizer machinery by encoding
+// each result as its own "error class".
+const LIST_MODE = process.env.FUZZ_LIST === "1";
 
 const SUITE_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -53,6 +58,23 @@ interface SuiteGroup {
 const SEED = Number(process.env.FUZZ_SEED ?? 0x9e3779b9);
 const BUDGET = Number(process.env.FUZZ_BUDGET ?? 200000);
 
+// List-mode outcome: the full result as canonical JSON in the throw
+// channel, so outcomesAgree === full structural equality.
+function runListSide(
+  evaluate: (instance: JsonValue) => unknown,
+): (instance: JsonValue) => SideOutcome {
+  return (instance) => {
+    try {
+      return { kind: "throw", errorClass: JSON.stringify(evaluate(instance)) };
+    } catch (err) {
+      return {
+        kind: "throw",
+        errorClass: "THREW:" + (err as Error).constructor.name,
+      };
+    }
+  };
+}
+
 function subjectFor(baseUri: string): DifferentialSubject {
   return {
     registers(schema) {
@@ -68,11 +90,24 @@ function subjectFor(baseUri: string): DifferentialSubject {
     interpreted(schema, instance): SideOutcome {
       const engine = createEngine();
       const uri = engine.registerSchema(schema, baseUri);
+      if (LIST_MODE) {
+        return runListSide((x) => {
+          const r = engine.evaluate(uri, x, { output: "list" });
+          return { valid: r.valid, errors: r.errors ?? [] };
+        })(instance);
+      }
       return runSide((x) => engine.evaluate(uri, x).valid)(instance);
     },
     compiled(schema, instance): SideOutcome {
       const engine = createEngine();
       const uri = engine.registerSchema(schema, baseUri);
+      if (LIST_MODE) {
+        const artifact = compileList(engine, uri, COMPILE_OPTS);
+        return runListSide((x) => {
+          const r = artifact.evaluateList(x);
+          return { valid: r.valid, errors: r.valid ? [] : r.errors };
+        })(instance);
+      }
       const artifact = compileValidator(engine, uri, COMPILE_OPTS);
       return runSide((x) => artifact.validate(x))(instance);
     },

@@ -86,6 +86,7 @@ export const anyOf: KeywordBehavior = {
         apply: { path: [i], cursor: { kind: "here" }, fold: "anyMayPass" },
       });
     });
+    lctx.emit({ kind: "combineCheck", message: ["no branch matched"] });
   },
   evaluate: (value, cursor, ctx) => {
     let ok = false;
@@ -118,6 +119,10 @@ export const oneOf: KeywordBehavior = {
         apply: { path: [i], cursor: { kind: "here" }, fold: "exactlyOne" },
       });
     });
+    lctx.emit({
+      kind: "combineCheck",
+      message: ["matched ", { kind: "tally" }, " branches, expected exactly 1"],
+    });
   },
   evaluate: (value, cursor, ctx) => {
     let count = 0;
@@ -149,7 +154,12 @@ export const not: KeywordBehavior = {
   lower: (_value, lctx) => {
     lctx.emit({
       kind: "apply",
-      apply: { path: [], cursor: { kind: "here" }, fold: "negate" },
+      apply: {
+        path: [],
+        cursor: { kind: "here" },
+        fold: "negate",
+        message: ["must not match the subschema"],
+      },
     });
   },
   evaluate: (_value, cursor, ctx) => {
@@ -685,8 +695,11 @@ export const contains: KeywordBehavior = {
           },
           min,
           max,
+          // Mirrors evaluate()'s text exactly (list-mode parity): the
+          // tally placeholder binds to the runtime match count.
           outOfRangeMessage: [
-            "item(s) match the contains subschema outside the required range",
+            { kind: "tally" },
+            ` item(s) match the contains subschema, expected ${min}-${max}`,
           ],
         },
       ]),
