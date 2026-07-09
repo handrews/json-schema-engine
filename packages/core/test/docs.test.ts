@@ -1,8 +1,11 @@
 // Executes every ```ts code block in README.md and docs/guide/*.md
 // (CONTRIBUTING.md "Documentation conventions" states the contract): each
 // block is a self-contained module that must import successfully and run
-// without throwing. Blocks are written to the gitignored .snippets/
-// directory so vitest's transformer compiles them like project code.
+// without throwing. Snippets import "@jse/core" etc. by package name, which
+// Node resolves by walking up from the importing file to find node_modules
+// — a system tmpdir sits outside that walk and breaks resolution, so
+// snippets are written under a gitignored .cache/ directory in the repo
+// root instead (still outside the source tree, still never committed).
 
 import {
   mkdirSync,
@@ -13,11 +16,11 @@ import {
 } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, it, beforeAll, expect } from "vitest";
+import { describe, it, beforeAll, afterAll, expect } from "vitest";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, "..", "..", "..");
-const SNIPPET_DIR = join(HERE, ".snippets");
+const SNIPPET_DIR = join(ROOT, ".cache", "snippets");
 const GUIDE_DIR = join(ROOT, "docs", "guide");
 
 interface Snippet {
@@ -59,6 +62,10 @@ describe("documentation snippets", () => {
   beforeAll(() => {
     rmSync(SNIPPET_DIR, { recursive: true, force: true });
     mkdirSync(SNIPPET_DIR, { recursive: true });
+  });
+
+  afterAll(() => {
+    rmSync(SNIPPET_DIR, { recursive: true, force: true });
   });
 
   it("extraction finds the expected volume", () => {

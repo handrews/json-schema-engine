@@ -4,7 +4,9 @@
 // non-compliant on parts of $dynamicRef/unevaluated*). Real AJV runs
 // alongside (executed as an oracle, D15): where AJV agrees with the suite
 // on an invalid case, the mapped error objects are compared canonically
-// and the mismatch count is ratcheted — mapping drift fails the build.
+// and mismatches are pinned against a golden identity set — mapping drift
+// (new mismatch appears, or an existing one silently disappears) fails
+// the build visibly instead of just nudging a count.
 
 import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
@@ -22,8 +24,9 @@ type RealAjvCtor = new (options?: Record<string, unknown>) => {
 const RealAjv2020 = ((Ajv2020Import as { default?: unknown }).default ??
   Ajv2020Import) as RealAjvCtor;
 
+const HERE = dirname(fileURLToPath(import.meta.url));
 const SUITE_DIR = join(
-  dirname(fileURLToPath(import.meta.url)),
+  HERE,
   "..",
   "..",
   "..",
@@ -31,6 +34,7 @@ const SUITE_DIR = join(
   "tests",
   "draft2020-12",
 );
+const GOLDEN_PATH = join(HERE, "fixtures", "suite-mismatch-golden.json");
 
 interface SuiteGroup {
   description: string;
@@ -64,14 +68,13 @@ const canonical = (errors: ErrorObject[] | null | undefined): string =>
   );
 
 describe("official-suite differential vs real AJV", () => {
-  it("compat matches the suite everywhere; error parity ratcheted", () => {
+  it("compat matches the suite everywhere; error parity pinned to golden set", () => {
     let cases = 0;
     let skippedGroups = 0;
     let ajvCompiled = 0;
     let ajvSuiteAgreements = 0;
     let errorComparisons = 0;
-    let errorMismatches = 0;
-    const samples: string[] = [];
+    const mismatchIdentities: string[] = [];
 
     for (const file of readdirSync(SUITE_DIR).filter((f) =>
       f.endsWith(".json"),
@@ -91,17 +94,22 @@ describe("official-suite differential vs real AJV", () => {
           skippedGroups++; // remote refs / registration errors: other legs cover
           return;
         }
-        let ajvValidate:
-          | (((d: unknown) => boolean) & { errors?: ErrorObject[] | null })
-          | null = null;
-        try {
-          ajvValidate = new RealAjv2020({ ...OPTIONS, logger: false }).compile(
-            group.schema,
-          );
-          ajvCompiled++;
-        } catch {
-          ajvValidate = null;
-        }
+        const ajvValidate:
+          | (((d: unknown) => boolean) & {
+              errors?: ErrorObject[] | null;
+            })
+          | null = (() => {
+          try {
+            const compiled = new RealAjv2020({
+              ...OPTIONS,
+              logger: false,
+            }).compile(group.schema);
+            ajvCompiled++;
+            return compiled;
+          } catch {
+            return null;
+          }
+        })();
         for (const test of group.tests) {
           let ours: boolean;
           try {
@@ -128,28 +136,30 @@ describe("official-suite differential vs real AJV", () => {
           if (
             canonical(compatValidate.errors) !== canonical(ajvValidate.errors)
           ) {
-            errorMismatches++;
-            if (samples.length < 5) {
-              samples.push(`${file}#${String(gi)} ${test.description}`);
-            }
+            mismatchIdentities.push(
+              `${file}#${String(gi)} ${test.description}`,
+            );
           }
         }
       });
     }
 
-    // Coverage floor: the differential must actually exercise the corpus.
+    // Coverage floors/ceilings: the differential must actually exercise the
+    // corpus, and silent growth in skipped groups would hide shrinking
+    // coverage behind a green build.
     expect(cases).toBeGreaterThan(1100);
     expect(ajvCompiled).toBeGreaterThan(300);
     expect(errorComparisons).toBeGreaterThan(300);
-    // Error-object parity ratchet. Measured at introduction: 61/477
-    // mismatches, clustered in combiner-heavy shapes (anyOf/oneOf/ref
-    // branch error sets differ by evaluation strategy; the per-keyword
-    // mapping itself is oracle-pinned). Lower is better; raising this
-    // bound requires justification.
-    if (errorMismatches > 70) {
-      throw new Error(
-        `error parity regressed: ${String(errorMismatches)}/${String(errorComparisons)} mismatches; samples: ${samples.join("; ")}`,
-      );
-    }
+    expect(skippedGroups).toBeLessThanOrEqual(30); // measured: 22
+    expect(ajvSuiteAgreements).toBeGreaterThanOrEqual(1100); // measured: 1194
+
+    // Error-object parity, pinned by identity rather than count. A count
+    // ratchet lets one mismatch disappear while a different one appears
+    // unnoticed; comparing the sorted identity set catches that swap. Any
+    // divergence-class change — new mismatch or a previously-mismatching
+    // case now matching — fails here. Regenerating this fixture requires
+    // justification in the commit message.
+    const golden = JSON.parse(readFileSync(GOLDEN_PATH, "utf8")) as string[];
+    expect(mismatchIdentities.slice().sort()).toEqual(golden);
   });
 });

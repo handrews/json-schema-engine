@@ -44,6 +44,28 @@ export { default as addFormats } from "./formats.js";
 export { default as ajvErrors } from "./ajv-errors.js";
 export { default as ajvKeywords } from "./ajv-keywords.js";
 
+/**
+ * Guards the invariant AJV's public contract depends on: `errors` is
+ * non-empty whenever `valid` is false. The flag tier decides pass/fail
+ * fast; on failure the list tier re-evaluates to collect error detail. If
+ * the flag tier says invalid but the list tier reports zero errors, the
+ * two tiers disagree — exactly the defect class the differential fuzzer
+ * (scripts/fuzz.ts) exists to catch at build time. Surfacing it here
+ * instead of silently returning `errors: []` turns a contract violation
+ * into a loud bug report instead of a caller-visible correctness bug.
+ */
+export function assertTierAgreement(valid: boolean, errors: unknown[]): void {
+  if (!valid && errors.length === 0) {
+    throw new Error(
+      "ajv-compat: flag-tier validator (compileValidator) reported invalid, " +
+        "but the list tier (compileList) produced no errors. This is a " +
+        "tier-agreement bug in @jse/compiler or @jse/core, not a schema " +
+        "problem — please file a bug report with the schema and instance " +
+        "that triggered this.",
+    );
+  }
+}
+
 /** Thrown for AJV surface this adapter deliberately does not emulate. */
 export class AjvCompatUnsupportedError extends Error {
   constructor(feature: string, reason: string) {
@@ -630,12 +652,14 @@ export class Ajv {
         runMutationFixpoint(engine, uri, holder, mutations, resolveSchema);
         instance = holder.value;
       }
-      if (flagArtifact.validate(instance)) {
+      const flagValid = flagArtifact.validate(instance);
+      if (flagValid) {
         fn.errors = null;
         return true;
       }
       listArtifact.current ??= compileList(engine, uri, { errorParams: true });
       const { errors } = listArtifact.current.evaluateList(instance);
+      assertTierAgreement(flagValid, errors);
       let mapped = mapErrors(errors, instance, {
         rootBaseUri: rootBase,
         resolveSchema,

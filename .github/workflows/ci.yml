@@ -22,3 +22,14 @@ jobs:
       - run: npm run format:check
       - run: npm test
       - run: npm run docs:api
+      - run: npm run csp:check
+      - run: FUZZ_BUDGET=5000 npm run fuzz
+      - run: FUZZ_LIST=1 FUZZ_BUDGET=5000 npm run fuzz
+      - run: npx tsx packages/ajv-compat/test/oracle/capture.ts
+      - run: npx tsx packages/ajv-compat/test/oracle/capture-companions.ts
+      - run: npx tsx packages/ajv-compat/test/oracle/capture-mutation.ts
+      # capture writes plain JSON.stringify; format before diffing so the
+      # check reflects real oracle drift, not indentation churn.
+      - run: npx prettier --write packages/ajv-compat/test/fixtures/*.json
+      - run: git diff --exit-code packages/ajv-compat/test/fixtures/
+      - run: test -z "$(git status --porcelain)"

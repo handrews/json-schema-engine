@@ -279,10 +279,10 @@ for (const { group, hz } of results) {
   const ours = hz["ours(M6)"] ?? hz["ours(compiled)"]!;
   const theirs = hz.ajv!;
   const ratio = theirs / ours;
-  const ok = ratio <= 1.5;
+  const ok = ratio <= 1.0;
   if (!ok) gatePass = false;
   console.log(
-    `GATE ${ok ? "PASS" : "FAIL"}: ${group.name}: ajv/ours = ${ratio.toFixed(2)} (must be <= 1.50)`,
+    `GATE ${ok ? "PASS" : "FAIL"}: ${group.name}: ajv/ours = ${ratio.toFixed(2)} (must be <= 1.00)`,
   );
 }
 console.log(`\nOVERALL GATE: ${gatePass ? "PASS" : "FAIL"}`);
