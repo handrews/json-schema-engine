@@ -823,5 +823,330 @@
         "message": "must be integer"
       }
     ]
+  },
+  "remove-true-inside-anyof-passing-first": {
+    "dialect": "2020-12",
+    "options": {
+      "removeAdditional": true
+    },
+    "schema": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "a": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["b"],
+          "properties": {
+            "b": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "data": {
+      "a": 1
+    },
+    "valid": true,
+    "dataAfter": {
+      "a": 1
+    },
+    "errors": null
+  },
+  "remove-true-inside-anyof-both-failing": {
+    "dialect": "2020-12",
+    "options": {
+      "removeAdditional": true
+    },
+    "schema": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "a": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "b": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "data": {
+      "a": 1,
+      "b": 2
+    },
+    "valid": true,
+    "dataAfter": {},
+    "errors": null
+  },
+  "remove-all-inside-failing-oneof-branch": {
+    "dialect": "2020-12",
+    "options": {
+      "removeAdditional": "all"
+    },
+    "schema": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind"],
+          "properties": {
+            "kind": {
+              "const": "x"
+            },
+            "a": {
+              "type": "integer"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "b"],
+          "properties": {
+            "kind": {
+              "const": "y"
+            },
+            "b": {
+              "type": "integer"
+            }
+          }
+        }
+      ]
+    },
+    "data": {
+      "kind": "x",
+      "a": 1,
+      "extra": true
+    },
+    "valid": true,
+    "dataAfter": {
+      "kind": "x",
+      "a": 1
+    },
+    "errors": null
+  },
+  "remove-failing-inside-anyof": {
+    "dialect": "2020-12",
+    "options": {
+      "removeAdditional": "failing"
+    },
+    "schema": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": ["a"],
+          "properties": {
+            "a": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["missing"]
+        }
+      ]
+    },
+    "data": {
+      "a": 1,
+      "extra": true
+    },
+    "valid": true,
+    "dataAfter": {
+      "a": 1
+    },
+    "errors": null
+  },
+  "defaults-inside-failing-oneof-branch": {
+    "dialect": "2020-12",
+    "options": {
+      "useDefaults": true,
+      "strict": false
+    },
+    "schema": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["y"],
+          "properties": {
+            "x": {
+              "type": "integer",
+              "default": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["z"],
+          "properties": {
+            "z": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "data": {
+      "z": "ok"
+    },
+    "valid": true,
+    "dataAfter": {
+      "z": "ok"
+    },
+    "errors": null
+  },
+  "defaults-inside-passing-oneof-branch": {
+    "dialect": "2020-12",
+    "options": {
+      "useDefaults": true,
+      "strict": false
+    },
+    "schema": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["y"],
+          "properties": {
+            "y": {
+              "type": "integer"
+            },
+            "x": {
+              "type": "integer",
+              "default": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["z"],
+          "properties": {
+            "z": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "data": {
+      "y": 2
+    },
+    "valid": true,
+    "dataAfter": {
+      "y": 2
+    },
+    "errors": null
+  },
+  "coerce-competing-anyof-string-first": {
+    "dialect": "2020-12",
+    "options": {
+      "coerceTypes": true
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "v": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        }
+      }
+    },
+    "data": {
+      "v": true
+    },
+    "valid": true,
+    "dataAfter": {
+      "v": "true"
+    },
+    "errors": null
+  },
+  "coerce-competing-anyof-number-first": {
+    "dialect": "2020-12",
+    "options": {
+      "coerceTypes": true
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "v": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    "data": {
+      "v": true
+    },
+    "valid": true,
+    "dataAfter": {
+      "v": "1"
+    },
+    "errors": null
+  },
+  "coerce-competing-nested-oneof": {
+    "dialect": "2020-12",
+    "options": {
+      "coerceTypes": true
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "outer": {
+          "type": "object",
+          "properties": {
+            "v": {
+              "oneOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "data": {
+      "outer": {
+        "v": "1"
+      }
+    },
+    "valid": true,
+    "dataAfter": {
+      "outer": {
+        "v": 1
+      }
+    },
+    "errors": null
   }
 }

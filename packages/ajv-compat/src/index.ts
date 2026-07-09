@@ -14,6 +14,7 @@ import {
   SchemaValidationError,
   type Engine,
   type ErrorParams,
+  type ErrorUnit,
   type FormatDefinition,
   type FormatTable,
   type JsonValue,
@@ -32,6 +33,7 @@ import {
 import { mapErrors, needsTrace, type AjvErrorObject } from "./errors.js";
 import {
   anyMutation,
+  isPlainData,
   runMutationFixpoint,
   type MutationOptions,
 } from "./mutate.js";
@@ -42,6 +44,7 @@ import {
 } from "./discriminator.js";
 
 export type { AjvErrorObject } from "./errors.js";
+export { MutationNonConvergenceError } from "./mutate.js";
 export type ErrorObject = AjvErrorObject;
 export { default as addFormats } from "./formats.js";
 export { default as ajvErrors } from "./ajv-errors.js";
@@ -659,7 +662,13 @@ export class Ajv {
     const mutating = anyMutation(mutations);
     const fn = ((data: JsonValue): boolean => {
       let instance = data;
-      if (mutating) {
+      // Non-plain instances (class instances, Maps, Dates) on a mutating
+      // validator route wholly to the interpreter: mutation's navigation
+      // and cloning assume plain data, and the answer must definitionally
+      // be the interpreter's own rather than a silently diverging mutated
+      // one. Mutation itself is skipped (COMPAT.md).
+      const interpretOnly = mutating && !isPlainData(data);
+      if (mutating && !interpretOnly) {
         // In-place nested mutation, like AJV; a coerced TOP-LEVEL value
         // only changes the validated value, never the caller's binding
         // (fixture: coerce-top-level-scalar).
@@ -667,20 +676,16 @@ export class Ajv {
         runMutationFixpoint(engine, uri, holder, mutations, resolveSchema);
         instance = holder.value;
       }
-      const flagValid = flagArtifact.validate(instance);
+      const flagValid = interpretOnly
+        ? engine.evaluate(uri, instance).valid
+        : flagArtifact.validate(instance);
       if (flagValid) {
         fn.errors = null;
         return true;
       }
-      listArtifact.current ??= compileList(engine, uri, { errorParams: true });
-      let { errors } = listArtifact.current.evaluateList(instance);
-      assertTierAgreement(flagValid, errors);
+      let errors: ErrorUnit[];
       let trace: TraceUnit | undefined;
-      if (needsTrace(errors)) {
-        // Context-dependent failures escalate to the interpreter — the only
-        // tier that records a trace. Its list output is differential-gated
-        // identical to the compiled artifact's, so this swaps the units'
-        // provenance, not their content; common failures never pay it.
+      if (interpretOnly) {
         const traced = engine.evaluate(uri, instance, {
           output: "list",
           errorParams: true,
@@ -689,6 +694,27 @@ export class Ajv {
         assertTierAgreement(flagValid, traced.errors ?? []);
         errors = traced.errors!;
         trace = traced.trace;
+      } else {
+        listArtifact.current ??= compileList(engine, uri, {
+          errorParams: true,
+        });
+        ({ errors } = listArtifact.current.evaluateList(instance));
+        assertTierAgreement(flagValid, errors);
+        if (needsTrace(errors)) {
+          // Context-dependent failures escalate to the interpreter — the
+          // only tier that records a trace. Its list output is
+          // differential-gated identical to the compiled artifact's, so
+          // this swaps the units' provenance, not their content; common
+          // failures never pay it.
+          const traced = engine.evaluate(uri, instance, {
+            output: "list",
+            errorParams: true,
+            trace: true,
+          });
+          assertTierAgreement(flagValid, traced.errors ?? []);
+          errors = traced.errors!;
+          trace = traced.trace;
+        }
       }
       let mapped = mapErrors(errors, instance, {
         rootBaseUri: rootBase,

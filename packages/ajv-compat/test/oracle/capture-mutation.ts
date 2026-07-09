@@ -326,6 +326,158 @@ const CASES: OracleCase[] = [
     },
     data: { id: "not-a-number" },
   },
+  // ---- combiner × mutation (M8.6c: previously unpinned) ------------------
+  {
+    name: "remove-true-inside-anyof-passing-first",
+    options: { removeAdditional: true },
+    schema: {
+      anyOf: [
+        {
+          type: "object",
+          properties: { a: { type: "integer" } },
+          additionalProperties: false,
+        },
+        {
+          type: "object",
+          required: ["b"],
+          properties: { b: { type: "integer" } },
+          additionalProperties: false,
+        },
+      ],
+    },
+    data: { a: 1 },
+  },
+  {
+    name: "remove-true-inside-anyof-both-failing",
+    options: { removeAdditional: true },
+    schema: {
+      anyOf: [
+        {
+          type: "object",
+          properties: { a: { type: "integer" } },
+          additionalProperties: false,
+        },
+        {
+          type: "object",
+          properties: { b: { type: "integer" } },
+          additionalProperties: false,
+        },
+      ],
+    },
+    data: { a: 1, b: 2 },
+  },
+  {
+    name: "remove-all-inside-failing-oneof-branch",
+    options: { removeAdditional: "all" },
+    schema: {
+      oneOf: [
+        {
+          type: "object",
+          required: ["kind"],
+          properties: { kind: { const: "x" }, a: { type: "integer" } },
+        },
+        {
+          type: "object",
+          required: ["kind", "b"],
+          properties: { kind: { const: "y" }, b: { type: "integer" } },
+        },
+      ],
+    },
+    data: { kind: "x", a: 1, extra: true },
+  },
+  {
+    name: "remove-failing-inside-anyof",
+    options: { removeAdditional: "failing" },
+    schema: {
+      anyOf: [
+        {
+          type: "object",
+          required: ["a"],
+          properties: { a: { type: "integer" } },
+          additionalProperties: false,
+        },
+        { type: "object", required: ["missing"] },
+      ],
+    },
+    data: { a: 1, extra: true },
+  },
+  {
+    name: "defaults-inside-failing-oneof-branch",
+    // strict:false — AJV's strict mode otherwise refuses defaults inside
+    // oneOf branches ("default is ignored"), hiding the mutation behavior.
+    options: { useDefaults: true, strict: false },
+    schema: {
+      oneOf: [
+        {
+          type: "object",
+          required: ["y"],
+          properties: { x: { type: "integer", default: 1 } },
+        },
+        {
+          type: "object",
+          required: ["z"],
+          properties: { z: { type: "string" } },
+        },
+      ],
+    },
+    data: { z: "ok" },
+  },
+  {
+    name: "defaults-inside-passing-oneof-branch",
+    options: { useDefaults: true, strict: false },
+    schema: {
+      oneOf: [
+        {
+          type: "object",
+          required: ["y"],
+          properties: {
+            y: { type: "integer" },
+            x: { type: "integer", default: 1 },
+          },
+        },
+        {
+          type: "object",
+          required: ["z"],
+          properties: { z: { type: "string" } },
+        },
+      ],
+    },
+    data: { y: 2 },
+  },
+  {
+    name: "coerce-competing-anyof-string-first",
+    options: { coerceTypes: true },
+    schema: {
+      type: "object",
+      properties: { v: { anyOf: [{ type: "string" }, { type: "number" }] } },
+    },
+    data: { v: true },
+  },
+  {
+    name: "coerce-competing-anyof-number-first",
+    options: { coerceTypes: true },
+    schema: {
+      type: "object",
+      properties: { v: { anyOf: [{ type: "number" }, { type: "string" }] } },
+    },
+    data: { v: true },
+  },
+  {
+    name: "coerce-competing-nested-oneof",
+    options: { coerceTypes: true },
+    schema: {
+      type: "object",
+      properties: {
+        outer: {
+          type: "object",
+          properties: {
+            v: { oneOf: [{ type: "boolean" }, { type: "integer" }] },
+          },
+        },
+      },
+    },
+    data: { outer: { v: "1" } },
+  },
 ];
 
 const results: Record<string, unknown> = {};

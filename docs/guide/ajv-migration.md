@@ -121,7 +121,15 @@ if (!validate("2026-07-07T12:00:00Z") || validate("nope")) {
   `Object.keys`. This is also why the `ownProperties` option is
   accepted-and-ignored. Validate parsed JSON (HTTP bodies, files) and
   this never matters; do not feed live class instances through compat
-  validators.
+  validators. On a **mutating** configuration the adapter guards this
+  for you: non-plain data (class instances, `Map`, `Date`, ...) is
+  never mutated and validates through the interpreter unchanged.
+- **`MutationNonConvergenceError`** (catchable, exported): thrown when
+  the mutation loop's passes keep rewriting each other's results —
+  e.g. `allOf` branches coercing the same value to different types.
+  AJV silently settles on an evaluation-order-dependent value there;
+  the adapter refuses to pick one. Rework the schema so only one
+  subschema drives the coercion of any given value.
 - **`strictNumbers`**: AJV rejects `NaN`/`Infinity` at validation time by
   default. JSON-parsed data cannot contain them, so HTTP paths are
   unaffected; hand-built JS objects diverge.

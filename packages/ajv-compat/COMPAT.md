@@ -165,8 +165,26 @@ adapter filters the engine's complete error record to match (**oracle**:
   golden set; verdicts match the suite on 100% of registerable cases,
   including ~30 where AJV itself disagrees with the suite
   ($dynamicRef/unevaluated\* corners — the adapter follows the spec).
-- Coercion inside `oneOf` may settle on a different schema-valid value
-  than AJV's documented no-backtrack behavior.
+- Coercion inside `anyOf`/`oneOf` may settle on a different schema-valid
+  value than AJV's no-backtrack cascade (**oracle**:
+  `coerce-competing-anyof-number-first` — AJV turns `true` into `"1"`
+  through two branch coercions; the adapter's fixpoint stops at the
+  first branch's `1`; the divergent value is pinned in
+  `mutation.test.ts`). Defaults and removal inside combiner branches ARE
+  matched: defaults never apply inside `anyOf`/`oneOf` branches, and
+  removal skips a failing branch once a sibling passed (**oracle**:
+  the combiner×mutation cases in `ajv-mutation.json`).
+- Mutations that keep rewriting each other's results (e.g. `allOf`
+  branches coercing the same value to different types) throw
+  `MutationNonConvergenceError` instead of stopping on an arbitrary
+  intermediate state. A compat-layer extension: AJV mutates inline
+  during evaluation and can silently settle on order-dependent values
+  there.
+- On a MUTATING validator (any of the trio enabled), non-plain data —
+  class instances, `Map`, `Date`, anything without a plain
+  object/array shape — is never mutated: the instance validates through
+  the interpreter unchanged, so the verdict cannot silently diverge
+  from an in-place mutation gone wrong.
 - `prohibited` reports a single error where ajv-keywords also surfaces a
   companion `not` error (it composes from `not`+`anyRequired`
   internally).

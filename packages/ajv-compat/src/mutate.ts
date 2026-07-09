@@ -42,6 +42,53 @@ export interface RootHolder {
 // a pathological oscillation.
 const MAX_PASSES = 20;
 
+/**
+ * Thrown when the mutation fixpoint is still changing the instance at
+ * MAX_PASSES — competing mutations (e.g. branches coercing the same value
+ * to different types) that would otherwise stop silently on an arbitrary
+ * intermediate state. A compat-layer extension: AJV mutates inline during
+ * evaluation and has no fixpoint, so there is no oracle shape to match.
+ */
+export class MutationNonConvergenceError extends Error {
+  constructor(passes: number) {
+    super(
+      `ajv-compat: mutation fixpoint did not converge after ${String(passes)} ` +
+        "passes — the schema's mutations (coerceTypes/useDefaults/" +
+        "removeAdditional) keep rewriting each other's results",
+    );
+    this.name = "MutationNonConvergenceError";
+  }
+}
+
+/**
+ * A prototype chain that adds no behavior: Object.prototype, null, or
+ * empty carrier prototypes above one of those — fastify's query objects
+ * use a constructor whose prototype is a bare null-proto object, which
+ * is data-only and safe to mutate. Anything with own prototype members
+ * (class methods, Date, Map, ...) is not plain.
+ */
+const plainProto = (proto: unknown): boolean => {
+  if (proto === null || proto === Object.prototype) return true;
+  return (
+    Object.getOwnPropertyNames(proto).length === 0 &&
+    Object.getOwnPropertySymbols(proto).length === 0 &&
+    plainProto(Object.getPrototypeOf(proto))
+  );
+};
+
+/**
+ * True for JSON-shaped data only: null/string/number/boolean, arrays of
+ * plain values, and objects whose prototype chain adds no behavior.
+ * Class instances, Maps, Dates etc. fail — mutation navigation and
+ * cloning assume plain data.
+ */
+export const isPlainData = (v: JsonValue): boolean => {
+  if (v === null || typeof v !== "object") return true;
+  if (Array.isArray(v)) return v.every(isPlainData);
+  if (!plainProto(Object.getPrototypeOf(v))) return false;
+  return Object.values(v).every(isPlainData);
+};
+
 const getAt = (root: RootHolder, pointer: string): JsonValue | undefined =>
   getAtPointer(root.value, pointer);
 
@@ -192,22 +239,58 @@ export function runMutationFixpoint(
         output: "hierarchical",
         verbose: true,
       }).outputDocument as OutputUnit;
+      // Two combiner scopes, pinned by ajv-mutation.json (M8.6c cases):
+      // - defaults NEVER apply inside anyOf/oneOf branches, passing or not
+      //   (AJV ignores them there — its strict mode even refuses them);
+      // - removal applies inside a FAILING branch only when no sibling
+      //   branch passed (AJV short-circuits past the failing branch once
+      //   one passes; with none passing, every branch's removal fired).
       const units: OutputUnit[] = [];
-      const walk = (u: OutputUnit): void => {
+      const inCombiner = new Set<OutputUnit>();
+      const muted = new Set<OutputUnit>();
+      const walk = (u: OutputUnit, inC: boolean, isMuted: boolean): void => {
         units.push(u);
-        for (const d of u.details ?? []) walk(d);
+        if (inC) inCombiner.add(u);
+        if (isMuted) muted.add(u);
+        const kids = u.details ?? [];
+        const edgeOf = (d: OutputUnit): string | undefined =>
+          segments(d.evaluationPath!.slice(u.evaluationPath!.length))[0];
+        const anyBranchValid = new Map<string, boolean>();
+        for (const d of kids) {
+          const e = edgeOf(d);
+          if (e === "anyOf" || e === "oneOf") {
+            anyBranchValid.set(e, (anyBranchValid.get(e) ?? false) || d.valid);
+          }
+        }
+        for (const d of kids) {
+          const e = edgeOf(d);
+          const isBranch = e === "anyOf" || e === "oneOf";
+          walk(
+            d,
+            inC || isBranch,
+            isMuted || (isBranch && !d.valid && anyBranchValid.get(e) === true),
+          );
+        }
       };
-      walk(doc);
+      walk(doc, false, false);
 
       if (options.useDefaults !== undefined) {
         changed =
-          applyDefaults(units, root, options.useDefaults, resolveSchema) ||
-          changed;
+          applyDefaults(
+            units.filter((u) => !inCombiner.has(u)),
+            root,
+            options.useDefaults,
+            resolveSchema,
+          ) || changed;
       }
       if (options.removeAdditional !== undefined) {
         changed =
-          applyRemoval(units, root, options.removeAdditional, resolveSchema) ||
-          changed;
+          applyRemoval(
+            units.filter((u) => !muted.has(u)),
+            root,
+            options.removeAdditional,
+            resolveSchema,
+          ) || changed;
       }
     }
 
@@ -228,6 +311,7 @@ export function runMutationFixpoint(
 
     if (!changed) return;
   }
+  throw new MutationNonConvergenceError(MAX_PASSES);
 }
 
 const applyDefaults = (
