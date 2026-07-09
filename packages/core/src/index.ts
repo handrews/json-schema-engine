@@ -118,6 +118,8 @@ export {
   unescapeSegment,
 } from "./json.js";
 export { isMultipleOf } from "./keywords/validation.js";
+export { walkSchema } from "./walk.js";
+export type { SchemaWalkVisit } from "./walk.js";
 export type {
   AnalyzeContext,
   ErrorParams,
