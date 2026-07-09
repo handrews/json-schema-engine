@@ -21,7 +21,9 @@ import {
   type KeywordBehavior,
   type SchemaLoader,
   type TraceUnit,
+  walkSchema,
 } from "@jse/core";
+import { getAtPointer } from "./pointer.js";
 import {
   compileList,
   compileValidator,
@@ -174,33 +176,6 @@ interface CompiledEntry {
 
 const COMPAT_VOCAB = "urn:ajv-compat:keywords";
 const COMPAT_DIALECT = "urn:ajv-compat:dialect";
-
-/**
- * Keywords AJV's strict mode treats as known for the supported dialects,
- * beyond dialect keyword tables: `$vocabulary` etc. arrive through the
- * dialect itself, so only the schema-position walk needs this list.
- */
-const DESCEND_OBJECT_VALUES = new Set([
-  "properties",
-  "patternProperties",
-  "dependentSchemas",
-  "$defs",
-  "definitions",
-]);
-const DESCEND_SELF = new Set([
-  "additionalProperties",
-  "unevaluatedProperties",
-  "unevaluatedItems",
-  "propertyNames",
-  "not",
-  "contains",
-  "if",
-  "then",
-  "else",
-  "items",
-  "additionalItems",
-]);
-const DESCEND_ARRAY = new Set(["allOf", "anyOf", "oneOf", "prefixItems"]);
 
 export class Ajv {
   readonly opts: Options;
@@ -634,7 +609,7 @@ export class Ajv {
       const pointer = location.slice(hash + 1);
       const doc =
         base === rootBase ? schema : (this.docs.get(base) ?? undefined);
-      return doc === undefined ? undefined : walkPointer(doc, pointer);
+      return doc === undefined ? undefined : getAtPointer(doc, pointer);
     };
     const opts = this.opts;
     const mutations: MutationOptions = {
@@ -715,37 +690,27 @@ export class Ajv {
     if (this.errorPostProcessor !== undefined) known.add("errorMessage");
     const formats = this.formatTable();
     const checkFormats = this.opts.validateFormats !== false;
-    const visit = (node: JsonValue): void => {
-      if (typeof node !== "object" || node === null || Array.isArray(node))
-        return;
-      const obj = node as Record<string, JsonValue>;
-      for (const [key, value] of Object.entries(obj)) {
+    // walkSchema descends by the dialect's own keyword facts, so unknown
+    // keywords' values are never entered — AJV's strict semantics exactly.
+    walkSchema(schema, dialect, ({ node }) => {
+      if (typeof node === "boolean") return;
+      for (const [key, value] of Object.entries(
+        node as Record<string, JsonValue>,
+      )) {
         if (!known.has(key)) {
           report(`unknown keyword: "${key}"`);
           continue;
         }
-        if (key === "format" && typeof value === "string" && checkFormats) {
-          if (formats?.[value] === undefined) {
-            report(`unknown format "${value}" ignored in schema`);
-          }
-        }
-        if (DESCEND_OBJECT_VALUES.has(key)) {
-          if (
-            typeof value === "object" &&
-            value !== null &&
-            !Array.isArray(value)
-          ) {
-            for (const sub of Object.values(value)) visit(sub);
-          }
-        } else if (DESCEND_ARRAY.has(key)) {
-          if (Array.isArray(value)) for (const sub of value) visit(sub);
-        } else if (DESCEND_SELF.has(key)) {
-          if (Array.isArray(value)) for (const sub of value) visit(sub);
-          else visit(value);
+        if (
+          key === "format" &&
+          typeof value === "string" &&
+          checkFormats &&
+          formats?.[value] === undefined
+        ) {
+          report(`unknown format "${value}" ignored in schema`);
         }
       }
-    };
-    visit(schema);
+    });
   }
 }
 
@@ -767,29 +732,13 @@ export default Ajv;
 
 // ---- helpers ----------------------------------------------------------------
 
-const walkPointer = (
-  doc: JsonValue,
-  pointer: string,
-): JsonValue | undefined => {
-  let node: JsonValue | undefined = doc;
-  if (pointer === "") return node;
-  for (const raw of pointer.slice(1).split("/")) {
-    const seg = raw.replace(/~1/g, "/").replace(/~0/g, "~");
-    if (Array.isArray(node)) node = node[Number(seg)];
-    else if (typeof node === "object" && node !== null)
-      node = (node as Record<string, JsonValue>)[seg];
-    else return undefined;
-  }
-  return node;
-};
-
 /** Same-document "#/..." fragment resolution for the eager discriminator
  * check (compileAt runs before schema registration, so the real engine's
  * cross-document resolver isn't available yet). */
 const resolveLocalPointer = (doc: JsonValue, ref: string): JsonValue => {
   const hash = ref.indexOf("#");
   const pointer = hash === -1 ? "" : ref.slice(hash + 1);
-  const target = walkPointer(doc, pointer);
+  const target = getAtPointer(doc, pointer);
   if (target === undefined) {
     throw new Error(`discriminator: cannot resolve "${ref}"`);
   }

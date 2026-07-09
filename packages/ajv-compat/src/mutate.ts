@@ -11,8 +11,15 @@
 // the top-level value can be replaced only through the holder (AJV cannot
 // rebind its caller's variable either — the verdict reflects the coerced
 // value, the caller's binding keeps the original).
+//
+// This file deliberately does NOT use core's walkSchema: mutation is not a
+// schema walk. It follows the engine's own application records back to
+// specific schema nodes and reads keyword VALUES there (a `default`, the
+// patternProperties map, the literal additionalProperties value).
 
+import { unescapeSegment } from "@jse/core";
 import type { Engine, ErrorUnit, JsonValue, OutputUnit } from "@jse/core";
+import { getAtPointer, joinPointer, segments } from "./pointer.js";
 
 export interface MutationOptions {
   coerceTypes?: boolean | "array";
@@ -35,24 +42,11 @@ export interface RootHolder {
 // a pathological oscillation.
 const MAX_PASSES = 20;
 
-const decodeSegment = (s: string): string =>
-  s.replace(/~1/g, "/").replace(/~0/g, "~");
-const segments = (pointer: string): string[] =>
-  pointer === "" ? [] : pointer.slice(1).split("/").map(decodeSegment);
-
-const getAt = (root: RootHolder, pointer: string): JsonValue | undefined => {
-  let node: JsonValue | undefined = root.value;
-  for (const seg of segments(pointer)) {
-    if (Array.isArray(node)) node = node[Number(seg)];
-    else if (typeof node === "object" && node !== null)
-      node = (node as Record<string, JsonValue>)[seg];
-    else return undefined;
-  }
-  return node;
-};
+const getAt = (root: RootHolder, pointer: string): JsonValue | undefined =>
+  getAtPointer(root.value, pointer);
 
 const parentPointer = (segs: readonly string[]): string =>
-  segs.length <= 1 ? "" : "/" + segs.slice(0, -1).map(encode).join("/");
+  joinPointer(segs.slice(0, -1));
 
 const setAt = (root: RootHolder, pointer: string, value: JsonValue): void => {
   const segs = segments(pointer);
@@ -76,9 +70,6 @@ const deleteAt = (root: RootHolder, pointer: string): void => {
     Reflect.deleteProperty(parent, key);
   }
 };
-
-const encode = (s: string): string =>
-  s.replace(/~/g, "~0").replace(/\//g, "~1");
 
 const clone = (v: JsonValue): JsonValue =>
   v === null || typeof v !== "object"
@@ -316,7 +307,7 @@ const applyRemoval = (
   if (mode === false) return false;
   const lastSegment = (loc: string): string => {
     const ptr = loc.slice(loc.indexOf("#") + 1);
-    return decodeSegment(ptr.slice(ptr.lastIndexOf("/") + 1));
+    return unescapeSegment(ptr.slice(ptr.lastIndexOf("/") + 1));
   };
 
   if (mode === "all") {

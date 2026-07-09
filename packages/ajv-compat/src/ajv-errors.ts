@@ -54,9 +54,11 @@
 //  - `${/json/pointer}` and relative-pointer (`${0#}` — the property-name
 //    form) templates interpolate JSON.stringify'd values.
 
+import { escapeSegment, unescapeSegment } from "@jse/core";
 import type { JsonValue } from "@jse/core";
 import type { AjvErrorObject } from "./errors.js";
 import type { Ajv } from "./index.js";
+import { getAtPointer } from "./pointer.js";
 
 /** `errorMessage`'s value: a plain message, or per-keyword/property maps. */
 type ErrorMessageValue =
@@ -150,9 +152,6 @@ function truncateInstancePath(instancePath: string, depth: number): string {
     : `/${segs.slice(0, depth).join("/")}`;
 }
 
-const escapeSegment = (s: string): string =>
-  s.replace(/~/g, "~0").replace(/\//g, "~1");
-
 /** Renders `${/pointer}`/`${N#}` templates against the validated instance. */
 function renderTemplate(
   template: string,
@@ -176,25 +175,9 @@ function resolvePointerExpr(
     const up = Number(relMatch[1]);
     const segs = instancePath === "" ? [] : instancePath.slice(1).split("/");
     const idx = segs.length - up;
-    return idx > 0 ? decodeSegment(segs[idx - 1]!) : undefined;
+    return idx > 0 ? unescapeSegment(segs[idx - 1]!) : undefined;
   }
-  return walkPointer(instance, expr);
-}
-
-const decodeSegment = (s: string): string =>
-  s.replace(/~1/g, "/").replace(/~0/g, "~");
-
-function walkPointer(doc: JsonValue, pointer: string): JsonValue | undefined {
-  let node: JsonValue | undefined = doc;
-  if (pointer === "") return node;
-  for (const raw of pointer.slice(1).split("/")) {
-    const seg = decodeSegment(raw);
-    if (Array.isArray(node)) node = node[Number(seg)];
-    else if (typeof node === "object" && node !== null)
-      node = (node as Record<string, JsonValue>)[seg];
-    else return undefined;
-  }
-  return node;
+  return getAtPointer(instance, expr);
 }
 
 /** Strict-prefix test: `child` is `parent` itself or nested under it. */

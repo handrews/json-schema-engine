@@ -180,6 +180,33 @@ describe("surface semantics", () => {
     ).toThrow(/unknown format/);
   });
 
+  it("strictSchema: malformed applicator values are not descended", () => {
+    // A malformed anyOf can't hide a strict violation next to it, and its
+    // value is not walked as if it held schemas.
+    expect(() =>
+      new Ajv2020().compile({ anyOf: 42, properties: { a: { nope: 1 } } }),
+    ).toThrow(/unknown keyword: "nope"/);
+    // strict mode does not walk the malformed value as schemas (no
+    // "unknown keyword: nope"); the compile still fails downstream.
+    expect(() =>
+      new Ajv2020({ validateSchema: false }).compile({
+        anyOf: { properties: { a: { nope: 1 } } },
+      }),
+    ).toThrow();
+  });
+
+  it("strictSchema: unknown keywords' values are never descended", () => {
+    const fn = new Ajv2020({ strictSchema: false }).compile({
+      "x-vendor": { properties: { a: { alsoUnknown: 1 } } },
+    });
+    expect(fn({})).toBe(true);
+    // known outside, unknown inside a vendor value: strict stays quiet
+    const strict = new Ajv2020();
+    expect(() => strict.compile({ "x-vendor": { deep: { nope: 1 } } })).toThrow(
+      /unknown keyword: "x-vendor"/,
+    );
+  });
+
   it("loud failures: $data, code keywords, async, macro", () => {
     expect(() => new Ajv2020({ $data: true })).toThrow(
       AjvCompatUnsupportedError,

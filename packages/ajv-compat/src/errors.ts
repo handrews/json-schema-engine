@@ -4,7 +4,9 @@
 // D15); messages come from our own template table reproducing AJV's
 // defaults, since downstream tests assert on message text.
 
+import { unescapeSegment } from "@jse/core";
 import type { ErrorUnit, JsonValue, TraceUnit } from "@jse/core";
+import { getAtPointer, segments } from "./pointer.js";
 
 /** AJV v8's error object shape (public surface). */
 export interface AjvErrorObject {
@@ -73,11 +75,9 @@ export const needsTrace = (units: readonly ErrorUnit[]): boolean =>
   });
 
 const last = (pointer: string): string =>
-  decodeSegment(pointer.slice(pointer.lastIndexOf("/") + 1));
+  unescapeSegment(pointer.slice(pointer.lastIndexOf("/") + 1));
 const parent = (pointer: string): string =>
   pointer.slice(0, pointer.lastIndexOf("/"));
-const decodeSegment = (s: string): string =>
-  s.replace(/~1/g, "/").replace(/~0/g, "~");
 
 /**
  * Keywords that take subschemas at NAMED positions: a path segment right
@@ -92,10 +92,6 @@ const NAME_POSITION = new Set([
   "$defs",
   "definitions",
 ]);
-
-/** Path segments of an evaluationPath/schema pointer (decoded). */
-const segments = (path: string): string[] =>
-  path === "" ? [] : path.slice(1).split("/").map(decodeSegment);
 
 /** Keywords whose subschemas live only at integer positions. */
 const INDEX_POSITION = new Set(["allOf", "anyOf", "oneOf", "prefixItems"]);
@@ -380,15 +376,8 @@ export function mapErrors(
   return out;
 }
 
-const resolveInstance = (instance: JsonValue, pointer: string): JsonValue => {
-  let node: JsonValue = instance;
-  for (const seg of segments(pointer)) {
-    if (Array.isArray(node)) node = node[Number(seg)] as JsonValue;
-    else if (typeof node === "object" && node !== null)
-      node = (node as Record<string, JsonValue>)[seg] as JsonValue;
-  }
-  return node;
-};
+const resolveInstance = (instance: JsonValue, pointer: string): JsonValue =>
+  getAtPointer(instance, pointer) as JsonValue;
 
 /** One engine unit → zero or more AJV errors (synthesis may append). */
 function mapUnit(
