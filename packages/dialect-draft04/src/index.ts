@@ -14,6 +14,8 @@ import {
   IdentifierExtractor,
   KeywordBehavior,
   DIALECT_DRAFT_07,
+  lowerIR,
+  LoweringContext,
 } from "@jse/core";
 import { METASCHEMAS_DRAFT_04 } from "./metaschema4.js";
 
@@ -44,11 +46,17 @@ export const identifiersDraft04: IdentifierExtractor = (node) => {
   return { baseId: id };
 };
 
-/** Identifier/reserved keywords: no evaluation behavior, no annotation. */
+/**
+ * Identifier/reserved keywords: no evaluation behavior, no annotation, and
+ * an empty lower() — the planner's capability check requires the function
+ * to exist, and an inert keyword's compiled contribution is legitimately
+ * nothing.
+ */
 const structural = (name: string): KeywordBehavior => ({
   id: id04(name),
   analyze: () => ({ produces: [] }),
   evaluate: () => true,
+  lower: () => undefined,
 });
 
 // draft-04's exclusiveMinimum/exclusiveMaximum are boolean modifiers on
@@ -57,6 +65,12 @@ const structural = (name: string): KeywordBehavior => ({
 // 2020-12's contains with minContains) and the booleans themselves assert
 // nothing. Params stay { limit } per the shared bounds-keyword shape (D13);
 // exclusivity is recoverable from the schema itself.
+// lower(): the exclusive/inclusive choice is plan-time data (the sibling
+// boolean lives on lctx.schema, same sibling-read pattern as core's
+// additionalItems reading lctx.schema.items) — so the comparison operator
+// and message are picked once at lowering time rather than branching at
+// runtime. Guard/compare/fail shape mirrors core's guardedCompare exemplar
+// for 2020-12 minimum/maximum (validation.ts).
 const minimum: KeywordBehavior = {
   id: id04("minimum"),
   evaluate: (value, cursor, ctx) => {
@@ -71,6 +85,22 @@ const minimum: KeywordBehavior = {
     if (instance >= limit) return true;
     ctx.error(`must be >= ${limit}`, { limit });
     return false;
+  },
+  lower: (value, lctx: LoweringContext) => {
+    const exclusive = lctx.schema.exclusiveMinimum === true;
+    const op = exclusive ? ">" : ">=";
+    const message = exclusive
+      ? `must be > ${value as number}`
+      : `must be >= ${value as number}`;
+    lctx.emit(
+      lowerIR.when(
+        lowerIR.and(
+          lowerIR.typeIs(lctx.instance, "number"),
+          lowerIR.not(lowerIR.cmp(op, lctx.instance, lowerIR.constant(value))),
+        ),
+        [lowerIR.failWith({ limit: lowerIR.constant(value) }, message)],
+      ),
+    );
   },
 };
 
@@ -88,6 +118,22 @@ const maximum: KeywordBehavior = {
     if (instance <= limit) return true;
     ctx.error(`must be <= ${limit}`, { limit });
     return false;
+  },
+  lower: (value, lctx: LoweringContext) => {
+    const exclusive = lctx.schema.exclusiveMaximum === true;
+    const op = exclusive ? "<" : "<=";
+    const message = exclusive
+      ? `must be < ${value as number}`
+      : `must be <= ${value as number}`;
+    lctx.emit(
+      lowerIR.when(
+        lowerIR.and(
+          lowerIR.typeIs(lctx.instance, "number"),
+          lowerIR.not(lowerIR.cmp(op, lctx.instance, lowerIR.constant(value))),
+        ),
+        [lowerIR.failWith({ limit: lowerIR.constant(value) }, message)],
+      ),
+    );
   },
 };
 

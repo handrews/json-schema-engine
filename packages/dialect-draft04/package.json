@@ -13,6 +13,7 @@
     "@jse/core": "*"
   },
   "devDependencies": {
+    "@jse/compiler": "*",
     "@jse/formats": "*",
     "@jse/test-kit": "*"
   }
