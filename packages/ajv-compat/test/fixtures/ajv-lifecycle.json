@@ -1,0 +1,127 @@
+{
+  "late-ref-visibility": [
+    {
+      "step": "compile-with-B-missing",
+      "threw": true
+    },
+    {
+      "step": "addSchema-B",
+      "threw": false
+    },
+    {
+      "step": "old-fn-after-add",
+      "threw": false,
+      "valid": null
+    },
+    {
+      "step": "recompile-same-object",
+      "threw": false,
+      "sameFn": false
+    },
+    {
+      "step": "new-fn-validates",
+      "threw": false,
+      "valid": true,
+      "invalid": false
+    }
+  ],
+  "remove-schema-semantics": [
+    {
+      "step": "getSchema-before-remove",
+      "threw": false,
+      "defined": true
+    },
+    {
+      "step": "removeSchema-k",
+      "threw": false
+    },
+    {
+      "step": "getSchema-after-remove",
+      "threw": false,
+      "defined": false
+    },
+    {
+      "step": "old-fn-still-works",
+      "threw": false,
+      "valid": true,
+      "invalid": false
+    },
+    {
+      "step": "re-add-same-key",
+      "threw": false,
+      "defined": true
+    },
+    {
+      "step": "duplicate-add-throws",
+      "threw": true
+    }
+  ],
+  "object-cache-across-invalidation": [
+    {
+      "step": "addSchema-unrelated",
+      "threw": false
+    },
+    {
+      "step": "compile-same-object",
+      "threw": false,
+      "sameFn": true
+    }
+  ],
+  "id-registration": [
+    {
+      "step": "getSchema-by-id",
+      "threw": false,
+      "sameFn": true
+    },
+    {
+      "step": "getSchema-addUsedSchema-false",
+      "threw": false,
+      "defined": false
+    }
+  ],
+  "anonymous-identity": [
+    {
+      "step": "same-object",
+      "threw": false,
+      "sameFn": true
+    },
+    {
+      "step": "equal-distinct-object",
+      "threw": false,
+      "sameFn": false
+    }
+  ],
+  "removed-then-replaced-ref": [
+    {
+      "step": "before",
+      "threw": false,
+      "valid": true,
+      "invalid": false
+    },
+    {
+      "step": "removeSchema-B",
+      "threw": false
+    },
+    {
+      "step": "old-fn-after-remove",
+      "threw": false,
+      "valid": true
+    },
+    {
+      "step": "re-add-different-B",
+      "threw": false
+    },
+    {
+      "step": "old-fn-after-replace",
+      "threw": false,
+      "acceptsInteger": true,
+      "acceptsString": false
+    },
+    {
+      "step": "fresh-compile-after-replace",
+      "threw": false,
+      "acceptsInteger": false,
+      "acceptsString": true
+    }
+  ]
+}

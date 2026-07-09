@@ -79,6 +79,31 @@ valid) and `schema`.
 `passContext`, `before`, `post`, `implements`, `modifying` (refused until
 the mutation machinery supports custom keywords).
 
+### Lifecycle semantics (**oracle**: `ajv-lifecycle.json`)
+
+Pinned against executed AJV by scenario capture
+(`test/oracle/capture-lifecycle.ts`); the compat class matches on all of
+them:
+
+- `compile()` resolves references eagerly and throws on a missing one
+  (the thrown class is a plain `Error`, not AJV's `MissingRefError`).
+- A compiled `ValidateFunction` is a compile-time snapshot: schemas
+  added or removed later never change what an existing fn resolves.
+- The object cache is keyed on schema identity and survives
+  `addSchema`/`removeSchema`: `compile(sameObject)` returns the cached
+  fn even after registry changes; equal-but-distinct objects recompile.
+- `removeSchema` makes `getSchema` return undefined and permits
+  re-adding under the same key; previously compiled fns keep working.
+- `addSchema` throws on a key or `$id` that already exists (remove
+  first to replace).
+- `compile({$id})` auto-registers under the `$id` unless
+  `addUsedSchema: false`.
+
+Anonymous schemas (no `$id`, no key) compile against a private engine:
+`compile()`-in-a-loop does not grow instance-lifetime state, and the
+compiled fn's memory is reclaimed when the caller drops the fn and the
+schema object.
+
 ## Error objects
 
 `keyword`, `instancePath`, `schemaPath`, `params`, `message`

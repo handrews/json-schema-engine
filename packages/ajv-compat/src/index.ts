@@ -253,6 +253,14 @@ export class Ajv {
     if (id === undefined) {
       throw new Error("schema must have $id or be passed with a key");
     }
+    // AJV refuses to overwrite (oracle: ajv-lifecycle.json
+    // remove-schema-semantics "duplicate-add-throws"); removal first is
+    // the sanctioned replacement path.
+    if (this.docs.has(id)) {
+      throw new Error(
+        `ajv-compat: schema with key or id "${id}" already exists`,
+      );
+    }
     this.docs.set(id, schema);
     this.invalidate();
     return this;
@@ -550,6 +558,16 @@ export class Ajv {
     return this.engineCache;
   }
 
+  /**
+   * The lazily built shared engine, or null if none exists yet.
+   *
+   * @internal Exposed only so lifecycle tests can assert that anonymous
+   * compiles never register into instance-lifetime state.
+   */
+  get sharedEngine(): Engine | null {
+    return this.engineCache;
+  }
+
   private rootUriFor(schema: JsonValue): string {
     const id =
       typeof schema === "object" &&
@@ -572,13 +590,34 @@ export class Ajv {
         node: resolveLocalPointer(schema, ref),
       }));
     }
-    const engine = this.engine();
     const retrieval = key ?? this.rootUriFor(schema);
+    // Anonymous schemas compile against a private engine so the SHARED
+    // registry never accretes urn:ajv-compat:anonymous:* entries — a
+    // compile()-in-a-loop must not grow instance-lifetime state. The fn's
+    // closure is the private engine's only holder, so dropping the fn (and
+    // the schema object, for the WeakMap entry) frees everything.
+    const anonymous =
+      key === undefined && retrieval.startsWith("urn:ajv-compat:anonymous:");
+    const engine = anonymous ? this.buildEngine() : this.engine();
+    // Drain pending refs accumulated by prior registrations so the check
+    // below sees only what THIS schema introduces.
+    engine.registry.takeUnresolved();
     const uri = engine.registerSchema(
       schema,
       retrieval,
       this.compatBehaviors() === undefined ? undefined : COMPAT_DIALECT,
     );
+    // AJV resolves references at compile time and compile() throws on a
+    // missing one (oracle: ajv-lifecycle.json late-ref-visibility); the
+    // engine would otherwise defer to a validate-time error, leaving a
+    // broken fn in the object cache.
+    const missing = engine.registry.takeUnresolved();
+    if (missing.length > 0) {
+      throw new Error(
+        `ajv-compat: can't resolve reference ${missing[0]!} ` +
+          "(add the referenced schema before compiling, or use compileAsync)",
+      );
+    }
     const fn = this.makeValidate(engine, uri, schema);
     if (typeof schema === "object" && schema !== null) {
       this.compiledByObject.set(schema, { fn, uri });

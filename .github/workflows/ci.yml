@@ -28,6 +28,7 @@ jobs:
       - run: npx tsx packages/ajv-compat/test/oracle/capture.ts
       - run: npx tsx packages/ajv-compat/test/oracle/capture-companions.ts
       - run: npx tsx packages/ajv-compat/test/oracle/capture-mutation.ts
+      - run: npx tsx packages/ajv-compat/test/oracle/capture-lifecycle.ts
       # capture writes plain JSON.stringify; format before diffing so the
       # check reflects real oracle drift, not indentation churn.
       - run: npx prettier --write packages/ajv-compat/test/fixtures/*.json
