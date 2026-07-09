@@ -355,11 +355,6 @@ export function mapErrors(
 
   for (let index = 0; index < units.length; index++) {
     const unit = units[index]!;
-    // Discriminator's routed-oneOf marker (M8.4, discriminator.ts): its
-    // oneOf-keyword error makes the filter treat the routed combiner as
-    // failed, but AJV never shows it — the routed branch's own errors are
-    // the whole output.
-    if (unit.params?.discriminatorRouted === true) continue;
     if (survives !== undefined && !survives(index)) continue;
     const mapped = mapUnit(unit, index, units, coalesced, options, traceIndex);
     for (const e of mapped) {

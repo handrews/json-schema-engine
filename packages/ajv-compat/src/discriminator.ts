@@ -228,18 +228,10 @@ export const discriminatedOneOf: KeywordBehavior = {
     const data = cursor.value;
     const tagValue = isRecord(data) ? data[propertyName] : undefined;
     if (typeof tagValue !== "string" || !map.has(tagValue)) return true;
-    const ok = ctx.apply(["oneOf", map.get(tagValue)!], cursor);
-    if (!ok) {
-      // The routed branch's own errors are AJV's entire output here (oracle:
-      // no visible oneOf error alongside them) — this marked unit exists
-      // only so errors.ts's passing-subtree filter sees the combiner as
-      // failed (a plain `oneOf` id would otherwise conclude the branch
-      // "passed" and drop its errors, since no ordinary oneOf failure
-      // record exists to say otherwise). mapUnit strips it before output.
-      ctx.error("(discriminator-routed, not rendered)", {
-        discriminatorRouted: true,
-      });
-    }
-    return ok;
+    // The routed branch's own errors are AJV's entire output here (oracle:
+    // no visible oneOf error alongside them). No oneOf record is emitted:
+    // the error filter sees the routed combiner as failed structurally —
+    // its single applied branch is invalid in the trace.
+    return ctx.apply(["oneOf", map.get(tagValue)!], cursor);
   },
 };
