@@ -153,6 +153,9 @@ if (!validate("2026-07-07T12:00:00Z") || validate("nope")) {
   `unevaluated*`): the compat layer follows the specification and the
   official test suite, not the bug.
 - **Performance posture**: `allErrors: false` without mutating options
-  runs the compiled fail-fast artifact; error objects and the mutating
-  options take interpreter passes. Mutating configurations trade
+  runs the compiled fail-fast artifact. Error objects come from the
+  compiled list artifact; failures involving combinator or conditional
+  context (`anyOf`/`oneOf`/`not`/`contains`/`if`/`then`/`else`/
+  `propertyNames`) re-run once on the interpreter for its evaluation
+  trace. The mutating options take interpreter passes; they trade
   throughput for drop-in behavior.

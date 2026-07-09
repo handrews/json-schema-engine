@@ -402,6 +402,54 @@ cleanly under `validateSchemas`). Recorded, not built: draft-04 `lower()`
 sweep (M6.6-equivalent), ajv-compat draft-04 class, Bowtie harness
 draft-04 entry (M9 — the image would need the dialect package).
 
+**Status note (M8.6 ajv-compat hardening, completed 2026-07-09):** all
+three workstreams landed in nine local commits, every gate green per
+commit. (a) Trace-based error adapter: core exports `TraceUnit` +
+`trace: true` on list output and `walkSchema` (both `@alpha`; rendering
+only — list evaluation already recorded the trace). The four string
+heuristics (NAME_POSITION/keywordPositions filtering, unitSchemaPrefix,
+instanceDescents) are deleted; filtering and companion synthesis walk
+real applications. Owner-decided ESCALATION design, from measurement
+(150-prop schema + 2000-item instance, one failure: compiled flag 15µs,
+compiled list 0.32ms, interpreter list+trace 16.7ms ≈ 50x, interpreter
+flag 11.7ms — the cost is dispatch, no cheap trace-lite exists): the
+compiled list stays the primary error path; `needsTrace` (conservative
+segment scan for anyOf/oneOf/not/contains/if/then/else/propertyNames,
+plus keyword-less units the root-anchored classifier cannot place)
+re-runs the interpreter for its trace. Golden set 61 → 60, removal only
+(if-then-else.json#8: we no longer emit the `if: false` probe's
+false-schema unit AJV never shows; verified byte-equal against executed
+AJV); one refinement pinned the other way — a boolean-false failure AT
+a contains probe IS reported. `discriminatorRouted` is deleted, not
+formalized: a routed combiner's single invalid branch with no valid
+sibling reads as failed straight from the trace. strictSchemaCheck rides
+walkSchema (DESCEND_* tables deleted); four pointer codecs collapsed
+onto core's escape/unescape via one adapter module. (b) Lifecycle:
+scenario capture (capture-lifecycle.ts → ajv-lifecycle.json, in the CI
+drift block) pinned six behaviors; two fixes brought full match —
+compile() now resolves refs eagerly (throws on missing, via
+registry.takeUnresolved drained around registration) and addSchema
+refuses duplicate keys; the never-invalidated object cache turned out
+AJV-faithful (pinned, kept). Anonymous compiles use a PRIVATE engine —
+the shared registry never accretes urn:ajv-compat:anonymous:* entries
+(deterministic 1000-compile footprint test; the fn closure is the only
+holder). (c) Mutation: typed `MutationNonConvergenceError` at
+MAX_PASSES (owner decision over logger-warn; AJV has no fixpoint to
+match). Combiner×mutation pinned by nine new oracle cases; two rules
+fixed to match AJV (defaults never apply inside anyOf/oneOf branches;
+removal skips a failing branch once a sibling passed) and one coercion
+cascade divergence double-pinned (fixture holds AJV's true→1→"1", the
+test holds our schema-valid 1) and documented. Non-plain data on a
+mutating validator routes wholly to the interpreter, unmutated;
+plainness accepts behavior-free prototype chains (fastify's
+empty-carrier query objects — PoC-caught). Idempotence property leg
+(mutation-property.test.ts) on the seeded harness: suite-corpus ×
+option-combo × perturbed instances, ~760 sequences in `npm test`,
+`MUTATION_PROPERTY_BUDGET` scales locally (clean at 50x); properties:
+data fixpoint after one call, verdict stability, non-convergence
+deterministic and exceptional. COMPAT.md (lifecycle semantics section,
+divergence updates) and the migration guide track all of it.
+
 **Handoff note (2026-07-07, owner-directed; Fable availability
 corrected 2026-07-08):** Fable access is available through midnight
 Sunday 2026-07-12 — judgment/orchestration work routes to Fable-class
@@ -519,7 +567,15 @@ silently list-only; documented, but a typed warning would be kinder).
 The ajv-compat hardening items (trace-based error adapter,
 discriminatorRouted channel, anonymous-schema/lifecycle, mutation
 property tests + non-convergence surfacing, plain-data guard) were
-PROMOTED out of this register into milestone M8.6 above.
+PROMOTED out of this register into milestone M8.6 above and DELIVERED
+(2026-07-09 status note). Added at M8.6: refactor the registry's
+private registration walk atop the public `walkSchema` (deliberately
+not done in-milestone — the registration walk interleaves base-URI
+rebasing, anchor indexing, and reference collection that would fatten
+the public signature); seed `scripts/fuzz.ts` mutation legs from the
+mutation-property corpus (the vitest leg covers it today); stabilize
+`TraceUnit`/`trace`/`walkSchema` out of `@alpha` at the M9 publication
+pass.
 
 **Owner review (idn-hostname):** `isValidALabel` in
 packages/formats/src/idna.ts rejects any second `--` in an A-label's
