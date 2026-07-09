@@ -587,7 +587,11 @@ export const prefixItems: KeywordBehavior = {
   },
   evaluate: (value, cursor, ctx) => {
     if (!Array.isArray(cursor.value)) return true;
-    const schemas = value as JsonValue[];
+    // A non-array value is malformed (metaschema's job to reject, D19 scope
+    // line); no-op here so both tiers treat it identically — analyze() and
+    // lower() already contribute nothing for it.
+    if (!Array.isArray(value)) return true;
+    const schemas = value;
     const n = Math.min(schemas.length, cursor.value.length);
     let ok = true;
     for (let i = 0; i < n; i++) {

@@ -196,4 +196,36 @@ describe("compiled list output ≡ interpreter (full local suite)", () => {
     const r = artifact.evaluateList({ a: "x" });
     expect(r).toEqual({ valid: true, errors: [] });
   });
+
+  it("unevaluated* under a FAILING coverage contributor reports like the interpreter", () => {
+    // Static coverage models the parent-success path only: when the allOf
+    // branch's prefixItems fails, the interpreter drops its annotations and
+    // unevaluatedItems reports additional errors. Verdict-invisible (flag
+    // artifacts stay statically licensed), but list artifacts must
+    // reproduce the interpreter's units exactly — found by the list-mode
+    // fuzz leg, pinned here deterministically.
+    const engine = createEngine();
+    const uri = engine.registerSchema(
+      {
+        prefixItems: [{ type: "string" }],
+        allOf: [{ prefixItems: [true, { type: "number" }], items: true }],
+        unevaluatedItems: false,
+      },
+      "https://list.example/unevaluated-failing-contributor",
+    );
+    const artifact = compileList(engine, uri, { errorParams: true });
+    for (const instance of [
+      [{ "/": 1 }, [], true] as JsonValue,
+      [{}] as JsonValue,
+      ["ok", 2] as JsonValue,
+    ]) {
+      const expected = engine.evaluate(uri, instance, {
+        output: "list",
+        errorParams: true,
+      });
+      const got = artifact.evaluateList(instance);
+      expect(got.valid).toBe(expected.valid);
+      expect(got.valid ? [] : got.errors).toEqual(expected.errors ?? []);
+    }
+  });
 });

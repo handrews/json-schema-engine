@@ -1,6 +1,6 @@
 // Big-budget differential fuzz driver (DESIGN.md M6.3). Runs the compiled ≡
-// interpreter flag differential over every draft2020-12 suite group that
-// registers locally, seeding each group's own instances plus N seeded
+// interpreter differential over every suite group of the chosen dialect
+// that registers locally, seeding each group's own instances plus N seeded
 // mutations, and shrinks any divergence to a minimal repro. CI runs a small
 // fixed budget (packages/compiler/test/fuzz-differential.test.ts); this
 // script is the on-demand ≥50k-case sweep.
@@ -9,6 +9,7 @@
 //   npm run fuzz                       # default budget (~200k cases)
 //   FUZZ_BUDGET=50000 npm run fuzz     # target total case count
 //   FUZZ_SEED=12345 npm run fuzz       # override the seed
+//   FUZZ_DIALECT=draft7 npm run fuzz   # seed from another dialect's suite
 //
 // Deterministic: the summary reports the seed, and every case reproduces
 // from (seed, fileIndex, groupIndex, caseIndex). Exit code is nonzero on any
@@ -43,12 +44,33 @@ const COMPILE_OPTS = {
 // M8.1 params channel — including field order.
 const LIST_MODE = process.env.FUZZ_LIST === "1";
 
+// FUZZ_DIALECT seeds the corpus from another dialect's suite directory
+// (M6.6: legacy dialects compile natively, so they need fuzz pressure too).
+const DIALECTS: Record<string, { dir: string; uri?: string }> = {
+  "draft2020-12": { dir: "draft2020-12" },
+  "draft2019-09": {
+    dir: "draft2019-09",
+    uri: "https://json-schema.org/draft/2019-09/schema",
+  },
+  draft7: { dir: "draft7", uri: "http://json-schema.org/draft-07/schema" },
+  draft6: { dir: "draft6", uri: "http://json-schema.org/draft-06/schema" },
+};
+const DIALECT_NAME = process.env.FUZZ_DIALECT ?? "draft2020-12";
+const DIALECT = DIALECTS[DIALECT_NAME];
+if (DIALECT === undefined) {
+  throw new Error(
+    `FUZZ_DIALECT must be one of: ${Object.keys(DIALECTS).join(", ")}`,
+  );
+}
+const ENGINE_OPTS =
+  DIALECT.uri === undefined ? {} : { defaultDialect: DIALECT.uri };
+
 const SUITE_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
   "..",
   "test-suite",
   "tests",
-  "draft2020-12",
+  DIALECT.dir,
 );
 
 interface SuiteGroup {
@@ -81,7 +103,7 @@ function subjectFor(baseUri: string): DifferentialSubject {
   return {
     registers(schema) {
       try {
-        const engine = createEngine();
+        const engine = createEngine(ENGINE_OPTS);
         const uri = engine.registerSchema(schema, baseUri);
         compileValidator(engine, uri, COMPILE_OPTS);
         return true;
@@ -90,7 +112,7 @@ function subjectFor(baseUri: string): DifferentialSubject {
       }
     },
     interpreted(schema, instance): SideOutcome {
-      const engine = createEngine();
+      const engine = createEngine(ENGINE_OPTS);
       const uri = engine.registerSchema(schema, baseUri);
       if (LIST_MODE) {
         return runListSide((x) => {
@@ -104,7 +126,7 @@ function subjectFor(baseUri: string): DifferentialSubject {
       return runSide((x) => engine.evaluate(uri, x).valid)(instance);
     },
     compiled(schema, instance): SideOutcome {
-      const engine = createEngine();
+      const engine = createEngine(ENGINE_OPTS);
       const uri = engine.registerSchema(schema, baseUri);
       if (LIST_MODE) {
         const artifact = compileList(engine, uri, {
@@ -141,7 +163,7 @@ function main(): void {
       readFileSync(join(SUITE_DIR, fileName), "utf8"),
     ) as SuiteGroup[];
     groups.forEach((group, gi) => {
-      const engine = createEngine();
+      const engine = createEngine(ENGINE_OPTS);
       const baseUri = `https://fuzz.example/${file}/${String(gi)}`;
       try {
         const uri = engine.registerSchema(group.schema, baseUri);
@@ -164,12 +186,35 @@ function main(): void {
   const t0 = Date.now();
 
   for (const { file, fi, gi, group } of registrable) {
-    const engine = createEngine();
+    const engine = createEngine(ENGINE_OPTS);
     const baseUri = `https://fuzz.example/${file}/${String(gi)}`;
     const uri = engine.registerSchema(group.schema, baseUri);
-    const artifact = compileValidator(engine, uri, COMPILE_OPTS);
-    const interpret = runSide((x) => engine.evaluate(uri, x).valid);
-    const validate = runSide((x) => artifact.validate(x));
+    // The hot loop must dispatch on LIST_MODE itself — subjectFor only
+    // serves the minimizer AFTER a divergence, so list-mode dispatch there
+    // alone leaves this comparison refereeing flag verdicts.
+    let interpret: (x: JsonValue) => SideOutcome;
+    let validate: (x: JsonValue) => SideOutcome;
+    if (LIST_MODE) {
+      const artifact = compileList(engine, uri, {
+        ...COMPILE_OPTS,
+        errorParams: true,
+      });
+      interpret = runListSide((x) => {
+        const r = engine.evaluate(uri, x, {
+          output: "list",
+          errorParams: true,
+        });
+        return { valid: r.valid, errors: r.errors ?? [] };
+      });
+      validate = runListSide((x) => {
+        const r = artifact.evaluateList(x);
+        return { valid: r.valid, errors: r.valid ? [] : r.errors };
+      });
+    } else {
+      const artifact = compileValidator(engine, uri, COMPILE_OPTS);
+      interpret = runSide((x) => engine.evaluate(uri, x).valid);
+      validate = runSide((x) => artifact.validate(x));
+    }
 
     const prng = new Prng(deriveSeed(SEED, fi, gi));
     const seeds = group.tests.map((t) => t.data);
@@ -199,7 +244,7 @@ function main(): void {
   const ms = Date.now() - t0;
   console.log(
     `fuzz summary: cases=${String(cases)} divergences=${String(divergences)} ` +
-      `seed=0x${SEED.toString(16)} groups=${String(registrable.length)} ` +
+      `dialect=${DIALECT_NAME} seed=0x${SEED.toString(16)} groups=${String(registrable.length)} ` +
       `perGroup=${String(perGroup)} ms=${String(ms)}`,
   );
   if (divergences > 0) process.exitCode = 1;

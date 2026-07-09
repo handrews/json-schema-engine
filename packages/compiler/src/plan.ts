@@ -70,7 +70,26 @@ const isObj = (v: JsonValue): v is Record<string, JsonValue> =>
  * the registration walk's position logic by construction: descent uses the
  * same analyze() facts and the same registry.child pointer navigation.
  */
-export function buildPlan(engine: Engine, schemaUri: string): CompilationPlan {
+/** Options for {@link buildPlan}. */
+export interface PlanOptions {
+  /**
+   * The artifact's output mode. Static-coverage licensing for unevaluated*
+   * consumers is sound for "flag" only: coverage models the parent-SUCCESS
+   * path, but when a contributor (e.g. prefixItems inside an allOf branch)
+   * FAILS, the interpreter drops its annotations and unevaluated* reports
+   * additional errors. That difference is verdict-invisible — the failing
+   * contributor already fails the parent — but list output must reproduce
+   * the interpreter's error units exactly, so "list" plans classify those
+   * consumers interpreted.
+   */
+  output?: "flag" | "list";
+}
+
+export function buildPlan(
+  engine: Engine,
+  schemaUri: string,
+  options: PlanOptions = {},
+): CompilationPlan {
   const registry = engine.registry;
   const units = new Map<string, PlannedUnit>();
   const patterns = new Set<string>();
@@ -162,6 +181,12 @@ export function buildPlan(engine: Engine, schemaUri: string): CompilationPlan {
     // if/dependentSchemas branches, if's condition, dynamic references,
     // cycles) makes that coverage kind dynamic and the node interpreted.
     if (consumerPresent) {
+      // See PlanOptions.output: static coverage is a flag-mode license only.
+      if (options.output === "list") {
+        unit.kind = "interpreted";
+        unit.cause = "unlowerable";
+        return unit;
+      }
       const halves = coverageHalves(registry, ref, new Set(), true);
       const needsNames = present.some(
         (k) => (k.facts.consumes?.length ?? 0) > 0 && k.facts.evaluatesNames,

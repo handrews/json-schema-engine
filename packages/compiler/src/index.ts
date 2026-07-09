@@ -134,7 +134,7 @@ export function compileList(
   schemaUri: string,
   options: ListCompileOptions = {},
 ): CompiledListArtifact {
-  const plan = buildPlan(engine, schemaUri);
+  const plan = buildPlan(engine, schemaUri, { output: "list" });
   const source = serializePlan(
     plan,
     engine.registry,
