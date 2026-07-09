@@ -20,13 +20,14 @@ import {
   type JsonType,
   type KeywordBehavior,
   type SchemaLoader,
+  type TraceUnit,
 } from "@jse/core";
 import {
   compileList,
   compileValidator,
   type CompiledListArtifact,
 } from "@jse/compiler";
-import { mapErrors, type AjvErrorObject } from "./errors.js";
+import { mapErrors, needsTrace, type AjvErrorObject } from "./errors.js";
 import {
   anyMutation,
   runMutationFixpoint,
@@ -658,14 +659,30 @@ export class Ajv {
         return true;
       }
       listArtifact.current ??= compileList(engine, uri, { errorParams: true });
-      const { errors } = listArtifact.current.evaluateList(instance);
+      let { errors } = listArtifact.current.evaluateList(instance);
       assertTierAgreement(flagValid, errors);
+      let trace: TraceUnit | undefined;
+      if (needsTrace(errors)) {
+        // Context-dependent failures escalate to the interpreter — the only
+        // tier that records a trace. Its list output is differential-gated
+        // identical to the compiled artifact's, so this swaps the units'
+        // provenance, not their content; common failures never pay it.
+        const traced = engine.evaluate(uri, instance, {
+          output: "list",
+          errorParams: true,
+          trace: true,
+        });
+        assertTierAgreement(flagValid, traced.errors ?? []);
+        errors = traced.errors!;
+        trace = traced.trace;
+      }
       let mapped = mapErrors(errors, instance, {
         rootBaseUri: rootBase,
         resolveSchema,
         allErrors: opts.allErrors === true,
         verbose: opts.verbose === true,
         messages: opts.messages !== false,
+        trace,
       });
       if (this.errorPostProcessor !== undefined) {
         mapped = this.errorPostProcessor(mapped, instance, schema, "#");

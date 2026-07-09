@@ -4,7 +4,7 @@
 // D15); messages come from our own template table reproducing AJV's
 // defaults, since downstream tests assert on message text.
 
-import type { ErrorUnit, JsonValue } from "@jse/core";
+import type { ErrorUnit, JsonValue, TraceUnit } from "@jse/core";
 
 /** AJV v8's error object shape (public surface). */
 export interface AjvErrorObject {
@@ -31,7 +31,37 @@ export interface MapOptions {
   allErrors: boolean;
   verbose: boolean;
   messages: boolean;
+  /**
+   * Evaluation trace for the SAME evaluation the units came from (the
+   * caller escalates to the interpreter when {@link needsTrace} says the
+   * mapping needs application context).
+   */
+  trace?: TraceUnit;
 }
+
+/**
+ * Keywords whose failures need application context to map faithfully:
+ * passing-subtree filtering (not/contains/if, anyOf/oneOf), synthesized
+ * companions (propertyNames, then/else → if). The scan is deliberately
+ * conservative — a property literally named one of these also matches,
+ * which costs an interpreter re-run, never correctness.
+ */
+const TRACE_TRIGGERS = new Set([
+  "anyOf",
+  "oneOf",
+  "not",
+  "contains",
+  "if",
+  "then",
+  "else",
+  "propertyNames",
+]);
+
+/** True when mapping `units` needs the evaluation trace for context. */
+export const needsTrace = (units: readonly ErrorUnit[]): boolean =>
+  units.some((u) =>
+    segments(u.evaluationPath!).some((s) => TRACE_TRIGGERS.has(s)),
+  );
 
 const last = (pointer: string): string =>
   decodeSegment(pointer.slice(pointer.lastIndexOf("/") + 1));
