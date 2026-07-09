@@ -10,9 +10,11 @@ import {
   DialectRegistry,
   KeywordBehavior,
   StaticFacts,
+  SubschemaApplication,
   identifiersLegacy,
 } from "../dialect.js";
 import { childCursor } from "../cursor.js";
+import { LowerStmt, lowerIR } from "../lowering.js";
 import {
   $ref,
   structural,
@@ -74,7 +76,45 @@ const id07 = (name: string): string => `${VOCAB_APPLICATOR_07}#${name}`;
  */
 export const containsLegacy: KeywordBehavior = {
   id: id07("contains"),
-  analyze: (): StaticFacts => SELF,
+  // Per-item probes don't individually assert (the count does) — same
+  // asserts:false shape as 2020-12 contains' childSweep application.
+  analyze: (): StaticFacts => ({
+    ...SELF,
+    applications: [
+      { path: [], mode: "childSweep", conditional: false, asserts: false },
+    ],
+  }),
+  // Unconditional "at least 1" — countRange with no upper bound, matching
+  // evaluate()'s fixed message exactly (no minContains/maxContains reads
+  // exist in these drafts, so unlike 2020-12 `contains` there is no tally
+  // or params in the failure text).
+  lower: (_value, lctx) => {
+    const b = lctx.binding();
+    lctx.emit(
+      lowerIR.when(lowerIR.typeIs(lctx.instance, "array"), [
+        {
+          kind: "countRange",
+          target: lctx.instance,
+          binding: b,
+          countWhen: {
+            kind: "applyExpr",
+            apply: {
+              path: [],
+              cursor: {
+                kind: "child",
+                of: { kind: "here" },
+                segment: { kind: "binding", id: b },
+              },
+              fold: "discard",
+            },
+          },
+          min: 1,
+          max: Infinity,
+          outOfRangeMessage: ["no item matches the contains subschema"],
+        },
+      ]),
+    );
+  },
   evaluate: (_value, cursor, ctx) => {
     if (!Array.isArray(cursor.value)) return true;
     const matched: number[] = [];
@@ -104,14 +144,78 @@ const isSchemaValue = (v: JsonValue): boolean =>
  */
 export const dependencies: KeywordBehavior = {
   id: id07("dependencies"),
-  analyze: (value): StaticFacts =>
-    isObject(value)
-      ? {
-          subschemas: Object.entries(value)
-            .filter(([, v]) => isSchemaValue(v))
-            .map(([k]) => [k]),
+  analyze: (value): StaticFacts => {
+    if (!isObject(value)) return {};
+    const schemaMembers = Object.entries(value).filter(([, v]) =>
+      isSchemaValue(v),
+    );
+    return {
+      subschemas: schemaMembers.map(([k]) => [k]),
+      // Only schema-valued members get an edge — array-valued members
+      // (dependentRequired's shape) have no subschema to plan/apply at all.
+      applications: schemaMembers.map(([k]): SubschemaApplication => ({
+        path: [k],
+        mode: "inPlace",
+        conditional: true,
+        asserts: true,
+      })),
+    };
+  },
+  // Per-member dispatch is plan-time (the value shape is static, just like
+  // evaluate()'s Array.isArray/isSchemaValue reads): array-valued members
+  // lower like dependentRequired (validation.ts), schema-valued members
+  // like dependentSchemas (applicator.ts, path ["dependencies", name]).
+  lower: (value, lctx) => {
+    if (!isObject(value)) return;
+    const branches = Object.entries(value as Record<string, JsonValue>).flatMap(
+      ([name, dep]): LowerStmt[] => {
+        if (Array.isArray(dep)) {
+          return [
+            lowerIR.when(
+              { kind: "hasOwn", target: lctx.instance, key: name },
+              (dep as string[]).map((required) =>
+                lowerIR.when(
+                  lowerIR.not({
+                    kind: "hasOwn",
+                    target: lctx.instance,
+                    key: required,
+                  }),
+                  [
+                    lowerIR.failWith(
+                      {
+                        property: lowerIR.constant(name),
+                        missingProperty: lowerIR.constant(required),
+                      },
+                      `'${name}' requires '${required}' to be present`,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ];
         }
-      : {},
+        if (isSchemaValue(dep)) {
+          return [
+            lowerIR.when({ kind: "hasOwn", target: lctx.instance, key: name }, [
+              {
+                kind: "apply",
+                apply: {
+                  path: [name],
+                  cursor: { kind: "here" },
+                  fold: "allMustPass",
+                },
+              },
+            ]),
+          ];
+        }
+        // Unreachable per the metaschema's anyOf (schema vs stringArray),
+        // mirrored defensively as evaluate()'s implicit no-op else branch.
+        return [];
+      },
+    );
+    if (branches.length === 0) return;
+    lctx.emit(lowerIR.when(lowerIR.typeIs(lctx.instance, "object"), branches));
+  },
   evaluate: (value, cursor, ctx) => {
     if (!isObject(cursor.value)) return true;
     const instance = cursor.value;
@@ -150,6 +254,9 @@ const core07Vocabulary: Record<string, KeywordBehavior> = {
     id: `${VOCAB_CORE_07}#definitions`,
     analyze: mapPositions,
     evaluate: () => true,
+    lower: () => {
+      /* contents are reachable only by reference */
+    },
   },
 };
 
@@ -163,11 +270,17 @@ const applicator07Vocabulary: Record<string, KeywordBehavior> = {
     id: id07("then"),
     analyze: (): StaticFacts => SELF,
     evaluate: () => true,
+    lower: () => {
+      /* if owns the application of this sibling */
+    },
   },
   else: {
     id: id07("else"),
     analyze: (): StaticFacts => SELF,
     evaluate: () => true,
+    lower: () => {
+      /* if owns the application of this sibling */
+    },
   },
   dependencies,
   properties,
@@ -203,6 +316,9 @@ const core06Vocabulary: Record<string, KeywordBehavior> = {
     id: `${VOCAB_CORE_06}#definitions`,
     analyze: mapPositions,
     evaluate: () => true,
+    lower: () => {
+      /* contents are reachable only by reference */
+    },
   },
 };
 

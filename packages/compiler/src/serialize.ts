@@ -375,8 +375,14 @@ class UnitContext {
   unitBody(): CodeChunk[] {
     const node = this.unit.ref.node as Record<string, JsonValue>;
     const dialect = this.registry.dialectFor(this.unit.ref.baseUri);
+    // Mirrors buildPlan's refOnly (plan.ts, citing engine.ts:397): the plan
+    // only resolved edges for $ref when this is true, so siblings must be
+    // skipped here too, or this would try to serialize applies the plan
+    // never planned.
+    const refOnly = dialect.refIgnoresSiblings && Object.hasOwn(node, "$ref");
     const out: CodeChunk[] = [];
     for (const entry of dialect.ordered) {
+      if (refOnly && entry.name !== "$ref") continue;
       if (!Object.hasOwn(node, entry.name)) continue;
       const behavior = entry.behavior;
       if (typeof behavior.lower !== "function") {

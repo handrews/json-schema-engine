@@ -5,7 +5,10 @@
 // correct.
 
 import {
+  DIALECT_2019_09,
   DIALECT_2020_12,
+  DIALECT_DRAFT_06,
+  DIALECT_DRAFT_07,
   UnresolvableRefError,
   type Engine,
   type JsonValue,
@@ -13,6 +16,18 @@ import {
   type StaticFacts,
   type SubschemaApplication,
 } from "@jse/core";
+
+// Dialects the planner can compile (M6.6): every dialect whose
+// dialect-specific keywords now all carry lower() — 2020-12, 2019-09
+// (items/additionalItems/then/else/unevaluatedItems/unevaluatedProperties,
+// vocab2019.ts), and draft-07/06 (vocab7.ts). draft-04 stays off this list
+// (M10 note): its lowerings are a separate, not-yet-built milestone.
+const COMPILABLE_DIALECTS: ReadonlySet<string> = new Set([
+  DIALECT_2020_12,
+  DIALECT_2019_09,
+  DIALECT_DRAFT_07,
+  DIALECT_DRAFT_06,
+]);
 
 /** Why a unit is interpreted rather than compiled. */
 export type FallbackCause =
@@ -112,11 +127,19 @@ export function buildPlan(engine: Engine, schemaUri: string): CompilationPlan {
     }
 
     const dialect = registry.dialectFor(ref.baseUri);
-    if (dialect.uri !== DIALECT_2020_12) {
+    if (!COMPILABLE_DIALECTS.has(dialect.uri)) {
       unit.kind = "interpreted";
       unit.cause = "dialect";
       return unit;
     }
+
+    // draft-07/06 (D18, engine.ts:397): a $ref makes every sibling keyword
+    // act as if absent — plan/lower ONLY $ref, exactly as applySchemaAtDepth
+    // skips every non-$ref entry when refOnly. Without this, a draft-07
+    // $ref-with-siblings unit would compile both the ref AND the siblings,
+    // a real divergence from the interpreter (unreachable before this
+    // milestone, since every legacy unit was interpreted regardless).
+    const refOnly = dialect.refIgnoresSiblings && Object.hasOwn(node, "$ref");
 
     // Gather per-keyword facts; classify the node.
     interface KeywordPlan {
@@ -126,6 +149,7 @@ export function buildPlan(engine: Engine, schemaUri: string): CompilationPlan {
     const present: KeywordPlan[] = [];
     let consumerPresent = false;
     for (const entry of dialect.ordered) {
+      if (refOnly && entry.name !== "$ref") continue;
       if (!Object.hasOwn(node, entry.name)) continue;
       const behavior = entry.behavior;
       const value = node[entry.name]!;
@@ -292,7 +316,11 @@ function coverageHalves(
     }
     if (!isObj(node)) return { name: null, index: null };
     const dialect = registry.dialectFor(ref.baseUri);
-    if (dialect.uri !== DIALECT_2020_12) return { name: null, index: null };
+    if (!COMPILABLE_DIALECTS.has(dialect.uri))
+      return { name: null, index: null };
+    // Same $ref-only reading as buildPlan's refOnly (engine.ts:397): a
+    // draft-07/06 sibling contributes nothing when $ref is present.
+    const refOnly = dialect.refIgnoresSiblings && Object.hasOwn(node, "$ref");
 
     const acc: CoverageHalves = {
       name: { names: new Set(), patterns: [], all: false },
@@ -311,6 +339,7 @@ function coverageHalves(
     };
 
     for (const entry of dialect.ordered) {
+      if (refOnly && entry.name !== "$ref") continue;
       if (!Object.hasOwn(node, entry.name)) continue;
       const value = node[entry.name]!;
       const facts = entry.behavior.analyze?.(value, { schema: node }) ?? {};

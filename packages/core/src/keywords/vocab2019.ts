@@ -11,9 +11,11 @@ import {
   DialectRegistry,
   KeywordBehavior,
   StaticFacts,
+  SubschemaApplication,
   identifiers2019,
 } from "../dialect.js";
 import { childCursor } from "../cursor.js";
+import { LowerExpr, LowerStmt, lowerIR } from "../lowering.js";
 import {
   coreVocabulary,
   VOCAB_CORE_2019,
@@ -87,8 +89,93 @@ const core2019Vocabulary: Record<string, KeywordBehavior> = {
  */
 export const items2019: KeywordBehavior = {
   id: id("items"),
+  // evaluatesIndexes mirrors prefixItems (array form: a fixed-count prefix)
+  // and items (schema form: every index from 0 — 2019-09 folds prefixItems
+  // into this same keyword, so there's no separate sibling to start after)
+  // — the coverage facts unevaluatedItems2019 needs for static licensing.
   analyze: (value): StaticFacts =>
-    Array.isArray(value) ? { subschemas: value.map((_, i) => [i]) } : SELF,
+    Array.isArray(value)
+      ? {
+          subschemas: value.map((_, i) => [i]),
+          applications: value.map((_, i): SubschemaApplication => ({
+            path: [i],
+            mode: "childByIndex",
+            conditional: false,
+            asserts: true,
+          })),
+          evaluatesIndexes: { kind: "prefix", count: value.length },
+        }
+      : {
+          ...SELF,
+          applications: [
+            { path: [], mode: "childSweep", conditional: false, asserts: true },
+          ],
+          evaluatesIndexes: { kind: "allFrom", start: 0 },
+        },
+  // Two forms, same as evaluate(): tuple (per-index, guarded by the array's
+  // length like prefixItems' compiled form) or schema (every element from
+  // index 0, like `items`' compiled form but with no sibling prefixItems to
+  // start after — 2019-09 has no such keyword). No produce: the compiled
+  // tier has no annotation channel; unevaluated* consumers are licensed
+  // through the static evaluatesIndexes facts above instead.
+  lower: (value, lctx) => {
+    if (Array.isArray(value)) {
+      value.forEach((_, i) => {
+        lctx.emit(
+          lowerIR.when(
+            lowerIR.and(
+              lowerIR.typeIs(lctx.instance, "array"),
+              lowerIR.cmp(
+                ">",
+                lowerIR.helper("lengthOf", lctx.instance),
+                lowerIR.constant(i),
+              ),
+            ),
+            [
+              {
+                kind: "apply",
+                apply: {
+                  path: [i],
+                  cursor: {
+                    kind: "child",
+                    of: { kind: "here" },
+                    segment: i,
+                  },
+                  fold: "allMustPass",
+                },
+              },
+            ],
+          ),
+        );
+      });
+      return;
+    }
+    const b = lctx.binding();
+    lctx.emit(
+      lowerIR.when(lowerIR.typeIs(lctx.instance, "array"), [
+        {
+          kind: "forEachIndex",
+          target: lctx.instance,
+          binding: b,
+          start: 0,
+          body: [
+            {
+              kind: "apply",
+              apply: {
+                path: [],
+                cursor: {
+                  kind: "child",
+                  of: { kind: "here" },
+                  segment: { kind: "binding", id: b },
+                },
+                fold: "allMustPass",
+              },
+            },
+          ],
+        },
+      ]),
+    );
+  },
   evaluate: (value, cursor, ctx) => {
     if (!Array.isArray(cursor.value)) return true;
     if (Array.isArray(value)) {
@@ -123,7 +210,55 @@ export const items2019: KeywordBehavior = {
  */
 export const additionalItems: KeywordBehavior = {
   id: id("additionalItems"),
-  analyze: (): StaticFacts => SELF,
+  // Sibling read at plan time (AnalyzeContext.schema), same as `if`
+  // declaring applications for `then`/`else`: no edge at all when `items`
+  // isn't an array, so the planner never visits a target this keyword can
+  // never reach.
+  analyze: (_value, context): StaticFacts => {
+    const siblingItems = context?.schema.items;
+    if (!Array.isArray(siblingItems)) return SELF;
+    return {
+      ...SELF,
+      applications: [
+        { path: [], mode: "childSweep", conditional: false, asserts: true },
+      ],
+      evaluatesIndexes: { kind: "allFrom", start: siblingItems.length },
+    };
+  },
+  // Sibling `items` is plan-time data (lctx.schema.items): when it isn't an
+  // array, this keyword contributes nothing at all, so the lowering emits
+  // no statements — same static-read pattern as `if`/`then`/`else`. No
+  // produce, matching items2019 above.
+  lower: (_value, lctx) => {
+    const siblingItems = lctx.schema.items;
+    if (!Array.isArray(siblingItems)) return;
+    const start = siblingItems.length;
+    const b = lctx.binding();
+    lctx.emit(
+      lowerIR.when(lowerIR.typeIs(lctx.instance, "array"), [
+        {
+          kind: "forEachIndex",
+          target: lctx.instance,
+          binding: b,
+          start,
+          body: [
+            {
+              kind: "apply",
+              apply: {
+                path: [],
+                cursor: {
+                  kind: "child",
+                  of: { kind: "here" },
+                  segment: { kind: "binding", id: b },
+                },
+                fold: "allMustPass",
+              },
+            },
+          ],
+        },
+      ]),
+    );
+  },
   evaluate: (_value, cursor, ctx) => {
     if (!Array.isArray(cursor.value)) return true;
     const siblingItems = ctx.schema.items;
@@ -157,11 +292,17 @@ const applicator2019Vocabulary: Record<string, KeywordBehavior> = {
     id: id("then"),
     analyze: (): StaticFacts => SELF,
     evaluate: () => true,
+    lower: () => {
+      /* if owns the application of this sibling */
+    },
   },
   else: {
     id: id("else"),
     analyze: (): StaticFacts => SELF,
     evaluate: () => true,
+    lower: () => {
+      /* if owns the application of this sibling */
+    },
   },
   dependentSchemas,
   properties,
@@ -189,7 +330,57 @@ const unevaluatedItems2019: KeywordBehavior = {
       contains.id,
       `${VOCAB_APPLICATOR_2019}#unevaluatedItems`,
     ],
+    produces: [`${VOCAB_APPLICATOR_2019}#unevaluatedItems`],
+    // Self-covering (D9a): once this keyword runs, everything is evaluated —
+    // needed both for the planner's own edge (childSweep to its own
+    // position) and so an outer scope's coverage computation can fold this
+    // node's post-success contribution.
+    evaluatesIndexes: { kind: "all" },
+    applications: [
+      { path: [], mode: "childSweep", conditional: false, asserts: true },
+    ],
   }),
+  // Static-coverage path only (D9a), same discipline as 2020-12
+  // unevaluatedItems (unevaluated.ts): a sibling `contains` always declares
+  // evaluatesIndexes: dynamic (applicator.ts), so the planner classifies
+  // this node interpreted whenever `contains` is present — lower() is never
+  // called with a null/incomplete coverage, and never needs the
+  // per-index coveredIdx set evaluate() tracks (that set is populated only
+  // from a dynamic `contains` match list, which forces interpretation).
+  lower: (_value, lctx) => {
+    const coverage = lctx.staticCoverage();
+    if (coverage === null) {
+      throw new Error(
+        "unevaluatedItems2019 lowering requires static coverage (planner bug)",
+      );
+    }
+    if (coverage.coversAllIndexes) return; // statically vacuous
+    const b = lctx.binding();
+    lctx.emit(
+      lowerIR.when(lowerIR.typeIs(lctx.instance, "array"), [
+        {
+          kind: "forEachIndex",
+          target: lctx.instance,
+          binding: b,
+          start: coverage.prefixCount,
+          body: [
+            {
+              kind: "apply",
+              apply: {
+                path: [],
+                cursor: {
+                  kind: "child",
+                  of: { kind: "here" },
+                  segment: { kind: "binding", id: b },
+                },
+                fold: "allMustPass",
+              },
+            },
+          ],
+        },
+      ]),
+    );
+  },
   evaluate: (_value, cursor, ctx) => {
     if (!Array.isArray(cursor.value)) return true;
     const length = cursor.value.length;
@@ -239,7 +430,61 @@ const unevaluatedProperties2019: KeywordBehavior = {
       additionalProperties.id,
       `${VOCAB_APPLICATOR_2019}#unevaluatedProperties`,
     ],
+    produces: [`${VOCAB_APPLICATOR_2019}#unevaluatedProperties`],
+    evaluatesNames: { kind: "all" },
+    applications: [
+      { path: [], mode: "childSweep", conditional: false, asserts: true },
+    ],
   }),
+  // Static-coverage path only (D9a) — same discipline as 2020-12
+  // unevaluatedProperties (unevaluated.ts). `properties`/`patternProperties`/
+  // `additionalProperties` here are the shared 2020-12 behaviors
+  // (applicator.ts), so their evaluatesNames facts are identical.
+  lower: (_value, lctx) => {
+    const coverage = lctx.staticCoverage();
+    if (coverage === null) {
+      throw new Error(
+        "unevaluatedProperties2019 lowering requires static coverage (planner bug)",
+      );
+    }
+    if (coverage.coversAllNames) return; // statically vacuous
+    const b = lctx.binding();
+    const covered: LowerExpr[] = [
+      ...coverage.names.map((n): LowerExpr =>
+        lowerIR.cmp("===", { kind: "binding", id: b }, lowerIR.constant(n)),
+      ),
+      ...coverage.patterns.map((p): LowerExpr =>
+        lowerIR.regexTest(p, { kind: "binding", id: b }),
+      ),
+    ];
+    const sweep: LowerStmt = {
+      kind: "forEachKey",
+      target: lctx.instance,
+      binding: b,
+      body: [
+        lowerIR.when(
+          covered.length === 0
+            ? lowerIR.constant(true)
+            : lowerIR.not(lowerIR.or(...covered)),
+          [
+            {
+              kind: "apply",
+              apply: {
+                path: [],
+                cursor: {
+                  kind: "child",
+                  of: { kind: "here" },
+                  segment: { kind: "binding", id: b },
+                },
+                fold: "allMustPass",
+              },
+            },
+          ],
+        ),
+      ],
+    };
+    lctx.emit(lowerIR.when(lowerIR.typeIs(lctx.instance, "object"), [sweep]));
+  },
   evaluate: (_value, cursor, ctx) => {
     if (!isObject(cursor.value)) return true;
     const seen = new Set<string>();
