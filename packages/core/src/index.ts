@@ -41,7 +41,9 @@ import {
   renderError,
   renderHierarchical,
   renderList,
+  renderTrace,
   renderVerbose,
+  TraceUnit,
 } from "./output.js";
 import {
   DIALECT_2020_12,
@@ -144,6 +146,7 @@ export type {
   LocationVocabulary,
   OutputUnit,
   RetentionPolicy,
+  TraceUnit,
 } from "./output.js";
 export type {
   LoadedDocument,
@@ -198,6 +201,16 @@ export interface EvaluateOptions {
    * documents never carry params.
    */
   errorParams?: boolean;
+  /**
+   * Render the evaluation trace into `Result.trace`. Applies to
+   * `output: "list"` only, like {@link EvaluateOptions.errorParams} (the
+   * deferred register tracks a typed warning for list-only options ignored
+   * on other outputs). Rendering-only: list evaluation already records the
+   * trace.
+   *
+   * @alpha
+   */
+  trace?: boolean;
 }
 
 /** The result of {@link Engine.evaluate}. */
@@ -213,6 +226,13 @@ export interface Result {
    * Verbose with `verbose: true`).
    */
   outputDocument?: OutputUnit | OutputUnit[] | BasicOutputDocument;
+  /**
+   * The evaluation trace, present with `trace: true` on `output: "list"`.
+   * `errorIndexes` in the tree reference `errors` on this same result.
+   *
+   * @alpha
+   */
+  trace?: TraceUnit;
 }
 
 /** Options for {@link Engine}'s constructor. */
@@ -487,6 +507,24 @@ export class Engine {
   evaluate(
     schemaUri: string,
     instance: JsonValue,
+    options: EvaluateOptions & {
+      output: "list";
+      trace: true;
+      locations: "2020-12";
+    },
+  ): Result & { outputDocument: BasicOutputDocument; trace: TraceUnit };
+  evaluate(
+    schemaUri: string,
+    instance: JsonValue,
+    options: EvaluateOptions & {
+      output: "list";
+      trace: true;
+      locations?: "modern";
+    },
+  ): Result & { outputDocument: OutputUnit[]; trace: TraceUnit };
+  evaluate(
+    schemaUri: string,
+    instance: JsonValue,
     options: EvaluateOptions & { output: "list"; locations: "2020-12" },
   ): Result & { outputDocument: BasicOutputDocument };
   evaluate(
@@ -532,6 +570,11 @@ export class Engine {
       result.errors = state.errors.map((e) =>
         renderError(e, vocabulary, options.errorParams ?? false),
       );
+    }
+    if (options.trace && outputKind === "list") {
+      // Correlation is positional against result.errors, which only exists
+      // on failure — a valid run's trace carries no error indexes.
+      result.trace = renderTrace(state.traceRoot!, valid ? [] : state.errors);
     }
     if (valid && options.collectAnnotations) {
       result.annotations = applyRetention(

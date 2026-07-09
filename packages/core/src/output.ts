@@ -5,7 +5,7 @@
 // M1 ships flag + flat list (Basic-style) structures; hierarchical/verbose
 // structures are M5.
 
-import { escapeSegment } from "./json.js";
+import { escapeSegment, unescapeSegment } from "./json.js";
 import { instancePointer } from "./cursor.js";
 import { ErrorParams } from "./dialect.js";
 import {
@@ -377,6 +377,80 @@ export function renderList(
   };
   collect(nested);
   return flat;
+}
+
+/**
+ * One schema application from a traced list evaluation.
+ *
+ * The tree mirrors the evaluation exactly, including applications inside
+ * subtrees that ultimately passed — adapters need those to reconstruct
+ * application context (e.g. which `anyOf` branches an error competed
+ * against) without parsing location strings.
+ *
+ * @alpha Introduced for adapter consumption (M8.6); shape may change before
+ * the first published release.
+ */
+export interface TraceUnit {
+  /**
+   * Evaluation-path segments from the parent application, decoded (no JSON
+   * Pointer escaping). The first segment is the applying keyword
+   * (`"anyOf"`, `"properties"`, `"$ref"`, ...); any following segments are
+   * branch indexes or property/definition names. Empty at the root.
+   */
+  readonly segments: readonly string[];
+  /** Canonical schema location of the applied subschema: `baseUri#pointer`. */
+  readonly schemaLocation: string;
+  /** JSON Pointer of the instance position this application evaluated. */
+  readonly instanceLocation: string;
+  readonly valid: boolean;
+  /**
+   * Indices into `Result.errors` (same run) of the errors raised directly at
+   * this application. Populated only when the evaluation failed —
+   * `Result.errors` does not exist for a valid result.
+   */
+  readonly errorIndexes: readonly number[];
+  /** Nested applications, in evaluation order. */
+  readonly children: readonly TraceUnit[];
+}
+
+const NO_INDEXES: readonly number[] = [];
+
+/**
+ * Renders the evaluation trace into its public tree. `errors` must be the
+ * exact record stream `Result.errors` was rendered from: the correlation is
+ * positional (index i here is unit i there), which is what lets object
+ * identity stay internal.
+ */
+export function renderTrace(
+  root: TraceNode,
+  errors: readonly ErrorRecord[],
+): TraceUnit {
+  const indexesAt = new Map<PathNode | null, number[]>();
+  errors.forEach((e, i) => {
+    const list = indexesAt.get(e.pathNode);
+    if (list) list.push(i);
+    else indexesAt.set(e.pathNode, [i]);
+  });
+
+  const toUnit = (node: TraceNode, parentPath: PathNode | null): TraceUnit => {
+    // PathNode segments are stored pre-escaped (they concatenate straight
+    // into pointers); the public tree carries decoded segments instead so
+    // consumers never touch pointer escaping.
+    const segments: string[] = [];
+    for (let n = node.pathNode; n !== null && n !== parentPath; n = n.parent) {
+      segments.push(unescapeSegment(n.segment));
+    }
+    segments.reverse();
+    return {
+      segments,
+      schemaLocation: `${node.schemaRef.baseUri}#${node.schemaRef.pointer}`,
+      instanceLocation: instancePointer(node.cursor),
+      valid: node.valid,
+      errorIndexes: indexesAt.get(node.pathNode) ?? NO_INDEXES,
+      children: node.children.map((c) => toUnit(c, node.pathNode)),
+    };
+  };
+  return toUnit(root, null);
 }
 
 /**
