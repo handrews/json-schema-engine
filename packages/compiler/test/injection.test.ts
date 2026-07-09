@@ -18,7 +18,7 @@
 
 import { describe, it, expect } from "vitest";
 import { createEngine, type JsonValue } from "@jse/core";
-import { compileValidator } from "@jse/compiler";
+import { compileList, compileValidator } from "@jse/compiler";
 
 // Line/paragraph separators built from code points so this source file itself
 // carries no raw U+2028/U+2029 (which would defeat the "source is clean" test).
@@ -87,7 +87,13 @@ function assertProtoClean(): void {
   ).toBeUndefined();
 }
 
-/** Compile + differential-check one schema on a set of instances; return source. */
+/**
+ * Compile + differential-check one schema on a set of instances; return
+ * source. Runs BOTH emission shapes: the flag artifact, and the list
+ * artifact with structured params — hostile schema values reach emitted
+ * code twice more there (params object literals and message strings), so
+ * the corpus must cover that surface too.
+ */
 function checkAgreement(
   schema: JsonValue,
   uri: string,
@@ -96,6 +102,7 @@ function checkAgreement(
   const engine = createEngine();
   const registered = engine.registerSchema(schema, uri);
   const { validate, source } = compileValidator(engine, registered);
+  const list = compileList(engine, registered, { errorParams: true });
   for (const inst of instances) {
     let interp: boolean | string;
     let comp: boolean | string;
@@ -110,6 +117,25 @@ function checkAgreement(
       comp = `throw:${(e as Error).constructor.name}`;
     }
     expect(comp, JSON.stringify(inst)).toEqual(interp);
+
+    let interpList: unknown;
+    let compList: unknown;
+    try {
+      const r = engine.evaluate(registered, inst, {
+        output: "list",
+        errorParams: true,
+      });
+      interpList = { valid: r.valid, errors: r.errors ?? [] };
+    } catch (e) {
+      interpList = `throw:${(e as Error).constructor.name}`;
+    }
+    try {
+      const r = list.evaluateList(inst);
+      compList = { valid: r.valid, errors: r.valid ? [] : r.errors };
+    } catch (e) {
+      compList = `throw:${(e as Error).constructor.name}`;
+    }
+    expect(compList, `list+params ${JSON.stringify(inst)}`).toEqual(interpList);
   }
   return source;
 }

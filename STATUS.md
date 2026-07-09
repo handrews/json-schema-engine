@@ -19,15 +19,15 @@ Last updated: 2026-07-07 (post-M8, pre-M9).
 
 ## Gates and where they run
 
-| Gate                                                                             | Where                                                | Notes                                                                             |
-| -------------------------------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Type check, lint, format, full test suite, API docs                              | Per-PR CI + local                                    | `npm run verify` aggregates the local set.                                        |
-| CSP check (standalone artifacts under `--disallow-code-generation-from-strings`) | Per-PR CI + local                                    | `npm run csp:check`.                                                              |
-| Fuzz differential (interpreter vs compiler, params-refereeing list mode)         | Smoke in per-PR CI; full budget local                | `npm run fuzz`; `FUZZ_LIST=1` for list mode.                                      |
-| Oracle fixture drift (ajv-compat capture scripts vs committed fixtures)          | Per-PR CI                                            | Re-runs capture against the installed AJV.                                        |
-| Benchmark gate (compiled flag mode vs AJV)                                       | Local, before merging perf-relevant work             | Runner variance makes CI benchmarking noisy; results recorded in DESIGN.md notes. |
-| Official-suite zero-skip discipline                                              | Per-PR CI (inside the test suite)                    | Suite runners assert minimum case counts.                                         |
-| Bowtie conformance                                                               | Local harness runs only (M3/M4 records in DESIGN.md) | Public bowtie.report listing requires submission — see below.                     |
+| Gate                                                                             | Where                                                | Notes                                                                                                                                                       |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Type check, lint, format, full test suite, API docs                              | Per-PR CI + local                                    | `npm run verify` aggregates the local set.                                                                                                                  |
+| CSP check (standalone artifacts under `--disallow-code-generation-from-strings`) | Per-PR CI + local                                    | `npm run csp:check`.                                                                                                                                        |
+| Fuzz differential (interpreter vs compiler, params-refereeing list mode)         | Smoke in per-PR CI; full budget local                | `npm run fuzz`; `FUZZ_LIST=1` for list mode.                                                                                                                |
+| Oracle fixture drift (ajv-compat capture scripts vs committed fixtures)          | Per-PR CI                                            | Re-runs capture against the installed AJV.                                                                                                                  |
+| Benchmark gate (compiled flag mode vs AJV)                                       | Local, before merging perf-relevant work             | Runner variance makes CI benchmarking noisy; results recorded in DESIGN.md notes.                                                                           |
+| Official-suite zero-skip discipline                                              | Per-PR CI (inside the test suite)                    | Suite runners assert minimum case counts. The 11 vitest-level skips are the test-kit's own self-test exercising its skip mechanism — not conformance skips. |
+| Bowtie conformance                                                               | Local harness runs only (M3/M4 records in DESIGN.md) | Public bowtie.report listing requires submission — see below.                                                                                               |
 
 ## Deliberately not done yet
 
@@ -48,6 +48,12 @@ or milestone:
 - **Compiled lowering for draft-07/06-specific keywords** (M6.6):
   legacy-dialect schemas currently take the interpreter path under
   compilation, which is correct but slower.
+- **ajv-compat internals hardening** (M8.6): the error adapter's
+  path-string heuristics move to structured traces, engine lifecycle
+  (anonymous-schema growth, stale-artifact semantics) gets pinned
+  against AJV, and the mutation fixpoint gains property tests and
+  non-convergence reporting. Behavior today is correct per the fixture
+  and differential gates; M8.6 hardens the mechanisms behind them.
 - **Coverage thresholds, ADR split of DESIGN.md, compiler fallback
   diagnostics** and other recorded follow-ups: DESIGN.md deferred
   register.

@@ -423,7 +423,39 @@ Owner-priority order and per-milestone contracts:
    gate, plus a FUZZ leg seeded from the draft7 suite directory if
    cheap). Include the M8.1 params vocabulary in every new lower().
 
-3. **M9 — bench harness + Bowtie onboarding (LAST: gated on owner
+3. **M8.6 — ajv-compat hardening (Opus; before M9 because ajv-compat
+   is a flagship external claim).** Three coherent workstreams from the
+   2026-07-07 adversarial review, promoted out of the deferred register:
+   a. **Trace-based error adapter.** Replace the evaluationPath string
+   heuristics in packages/ajv-compat/src/errors.ts (NAME_POSITION,
+   keywordPositions, unitSchemaPrefix's no-$ref-crossing assumption,
+   instanceDescents' properties-only counting) by consuming core's
+   structured TraceNodes (engine.ts — schemaRef/pathNode/cursor per
+   application; may need a small PUBLIC core surface to expose the
+   trace alongside list errors). This also retires the
+   `discriminatorRouted` params-smuggled control signal (make it an
+   explicit internal channel) and should collapse the duplicated
+   applicator-position knowledge (strict walk in index.ts, mutate.ts
+   descent) into ONE core-exported schema-walk utility. Gate: the
+   suite-differential golden set SHRINKS or holds — document any
+   identity that changes; oracle fixtures all still pass.
+   b. **Engine/artifact lifecycle.** Fix unbounded registry growth from
+   anonymous compile() (urn:ajv-compat:anonymous accretion in the
+   shared engine); pin invalidate()/compiledByObject semantics
+   against AJV by ORACLE (does a cached ValidateFunction see schemas
+   added after its compile?) and match or document. Gate: a
+   compile-in-a-loop memory test + new oracle fixtures.
+   c. **Mutation hardening.** Surface fixpoint non-convergence (logger
+   warning or typed error at MAX_PASSES instead of silent stop);
+   idempotence property tests (validating already-mutated data
+   changes nothing) over randomized suite-seeded schemas; oracle
+   fixtures for combiner×mutation interactions (removeAdditional
+   inside anyOf/oneOf, coercion with competing branch types —
+   currently unpinned); plain-data guard (route non-plain instances
+   to the interpreter path so class instances cannot silently
+   diverge from the interpreter's own answer).
+
+4. **M9 — bench harness + Bowtie onboarding (LAST: gated on owner
    decisions — npm scope/name, publication).** Build the public bench
    harness (real-world corpora per ANALYSIS §9; cite no draft-04-era
    benchmarks) and the Bowtie harness container + local `bowtie run`
@@ -441,14 +473,17 @@ corepack evaluation (the @emnapi lockfile surgery is a process smell);
 coverage thresholds for ajv-compat lifecycle paths (not for the
 conformance-driven core); custom-keyword AUTHOR contract documentation
 (analyze() obligations and how wrong facts break compilation); DESIGN →
-ARCHITECTURE/ADR/CHANGELOG split; ajv-compat anonymous-schema registry
-growth (compile() of ad-hoc schemas accretes urn:ajv-compat:anonymous
-entries in the shared engine forever); discriminatorRouted marker →
-explicit internal channel instead of a params-smuggled control signal;
-trace-based error adapter (consume core TraceNodes instead of
-evaluationPath string heuristics in packages/ajv-compat/src/errors.ts);
-mutation-fixpoint idempotence property tests; plain-data runtime guard
-(route non-plain instances to the interpreter in ajv-compat).
+ARCHITECTURE/ADR/CHANGELOG split; serialize.ts split (UnitContext mixes
+plan lookup, statement emission, message/params rendering, guard CSE,
+and inlining — separate unit orchestration from statement emission
+before the file grows again); fuzz corpus expansion (mutators currently
+seed from the draft2020-12 suite only — add legacy-dialect and
+format-bearing seeds); errorParams on non-list outputs (currently
+silently list-only; documented, but a typed warning would be kinder).
+The ajv-compat hardening items (trace-based error adapter,
+discriminatorRouted channel, anonymous-schema/lifecycle, mutation
+property tests + non-convergence surfacing, plain-data guard) were
+PROMOTED out of this register into milestone M8.6 above.
 
 **Owner review (idn-hostname):** `isValidALabel` in
 packages/formats/src/idna.ts rejects any second `--` in an A-label's
