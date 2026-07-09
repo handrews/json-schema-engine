@@ -450,6 +450,51 @@ data fixpoint after one call, verdict stability, non-convergence
 deterministic and exceptional. COMPAT.md (lifecycle semantics section,
 divergence updates) and the migration guide track all of it.
 
+**Status note (M6.6 legacy-dialect lowering, completed 2026-07-09;
+Fable orchestration, two Sonnet sweeps):** all five supported dialects
+compile natively; four local commits. Sweep 1 (Sonnet): lower() for
+every draft-07/06 and 2019-09 delta keyword — items (both forms),
+additionalItems (sibling read via LoweringContext.schema), legacy
+contains (fixed at-least-1, message byte-exact), dependencies
+(plan-time member dispatch onto the dependentRequired/dependentSchemas
+shapes), definitions/then/else (inert), plus the 2019-09 unevaluated*
+pair through the 2020-12 static-coverage factory. The sweep exposed a
+latent planner gap: those keywords never declared
+StaticFacts.applications (subschemas drives registration, not planner
+edges) — harmless while they blocked compilation, fatal once they
+lowered; all four now declare application facts. refIgnoresSiblings is
+mirrored from the interpreter in buildPlan/coverageHalves/unitBody
+(previously unreachable, a real divergence once legacy units compile).
+Gates: compiled suite legs draft7 908+/draft6 822+/draft2019-09 1234+
+zero-skip, list-mode differentials with errorParams over all three
+directories. Then the dialect allowlist was REMOVED (owner-side
+judgment): a dialect compiles exactly when its present keywords lower
+(D1 — facts are the compiler's whole window), which is what lets a
+dialect PACKAGE become compilable through the public surface alone.
+Sweep 2 (Sonnet): draft-04's own minimum/maximum lower via exported IR
+(sibling exclusive* boolean read at plan time; messages/{limit} params
+byte-exact), package structural() gains the empty lower() the
+capability check requires; in-package gates (compiled draft4 leg 618
+zero-skip, list differential, plan census: 510 units, zero
+interpreted). FUZZ HARNESS FINDINGS while adding legacy seeding
+(FUZZ_DIALECT env + CI legs): (1) the FUZZ_LIST leg NEVER refereed
+list output — LIST_MODE only switched subjectFor (the minimizer),
+while the hot loop compared flag verdicts; every FUZZ_LIST run since
+613ac51 re-ran the flag differential. (2) Fixed and re-run, the honest
+leg found within 20k cases that static-coverage licensing for
+unevaluated* is FLAG-ONLY sound: coverage models the parent-success
+path, and a FAILING contributor's dropped annotations make the
+interpreter emit additional unevaluated* errors — verdict-invisible,
+list-visible. buildPlan now takes the artifact output mode; list
+artifacts classify those consumers interpreted (pinned
+deterministically in list-output.test.ts). (3) Interpreter prefixItems
+threw raw TypeError on malformed non-array values where compiled
+no-ops; aligned lenient (D19 scope line), unblocking the minimizer
+from converging on garbage-schema tier gaps. All seven fuzz legs clean
+at full 200k budget (~1.4M cases). 18228 tests; every gate green per
+commit; @emnapi lockfile recipe re-applied after the devDependency
+add, npm ci verified.
+
 **Handoff note (2026-07-07, owner-directed; Fable availability
 corrected 2026-07-08):** Fable access is available through midnight
 Sunday 2026-07-12 — judgment/orchestration work routes to Fable-class
