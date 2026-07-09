@@ -5,10 +5,6 @@
 // correct.
 
 import {
-  DIALECT_2019_09,
-  DIALECT_2020_12,
-  DIALECT_DRAFT_06,
-  DIALECT_DRAFT_07,
   UnresolvableRefError,
   type Engine,
   type JsonValue,
@@ -17,23 +13,10 @@ import {
   type SubschemaApplication,
 } from "@jse/core";
 
-// Dialects the planner can compile (M6.6): every dialect whose
-// dialect-specific keywords now all carry lower() — 2020-12, 2019-09
-// (items/additionalItems/then/else/unevaluatedItems/unevaluatedProperties,
-// vocab2019.ts), and draft-07/06 (vocab7.ts). draft-04 stays off this list
-// (M10 note): its lowerings are a separate, not-yet-built milestone.
-const COMPILABLE_DIALECTS: ReadonlySet<string> = new Set([
-  DIALECT_2020_12,
-  DIALECT_2019_09,
-  DIALECT_DRAFT_07,
-  DIALECT_DRAFT_06,
-]);
-
 /** Why a unit is interpreted rather than compiled. */
 export type FallbackCause =
   | "dynamic" // $dynamicRef-class keyword present
   | "unlowerable" // a keyword without lower(), or unevaluated* without static coverage
-  | "dialect" // node's dialect is not 2020-12
   | "cycle" // participates in a possible in-place cycle
   | "nonSchema"; // ref-into-data; the interpreter's D19 backstop reports it
 
@@ -126,12 +109,14 @@ export function buildPlan(engine: Engine, schemaUri: string): CompilationPlan {
       return unit;
     }
 
+    // No dialect allowlist: keyword facts are the compiler's whole window
+    // into semantics (D1), so a dialect compiles exactly when every present
+    // keyword lowers — the per-keyword check below. That is what lets a
+    // dialect PACKAGE (draft-04, future OAS dialects) become compilable
+    // purely by shipping lower() on its behaviors; the only dialect-LEVEL
+    // semantic the planner must mirror is refIgnoresSiblings, handled
+    // generically here.
     const dialect = registry.dialectFor(ref.baseUri);
-    if (!COMPILABLE_DIALECTS.has(dialect.uri)) {
-      unit.kind = "interpreted";
-      unit.cause = "dialect";
-      return unit;
-    }
 
     // draft-07/06 (D18, engine.ts:397): a $ref makes every sibling keyword
     // act as if absent — plan/lower ONLY $ref, exactly as applySchemaAtDepth
@@ -315,9 +300,9 @@ function coverageHalves(
       };
     }
     if (!isObj(node)) return { name: null, index: null };
+    // Coverage comes from analyze() facts alone, dialect-agnostic (D1) —
+    // the keyword-author contract is that evaluates* facts are complete.
     const dialect = registry.dialectFor(ref.baseUri);
-    if (!COMPILABLE_DIALECTS.has(dialect.uri))
-      return { name: null, index: null };
     // Same $ref-only reading as buildPlan's refOnly (engine.ts:397): a
     // draft-07/06 sibling contributes nothing when $ref is present.
     const refOnly = dialect.refIgnoresSiblings && Object.hasOwn(node, "$ref");
