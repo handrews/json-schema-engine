@@ -111,10 +111,12 @@ const runCase = (name: string, c: FixtureCase) => {
   const result = engine.evaluate(uri, c.data, {
     output: "list",
     errorParams: true,
+    trace: true,
   });
   expect(result.valid, `${name}: verdict`).toBe(c.valid);
   if (c.valid) return;
   const mapped = mapErrors(result.errors!, c.data, {
+    trace: result.trace,
     rootBaseUri: ROOT,
     resolveSchema: (location) => {
       const hash = location.indexOf("#");
@@ -146,8 +148,10 @@ describe("mapErrors ≡ AJV oracle", () => {
     const result = engine.evaluate(uri, c.data, {
       output: "list",
       errorParams: true,
+      trace: true,
     });
     const mapped = mapErrors(result.errors!, c.data, {
+      trace: result.trace,
       rootBaseUri: ROOT,
       resolveSchema: (location) =>
         walk(c.schema, location.slice(location.indexOf("#") + 1)),

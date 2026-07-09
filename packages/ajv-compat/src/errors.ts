@@ -59,9 +59,18 @@ const TRACE_TRIGGERS = new Set([
 
 /** True when mapping `units` needs the evaluation trace for context. */
 export const needsTrace = (units: readonly ErrorUnit[]): boolean =>
-  units.some((u) =>
-    segments(u.evaluationPath!).some((s) => TRACE_TRIGGERS.has(s)),
-  );
+  units.some((u) => {
+    const segs = segments(u.evaluationPath!);
+    if (segs.some((s) => TRACE_TRIGGERS.has(s))) return true;
+    // Boolean-false units need the tail position classified; when the
+    // root-anchored walk can't (unknown keyword in the path), only the
+    // trace can decide. An empty path is the root schema itself — trivial.
+    return (
+      u.keyword === undefined &&
+      segs.length > 0 &&
+      classifyTail(segs) === undefined
+    );
+  });
 
 const last = (pointer: string): string =>
   decodeSegment(pointer.slice(pointer.lastIndexOf("/") + 1));
@@ -88,32 +97,89 @@ const NAME_POSITION = new Set([
 const segments = (path: string): string[] =>
   path === "" ? [] : path.slice(1).split("/").map(decodeSegment);
 
+/** Keywords whose subschemas live only at integer positions. */
+const INDEX_POSITION = new Set(["allOf", "anyOf", "oneOf", "prefixItems"]);
+
 /**
- * Positions in `segs` that are KEYWORD occurrences of `keyword` (not names
- * under properties/$defs/…). For anyOf/oneOf a branch index must follow —
- * their subschemas only live at integer positions.
+ * Keywords that apply their own value as a subschema. items/additionalItems
+ * appear here for their single-schema application; their legacy tuple form
+ * is recognized by the integer that follows (keywords are never integers,
+ * so the lookahead is unambiguous).
  */
-const keywordPositions = (segs: string[], keyword: string): number[] => {
-  const out: number[] = [];
-  for (let i = 0; i < segs.length; i++) {
-    if (segs[i] !== keyword) continue;
-    if (i > 0 && NAME_POSITION.has(segs[i - 1]!)) continue;
-    if (
-      (keyword === "anyOf" || keyword === "oneOf") &&
-      !/^\d+$/.test(segs[i + 1] ?? "")
-    ) {
-      continue;
+const SELF_POSITION = new Set([
+  "additionalProperties",
+  "unevaluatedProperties",
+  "unevaluatedItems",
+  "propertyNames",
+  "not",
+  "contains",
+  "if",
+  "then",
+  "else",
+  "items",
+  "additionalItems",
+  "contentSchema",
+  "$ref",
+  "$dynamicRef",
+  "$recursiveRef",
+]);
+
+/**
+ * Root-anchored classification of an evaluation path's final position: the
+ * keyword that applied the final subschema, and whether the final segment
+ * is that keyword itself (vs a name or index beneath it). Left-to-right
+ * from the root there is no ambiguity — a name can only follow a
+ * NAME_POSITION keyword — where tail-anchored sniffing misreads shapes
+ * like /properties/properties/anyOf. Returns undefined when an unknown
+ * keyword makes the walk lose its place (callers escalate to the trace).
+ */
+const classifyTail = (
+  segs: readonly string[],
+): { keyword: string; tailIsKeyword: boolean } | undefined => {
+  let result: { keyword: string; tailIsKeyword: boolean } | undefined;
+  let i = 0;
+  while (i < segs.length) {
+    const kw = segs[i]!;
+    let consumed = 1;
+    if (NAME_POSITION.has(kw)) {
+      if (i + 1 < segs.length) consumed = 2;
+    } else if (INDEX_POSITION.has(kw)) {
+      if (i + 1 < segs.length && /^\d+$/.test(segs[i + 1]!)) consumed = 2;
+    } else if (SELF_POSITION.has(kw)) {
+      if (
+        (kw === "items" || kw === "additionalItems") &&
+        i + 1 < segs.length &&
+        /^\d+$/.test(segs[i + 1]!)
+      ) {
+        consumed = 2;
+      }
+    } else {
+      return undefined;
     }
-    out.push(i);
+    i += consumed;
+    result = { keyword: kw, tailIsKeyword: consumed === 1 };
   }
-  return out;
+  return result;
 };
 
-const joinPath = (segs: readonly string[]): string =>
-  segs.length === 0
-    ? ""
-    : "/" +
-      segs.map((s) => s.replace(/~/g, "~0").replace(/\//g, "~1")).join("/");
+/** Per-evaluation join of error units to their trace applications. */
+interface TraceIndex {
+  /** unit index → the application that raised it */
+  nodeOf: (TraceUnit | undefined)[];
+  parentOf: Map<TraceUnit, TraceUnit | undefined>;
+}
+
+const buildTraceIndex = (root: TraceUnit, unitCount: number): TraceIndex => {
+  const nodeOf = new Array<TraceUnit | undefined>(unitCount);
+  const parentOf = new Map<TraceUnit, TraceUnit | undefined>();
+  const visit = (node: TraceUnit, parent: TraceUnit | undefined): void => {
+    parentOf.set(node, parent);
+    for (const i of node.errorIndexes) nodeOf[i] = node;
+    for (const child of node.children) visit(child, node);
+  };
+  visit(root, undefined);
+  return { nodeOf, parentOf };
+};
 
 /** `base#pointer` → AJV schemaPath ("#/..." same-resource, no "#" cross). */
 const renderSchemaPath = (location: string, rootBaseUri: string): string => {
@@ -219,65 +285,83 @@ const COMPARISON: Record<string, string> = {
  * AJV reports nothing from subtrees that PASSED (a satisfied anyOf's
  * failing branches, a passing `not`'s inner matches, contains probes, the
  * `if` condition), while the engine's list output keeps every record
- * (errors are never rolled back). Drop what AJV would not show:
- * - under not/contains/if: always (their inner failures are not failures
- *   of the instance);
- * - under an anyOf/oneOf branch: only when that combiner emitted no error
- *   of its own (it passed).
+ * (errors are never rolled back). Drop what AJV would not show, walking
+ * the error's application ancestry:
+ * - under not/if: always (their inner failures are not failures of the
+ *   instance);
+ * - under contains: except a boolean-false failure AT the probe itself —
+ *   AJV reports those ("#/contains/false schema"), pinned by the suite
+ *   differential (contains.json boolean-schema groups);
+ * - under an anyOf/oneOf branch: only when that combiner passed. "Failed"
+ *   is either the combiner's own error at the parent application, or zero
+ *   valid sibling branches — which relies on the interpreter applying
+ *   EVERY branch (applicator.ts anyOf/oneOf never short-circuit; a routed
+ *   discriminator applies exactly one). If a combiner ever gains
+ *   short-circuiting, this disjunct must be rethought.
  */
-const survivesFiltering = (
-  unit: ErrorUnit,
-  combinerFailed: (prefixPath: string, instanceLocation: string) => boolean,
-): boolean => {
-  const segs = segments(unit.evaluationPath!);
-  for (const kw of ["not", "contains", "if"]) {
-    for (const i of keywordPositions(segs, kw)) {
-      if (i < segs.length - 1) return false; // strictly inside the subtree
+const makeSurvives = (
+  units: readonly ErrorUnit[],
+  { nodeOf, parentOf }: TraceIndex,
+): ((index: number) => boolean) => {
+  return (index) => {
+    const keywordless = units[index]!.keyword === undefined;
+    let atErrorNode = true;
+    for (let node = nodeOf[index]; node; node = parentOf.get(node)) {
+      const parent = parentOf.get(node);
+      if (!parent) break;
+      const edge = node.segments[0];
+      if (edge === "not" || edge === "if") return false;
+      if (edge === "contains" && !(atErrorNode && keywordless)) return false;
+      if (edge === "anyOf" || edge === "oneOf") {
+        const failed =
+          parent.errorIndexes.some((j) => units[j]!.keyword === edge) ||
+          parent.children.every((c) => c.segments[0] !== edge || !c.valid);
+        if (!failed) return false;
+      }
+      atErrorNode = false;
     }
-  }
-  for (const kw of ["anyOf", "oneOf"]) {
-    for (const i of keywordPositions(segs, kw)) {
-      if (i >= segs.length - 1) continue; // the combiner's own error
-      const prefix = joinPath(segs.slice(0, i + 1));
-      if (!combinerFailed(prefix, unit.instanceLocation)) return false;
-    }
-  }
-  return true;
+    return true;
+  };
 };
 
-/** Maps engine list-output units (errorParams on) to AJV error objects. */
+/**
+ * Maps engine list-output units (errorParams on) to AJV error objects.
+ * `options.trace` is required whenever {@link needsTrace} holds for the
+ * units — the fast path only ever sees units whose mapping is
+ * position-trivial without application context.
+ */
 export function mapErrors(
   units: readonly ErrorUnit[],
   instance: JsonValue,
   options: MapOptions,
 ): AjvErrorObject[] {
-  // Combiner-failure index for the passing-subtree filter.
-  const combinerErrors = new Set<string>();
-  for (const u of units) {
-    if (u.keyword === "anyOf" || u.keyword === "oneOf") {
-      combinerErrors.add(`${u.evaluationPath!} ${u.instanceLocation}`);
-    }
+  if (options.trace === undefined && needsTrace(units)) {
+    throw new Error(
+      "ajv-compat internal: mapErrors needs the evaluation trace for these " +
+        "units but none was supplied — the caller must escalate per needsTrace",
+    );
   }
-  const combinerFailed = (prefix: string, ip: string): boolean => {
-    for (const key of combinerErrors) {
-      const [path, cip] = key.split(" ") as [string, string];
-      if (path === prefix && ip.startsWith(cip)) return true;
-    }
-    return false;
-  };
+  const traceIndex =
+    options.trace === undefined
+      ? undefined
+      : buildTraceIndex(options.trace, units.length);
+  const survives =
+    traceIndex === undefined ? undefined : makeSurvives(units, traceIndex);
 
   const out: AjvErrorObject[] = [];
   // items/additionalItems/unevaluatedItems false-schema units coalesce to
   // one {limit} error per (schema position, array) — AJV's shape.
   const coalesced = new Set<string>();
 
-  for (const unit of units) {
-    // Discriminator's routed-oneOf marker (M8.4, discriminator.ts): seeds
-    // combinerErrors above like any oneOf failure, but AJV never shows it —
-    // the routed branch's own errors are the whole output.
+  for (let index = 0; index < units.length; index++) {
+    const unit = units[index]!;
+    // Discriminator's routed-oneOf marker (M8.4, discriminator.ts): its
+    // oneOf-keyword error makes the filter treat the routed combiner as
+    // failed, but AJV never shows it — the routed branch's own errors are
+    // the whole output.
     if (unit.params?.discriminatorRouted === true) continue;
-    if (!survivesFiltering(unit, combinerFailed)) continue;
-    const mapped = mapUnit(unit, units, coalesced, options);
+    if (survives !== undefined && !survives(index)) continue;
+    const mapped = mapUnit(unit, index, units, coalesced, options, traceIndex);
     for (const e of mapped) {
       if (options.messages)
         e.message = message(e.keyword, e.params) ?? unit.error;
@@ -314,26 +398,38 @@ const resolveInstance = (instance: JsonValue, pointer: string): JsonValue => {
 /** One engine unit → zero or more AJV errors (synthesis may append). */
 function mapUnit(
   unit: ErrorUnit,
+  index: number,
   all: readonly ErrorUnit[],
   coalesced: Set<string>,
   options: MapOptions,
+  traceIndex: TraceIndex | undefined,
 ): AjvErrorObject[] {
   const sp = (loc: string): string =>
     renderSchemaPath(loc, options.rootBaseUri);
   const evalSegs = segments(unit.evaluationPath!);
+  const node = traceIndex?.nodeOf[index];
 
   // Boolean-false schema units (no keyword): the schema POSITION decides
-  // which AJV error shape applies.
+  // which AJV error shape applies — specifically the applying edge, and
+  // only when the failing position is the keyword's own value (a property
+  // literally named "items" descends via properties instead).
   if (unit.keyword === undefined) {
-    const tail = evalSegs[evalSegs.length - 1];
-    if (tail === "additionalProperties" || tail === "unevaluatedProperties") {
+    let edge: string | undefined;
+    if (traceIndex !== undefined) {
+      edge = node?.segments.length === 1 ? node.segments[0] : undefined;
+    } else if (evalSegs.length > 0) {
+      // needsTrace guarantees the classifier cannot lose its place here.
+      const c = classifyTail(evalSegs)!;
+      edge = c.tailIsKeyword ? c.keyword : undefined;
+    }
+    if (edge === "additionalProperties" || edge === "unevaluatedProperties") {
       const param =
-        tail === "additionalProperties"
+        edge === "additionalProperties"
           ? "additionalProperty"
           : "unevaluatedProperty";
       return [
         {
-          keyword: tail,
+          keyword: edge,
           instancePath: parent(unit.instanceLocation),
           schemaPath: sp(unit.schemaLocation!),
           params: { [param]: last(unit.instanceLocation) },
@@ -341,9 +437,9 @@ function mapUnit(
       ];
     }
     if (
-      tail === "items" ||
-      tail === "additionalItems" ||
-      tail === "unevaluatedItems"
+      edge === "items" ||
+      edge === "additionalItems" ||
+      edge === "unevaluatedItems"
     ) {
       const arrayPath = parent(unit.instanceLocation);
       const key = `${unit.evaluationPath!} ${arrayPath}`;
@@ -361,7 +457,7 @@ function mapUnit(
       }
       return [
         {
-          keyword: tail,
+          keyword: edge,
           instancePath: arrayPath,
           schemaPath: sp(unit.schemaLocation!),
           params: { limit },
@@ -475,54 +571,51 @@ function mapUnit(
       break;
   }
 
-  // propertyNames: AJV reports the inner failure at the OBJECT's data path
-  // and appends a container error naming the offending property.
-  const pnPositions = keywordPositions(evalSegs, "propertyNames");
-  if (pnPositions.length > 0 && pnPositions[0]! < evalSegs.length - 1) {
-    const name = last(unit.instanceLocation);
-    base.instancePath = parent(unit.instanceLocation);
-    base.propertyName = name;
-    const spSegs = segments(
-      unit.schemaLocation!.slice(unit.schemaLocation!.indexOf("#") + 1),
-    );
-    const pnIdx = keywordPositions(spSegs, "propertyNames")[0]!;
-    const pnLocation =
-      unit.schemaLocation!.slice(0, unit.schemaLocation!.indexOf("#") + 1) +
-      joinPath(spSegs.slice(0, pnIdx + 1));
-    return [
-      base,
-      {
-        keyword: "propertyNames",
-        instancePath: base.instancePath,
-        schemaPath: sp(pnLocation),
-        params: { propertyName: name },
-      },
-    ];
-  }
+  // Both syntheses need application context; their trigger keywords
+  // guarantee the trace is present whenever they can apply.
+  if (traceIndex !== undefined) {
+    // propertyNames: AJV reports the inner failure at the OBJECT's data
+    // path and appends a container error naming the offending property.
+    for (let n = node; n !== undefined; n = traceIndex.parentOf.get(n)) {
+      if (n.segments[0] !== "propertyNames") continue;
+      const name = last(unit.instanceLocation);
+      const container = traceIndex.parentOf.get(n)!;
+      base.instancePath = container.instanceLocation;
+      base.propertyName = name;
+      return [
+        base,
+        {
+          keyword: "propertyNames",
+          instancePath: base.instancePath,
+          schemaPath: sp(n.schemaLocation),
+          params: { propertyName: name },
+        },
+      ];
+    }
 
-  // then/else branch failures: AJV appends a synthesized `if` error.
-  for (const branch of ["then", "else"] as const) {
-    const positions = keywordPositions(evalSegs, branch);
-    const idx = positions.find((i) => {
-      const prefixLoc = unitSchemaPrefix(unit, i);
-      return (
-        prefixLoc !== undefined &&
-        options.resolveSchema(parentPointerLocation(prefixLoc) + "/if") !==
-          undefined
-      );
-    });
-    if (idx !== undefined && idx < evalSegs.length - 1) {
-      const prefixLoc = unitSchemaPrefix(unit, idx)!;
-      const ifLocation = parentPointerLocation(prefixLoc) + "/if";
-      const ipSegs = segments(unit.instanceLocation);
-      const keep = Math.max(0, ipSegs.length - instanceDescents(evalSegs, idx));
+    // then/else branch failures: AJV appends a synthesized `if` error at
+    // the application where `if` itself ran — the branch edge's parent,
+    // which is exact across $ref crossings and every descent shape. The
+    // OUTERMOST branch edge wins, matching the pinned single-companion
+    // shape for nested conditionals.
+    const chain: TraceUnit[] = [];
+    for (let n = node; n !== undefined; n = traceIndex.parentOf.get(n)) {
+      chain.push(n);
+    }
+    chain.reverse();
+    for (const c of chain) {
+      const edge = c.segments[0];
+      if (edge !== "then" && edge !== "else") continue;
+      const container = traceIndex.parentOf.get(c)!;
+      const ifLocation = container.schemaLocation + "/if";
+      if (options.resolveSchema(ifLocation) === undefined) continue;
       return [
         base,
         {
           keyword: "if",
-          instancePath: joinPath(ipSegs.slice(0, keep)),
+          instancePath: container.instanceLocation,
           schemaPath: sp(ifLocation),
-          params: { failingKeyword: branch },
+          params: { failingKeyword: edge },
         },
       ];
     }
@@ -530,40 +623,3 @@ function mapUnit(
 
   return [base];
 }
-
-/**
- * schemaLocation prefix covering the first `i + 1` evaluation-path
- * segments — valid only while the evaluation path and the schema pointer
- * tail coincide (no $ref crossing below the branch keyword), which holds
- * for the then/else shapes this feeds; returns undefined otherwise.
- */
-const unitSchemaPrefix = (unit: ErrorUnit, i: number): string | undefined => {
-  const evalSegs = segments(unit.evaluationPath!);
-  const hash = unit.schemaLocation!.indexOf("#");
-  const ptrSegs = segments(unit.schemaLocation!.slice(hash + 1));
-  const tailLen = evalSegs.length - (i + 1);
-  if (tailLen > ptrSegs.length) return undefined;
-  const prefixPtr = ptrSegs.slice(0, ptrSegs.length - tailLen);
-  if (prefixPtr[prefixPtr.length - 1] !== evalSegs[i]) return undefined;
-  return unit.schemaLocation!.slice(0, hash + 1) + joinPath(prefixPtr);
-};
-
-const parentPointerLocation = (location: string): string => {
-  const hash = location.indexOf("#");
-  const ptr = location.slice(hash + 1);
-  return location.slice(0, hash + 1) + parent(ptr);
-};
-
-/**
- * Instance descents made by evaluation-path segments below `branchIdx`:
- * a name after properties/patternProperties consumes one data segment
- * (the synthesized if-error sits at the cursor where `if` itself ran).
- */
-const instanceDescents = (evalSegs: string[], branchIdx: number): number => {
-  let n = 0;
-  for (let i = branchIdx + 2; i < evalSegs.length; i++) {
-    const prev = evalSegs[i - 1]!;
-    if (prev === "properties" || prev === "patternProperties") n++;
-  }
-  return n;
-};
