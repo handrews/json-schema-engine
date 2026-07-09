@@ -3,7 +3,8 @@
 A dialect is a set of keyword behaviors bound to a `$schema` URI. Four
 dialects ship built in: draft 2020-12, draft 2019-09, draft-07, and
 draft-06, exported as `DIALECT_2020_12`, `DIALECT_2019_09`,
-`DIALECT_DRAFT_07`, and `DIALECT_DRAFT_06`.
+`DIALECT_DRAFT_07`, and `DIALECT_DRAFT_06`. draft-04 is available as a
+separate package — see [draft-04](#draft-04-separate-package) below.
 
 ## Select a dialect
 
@@ -129,3 +130,44 @@ assert.throws(() => {
   );
 }, UnknownDialectError);
 ```
+
+## draft-04 (separate package)
+
+draft-04's syntax differs from every later draft — `id` instead of `$id`,
+boolean `exclusiveMinimum`/`exclusiveMaximum` modifying sibling bounds,
+and no `const`, `contains`, `propertyNames`, or `if`/`then`/`else` — so it
+ships as `@jse/dialect-draft04` rather than in core. One registration call
+adds the dialect, its keyword behaviors, and the vendored draft-04
+metaschema to an engine; draft-04 documents then coexist with every other
+draft in the same registry, including `$ref`s across the dialect boundary
+in both directions.
+
+```ts
+import assert from "node:assert";
+import { createEngine } from "@jse/core";
+import { registerDraft04 } from "@jse/dialect-draft04";
+
+const engine = createEngine();
+registerDraft04(engine);
+
+const uri = engine.registerSchema(
+  {
+    $schema: "http://json-schema.org/draft-04/schema#",
+    minimum: 5,
+    exclusiveMinimum: true, // draft-04: a boolean modifying `minimum`
+  },
+  "https://example.com/draft-04",
+);
+
+assert.equal(engine.evaluate(uri, 5).valid, false);
+assert.equal(engine.evaluate(uri, 6).valid, true);
+```
+
+The package is also the reference for authoring a dialect outside core:
+keywords draft-04 shares with draft-07 are reused as behavior objects read
+from the engine's draft-07 dialect (`engine.dialects.getDialect(...)`),
+only the genuinely different keywords are implemented fresh, and the
+assembly uses the same `registerVocabulary`/`registerDialect` calls
+available to any caller — with `DialectOptions.identifiers` supplying the
+`id`-based identifier syntax. To add your own keywords or dialects, start
+with [Custom keywords](custom-keywords.md).

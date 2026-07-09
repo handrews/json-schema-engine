@@ -86,7 +86,9 @@ await assert.rejects(
 `validateSchemas: true` checks every registered or loaded schema against
 its dialect's metaschema, throwing `SchemaValidationError` on failure. The
 standard metaschemas for the four built-in dialects are bundled, so this
-works with no loader for documents using them.
+works with no loader for documents using them. The draft-04 metaschema is
+bundled in `@jse/dialect-draft04`, not core — `registerDraft04(engine)`
+registers it, after which the same check covers draft-04 documents.
 
 ```ts
 import assert from "node:assert";

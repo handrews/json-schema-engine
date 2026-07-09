@@ -860,3 +860,17 @@ export const FORMATS_DRAFT_06: FormatTable = subset(FORMATS_DRAFT_07, [
   "idn-email",
   "idn-hostname",
 ]);
+
+/**
+ * draft-04 format table (for the draft-04 dialect package): only date-time,
+ * email, hostname, ipv4, ipv6, and uri are defined by the draft-04 spec.
+ */
+export const FORMATS_DRAFT_04: FormatTable = subset(FORMATS_DRAFT_06, [
+  "date",
+  "time",
+  "json-pointer",
+  "relative-json-pointer",
+  "regex",
+  "uri-reference",
+  "uri-template",
+]);

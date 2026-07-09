@@ -17,7 +17,10 @@ later, and which gates run where.
   `$vocabulary`, remote references, and annotation semantics. Verified
   with local [Bowtie](https://bowtie.report/) harness runs; the public
   bowtie.report listing is pending submission (see
-  [STATUS.md](STATUS.md)).
+  [STATUS.md](STATUS.md)). draft-04 is available as a separately
+  packaged dialect ([@jse/dialect-draft04](packages/dialect-draft04))
+  with its own zero-skip suite leg, and coexists with every other draft
+  in one registry.
 - **Annotation-first:** annotations are a primary output, not an
   afterthought. Collection is configurable per evaluation and costs nothing
   when off.

@@ -5,17 +5,18 @@ for later, and which quality gates run where. Prose elsewhere (README,
 DESIGN.md milestone notes, guide pages) defers to this page when they
 disagree — and a disagreement is a bug worth filing.
 
-Last updated: 2026-07-07 (post-M8, pre-M9).
+Last updated: 2026-07-08 (post-M10; M6.6/M8.6/M9 remain).
 
 ## Built and gated
 
-| Area                            | State                                                                                                                                                                                                                                     |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Interpreter (`@jse/core`)       | Complete for draft 2020-12, 2019-09, draft-07, draft-06: evaluation, annotations, all output structures/vocabularies, `$dynamicRef`/`$recursiveRef`, `$vocabulary` dialects, loaders, source positions, security bounds.                  |
-| Compiler (`@jse/compiler`)      | Operational: flag-mode and list-mode artifacts, interpreter trampoline for dynamic islands, CSP-safe standalone emission (flag-only). Full-suite differential and fuzzing referee both tiers.                                             |
-| Formats (`@jse/formats`)        | All standard formats from their defining RFCs, including full IDNA2008 `idn-hostname`/`idn-email`; format-assertion vocabulary and `assertFormats` configuration.                                                                         |
-| AJV adapter (`@jse/ajv-compat`) | Emulated AJV v8 subset with executed-AJV fixture pins; mutation trio; companions (formats parity, discriminator, ajv-errors, ajv-keywords subset). Scope and divergences: [packages/ajv-compat/COMPAT.md](packages/ajv-compat/COMPAT.md). |
-| Structured error params         | Opt-in `errorParams` channel in both tiers (DESIGN.md D13).                                                                                                                                                                               |
+| Area                              | State                                                                                                                                                                                                                                                          |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Interpreter (`@jse/core`)         | Complete for draft 2020-12, 2019-09, draft-07, draft-06: evaluation, annotations, all output structures/vocabularies, `$dynamicRef`/`$recursiveRef`, `$vocabulary` dialects, loaders, source positions, security bounds.                                       |
+| Compiler (`@jse/compiler`)        | Operational: flag-mode and list-mode artifacts, interpreter trampoline for dynamic islands, CSP-safe standalone emission (flag-only). Full-suite differential and fuzzing referee both tiers.                                                                  |
+| Formats (`@jse/formats`)          | All standard formats from their defining RFCs, including full IDNA2008 `idn-hostname`/`idn-email`; format-assertion vocabulary and `assertFormats` configuration.                                                                                              |
+| AJV adapter (`@jse/ajv-compat`)   | Emulated AJV v8 subset with executed-AJV fixture pins; mutation trio; companions (formats parity, discriminator, ajv-errors, ajv-keywords subset). Scope and divergences: [packages/ajv-compat/COMPAT.md](packages/ajv-compat/COMPAT.md).                      |
+| draft-04 (`@jse/dialect-draft04`) | Complete as a separately packaged dialect assembled through core's public surface (DESIGN.md D11/M10): official draft4 suite zero-skip (interpreter tier), format leg, mixed-registry coexistence with 2020-12. Compiled lowering deliberately staged (below). |
+| Structured error params           | Opt-in `errorParams` channel in both tiers (DESIGN.md D13).                                                                                                                                                                                                    |
 
 ## Gates and where they run
 
@@ -42,12 +43,14 @@ or milestone:
 - **Bowtie submission.** The harness container and results are prepared
   in M9; the PR to Bowtie is made by the owner personally (no automated
   PRs, ever — project policy).
-- **draft-04.** A separately packaged dialect (`M10`), re-justified in
-  DESIGN.md D11: it exists for the owner's oaskit project and as the
-  reference for third-party dialect authoring, not for AJV migration.
 - **Compiled lowering for draft-07/06-specific keywords** (M6.6):
   legacy-dialect schemas currently take the interpreter path under
-  compilation, which is correct but slower.
+  compilation, which is correct but slower. draft-04 schemas likewise
+  evaluate interpreted (its delta keywords have no `lower()`, staged
+  with the same M6.6-class work).
+- **draft-04 in the Bowtie harness and ajv-compat.** Both staged: the
+  harness gains the dialect with M9's onboarding work, and an AJV
+  draft-04 compat class is recorded, not built (DESIGN.md M10 notes).
 - **ajv-compat internals hardening** (M8.6): the error adapter's
   path-string heuristics move to structured traces, engine lifecycle
   (anonymous-schema growth, stale-artifact semantics) gets pinned

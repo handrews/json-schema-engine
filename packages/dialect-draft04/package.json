@@ -1,0 +1,19 @@
+{
+  "name": "@jse/dialect-draft04",
+  "version": "0.0.0",
+  "private": true,
+  "description": "JSON Schema draft-04 dialect for @jse/core, assembled through the public dialect-authoring surface (DESIGN.md M10, D11)",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@jse/core": "*"
+  },
+  "devDependencies": {
+    "@jse/formats": "*",
+    "@jse/test-kit": "*"
+  }
+}

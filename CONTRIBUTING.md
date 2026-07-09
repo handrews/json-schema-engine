@@ -35,15 +35,16 @@ works locally but fails `npm ci` on Linux CI with
 
 ## Repository layout
 
-| Path                | Contents                                                             |
-| ------------------- | -------------------------------------------------------------------- |
-| `packages/core`     | The engine: registry, dialects, evaluation, output renderers         |
-| `packages/test-kit` | Official-suite runner, output-tests runner, position-tracking parser |
-| `test-suite/`       | Git submodule: official JSON-Schema-Test-Suite (pinned)              |
-| `bowtie/`           | Bowtie harness (IO protocol) and Containerfile                       |
-| `spike/`            | F1 benchmark spike; target output shape for the M6 compiler          |
-| `docs/guide/`       | User guide (hand-written markdown)                                   |
-| `docs/reference/`   | Generated API reference (gitignored; `npm run docs:api`)             |
+| Path                       | Contents                                                             |
+| -------------------------- | -------------------------------------------------------------------- |
+| `packages/core`            | The engine: registry, dialects, evaluation, output renderers         |
+| `packages/dialect-draft04` | draft-04 dialect, assembled through core's public surface            |
+| `packages/test-kit`        | Official-suite runner, output-tests runner, position-tracking parser |
+| `test-suite/`              | Git submodule: official JSON-Schema-Test-Suite (pinned)              |
+| `bowtie/`                  | Bowtie harness (IO protocol) and Containerfile                       |
+| `spike/`                   | F1 benchmark spike; target output shape for the M6 compiler          |
+| `docs/guide/`              | User guide (hand-written markdown)                                   |
+| `docs/reference/`          | Generated API reference (gitignored; `npm run docs:api`)             |
 
 ## Commands
 
@@ -65,7 +66,8 @@ CI runs check-types, lint, format:check, test, and docs:api on every push.
 Each supported dialect has a suite runner in `packages/core/test/`
 (`suite.test.ts`, `suite2019.test.ts`, `suite7.test.ts`, `suite6.test.ts`)
 plus an elision differential (`elision.test.ts`) that evaluates every case
-twice.
+twice. draft-04's runner, format leg, and elision differential live with
+its dialect package (`packages/dialect-draft04/test/`).
 
 **Zero-skip discipline.** The runner prints a summary line per file set:
 
@@ -94,7 +96,9 @@ bowtie suite -i image:localhost/jse-bowtie test-suite/tests/draft2020-12 \
   | bowtie summary
 ```
 
-Repeat per dialect directory (`draft2019-09`, `draft7`, `draft6`). Releases
+Repeat per dialect directory (`draft2019-09`, `draft7`, `draft6`). The
+harness does not yet advertise draft-04 (the dialect package would need to
+ship in the image); it is staged with M9's Bowtie onboarding. Releases
 are conformance-gated: suite and Bowtie green, or no release (DESIGN.md
 D12).
 
