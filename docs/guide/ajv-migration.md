@@ -1,7 +1,11 @@
 # Migrating from AJV
 
-`@jse/ajv-compat` reproduces AJV v8's public API over the engine. Most
-code migrates by changing one import. Behavior is pinned against
+`@jse/ajv-compat` is a migration adapter for a documented subset of AJV
+v8's public API — the complete matrix of what is emulated, ignored, and
+refused is [COMPAT.md](../../packages/ajv-compat/COMPAT.md). Code that
+stays inside the emulated surface migrates by changing an import; code
+that touches the refused surface fails loudly with a typed error rather
+than behaving differently. Emulated behavior is pinned against
 executed-AJV fixtures: verdicts, error objects (`keyword`,
 `instancePath`, `schemaPath`, `params`, `message`), `errorsText`, data
 mutation, and companion packages.
@@ -110,9 +114,26 @@ if (!validate("2026-07-07T12:00:00Z") || validate("nope")) {
 
 ## Documented divergences
 
+- **Plain JSON data only on the compiled fast path.** Validators assume
+  JSON-shaped instances (own enumerable properties, no prototype
+  chain). Class instances with inherited enumerable properties can
+  validate differently than under AJV, whose default iteration uses
+  `Object.keys`. This is also why the `ownProperties` option is
+  accepted-and-ignored. Validate parsed JSON (HTTP bodies, files) and
+  this never matters; do not feed live class instances through compat
+  validators.
 - **`strictNumbers`**: AJV rejects `NaN`/`Infinity` at validation time by
   default. JSON-parsed data cannot contain them, so HTTP paths are
   unaffected; hand-built JS objects diverge.
+- **`multipleOfPrecision`** is ignored (with a logged warning):
+  `multipleOf` uses exact decimal-scaled comparison, so schemas that
+  relied on the tolerance may reject values AJV accepted.
+- **Mutating configurations cost interpreter passes.** `coerceTypes`/
+  `useDefaults`/`removeAdditional` run an evaluate–mutate–re-evaluate
+  loop (several interpreter evaluations per call) instead of AJV's
+  in-codegen mutation. Request validation is fine; measure before using
+  a mutating configuration in a hot loop, or validate with a
+  non-mutating configuration and coerce upstream.
 - **Error list order and branch error sets** under `allErrors` can differ
   inside `anyOf`/`oneOf`/`$ref`-heavy schemas (evaluation-strategy
   artifacts). The official-suite differential ratchets the divergence

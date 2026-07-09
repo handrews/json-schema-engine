@@ -53,6 +53,48 @@ Under `locations: "2020-12"`, `outputDocument` is a `BasicOutputDocument`
 instead: a single wrapper unit with flat `errors`/`annotations` arrays,
 matching the older Basic structure.
 
+### Structured error params
+
+The `errorParams` option adds two fields to each `Result.errors` unit:
+`keyword` (the failing keyword; absent when a boolean `false` schema
+failed) and `params`, a plain-JSON object of structured failure data —
+so tooling consumes the failure mechanically instead of parsing the
+message string. The spec output shapes never carry these fields, which
+is why they are opt-in; the flat list is the only surface that does.
+`compileList` accepts the same option and produces identical units.
+
+```ts
+import assert from "node:assert";
+import { createEngine } from "@jse/core";
+
+const engine = createEngine();
+const uri = engine.registerSchema(
+  { required: ["a", "b"], enum: [1] },
+  "https://example.com/params",
+);
+
+const result = engine.evaluate(
+  uri,
+  { a: 1 },
+  { output: "list", errorParams: true },
+);
+const byKeyword = new Map(result.errors?.map((e) => [e.keyword, e.params]));
+assert.deepEqual(byKeyword.get("required"), { missingProperty: "b" });
+assert.deepEqual(byKeyword.get("enum"), { allowedValues: [1] });
+```
+
+The vocabulary, per keyword: `type` → `{expected}` (the schema value);
+`enum` → `{allowedValues}`; `const` → `{allowedValue}`; the string/
+array/object bounds and numeric limits → `{limit}`; `multipleOf` →
+`{multipleOf}`; `pattern` → `{pattern}`; `required` → one unit per
+missing property, each `{missingProperty}`; `dependentRequired` (and
+legacy `dependencies`) → `{property, missingProperty}`; `uniqueItems` →
+`{duplicates: [i, j]}` (first duplicate pair); `contains` → `{count,
+minContains[, maxContains]}`; `oneOf` → `{passing: [indexes]}`; `format`
+under assertion → `{format}`; `anyOf`/`not` → `{}`. Custom keywords pass
+whatever their `ctx.error(message, params)` call supplies. The full pin
+suite is `packages/core/test/error-params.test.ts`.
+
 ```ts
 import assert from "node:assert";
 import { createEngine } from "@jse/core";

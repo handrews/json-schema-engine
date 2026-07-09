@@ -7,10 +7,32 @@ other concerns need a choice from the caller: regular-expression cost,
 array-comparison cost, and recursion depth. Each has a bound or an opt-out
 below.
 
-The engine generates no code, so code-injection concerns that apply to
-compiling validators do not apply here. A denial-of-service bound is best
-effort, not a guarantee: treat wildly untrusted schemas with the same care as
-any other untrusted program input.
+The `@jse/core` interpreter generates no code, so code-injection concerns
+that apply to compiling validators do not apply to it. A denial-of-service
+bound is best effort, not a guarantee: treat wildly untrusted schemas with
+the same care as any other untrusted program input.
+
+## The compiler tier and code generation
+
+`@jse/compiler` DOES generate code: `compileValidator`/`compileList` build
+artifact source and instantiate it with `new Function` (the only two such
+call sites, fenced by lint rules). Two properties bound the risk:
+
+- All emitted text is assembled through a gated formatter whose typed
+  wrappers escape every schema-derived value; there is no raw-code path in
+  the lowering IR, so schema content cannot reach the artifact as code. An
+  injection corpus exercises hostile schema values against both optimizer
+  configurations.
+- Under a Content-Security-Policy that forbids runtime code generation,
+  use the interpreter (identical semantics — the compiler trampolines to
+  it for anything it cannot compile) or build-time standalone emission,
+  which is verified by a gate that runs every emitted module under
+  `node --disallow-code-generation-from-strings`.
+
+Do not compile schemas you would not run as code review-free: runtime
+compilation of untrusted schemas is safe against injection by
+construction, but the interpreter avoids the question entirely. See
+[docs/architecture.md](../architecture.md) for the tier boundary.
 
 ## Regular expressions (ReDoS)
 

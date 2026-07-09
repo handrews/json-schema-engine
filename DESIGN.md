@@ -1,9 +1,13 @@
 # JSON Schema engine: engineering design
 
-**Status:** agreed design, pre-implementation. Successor to
+**Status:** living design contract, implementation through M8 complete —
+see [STATUS.md](STATUS.md) for the authoritative current state (built
+milestones, gates, and deliberately staged work). Successor to
 [ANALYSIS.md](ANALYSIS.md) (market/architecture analysis) as validated by
 [SPIKE.md](SPIKE.md) (F1 performance spike) and `prototype/` (F2 channels
-prototype, 852/852 non-skipped official draft2020-12 suite cases green).
+prototype). Milestone status notes below are historical records kept for
+session continuity; a split into architecture/ADR/changelog documents is
+in the deferred register.
 
 **How to use this document:** it is the contract for implementation sessions.
 A fresh session (any model) should be able to pick up one milestone from §6
@@ -426,11 +430,25 @@ Owner-priority order and per-milestone contracts:
    results for all supported dialects. STOP at submission: no PR, no
    publish — package the branch, image, and results for the owner.
 
-Deferred register (unchanged, for continuity): compiled annotation
+Deferred register (for continuity): compiled annotation
 collection (channel frames), list-mode standalone, Runtime
 format-table lowering, D9d thresholds, island re-entry, ajv-keywords
 transform/dynamicDefaults, code.source mapping, hyperjump-compat shim,
-idna.ts second-'--' owner review (above).
+idna.ts second-'--' owner review (above). Added from the 2026-07-07
+audit remediation: explainCompilation() fallback diagnostics (per-unit
+causes/counts from the existing plan data); packageManager pinning /
+corepack evaluation (the @emnapi lockfile surgery is a process smell);
+coverage thresholds for ajv-compat lifecycle paths (not for the
+conformance-driven core); custom-keyword AUTHOR contract documentation
+(analyze() obligations and how wrong facts break compilation); DESIGN →
+ARCHITECTURE/ADR/CHANGELOG split; ajv-compat anonymous-schema registry
+growth (compile() of ad-hoc schemas accretes urn:ajv-compat:anonymous
+entries in the shared engine forever); discriminatorRouted marker →
+explicit internal channel instead of a params-smuggled control signal;
+trace-based error adapter (consume core TraceNodes instead of
+evaluationPath string heuristics in packages/ajv-compat/src/errors.ts);
+mutation-fixpoint idempotence property tests; plain-data runtime guard
+(route non-plain instances to the interpreter in ajv-compat).
 
 **Owner review (idn-hostname):** `isValidALabel` in
 packages/formats/src/idna.ts rejects any second `--` in an A-label's

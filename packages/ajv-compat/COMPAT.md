@@ -1,0 +1,150 @@
+# AJV v8 compatibility matrix
+
+What `@jse/ajv-compat` emulates, ignores, and refuses, and where its
+behavior deviates from AJV. Every "verified" claim below is pinned by an
+executed-AJV fixture (`test/oracle/capture*.ts` →
+`test/fixtures/ajv-*.json`; AJV is run, never read — DESIGN.md D15) or by
+AJV's public documentation. Sources are marked **docs** (ajv.js.org /
+companion READMEs) or **oracle** (observed by execution, where the docs
+are silent).
+
+## Classes
+
+`Ajv` (draft-07, AJV's default), `Ajv2019`, `Ajv2020`. No JTD classes
+(different schema language).
+
+## Constructor options
+
+### Mapped onto the engine
+
+| Option                | Notes                                                                                                                                                                                                           |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `allErrors`           | Default `false` = exactly one reported error (**docs**: "return after the first error"). Synthesized companion errors stay with their primary (**oracle**: propertyNames pairs survive first-error truncation). |
+| `verbose`             | Adds `schema`, `parentSchema`, `data` to errors.                                                                                                                                                                |
+| `messages`            | `false` omits `message`.                                                                                                                                                                                        |
+| `validateFormats`     | Default `true`; formats assert when a format table is present.                                                                                                                                                  |
+| `validateSchema`      | Metaschema validation on registration.                                                                                                                                                                          |
+| `schemas`, `meta`     | Registered through the config ledger.                                                                                                                                                                           |
+| `formats`, `keywords` | Routed through `addFormat`/`addKeyword`.                                                                                                                                                                        |
+| `loadSchema`          | Powers `compileAsync` via an engine loader adapter.                                                                                                                                                             |
+| `logger`              | `log`/`warn`/`error` trio or `false`.                                                                                                                                                                           |
+| `code.regExp`         | Maps to the engine's pluggable regex engine.                                                                                                                                                                    |
+
+### Implemented in the adapter
+
+| Option                                          | Verified semantics                                                                                                                                                                                                                                                                                                                                            |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `coerceTypes` (`true`/`"array"`)                | Docs coercion table exactly: string→number only for valid numbers; `"true"`/`"false"`→boolean; `""`→null; number→string; 0/1→boolean; false/0/`""`→null; `"array"` wraps scalars and unwraps single-element arrays. **Oracle**: mutations persist when validation still fails; a coerced TOP-LEVEL scalar changes the verdict but never the caller's binding. |
+| `useDefaults` (`true`/`"empty"`)                | Inserts `properties` defaults for missing keys (`"empty"` also for `null`/`""`). **Oracle**: inserted values are copies, never shared references; tuple defaults EXTEND the array in position order; defaults cascade (a parent's default then receives its children's defaults).                                                                             |
+| `removeAdditional` (`true`/`"all"`/`"failing"`) | **Oracle**: `true` removes only under literal `additionalProperties: false`; `"failing"` removes per-property failures against an `additionalProperties` schema; `"all"` removes unmatched keys only where the schema object carries property keywords (a bare `{type:"object"}` removes nothing).                                                            |
+| `discriminator`                                 | **Oracle**: AJV _replaces_ `oneOf` dispatch entirely — only the tag-matched branch evaluates, even under `allErrors`; `mapping` is rejected by AJV's runtime despite its docs. Both behaviors reproduced.                                                                                                                                                     |
+| `strictSchema` (subset)                         | Unknown keywords and unknown formats reject at compile time; `"log"` warns; `false` allows. Other strict-family checks (`strictTypes`/`strictTuples` warnings) are not reproduced.                                                                                                                                                                            |
+| `multipleOfPrecision`                           | Accepted with a logged warning; `multipleOf` uses exact decimal-scaled comparison. Divergence when the option mattered.                                                                                                                                                                                                                                       |
+
+### Accepted and ignored (codegen/perf hints)
+
+`inlineRefs`, `loopRequired`, `loopEnum`, `code.{es5,esm,lines,optimize,
+process}`, `addUsedSchema` (partially honored for `$id` retention),
+`ownProperties` (see plain-data caveat in the migration guide),
+`unicodeRegExp` (patterns compile per spec with `u`), `uriResolver`.
+
+### Refused (typed `AjvCompatUnsupportedError`)
+
+| Surface                                                                             | Reason                                                           |
+| ----------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `$data: true` (option or per-keyword)                                               | Instance-controlled keyword values are excluded by design.       |
+| `code`-style keywords (`KeywordCxt`)                                                | AJV-codegen-coupled by definition; port to `validate`/`compile`. |
+| `$async` schemas, async keywords, async formats                                     | Evaluation is synchronous.                                       |
+| `macro` keywords                                                                    | Not yet emulated; use `validate`/`compile`.                      |
+| `removeKeyword` of built-ins                                                        | Dialects assemble from whole vocabularies.                       |
+| JTD options (`timestamp`, `parseDate`, `allowDate`, `specialNumbers`, `int32range`) | JTD is out of scope.                                             |
+| `code.source` standalone                                                            | Not mapped; use `@jse/compiler`'s standalone emission.           |
+
+## Methods
+
+`compile`, `compileAsync`, `validate(schemaOrRef, data)`, `addSchema`
+(array/object/`$id`/key forms), `addMetaSchema`, `getSchema`,
+`removeSchema` (key, `$id`, RegExp, schema object, or all),
+`validateSchema`, `addFormat` (string→RegExp, RegExp, function, object
+forms; object `compare` powers the formatMinimum/Maximum keywords),
+`addKeyword` (string and definition-object forms), `getKeyword`,
+`removeKeyword` (custom keywords only), `addVocabulary`, `errorsText`
+(`separator`, `dataVar`). `ValidateFunction` exposes `errors` (null when
+valid) and `schema`.
+
+`addKeyword` definition fields honored: `keyword` (string|string[]),
+`type` (data-type scoping incl. `integer`), `schemaType`, `validate`
+(custom errors via assignment to `validate.errors`), `compile`, `error`
+(`{message}`), `errors`, `valid`. Accepted-and-inert: `metaSchema`,
+`passContext`, `before`, `post`, `implements`, `modifying` (refused until
+the mutation machinery supports custom keywords).
+
+## Error objects
+
+`keyword`, `instancePath`, `schemaPath`, `params`, `message`
+(+`propertyName` on propertyNames inner errors — **oracle**; +`schema`/
+`parentSchema`/`data` under `verbose`).
+
+- `schemaPath`: same resource as the compiled root → `#/pointer`;
+  cross-resource → `resolvedUri + pointer` with NO `#` (**oracle**).
+- Boolean `false` schemas → keyword `"false schema"`, schemaPath suffix
+  `/false schema`, message `boolean schema is false` (**oracle**).
+- Message text reproduces AJV's defaults per keyword from a template
+  table (**oracle** — not documented by AJV); custom-keyword messages
+  pass through unchanged.
+
+Params per keyword — **docs** rows: limits→`{limit}` (+`comparison` for
+numeric bounds), `required`→`{missingProperty}`, `additionalProperties`→
+`{additionalProperty}`, `dependencies`/`dependentRequired`→`{property,
+missingProperty, deps, depsCount}`, `format`→`{format}`, `multipleOf`,
+`pattern`, `propertyNames`→`{propertyName}`. **Oracle** rows (AJV docs
+silent): `type`→`{type}` (value or array), `enum`→`{allowedValues}`,
+`const`→`{allowedValue}`, `uniqueItems`→`{i, j}` (i = later index),
+`contains`→`{minContains[, maxContains]}`, `oneOf`→`{passingSchemas:
+[first, second] | null}`, `anyOf`/`not`→`{}`, `if`→`{failingKeyword}`
+(synthesized), `unevaluatedProperties`→`{unevaluatedProperty}`,
+`unevaluatedItems`/`items`/`additionalItems`→`{limit}` (coalesced),
+`discriminator`→`{error, tag, tagValue}`.
+
+AJV reports nothing from subtrees that passed (a satisfied `anyOf`'s
+failing branches, `not`/`contains` probes, the `if` condition) — the
+adapter filters the engine's complete error record to match (**oracle**:
+`anyOf-pass-sibling-fail`).
+
+## Companions
+
+- `addFormats(ajv, opts?)`: all 26 ajv-formats names (**oracle**:
+  enumerated by execution); shared names use `@jse/formats`' RFC-grade
+  implementations (differentially probed against ajv-formats "full"
+  mode); `mode: "fast"` accepted, mapped to the same implementations;
+  `keywords: true` adds formatMinimum/Maximum/Exclusive\* with
+  instant-based time comparison (**oracle**: offsets compare by instant,
+  not lexicographically).
+- `ajvErrors(ajv, opts?)`: the errorMessage matching model from executed
+  fixtures; requires `allErrors: true`; `keepErrors` flags kept originals
+  `emUsed`; `singleError` joins with `";"` (**oracle** — the README says
+  `"; "`). Known divergence: a string/`_` message under a looped `items`
+  applicator does not reach nested property errors in AJV (codegen
+  artifact) and is not reproduced.
+- `ajvKeywords(ajv, names?)`: `typeof`, `instanceof`,
+  `uniqueItemProperties`, `prohibited`. `transform`/`dynamicDefaults`
+  (mutating) and `select*` (`$data`) are refused with pointers.
+
+## Known divergences
+
+- `strictNumbers` (validation-time NaN/Infinity rejection) is not
+  enforced; JSON-parsed data cannot contain them.
+- Error list ORDER and branch error sets under `allErrors` can differ in
+  combiner-heavy schemas (evaluation-strategy artifacts). The official
+  draft2020-12 suite differential pins the exact divergent cases as a
+  golden set; verdicts match the suite on 100% of registerable cases,
+  including ~30 where AJV itself disagrees with the suite
+  ($dynamicRef/unevaluated\* corners — the adapter follows the spec).
+- Coercion inside `oneOf` may settle on a different schema-valid value
+  than AJV's documented no-backtrack behavior.
+- `prohibited` reports a single error where ajv-keywords also surfaces a
+  companion `not` error (it composes from `not`+`anyRequired`
+  internally).
+- Compiled fast paths assume plain JSON data; see the
+  [migration guide](../../docs/guide/ajv-migration.md) for the
+  class-instance caveat.

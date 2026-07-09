@@ -6,14 +6,18 @@ annotations, with full location information in every output unit — the
 combination existing implementations do not offer.
 
 **Status: pre-release.** The package is not yet published; the npm name is
-TBD. APIs may change before 1.0.
+TBD. APIs may change before 1.0. [STATUS.md](STATUS.md) is the
+authoritative statement of what is built, what is deliberately staged for
+later, and which gates run where.
 
 ## Why
 
-- **Complete:** 100% of the official test suite via
-  [Bowtie](https://bowtie.report/) for draft 2020-12, 2019-09, draft-07, and
-  draft-06 — including `$dynamicRef`, `$vocabulary`, remote references, and
-  annotation semantics.
+- **Complete:** 100% of the official test suite for draft 2020-12,
+  2019-09, draft-07, and draft-06 — including `$dynamicRef`,
+  `$vocabulary`, remote references, and annotation semantics. Verified
+  with local [Bowtie](https://bowtie.report/) harness runs; the public
+  bowtie.report listing is pending submission (see
+  [STATUS.md](STATUS.md)).
 - **Annotation-first:** annotations are a primary output, not an
   afterthought. Collection is configurable per evaluation and costs nothing
   when off.
@@ -22,9 +26,20 @@ TBD. APIs may change before 1.0.
   spec's field names or the 2020-12 names.
 - **Extensible:** custom keywords, vocabularies, and dialects use the same
   registry as the built-in drafts.
-- A compiler tier targeting benchmark-leading performance is in development
-  ([DESIGN.md](DESIGN.md) M6). The current interpreter is the reference
-  implementation.
+- **Two tiers, one semantics:** the interpreter is the reference
+  implementation; the compiler tier emits specialized validators for
+  static schemas and falls back to the interpreter for anything dynamic.
+  Compiled flag-mode validation is at-or-faster than AJV on the gate
+  corpus; list-mode (all-errors) output is slower than AJV by design — it
+  never short-circuits and reproduces the interpreter's error units
+  exactly.
+- **Format assertions:** all standard formats implemented from their RFCs,
+  including full IDNA2008 `idn-hostname`/`idn-email`
+  ([@jse/formats](packages/formats)).
+- **AJV migration:** `@jse/ajv-compat` emulates the AJV v8 surface for a
+  documented subset, pinned against executed-AJV fixtures — see the
+  [migration guide](docs/guide/ajv-migration.md) and
+  [compatibility matrix](packages/ajv-compat/COMPAT.md).
 
 ## Validate
 

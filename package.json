@@ -2,7 +2,7 @@
   "name": "json-schema-engine",
   "version": "0.0.0",
   "private": true,
-  "description": "Spikes and prototypes for an annotation-first two-tier JSON Schema engine (see ANALYSIS.md)",
+  "description": "Annotation-first two-tier JSON Schema engine: spec-complete interpreter + compiled validators, all standard formats, AJV migration adapter (monorepo)",
   "type": "module",
   "license": "MIT",
   "workspaces": [
