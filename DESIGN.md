@@ -673,8 +673,10 @@ Five local commits, every gate green per commit:
   gate; CI uploads results as an artifact.
 - **M9b (open, owner-gated):** final npm scope/name decision, version
   bump, `private` flip, `npm publish`; Bowtie PR + bowtie.report
-  listing (owner submits personally). First CI run of the new jobs
-  happens on the owner's next push and may need one follow-up tweak.
+  listing (owner submits personally). The predicted first-CI-run tweak
+  materialized: the runner image's newer npm blocked esbuild's install
+  script inside the harness image, so the image now runs built dist
+  under plain node with no in-container package manager (2026-07-10).
 
 Deferred register (for continuity): compiled annotation
 collection (channel frames), list-mode standalone, Runtime

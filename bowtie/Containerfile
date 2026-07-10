@@ -1,21 +1,22 @@
-# Bowtie harness image for @jse/core + @jse/dialect-draft04. Build from the
-# repo root:
+# Bowtie harness image for @jse/core + @jse/dialect-draft04, running the
+# built dist output under plain node — no package manager and no install
+# scripts run inside the image (a newer npm's script-blocking policy broke
+# the previous tsx-based image on CI, and dist is what publication
+# consumers execute anyway). Prerequisites are built by `npm run bowtie`
+# (scripts/bowtie-check.ts); to build by hand from the repo root:
+#   npm run build && npx tsc -p bowtie/tsconfig.build.json
 #   podman build -t localhost/jse-bowtie -f bowtie/Containerfile .
-# tsx runs the TypeScript sources directly — no build artifacts to keep in
-# sync with the packages. The workspace layout mirrors the repo so package-
-# name imports resolve; the jse-source condition selects TS source over the
-# publication dist targets (which are never built here).
 FROM docker.io/library/node:24-alpine
 WORKDIR /app
 COPY bowtie/container-package.json package.json
 COPY packages/core/package.json packages/core/package.json
+COPY packages/core/dist packages/core/dist
 COPY packages/dialect-draft04/package.json packages/dialect-draft04/package.json
-# The dialect package's devDependencies (compiler, formats, test-kit) are
-# not shipped in the image; npm resolves workspace devDependencies even
-# under --omit=dev, so strip them from the copied manifest instead.
-RUN node -e 'const f="packages/dialect-draft04/package.json";const p=JSON.parse(require("fs").readFileSync(f));delete p.devDependencies;require("fs").writeFileSync(f,JSON.stringify(p,null,2))'
-RUN npm install --omit=dev --no-audit --no-fund
-COPY packages/core/src packages/core/src
-COPY packages/dialect-draft04/src packages/dialect-draft04/src
-COPY bowtie/harness.ts bowtie/harness.ts
-ENTRYPOINT ["./node_modules/.bin/tsx", "--conditions=jse-source", "bowtie/harness.ts"]
+COPY packages/dialect-draft04/dist packages/dialect-draft04/dist
+COPY bowtie/dist/harness.js bowtie/harness.js
+# Workspace-shaped resolution without npm: package-name imports resolve
+# through these links to each package's exports (default -> dist).
+RUN mkdir -p node_modules/@jse \
+ && ln -s ../../packages/core node_modules/@jse/core \
+ && ln -s ../../packages/dialect-draft04 node_modules/@jse/dialect-draft04
+ENTRYPOINT ["node", "bowtie/harness.js"]

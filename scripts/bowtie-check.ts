@@ -63,6 +63,16 @@ const run = (cmd: string, args: string[]): string =>
     maxBuffer: 1024 * 1024 * 512,
   });
 
+// The image runs plain node over built output (no package manager inside
+// the container), so dist for the shipped packages and the compiled
+// harness must exist before the build.
+console.log("building dist + harness...");
+run("npm", ["run", "build"]);
+run(join(ROOT, "node_modules", ".bin", "tsc"), [
+  "-p",
+  "bowtie/tsconfig.build.json",
+]);
+
 console.log(`building ${IMAGE} with ${containerTool}...`);
 run(containerTool, [
   "build",
