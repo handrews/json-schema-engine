@@ -398,9 +398,9 @@ unrepresentable after `JSON.parse` — the suite itself makes it optional
 file is a recorded exclusion alongside bignum/float-overflow and the two
 regex-variance files no dialect's leg runs. The vendored draft-04
 metaschema registers through `engine.registerSchema` (self-validates
-cleanly under `validateSchemas`). Recorded, not built: draft-04 `lower()`
-sweep (M6.6-equivalent), ajv-compat draft-04 class, Bowtie harness
-draft-04 entry (M9 — the image would need the dialect package).
+cleanly under `validateSchemas`). Recorded, not built: ajv-compat draft-04
+class. (The draft-04 `lower()` sweep landed with M6.6; the Bowtie
+harness draft-04 entry landed with M9a.)
 
 **Status note (M8.6 ajv-compat hardening, completed 2026-07-09):** all
 three workstreams landed in nine local commits, every gate green per
@@ -630,15 +630,61 @@ Owner-priority order and per-milestone contracts:
    results for all supported dialects. STOP at submission: no PR, no
    publish — package the branch, image, and results for the owner.
 
+**Status note (M9a, completed 2026-07-10, owner-scoped: run everything
+locally and in CI, publish nothing, contact no external registry).**
+Five local commits, every gate green per commit:
+
+- **Publication-ready packages.** The five publishable packages build
+  `dist/` (tsc -b composite projects, d.ts + maps) behind
+  publication-first export maps; in-repo development resolves TS source
+  through the custom `jse-source` condition (tsconfig
+  `customConditions`, vitest `resolve.conditions`,
+  `tsx --conditions=jse-source`). Inter-package ranges pinned to the
+  lockstep `0.0.0`. `private: true` + version `0.0.0` are the deliberate
+  not-published latch — flipping them plus the scope/name decision is
+  all that publication requires. `scripts/pack-check.ts` is the
+  publication gate: tarballs installed into a tmpdir consumer with
+  `npm install --offline` (registry contact = failure), runtime smoke
+  across every package's installed dist, typed consumer resolved
+  against the published d.ts graph. Sibling projects consume via
+  `npm pack` tarballs (CONTRIBUTING).
+- **Interface stabilization.** `TraceUnit`/`trace`/`walkSchema`
+  promoted out of `@alpha` (the register item, pulled forward: sibling
+  projects consume the packages ahead of publication).
+- **Bowtie, local + CI.** The harness image ships
+  `@jse/dialect-draft04`; inbound dialect URIs normalize fragment-free
+  (Bowtie sends legacy dialects as `…schema#`). `npm run bowtie`
+  (scripts/bowtie-check.ts) builds the image, smokes it, and pins
+  EXACT per-dialect counts with zero failures/errors/skips —
+  1299/1259/927/839/618, all five dialects 100% via Bowtie's own
+  runner; a planted wrong pin fails with exit 1. CI runs it as its own
+  job (bowtie pinned 2026.6.1). No submission, no image push — M9b.
+- **Bench harness, report-only.** `npm run bench:harness`
+  (bench/harness.ts) over vendored, license-documented corpora
+  (bench/corpora/README.md): OAS 3.1 meta-schema × hand-authored
+  OpenAPI document, generated API payloads, draft-07 migration schema
+  (native / ajv-compat / real AJV). Verdict oracle before timing.
+  Recorded findings from real inputs: AJV rejects the valid OpenAPI
+  document (known 2020-12 `$dynamicRef`/`unevaluatedProperties`
+  non-compliance; excluded from that corpus with the reason in the
+  results JSON) and refuses the OAS schema without `strict: false`;
+  the OAS corpus runs at interpreter speed in both jse tiers (dynamic-
+  heavy plan). No thresholds — the spike bench stays the enforced
+  gate; CI uploads results as an artifact.
+- **M9b (open, owner-gated):** final npm scope/name decision, version
+  bump, `private` flip, `npm publish`; Bowtie PR + bowtie.report
+  listing (owner submits personally). First CI run of the new jobs
+  happens on the owner's next push and may need one follow-up tweak.
+
 Deferred register (for continuity): compiled annotation
 collection (channel frames), list-mode standalone, Runtime
 format-table lowering, D9d thresholds, island re-entry, ajv-keywords
 transform/dynamicDefaults, code.source mapping, hyperjump-compat shim,
 idna.ts second-'--' owner review (above). Added at M10 (2026-07-08):
-draft-04 `lower()` sweep for the package-defined keywords (ride M6.6);
-ajv-compat draft-04 class (per the M10 contract: recorded, not built);
-Bowtie harness draft-04 entry (M9 onboarding — requires shipping the
-dialect package in the harness image and appending its URI to
+draft-04 `lower()` sweep for the package-defined keywords — DELIVERED
+with M6.6; ajv-compat draft-04 class (per the M10 contract: recorded,
+not built); Bowtie harness draft-04 entry — DELIVERED 2026-07-10 with
+M9a (dialect package in the harness image, URI appended to
 `DIALECTS` in bowtie/harness.ts). Added from the 2026-07-07
 audit remediation: explainCompilation() fallback diagnostics — DELIVERED
 2026-07-09 (packages/compiler/src/explain.ts, feeding the per-dialect
@@ -669,7 +715,7 @@ rebasing, anchor indexing, and reference collection that would fatten
 the public signature); seed `scripts/fuzz.ts` mutation legs from the
 mutation-property corpus (the vitest leg covers it today); stabilize
 `TraceUnit`/`trace`/`walkSchema` out of `@alpha` at the M9 publication
-pass.
+pass — DELIVERED 2026-07-10 (M9a stabilization).
 
 **Owner review (idn-hostname):** `isValidALabel` in
 packages/formats/src/idna.ts rejects any second `--` in an A-label's

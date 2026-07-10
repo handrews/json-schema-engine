@@ -48,18 +48,20 @@ works locally but fails `npm ci` on Linux CI with
 
 ## Commands
 
-| Command                | Purpose                                              |
-| ---------------------- | ---------------------------------------------------- |
-| `npm test`             | Full workspace test run (vitest)                     |
-| `npm run check-types`  | `tsc --noEmit`                                       |
-| `npm run lint`         | ESLint (type-checked strict tier + TSDoc syntax)     |
-| `npm run lint:fix`     | ESLint with autofix                                  |
-| `npm run format`       | Prettier write                                       |
-| `npm run format:check` | Prettier check (CI gate)                             |
-| `npm run bench`        | F1 spike benchmark; oracle-gated (see DESIGN.md D12) |
-| `npm run docs:api`     | Generate `docs/reference/` from TSDoc comments       |
-| `npm run build`        | `tsc -b`: dist/ js + d.ts for publishable packages   |
-| `npm run pack:check`   | Publication gate: offline tarball install + smoke    |
+| Command                 | Purpose                                              |
+| ----------------------- | ---------------------------------------------------- |
+| `npm test`              | Full workspace test run (vitest)                     |
+| `npm run check-types`   | `tsc --noEmit`                                       |
+| `npm run lint`          | ESLint (type-checked strict tier + TSDoc syntax)     |
+| `npm run lint:fix`      | ESLint with autofix                                  |
+| `npm run format`        | Prettier write                                       |
+| `npm run format:check`  | Prettier check (CI gate)                             |
+| `npm run bench`         | F1 spike benchmark; oracle-gated (see DESIGN.md D12) |
+| `npm run docs:api`      | Generate `docs/reference/` from TSDoc comments       |
+| `npm run build`         | `tsc -b`: dist/ js + d.ts for publishable packages   |
+| `npm run pack:check`    | Publication gate: offline tarball install + smoke    |
+| `npm run bowtie`        | Bowtie conformance, exact per-dialect pins           |
+| `npm run bench:harness` | Report-only corpora bench vs ajv/hyperjump           |
 
 CI runs check-types, lint, format:check, test, and docs:api on every push.
 
