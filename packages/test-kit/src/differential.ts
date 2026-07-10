@@ -55,6 +55,77 @@ export function describeOutcome(o: SideOutcome): string {
 }
 
 /**
+ * List-mode outcome encoding: the full result as canonical JSON in the
+ * throw channel, so {@link outcomesAgree} === full structural equality —
+ * message text, params, and FIELD ORDER included (JSON.stringify is
+ * order-sensitive, which is the point: the M8.1 params contract pins field
+ * order). Real throws become `"THREW:" + constructor.name`, which can never
+ * collide with a JSON-encoded result.
+ */
+export function runListSide(
+  evaluate: (instance: JsonValue) => unknown,
+): (instance: JsonValue) => SideOutcome {
+  return (instance) => {
+    try {
+      return { kind: "throw", errorClass: JSON.stringify(evaluate(instance)) };
+    } catch (err) {
+      return {
+        kind: "throw",
+        errorClass: "THREW:" + (err as Error).constructor.name,
+      };
+    }
+  };
+}
+
+/** Both prepared sides for ONE schema, sharing whatever `prepare` built. */
+export interface DifferentialSides {
+  /** The interpreter's outcome on an instance. */
+  interpret(instance: JsonValue): SideOutcome;
+  /** The compiled artifact's outcome on an instance. */
+  validate(instance: JsonValue): SideOutcome;
+}
+
+/**
+ * A single point of side construction. The FUZZ_LIST incident happened
+ * because the fuzz hot loop and the post-divergence minimizer each built
+ * their comparisons independently — one was rewired for list mode, the
+ * other silently kept comparing flag verdicts. A factory makes that
+ * unrepresentable: every consumer derives BOTH the hot-loop sides and the
+ * minimizer subject ({@link subjectFromFactory}) from the same `prepare`.
+ *
+ * `prepare` must be deterministic per schema: the minimizer re-prepares
+ * candidates as it shrinks.
+ */
+export interface DifferentialFactory {
+  /**
+   * Both sides for a schema, or undefined when it does not
+   * register/compile (replaces a separate registrability probe).
+   */
+  prepare(schema: JsonValue): DifferentialSides | undefined;
+}
+
+/** The minimizer-facing view of a factory: one construction path, two APIs. */
+export function subjectFromFactory(
+  factory: DifferentialFactory,
+): DifferentialSubject {
+  const mustPrepare = (schema: JsonValue): DifferentialSides => {
+    const sides = factory.prepare(schema);
+    if (sides === undefined) {
+      throw new Error(
+        "DifferentialFactory.prepare returned undefined for a schema it " +
+          "previously accepted — prepare must be deterministic per schema",
+      );
+    }
+    return sides;
+  };
+  return {
+    registers: (schema) => factory.prepare(schema) !== undefined,
+    interpreted: (schema, instance) => mustPrepare(schema).interpret(instance),
+    compiled: (schema, instance) => mustPrepare(schema).validate(instance),
+  };
+}
+
+/**
  * A side under differential test: given a schema and an instance, produce an
  * outcome. The minimizer re-registers/re-compiles the schema as it shrinks
  * it, so the callback receives both — but `registers` lets a caller memoize a

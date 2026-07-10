@@ -36,13 +36,17 @@ export {
 } from "./fuzz.js";
 export {
   runSide,
+  runListSide,
   outcomesAgree,
   describeOutcome,
   minimizeDivergence,
+  subjectFromFactory,
 } from "./differential.js";
 export type {
   SideOutcome,
   DifferentialSubject,
+  DifferentialSides,
+  DifferentialFactory,
   Divergence,
 } from "./differential.js";
 
