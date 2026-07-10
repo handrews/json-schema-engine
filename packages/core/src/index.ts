@@ -100,13 +100,17 @@ export {
   UnknownKeywordError,
   evaluateFragment,
   materializePath,
+  runEvaluation,
 } from "./engine.js";
 export type {
   ErrorRecord,
+  EvalState,
+  Frame,
   FragmentOptions,
   PathNode,
   Production,
   RecordPredicate,
+  TraceNode,
 } from "./engine.js";
 export {
   canonicalKey,

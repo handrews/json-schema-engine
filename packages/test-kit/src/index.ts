@@ -55,6 +55,13 @@ export type {
 export { runPlanCensus } from "./census.js";
 export type { PlanCensusSummary, PlanCensusResult } from "./census.js";
 
+export { evaluateProduceRecipes } from "./produce-oracle.js";
+export type {
+  OracleUnit,
+  OracleCoverage,
+  RecipeProduction,
+} from "./produce-oracle.js";
+
 export { parseJsonWithRanges } from "./positions.js";
 export type {
   ParsedDocument,

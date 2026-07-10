@@ -91,7 +91,8 @@ export interface ErrorRecord {
   params?: ErrorParams;
 }
 
-interface Frame {
+/** One channel frame: the productions of an in-flight schema application. */
+export interface Frame {
   productions: Production[];
 }
 
