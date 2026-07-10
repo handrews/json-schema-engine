@@ -25,11 +25,12 @@ import {
   deriveSeed,
   instancePool,
   runSide,
+  runListSide,
   outcomesAgree,
   describeOutcome,
   minimizeDivergence,
-  type DifferentialSubject,
-  type SideOutcome,
+  subjectFromFactory,
+  type DifferentialFactory,
 } from "@jse/test-kit";
 
 // FUZZ_CONSERVATIVE=1 referees the optimizations-off configuration (M6.5).
@@ -82,64 +83,42 @@ interface SuiteGroup {
 const SEED = Number(process.env.FUZZ_SEED ?? 0x9e3779b9);
 const BUDGET = Number(process.env.FUZZ_BUDGET ?? 200000);
 
-// List-mode outcome: the full result as canonical JSON in the throw
-// channel, so outcomesAgree === full structural equality.
-function runListSide(
-  evaluate: (instance: JsonValue) => unknown,
-): (instance: JsonValue) => SideOutcome {
-  return (instance) => {
-    try {
-      return { kind: "throw", errorClass: JSON.stringify(evaluate(instance)) };
-    } catch (err) {
-      return {
-        kind: "throw",
-        errorClass: "THREW:" + (err as Error).constructor.name,
-      };
-    }
-  };
-}
-
-function subjectFor(baseUri: string): DifferentialSubject {
+// One factory per baseUri, shared by the hot loop and the minimizer
+// (subjectFromFactory), so a mode change (LIST_MODE) cannot diverge between
+// them — both derive their sides from this same `prepare`.
+function factoryFor(baseUri: string): DifferentialFactory {
   return {
-    registers(schema) {
+    prepare(schema) {
       try {
         const engine = createEngine(ENGINE_OPTS);
         const uri = engine.registerSchema(schema, baseUri);
-        compileValidator(engine, uri, COMPILE_OPTS);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    interpreted(schema, instance): SideOutcome {
-      const engine = createEngine(ENGINE_OPTS);
-      const uri = engine.registerSchema(schema, baseUri);
-      if (LIST_MODE) {
-        return runListSide((x) => {
-          const r = engine.evaluate(uri, x, {
-            output: "list",
+        if (LIST_MODE) {
+          const artifact = compileList(engine, uri, {
+            ...COMPILE_OPTS,
             errorParams: true,
           });
-          return { valid: r.valid, errors: r.errors ?? [] };
-        })(instance);
+          return {
+            interpret: runListSide((x) => {
+              const r = engine.evaluate(uri, x, {
+                output: "list",
+                errorParams: true,
+              });
+              return { valid: r.valid, errors: r.errors ?? [] };
+            }),
+            validate: runListSide((x) => {
+              const r = artifact.evaluateList(x);
+              return { valid: r.valid, errors: r.valid ? [] : r.errors };
+            }),
+          };
+        }
+        const artifact = compileValidator(engine, uri, COMPILE_OPTS);
+        return {
+          interpret: runSide((x) => engine.evaluate(uri, x).valid),
+          validate: runSide((x) => artifact.validate(x)),
+        };
+      } catch {
+        return undefined;
       }
-      return runSide((x) => engine.evaluate(uri, x).valid)(instance);
-    },
-    compiled(schema, instance): SideOutcome {
-      const engine = createEngine(ENGINE_OPTS);
-      const uri = engine.registerSchema(schema, baseUri);
-      if (LIST_MODE) {
-        const artifact = compileList(engine, uri, {
-          ...COMPILE_OPTS,
-          errorParams: true,
-        });
-        return runListSide((x) => {
-          const r = artifact.evaluateList(x);
-          return { valid: r.valid, errors: r.valid ? [] : r.errors };
-        })(instance);
-      }
-      const artifact = compileValidator(engine, uri, COMPILE_OPTS);
-      return runSide((x) => artifact.validate(x))(instance);
     },
   };
 }
@@ -163,12 +142,8 @@ function main(): void {
       readFileSync(join(SUITE_DIR, fileName), "utf8"),
     ) as SuiteGroup[];
     groups.forEach((group, gi) => {
-      const engine = createEngine(ENGINE_OPTS);
       const baseUri = `https://fuzz.example/${file}/${String(gi)}`;
-      try {
-        const uri = engine.registerSchema(group.schema, baseUri);
-        compileValidator(engine, uri, COMPILE_OPTS);
-      } catch {
+      if (factoryFor(baseUri).prepare(group.schema) === undefined) {
         return; // needs remote loaders / unassembled dialect — out of scope
       }
       registrable.push({ file, fi, gi, group });
@@ -186,35 +161,13 @@ function main(): void {
   const t0 = Date.now();
 
   for (const { file, fi, gi, group } of registrable) {
-    const engine = createEngine(ENGINE_OPTS);
     const baseUri = `https://fuzz.example/${file}/${String(gi)}`;
-    const uri = engine.registerSchema(group.schema, baseUri);
-    // The hot loop must dispatch on LIST_MODE itself — subjectFor only
-    // serves the minimizer AFTER a divergence, so list-mode dispatch there
-    // alone leaves this comparison refereeing flag verdicts.
-    let interpret: (x: JsonValue) => SideOutcome;
-    let validate: (x: JsonValue) => SideOutcome;
-    if (LIST_MODE) {
-      const artifact = compileList(engine, uri, {
-        ...COMPILE_OPTS,
-        errorParams: true,
-      });
-      interpret = runListSide((x) => {
-        const r = engine.evaluate(uri, x, {
-          output: "list",
-          errorParams: true,
-        });
-        return { valid: r.valid, errors: r.errors ?? [] };
-      });
-      validate = runListSide((x) => {
-        const r = artifact.evaluateList(x);
-        return { valid: r.valid, errors: r.valid ? [] : r.errors };
-      });
-    } else {
-      const artifact = compileValidator(engine, uri, COMPILE_OPTS);
-      interpret = runSide((x) => engine.evaluate(uri, x).valid);
-      validate = runSide((x) => artifact.validate(x));
-    }
+    const factory = factoryFor(baseUri);
+    // The hot loop and the minimizer both derive their sides from this one
+    // factory, so a mode change (e.g. LIST_MODE) cannot diverge between them.
+    const sides = factory.prepare(group.schema)!;
+    const interpret = (x: JsonValue) => sides.interpret(x);
+    const validate = (x: JsonValue) => sides.validate(x);
 
     const prng = new Prng(deriveSeed(SEED, fi, gi));
     const seeds = group.tests.map((t) => t.data);
@@ -227,7 +180,7 @@ function main(): void {
       const b = validate(instance);
       if (!outcomesAgree(a, b)) {
         divergences++;
-        const subject = subjectFor(baseUri);
+        const subject = subjectFromFactory(factory);
         const min = minimizeDivergence(subject, group.schema, instance);
         console.error(
           `\nDIVERGENCE ${file} group ${String(gi)} case ${String(ci)}\n` +
