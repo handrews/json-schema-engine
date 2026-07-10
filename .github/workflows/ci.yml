@@ -42,3 +42,28 @@ jobs:
       - run: npx prettier --write packages/ajv-compat/test/fixtures/*.json
       - run: git diff --exit-code packages/ajv-compat/test/fixtures/
       - run: test -z "$(git status --porcelain)"
+
+  # Conformance through Bowtie's own runner (exact per-dialect pins, zero
+  # failures). Everything stays local to the runner: the harness image is
+  # built here and never pushed; no results are submitted anywhere
+  # (bowtie.report listing is the separate, owner-gated submission step).
+  bowtie:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      # Version-pinned to the locally verified bowtie release.
+      - run: pipx install bowtie-json-schema==2026.6.1
+
+      - run: npm ci
+      - run: npm run bowtie

@@ -109,19 +109,24 @@ The official suite's remote resources are served from the submodule's
 ### Bowtie
 
 The `bowtie/` directory contains a harness image for
-[Bowtie](https://docs.bowtie.report/). With podman and bowtie installed:
+[Bowtie](https://docs.bowtie.report/) covering all five dialects
+(draft-04 ships in the image from its dialect package). With a container
+tool (podman or docker) and the bowtie CLI installed:
 
 ```txt
-podman build -t localhost/jse-bowtie -f bowtie/Containerfile .
-bowtie suite -i image:localhost/jse-bowtie test-suite/tests/draft2020-12 \
-  | bowtie summary
+npm run bowtie
 ```
 
-Repeat per dialect directory (`draft2019-09`, `draft7`, `draft6`). The
-harness does not yet advertise draft-04 (the dialect package would need to
-ship in the image); it is staged with M9's Bowtie onboarding. Releases
-are conformance-gated: suite and Bowtie green, or no release (DESIGN.md
-D12).
+builds `localhost/jse-bowtie`, smokes it, runs every dialect's official
+suite directory through Bowtie, and pins EXACT per-dialect test counts
+with zero failures/errors/skips (1299/1259/927/839/618). CI runs the
+same script in its own job. macOS PATH note: the script also searches
+`/opt/podman/bin` and `~/Library/Python/*/bin`.
+
+The image is never pushed to any registry and no results are submitted;
+the public bowtie.report listing is a separate, owner-performed step.
+Releases are conformance-gated: suite and Bowtie green, or no release
+(DESIGN.md D12).
 
 ## Documentation conventions
 

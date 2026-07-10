@@ -4,17 +4,15 @@
 // references resolve exactly the way real loaders do (D7).
 
 import * as readline from "node:readline";
-import {
-  createEngine,
-  JsonValue,
-  SchemaLoader,
-} from "../packages/core/src/index.js";
+import { createEngine, JsonValue, SchemaLoader } from "@jse/core";
+import { registerDraft04, DIALECT_DRAFT_04 } from "@jse/dialect-draft04";
 
 const DIALECTS = [
   "https://json-schema.org/draft/2020-12/schema",
   "https://json-schema.org/draft/2019-09/schema",
   "http://json-schema.org/draft-07/schema",
   "http://json-schema.org/draft-06/schema",
+  DIALECT_DRAFT_04,
 ];
 // Neutral base for case schemas without $id; http-scheme so relative
 // references resolve through URL.
@@ -61,7 +59,10 @@ async function handle(line: string): Promise<void> {
       return;
     }
     case "dialect": {
-      currentDialect = request.dialect as string;
+      // Bowtie sends legacy dialect URIs in their canonical "…schema#" form;
+      // the engine registers dialects fragment-free, and the draft-04
+      // registration guard below compares exactly.
+      currentDialect = (request.dialect as string).replace(/#$/, "");
       send({ ok: DIALECTS.includes(currentDialect) });
       return;
     }
@@ -78,6 +79,9 @@ async function handle(line: string): Promise<void> {
           defaultDialect: currentDialect,
           loaders: [loader],
         });
+        // draft-04 lives in its own package (D11/M10); every other dialect
+        // is built into core.
+        if (currentDialect === DIALECT_DRAFT_04) registerDraft04(engine);
         const uri = await engine.loadSchema(
           testCase.schema as JsonValue,
           RETRIEVAL_URI,

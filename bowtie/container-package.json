@@ -2,6 +2,7 @@
   "name": "jse-bowtie-harness",
   "private": true,
   "type": "module",
+  "workspaces": ["packages/*"],
   "dependencies": {
     "tsx": "^4.20.0"
   }
