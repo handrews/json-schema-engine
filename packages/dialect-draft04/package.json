@@ -4,17 +4,32 @@
   "private": true,
   "description": "JSON Schema draft-04 dialect for @jse/core, assembled through the public dialect-authoring surface (DESIGN.md M10, D11)",
   "type": "module",
-  "main": "src/index.ts",
+  "main": "./dist/index.js",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "jse-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
   "license": "MIT",
   "dependencies": {
-    "@jse/core": "*"
+    "@jse/core": "0.0.0"
   },
   "devDependencies": {
-    "@jse/compiler": "*",
-    "@jse/formats": "*",
-    "@jse/test-kit": "*"
+    "@jse/compiler": "0.0.0",
+    "@jse/formats": "0.0.0",
+    "@jse/test-kit": "0.0.0"
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/handrews/json-schema-engine.git",
+    "directory": "packages/dialect-draft04"
   }
 }

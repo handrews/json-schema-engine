@@ -1,0 +1,10 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/core/tsconfig.build.json" },
+    { "path": "packages/compiler/tsconfig.build.json" },
+    { "path": "packages/formats/tsconfig.build.json" },
+    { "path": "packages/ajv-compat/tsconfig.build.json" },
+    { "path": "packages/dialect-draft04/tsconfig.build.json" }
+  ]
+}

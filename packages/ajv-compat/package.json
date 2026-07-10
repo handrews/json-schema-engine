@@ -4,15 +4,19 @@
   "private": true,
   "description": "AJV v8 migration adapter over @jse/core: emulated API surface for a documented subset, pinned against executed-AJV fixtures, with typed loud failures for the AJV-implementation-coupled surface (see COMPAT.md)",
   "type": "module",
-  "main": "src/index.ts",
+  "main": "./dist/index.js",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "jse-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
   "license": "MIT",
   "dependencies": {
-    "@jse/compiler": "*",
-    "@jse/core": "*",
-    "@jse/formats": "*"
+    "@jse/compiler": "0.0.0",
+    "@jse/core": "0.0.0",
+    "@jse/formats": "0.0.0"
   },
   "devDependencies": {
     "@fastify/ajv-compiler": "^4.0.2",
@@ -22,5 +26,16 @@
     "ajv-keywords": "^5.1.0",
     "fastify": "^5.4.0",
     "light-my-request": "^6.6.0"
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/handrews/json-schema-engine.git",
+    "directory": "packages/ajv-compat"
   }
 }

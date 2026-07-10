@@ -1,6 +1,10 @@
-// Coverage configuration ONLY — test discovery stays on vitest defaults
-// (the exactRun suite pins prove the case set is unchanged by this file's
-// existence). Instrumentation scope: the compiler and the ajv-compat
+// Coverage configuration + the jse-source resolution condition — test
+// discovery stays on vitest defaults (the exactRun suite pins prove the
+// case set is unchanged by this file's existence). The condition makes
+// package-name imports resolve to TS source while package.json exports
+// point publication consumers at dist (M9a); it is listed ahead of the
+// defaults so it wins over the "types"/"default" dist targets.
+// Instrumentation scope: the compiler and the ajv-compat
 // adapter, the two packages whose correctness is NOT conformance-driven
 // line by line — core's lines are exercised by construction through the
 // official suites, so thresholds there would be maintenance without
@@ -9,8 +13,17 @@
 // the fuzz-heavy suite.
 
 import { defineConfig } from "vitest/config";
+import { defaultServerConditions } from "vite";
 
 export default defineConfig({
+  resolve: {
+    conditions: ["jse-source", ...defaultServerConditions],
+  },
+  ssr: {
+    resolve: {
+      conditions: ["jse-source", ...defaultServerConditions],
+    },
+  },
   test: {
     coverage: {
       provider: "v8",

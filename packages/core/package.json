@@ -4,9 +4,24 @@
   "private": true,
   "description": "Interpreter core: registry, dialects, evaluation, annotations, and output rendering for draft 2020-12/2019-09/draft-07/draft-06",
   "type": "module",
-  "main": "src/index.ts",
+  "main": "./dist/index.js",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "jse-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
-  "license": "MIT"
+  "license": "MIT",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/handrews/json-schema-engine.git",
+    "directory": "packages/core"
+  }
 }

@@ -7,10 +7,10 @@
     "esModuleInterop": true,
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
-    "noEmit": true,
-    "customConditions": ["jse-source"],
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
     "types": ["node"]
-  },
-  "include": ["spike", "packages", "bowtie", "scripts", "vitest.config.ts"],
-  "exclude": ["**/.snippets"]
+  }
 }

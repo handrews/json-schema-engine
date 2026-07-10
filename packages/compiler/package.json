@@ -4,12 +4,27 @@
   "private": true,
   "description": "Compiler tier: emits specialized validators from @jse/core registrations, trampolining to the interpreter for dynamic islands (DESIGN.md M6)",
   "type": "module",
-  "main": "src/index.ts",
+  "main": "./dist/index.js",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "jse-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
   "license": "MIT",
   "dependencies": {
-    "@jse/core": "*"
+    "@jse/core": "0.0.0"
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/handrews/json-schema-engine.git",
+    "directory": "packages/compiler"
   }
 }

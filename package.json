@@ -9,8 +9,9 @@
     "packages/*"
   ],
   "scripts": {
-    "bench": "tsx spike/bench.ts",
-    "fuzz": "tsx scripts/fuzz.ts",
+    "bench": "tsx --conditions=jse-source spike/bench.ts",
+    "build": "tsc -b tsconfig.build.json",
+    "fuzz": "tsx --conditions=jse-source scripts/fuzz.ts",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
     "check-types": "tsc --noEmit",
@@ -19,7 +20,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "docs:api": "typedoc",
-    "csp:check": "tsx scripts/csp-check.ts",
+    "csp:check": "tsx --conditions=jse-source scripts/csp-check.ts",
     "verify": "npm run check-types && npm run lint && npm run format:check && npm test && npm run docs:api && npm run csp:check"
   },
   "devDependencies": {

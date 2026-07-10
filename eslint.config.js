@@ -24,6 +24,7 @@ export default defineConfig(
       "docs/",
       "coverage/",
       "**/.snippets/",
+      "**/dist/",
     ],
   },
   js.configs.recommended,

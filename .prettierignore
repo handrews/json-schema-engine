@@ -6,3 +6,4 @@ package-lock.json
 
 # Vendored spec artifacts — must stay byte-verbatim.
 packages/core/src/keywords/metaschemas*.ts
+dist/

@@ -2,3 +2,5 @@ node_modules/
 docs/reference/
 coverage/
 .cache/
+dist/
+*.tsbuildinfo
