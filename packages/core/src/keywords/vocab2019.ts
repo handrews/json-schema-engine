@@ -115,9 +115,10 @@ export const items2019: KeywordBehavior = {
   // Two forms, same as evaluate(): tuple (per-index, guarded by the array's
   // length like prefixItems' compiled form) or schema (every element from
   // index 0, like `items`' compiled form but with no sibling prefixItems to
-  // start after — 2019-09 has no such keyword). No produce: the compiled
-  // tier has no annotation channel; unevaluated* consumers are licensed
-  // through the static evaluatesIndexes facts above instead.
+  // start after — 2019-09 has no such keyword). Each form's annotation
+  // mirrors evaluate(): tuple produces the largest applied index (or true
+  // when it covered the array), schema produces true iff it applied to any
+  // element.
   lower: (value, lctx) => {
     if (Array.isArray(value)) {
       value.forEach((_, i) => {
@@ -148,6 +149,10 @@ export const items2019: KeywordBehavior = {
           ),
         );
       });
+      lctx.emit({
+        kind: "produce",
+        value: { kind: "collectedIndexes", render: "largestOrTrue" },
+      });
       return;
     }
     const b = lctx.binding();
@@ -175,6 +180,10 @@ export const items2019: KeywordBehavior = {
         },
       ]),
     );
+    lctx.emit({
+      kind: "produce",
+      value: { kind: "collectedIndexes", render: "appliedTrue" },
+    });
   },
   evaluate: (value, cursor, ctx) => {
     if (!Array.isArray(cursor.value)) return true;
@@ -227,8 +236,7 @@ export const additionalItems: KeywordBehavior = {
   },
   // Sibling `items` is plan-time data (lctx.schema.items): when it isn't an
   // array, this keyword contributes nothing at all, so the lowering emits
-  // no statements — same static-read pattern as `if`/`then`/`else`. No
-  // produce, matching items2019 above.
+  // no statements — same static-read pattern as `if`/`then`/`else`.
   lower: (_value, lctx) => {
     const siblingItems = lctx.schema.items;
     if (!Array.isArray(siblingItems)) return;
@@ -258,6 +266,11 @@ export const additionalItems: KeywordBehavior = {
         },
       ]),
     );
+    // Annotation: true iff it applied to any element past the tuple prefix.
+    lctx.emit({
+      kind: "produce",
+      value: { kind: "collectedIndexes", render: "appliedTrue" },
+    });
   },
   evaluate: (_value, cursor, ctx) => {
     if (!Array.isArray(cursor.value)) return true;
@@ -380,6 +393,11 @@ const unevaluatedItems2019: KeywordBehavior = {
         },
       ]),
     );
+    // Annotation: true iff it applied to any unevaluated index.
+    lctx.emit({
+      kind: "produce",
+      value: { kind: "collectedIndexes", render: "appliedTrue" },
+    });
   },
   evaluate: (_value, cursor, ctx) => {
     if (!Array.isArray(cursor.value)) return true;
@@ -447,43 +465,52 @@ const unevaluatedProperties2019: KeywordBehavior = {
         "unevaluatedProperties2019 lowering requires static coverage (planner bug)",
       );
     }
-    if (coverage.coversAllNames) return; // statically vacuous
-    const b = lctx.binding();
-    const covered: LowerExpr[] = [
-      ...coverage.names.map((n): LowerExpr =>
-        lowerIR.cmp("===", { kind: "binding", id: b }, lowerIR.constant(n)),
-      ),
-      ...coverage.patterns.map((p): LowerExpr =>
-        lowerIR.regexTest(p, { kind: "binding", id: b }),
-      ),
-    ];
-    const sweep: LowerStmt = {
-      kind: "forEachKey",
-      target: lctx.instance,
-      binding: b,
-      body: [
-        lowerIR.when(
-          covered.length === 0
-            ? lowerIR.constant(true)
-            : lowerIR.not(lowerIR.or(...covered)),
-          [
-            {
-              kind: "apply",
-              apply: {
-                path: [],
-                cursor: {
-                  kind: "child",
-                  of: { kind: "here" },
-                  segment: { kind: "binding", id: b },
-                },
-                fold: "allMustPass",
-              },
-            },
-          ],
+    // The sweep is statically vacuous when sibling coverage is total, but the
+    // produce is not: evaluate() emits an (empty) names annotation for every
+    // object regardless. So the object-type guard always wraps a produce; the
+    // sweep is added only when some name can still be unevaluated.
+    const body: LowerStmt[] = [];
+    if (!coverage.coversAllNames) {
+      const b = lctx.binding();
+      const covered: LowerExpr[] = [
+        ...coverage.names.map((n): LowerExpr =>
+          lowerIR.cmp("===", { kind: "binding", id: b }, lowerIR.constant(n)),
         ),
-      ],
-    };
-    lctx.emit(lowerIR.when(lowerIR.typeIs(lctx.instance, "object"), [sweep]));
+        ...coverage.patterns.map((p): LowerExpr =>
+          lowerIR.regexTest(p, { kind: "binding", id: b }),
+        ),
+      ];
+      body.push({
+        kind: "forEachKey",
+        target: lctx.instance,
+        binding: b,
+        body: [
+          lowerIR.when(
+            covered.length === 0
+              ? lowerIR.constant(true)
+              : lowerIR.not(lowerIR.or(...covered)),
+            [
+              {
+                kind: "apply",
+                apply: {
+                  path: [],
+                  cursor: {
+                    kind: "child",
+                    of: { kind: "here" },
+                    segment: { kind: "binding", id: b },
+                  },
+                  fold: "allMustPass",
+                },
+              },
+            ],
+          ),
+        ],
+      });
+    }
+    body.push({ kind: "produce", value: { kind: "collectedNames" } });
+    // Produce iff the instance is an object (nothing otherwise), matching
+    // evaluate()'s object-type guard before ctx.produce.
+    lctx.emit(lowerIR.when(lowerIR.typeIs(lctx.instance, "object"), body));
   },
   evaluate: (_value, cursor, ctx) => {
     if (!isObject(cursor.value)) return true;

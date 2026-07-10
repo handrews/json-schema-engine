@@ -345,7 +345,13 @@ export const properties: KeywordBehavior = {
         ),
       );
     }
-    lctx.emit({ kind: "produce", value: { kind: "collectedNames" } });
+    // Produce iff the instance is an object (an empty array otherwise), matching
+    // evaluate()'s object-type guard before ctx.produce.
+    lctx.emit(
+      lowerIR.when(lowerIR.typeIs(lctx.instance, "object"), [
+        { kind: "produce", value: { kind: "collectedNames" } },
+      ]),
+    );
   },
   evaluate: (value, cursor, ctx) => {
     if (!isObject(cursor.value)) return true;
@@ -423,7 +429,13 @@ export const patternProperties: KeywordBehavior = {
         ]),
       );
     }
-    lctx.emit({ kind: "produce", value: { kind: "collectedNames" } });
+    // Produce iff the instance is an object (an empty array otherwise), matching
+    // evaluate()'s object-type guard before ctx.produce.
+    lctx.emit(
+      lowerIR.when(lowerIR.typeIs(lctx.instance, "object"), [
+        { kind: "produce", value: { kind: "collectedNames" } },
+      ]),
+    );
   },
   evaluate: (value, cursor, ctx) => {
     if (!isObject(cursor.value)) return true;
@@ -508,7 +520,13 @@ export const additionalProperties: KeywordBehavior = {
         },
       ]),
     );
-    lctx.emit({ kind: "produce", value: { kind: "collectedNames" } });
+    // Produce iff the instance is an object (an empty array otherwise), matching
+    // evaluate()'s object-type guard before ctx.produce.
+    lctx.emit(
+      lowerIR.when(lowerIR.typeIs(lctx.instance, "object"), [
+        { kind: "produce", value: { kind: "collectedNames" } },
+      ]),
+    );
   },
   evaluate: (_value, cursor, ctx) => {
     if (!isObject(cursor.value)) return true;
@@ -583,7 +601,12 @@ export const prefixItems: KeywordBehavior = {
         ),
       );
     });
-    lctx.emit({ kind: "produce", value: { kind: "collectedIndexes" } });
+    // Annotation: largest applied index, or true when it covered the array
+    // (evaluate() produces only when at least one index applied).
+    lctx.emit({
+      kind: "produce",
+      value: { kind: "collectedIndexes", render: "largestOrTrue" },
+    });
   },
   evaluate: (value, cursor, ctx) => {
     if (!Array.isArray(cursor.value)) return true;
@@ -650,7 +673,11 @@ export const items: KeywordBehavior = {
         },
       ]),
     );
-    lctx.emit({ kind: "produce", value: { kind: "collectedIndexes" } });
+    // Annotation: true iff it applied to any item past the prefix.
+    lctx.emit({
+      kind: "produce",
+      value: { kind: "collectedIndexes", render: "appliedTrue" },
+    });
   },
   evaluate: (_value, cursor, ctx) => {
     if (!Array.isArray(cursor.value)) return true;
@@ -709,6 +736,7 @@ export const contains: KeywordBehavior = {
               fold: "discard",
             },
           },
+          collectIndexes: true,
           min,
           max,
           // Mirrors evaluate()'s text exactly (list-mode parity): the
@@ -727,7 +755,12 @@ export const contains: KeywordBehavior = {
         },
       ]),
     );
-    lctx.emit({ kind: "produce", value: { kind: "collectedIndexes" } });
+    // Annotation: matched indexes, or true when every item matched
+    // (evaluate() produces only when at least one item matched).
+    lctx.emit({
+      kind: "produce",
+      value: { kind: "collectedIndexes", render: "matchedOrAllTrue" },
+    });
   },
   evaluate: (_value, cursor, ctx) => {
     if (!Array.isArray(cursor.value)) return true;

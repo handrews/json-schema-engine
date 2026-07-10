@@ -177,6 +177,8 @@ export type LowerStmt =
       readonly target: LowerExpr;
       readonly binding: number;
       readonly countWhen: LowerExpr;
+      /** accumulate the counted indexes for a following produce (contains' annotation value) */
+      readonly collectIndexes?: boolean;
       readonly min: number;
       readonly max: number;
       readonly outOfRangeMessage: LowerMessage;
@@ -244,11 +246,43 @@ export type LowerMessage = readonly (string | LowerExpr)[];
  */
 export type LowerParams = Readonly<Record<string, LowerExpr>>;
 
-/** A production value: a constant, or a runtime list collected by the body. */
+/**
+ * A production value: the annotation a keyword's lowered body carries.
+ *
+ * Runtime-collected recipes read the accumulation the keyword's statements
+ * build against the instance. Within one keyword's lowered statement list,
+ * each executed child-of-here application (an `apply` or `applyExpr` whose
+ * cursor is `{kind:"child", of:{kind:"here"}, segment}`) contributes its
+ * segment — string segments to a name accumulation, numeric segments to an
+ * index accumulation — in execution order, deduplicated keeping the first
+ * occurrence. Applications count when ATTEMPTED, regardless of the
+ * subschema's verdict (the interpreter records the segment before applying).
+ */
 export type LowerProduceValue =
   | { readonly kind: "const"; readonly value: JsonValue }
+  /**
+   * The accumulated (deduped) name array, possibly empty. Object-shaped
+   * producers emit an empty array for an object and nothing for a non-object,
+   * so lower() must gate this produce behind an instance object-type check.
+   */
   | { readonly kind: "collectedNames" }
-  | { readonly kind: "collectedIndexes" }
+  /**
+   * The accumulated index array, rendered per `render`:
+   *
+   * - `"largestOrTrue"`: no accumulated indexes yields no production;
+   *   otherwise `true` when the largest index + 1 equals the instance array
+   *   length, else the largest accumulated index (a number).
+   * - `"appliedTrue"`: any accumulated index yields `true`; none yields no
+   *   production.
+   * - `"matchedOrAllTrue"`: reads the keyword's countRange-counted indexes
+   *   (see `collectIndexes`) — empty yields no production; a count equal to
+   *   the instance array length yields `true`; otherwise the ascending index
+   *   array.
+   */
+  | {
+      readonly kind: "collectedIndexes";
+      readonly render: "largestOrTrue" | "appliedTrue" | "matchedOrAllTrue";
+    }
   | { readonly kind: "expr"; readonly expr: LowerExpr };
 
 /**

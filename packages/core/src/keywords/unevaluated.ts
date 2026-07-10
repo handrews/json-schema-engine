@@ -51,44 +51,52 @@ export const unevaluatedProperties: KeywordBehavior = {
         "unevaluatedProperties lowering requires static coverage (planner bug)",
       );
     }
-    if (coverage.coversAllNames) return; // statically vacuous
-    const b = lctx.binding();
-    const covered: LowerExpr[] = [
-      ...coverage.names.map((n): LowerExpr =>
-        lowerIR.cmp("===", { kind: "binding", id: b }, lowerIR.constant(n)),
-      ),
-      ...coverage.patterns.map((p): LowerExpr =>
-        lowerIR.regexTest(p, { kind: "binding", id: b }),
-      ),
-    ];
-    const sweep: LowerStmt = {
-      kind: "forEachKey",
-      target: lctx.instance,
-      binding: b,
-      body: [
-        lowerIR.when(
-          covered.length === 0
-            ? lowerIR.constant(true)
-            : lowerIR.not(lowerIR.or(...covered)),
-          [
-            {
-              kind: "apply",
-              apply: {
-                path: [],
-                cursor: {
-                  kind: "child",
-                  of: { kind: "here" },
-                  segment: { kind: "binding", id: b },
-                },
-                fold: "allMustPass",
-              },
-            },
-          ],
+    // The sweep is statically vacuous when sibling coverage is total, but the
+    // produce is not: evaluate() emits an (empty) names annotation for every
+    // object regardless. So the object-type guard always wraps a produce; the
+    // sweep is added only when some name can still be unevaluated.
+    const body: LowerStmt[] = [];
+    if (!coverage.coversAllNames) {
+      const b = lctx.binding();
+      const covered: LowerExpr[] = [
+        ...coverage.names.map((n): LowerExpr =>
+          lowerIR.cmp("===", { kind: "binding", id: b }, lowerIR.constant(n)),
         ),
-      ],
-    };
-    lctx.emit(lowerIR.when(lowerIR.typeIs(lctx.instance, "object"), [sweep]));
-    lctx.emit({ kind: "produce", value: { kind: "collectedNames" } });
+        ...coverage.patterns.map((p): LowerExpr =>
+          lowerIR.regexTest(p, { kind: "binding", id: b }),
+        ),
+      ];
+      body.push({
+        kind: "forEachKey",
+        target: lctx.instance,
+        binding: b,
+        body: [
+          lowerIR.when(
+            covered.length === 0
+              ? lowerIR.constant(true)
+              : lowerIR.not(lowerIR.or(...covered)),
+            [
+              {
+                kind: "apply",
+                apply: {
+                  path: [],
+                  cursor: {
+                    kind: "child",
+                    of: { kind: "here" },
+                    segment: { kind: "binding", id: b },
+                  },
+                  fold: "allMustPass",
+                },
+              },
+            ],
+          ),
+        ],
+      });
+    }
+    body.push({ kind: "produce", value: { kind: "collectedNames" } });
+    // Produce iff the instance is an object (nothing otherwise), matching
+    // evaluate()'s object-type guard before ctx.produce.
+    lctx.emit(lowerIR.when(lowerIR.typeIs(lctx.instance, "object"), body));
   },
   evaluate: (_value, cursor, ctx) => {
     if (!isObject(cursor.value)) return true;
@@ -175,7 +183,11 @@ export const unevaluatedItems: KeywordBehavior = {
         },
       ]),
     );
-    lctx.emit({ kind: "produce", value: { kind: "collectedIndexes" } });
+    // Annotation: true iff it applied to any unevaluated index.
+    lctx.emit({
+      kind: "produce",
+      value: { kind: "collectedIndexes", render: "appliedTrue" },
+    });
   },
   evaluate: (_value, cursor, ctx) => {
     if (!Array.isArray(cursor.value)) return true;
