@@ -549,8 +549,9 @@ export interface RunSuiteFilesVitestOptions extends RunSuiteFilesOptions {
 /**
  * Vitest mode: registers one describe per file, one describe per group, one
  * it per case (it.skip for schema-position-unsupported groups), plus a
- * trailing "suite summary" test that logs totals. Built on top of collect
- * mode's per-group skip detection so both modes agree on what's skipped.
+ * trailing "suite summary" test that logs totals. Shares collect mode's
+ * per-group skip detection so both modes agree on what a group-level skip
+ * is; evaluation-error semantics deliberately differ — see the case body.
  * @throws Error if neither `evaluate` nor `registerAndEvaluate` is supplied.
  */
 export function runSuiteFilesVitest(options: RunSuiteFilesVitestOptions): void {
@@ -595,25 +596,15 @@ export function runSuiteFilesVitest(options: RunSuiteFilesVitestOptions): void {
         describe(group.description, () => {
           for (const test of group.tests) {
             it(test.description, async () => {
-              let valid: boolean;
-              try {
-                valid = await (registerAndEvaluate
-                  ? registerAndEvaluate(group.schema, retrievalBase, test.data)
-                  : evaluate!(group.schema, test.data));
-              } catch (e) {
-                const message = e instanceof Error ? e.message : String(e);
-                const reason = `error: ${message}`;
-                skips.push(
-                  `${file}: ${group.description} / ${test.description} [${reason}]`,
-                );
-                options.onSkip?.({
-                  file,
-                  group: group.description,
-                  description: test.description,
-                  reason,
-                });
-                return; // treated as a skip, not a failure — see collect-mode comment
-              }
+              // No error tolerance here, unlike collect mode: vitest mode is
+              // the CI conformance gate, where a thrown evaluation error is
+              // always a regression (zero-skip discipline), so it propagates
+              // and fails the case with the real stack. Collect mode stays
+              // tolerant — programmatic callers inspect "errored" statuses
+              // and set policy themselves.
+              const valid = await (registerAndEvaluate
+                ? registerAndEvaluate(group.schema, retrievalBase, test.data)
+                : evaluate!(group.schema, test.data));
               run++;
               expect(valid, `expected valid=${test.valid}`).toBe(test.valid);
             });

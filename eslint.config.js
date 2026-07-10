@@ -73,6 +73,25 @@ export default defineConfig(
     },
   },
   {
+    // Vitest totals are a gate: the repo invariant is 0 skipped tests, so a
+    // committed `.skip` (silently shrinks a file's coverage) or `.only`
+    // (silently shrinks the whole file to one test) must fail lint. The
+    // suite runner's injected `it.skip` lives in test-kit src, outside
+    // these globs, and its self-test drives it through a recorder.
+    files: ["packages/*/test/**/*.ts", "packages/*/src/*.test.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "CallExpression > MemberExpression.callee[object.name=/^(it|describe|test)$/][property.name=/^(skip|only)$/]",
+          message:
+            "No vitest .skip/.only in test files — the repo gate expects 0 skipped tests.",
+        },
+      ],
+    },
+  },
+  {
     // `new Function`/`eval` are confined to runtime-compile.ts (D10); the ban
     // is global so a stray code-gen site anywhere else fails the build.
     files: ["packages/**/*.ts"],

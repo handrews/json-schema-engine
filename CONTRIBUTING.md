@@ -69,18 +69,19 @@ plus an elision differential (`elision.test.ts`) that evaluates every case
 twice. draft-04's runner, format leg, and elision differential live with
 its dialect package (`packages/dialect-draft04/test/`).
 
-**Zero-skip discipline.** The runner prints a summary line per file set:
+**Zero-skip discipline.** Vitest totals are authoritative: the expected
+repo-wide skip count is **0** (lint bans native `.skip`/`.only` in test
+files; the test-kit self-test exercises the runner's skip mechanism through
+a recorder, not real skips), and a thrown error during evaluation fails its
+case directly with the real stack. Each suite leg additionally pins its
+EXACT case count (`exactRun`) in a trailing summary test — running more or
+fewer cases than the pin fails the leg, so a test-suite submodule bump is a
+deliberate count update. The runner still prints a summary line per file
+set as a diagnostic for WHICH cases skipped:
 
 ```txt
 suite cases run: 1299, group/case skips: 0
 ```
-
-A thrown error during evaluation is reported as a skip, not a failure, and
-vitest's totals will NOT show it. When touching evaluation code, check the
-summary line (`npx vitest run packages/core/test/suite.test.ts
---reporter=verbose | grep "suite cases"`), not just the pass count. Each
-runner's `minRun` is a floor set ~2% under the expected case count to catch
-mass skipping.
 
 The official suite's remote resources are served from the submodule's
 `remotes/` directory by `suiteRemotesLoader` — no HTTP server is involved.
