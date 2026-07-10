@@ -30,12 +30,12 @@ policy: benchmarks are local evidence, not CI gates).
 Four small 2020-12 schemas, four instances each (mixed verdicts),
 hot-path throughput:
 
-| Case | AJV (2020) | jse compiled flag | jse compiled list | jse interpreter |
-| --- | --- | --- | --- | --- |
-| control: `properties` + `additionalProperties: false` (no consumer) | 18.9M ops/s | **22.8M (1.21× AJV)** | 8.3M | 70k |
-| static coverage: `allOf` of two `properties` conjuncts + `unevaluatedProperties: false` | 13.6M | **19.8M (1.45× AJV)** | 43k (1/315) | 44k |
-| dynamic coverage: `anyOf` two-variant union + `unevaluatedProperties: false` | 7.4M | 32k (**1/229**) | 31k | 32k |
-| dynamic coverage: `if`/`then` `prefixItems` + `unevaluatedItems` | 17.7M | 45k (**1/391**) | 44k | 45k |
+| Case                                                                                    | AJV (2020)  | jse compiled flag     | jse compiled list | jse interpreter |
+| --------------------------------------------------------------------------------------- | ----------- | --------------------- | ----------------- | --------------- |
+| control: `properties` + `additionalProperties: false` (no consumer)                     | 18.9M ops/s | **22.8M (1.21× AJV)** | 8.3M              | 70k             |
+| static coverage: `allOf` of two `properties` conjuncts + `unevaluatedProperties: false` | 13.6M       | **19.8M (1.45× AJV)** | 43k (1/315)       | 44k             |
+| dynamic coverage: `anyOf` two-variant union + `unevaluatedProperties: false`            | 7.4M        | 32k (**1/229**)       | 31k               | 32k             |
+| dynamic coverage: `if`/`then` `prefixItems` + `unevaluatedItems`                        | 17.7M       | 45k (**1/391**)       | 44k               | 45k             |
 
 Readings:
 
@@ -59,8 +59,24 @@ Schemas for reproduction — dynamic-properties case:
   "properties": { "kind": { "enum": ["k1", "k2"] } },
   "required": ["kind"],
   "anyOf": [
-    { "properties": { "kind": { "const": "k1" }, "a": {"type":"string"}, "b": {"type":"string"}, "c": {"type":"string"} }, "required": ["a"] },
-    { "properties": { "kind": { "const": "k2" }, "d": {"type":"string"}, "e": {"type":"string"}, "f": {"type":"string"} }, "required": ["d"] }
+    {
+      "properties": {
+        "kind": { "const": "k1" },
+        "a": { "type": "string" },
+        "b": { "type": "string" },
+        "c": { "type": "string" }
+      },
+      "required": ["a"]
+    },
+    {
+      "properties": {
+        "kind": { "const": "k2" },
+        "d": { "type": "string" },
+        "e": { "type": "string" },
+        "f": { "type": "string" }
+      },
+      "required": ["d"]
+    }
   ],
   "unevaluatedProperties": false
 }
@@ -86,15 +102,15 @@ The decisive structural finding. The official OAS 3.1 schema
 (`bench/corpora/oas-3.1-schema.json`, ~28 `unevaluatedProperties`
 sites) validating the corpus OpenAPI document:
 
-| Subject | Plan census | Hot ops/s |
-| --- | --- | --- |
-| real schema, compiled flag | **1 unit, 1 interpreted** | 2,147 |
-| real schema, interpreter | — | 2,141 |
+| Subject                           | Plan census                            | Hot ops/s  |
+| --------------------------------- | -------------------------------------- | ---------- |
+| real schema, compiled flag        | **1 unit, 1 interpreted**              | 2,147      |
+| real schema, interpreter          | —                                      | 2,141      |
 | consumers stripped, compiled flag | **340 units, 4 interpreted (dynamic)** | **25,194** |
-| consumers stripped, interpreter | — | 2,181 |
+| consumers stripped, interpreter   | —                                      | 2,181      |
 
 The root schema object carries `unevaluatedProperties: false` with
-runtime-conditional contributors, so `buildPlan` classifies the *root*
+runtime-conditional contributors, so `buildPlan` classifies the _root_
 interpreted and — because an interpreted unit's subtree is never
 planned (the trampoline is one-way) — the entire 340-unit schema
 compiles to a single trampoline call. Compilation currently buys the
@@ -140,12 +156,12 @@ Two of AJV's numbers in §1.1 are cheaper than spec compliance:
 ## 2. What makes this the hard project
 
 The annotation project (companion doc) only needs compiled code to
-*write* productions; discard-on-failure reduces to mark/truncate on a
+_write_ productions; discard-on-failure reduces to mark/truncate on a
 flat array. Consumers add the read side — rule 4 — and that changes
 the compiled calling convention:
 
 1. **Runtime coverage must flow across unit functions.** A consumer's
-   coverage comes from its own schema object's contributors *and* from
+   coverage comes from its own schema object's contributors _and_ from
    successful in-place applications (`allOf`/`anyOf`/`oneOf`/`if`/
    `then`/`else`/`$ref`/`dependentSchemas` targets), recursively. With
    dynamic coverage, each unit in that in-place closure must report at

@@ -13,27 +13,41 @@ scope here and stay on the interpreter regardless.
 **Verdict: feasible, at moderate cost.** The deferred-register entry
 ("compiled annotation collection (channel frames)") overstates what this
 surface needs. Full channel frames in emitted code are required only if
-compiled code must *consume* productions (rule 4 visibility filtering).
+compiled code must _consume_ productions (rule 4 visibility filtering).
 It never does: list-mode plans already classify every consumer-bearing
 unit as interpreted (packages/compiler/src/plan.ts:183). Compiled code
-only *writes* productions, and write-side frame semantics (rule 3:
+only _writes_ productions, and write-side frame semantics (rule 3:
 merge on success, discard on failure) reduce to a mark/truncate
 discipline on one flat array. The genuinely new work is in the produce
 IR's value shapes, the serializer's produce emission, and the gates.
+
+**Status (2026-07-10): stage 1 (§7) is delivered.** `LowerProduceValue`
+carries per-keyword render recipes (`collectedIndexes` with
+`largestOrTrue`/`appliedTrue`/`matchedOrAllTrue`; `countRange` gained
+`collectIndexes`), every `lower()` emits produce IR matching its
+`evaluate()` oracle across all five dialects, and the recipe gate
+(packages/compiler/test/produce-recipes.test.ts, backed by test-kit's
+`evaluateProduceRecipes` reference evaluator) pins oracle ≡ interpreter
+over every suite directory with exact compared-production counts plus
+planted-divergence self-tests. The gate's first honest run caught a
+real recipe gap — `unevaluatedProperties` with statically-total
+coverage must still produce the empty names annotation — now fixed.
+Stages 2–3 (serializer emission, trampoline harvest, public API)
+remain; the serializer still discards produce IR.
 
 ## 1. What already exists
 
 The infrastructure is further along than "bounces up to the interpreter"
 suggests. Inventory, with the load-bearing facts:
 
-| Piece | State |
-| --- | --- |
-| Compiled list mode (errors) | Built (D9e). Flat, interpreter-exact error units, same order; never short-circuits; error objects materialize only on failure paths. |
-| Consumer classification | List-mode plans interpret any unit containing `unevaluated*` (plan.ts:183–189, for error-unit parity reasons that apply equally here). Compiled units therefore never consume from the channel. |
-| Produce IR | `LowerStmt` has a `produce` kind with `LowerProduceValue` (`const` / `collectedNames` / `collectedIndexes` / `expr`, core/src/lowering.ts:248), and keyword `lower()` implementations already emit it (`title` et al. via core.ts:49, `properties` at applicator.ts:348, `contains` at applicator.ts:730, `unevaluated*` at unevaluated.ts:91/178). The serializer currently discards every `produce` (serialize.ts, `case "produce"`). |
-| Trampoline harvest | `evaluateFragment` already returns the fragment's root-frame surviving productions with cursor identity intact, exactly so "a compiled caller can merge them under channel rule 3" (core/src/engine.ts:534–547). The list-mode trampoline `fragList` simply drops them today (compiler/src/runtime.ts:132). |
-| Rendering + retention | `renderAnnotation`, `selectRetained`, `applyRetention`, `makeRecordPredicate` (core/src/output.ts) are shared functions the compiled tier can call — same one-implementation-per-semantic rule the error path follows. |
-| Artifact keying | D5 already memoizes one artifact per (schema, retention policy, output config), so a retention-specialized annotation artifact fits the existing contract. |
+| Piece                       | State                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Compiled list mode (errors) | Built (D9e). Flat, interpreter-exact error units, same order; never short-circuits; error objects materialize only on failure paths.                                                                                                                                                                                                                                                                                                    |
+| Consumer classification     | List-mode plans interpret any unit containing `unevaluated*` (plan.ts:183–189, for error-unit parity reasons that apply equally here). Compiled units therefore never consume from the channel.                                                                                                                                                                                                                                         |
+| Produce IR                  | `LowerStmt` has a `produce` kind with `LowerProduceValue` (`const` / `collectedNames` / `collectedIndexes` / `expr`, core/src/lowering.ts:248), and keyword `lower()` implementations already emit it (`title` et al. via core.ts:49, `properties` at applicator.ts:348, `contains` at applicator.ts:730, `unevaluated*` at unevaluated.ts:91/178). The serializer currently discards every `produce` (serialize.ts, `case "produce"`). |
+| Trampoline harvest          | `evaluateFragment` already returns the fragment's root-frame surviving productions with cursor identity intact, exactly so "a compiled caller can merge them under channel rule 3" (core/src/engine.ts:534–547). The list-mode trampoline `fragList` simply drops them today (compiler/src/runtime.ts:132).                                                                                                                             |
+| Rendering + retention       | `renderAnnotation`, `selectRetained`, `applyRetention`, `makeRecordPredicate` (core/src/output.ts) are shared functions the compiled tier can call — same one-implementation-per-semantic rule the error path follows.                                                                                                                                                                                                                  |
+| Artifact keying             | D5 already memoizes one artifact per (schema, retention policy, output config), so a retention-specialized annotation artifact fits the existing contract.                                                                                                                                                                                                                                                                              |
 
 ## 2. Why this surface avoids channel frames
 
@@ -51,10 +65,13 @@ annotations, but a cheaper mechanism than frames closes the gap:
 
   ```js
   const m = anns.length;
-  if (!uN(v, d, s, ep, ip, errs, anns)) { ok = false; anns.length = m; }
+  if (!uN(v, d, s, ep, ip, errs, anns)) {
+    ok = false;
+    anns.length = m;
+  }
   ```
 
-  at every application boundary is *exactly* frame discard. No frame
+  at every application boundary is _exactly_ frame discard. No frame
   objects, no per-frame allocation on the hot path.
 
 - **Rule 4 (visibility) never fires in compiled code.** Consumers are
@@ -75,7 +92,7 @@ annotations, but a cheaper mechanism than frames closes the gap:
   truncate per branch (failed branches discard, successful ones keep).
   `oneOf` with two passing branches: both branches' productions merge
   into the unit's span, the keyword fails, the unit returns false, and
-  the *caller's* truncate discards the whole span — identical to the
+  the _caller's_ truncate discards the whole span — identical to the
   interpreter discarding the unit's frame. Same reasoning covers `not`
   (a succeeding negated subschema merges, then the unit fails and the
   caller discards) and `contains` probes. List mode already disables
@@ -96,11 +113,11 @@ annotations, but a cheaper mechanism than frames closes the gap:
 The blocking gap. `collectedIndexes` is one IR kind but three
 interpreter-exact annotation values:
 
-| Keyword | Interpreter value (evaluate()) |
-| --- | --- |
-| `prefixItems` | largest applied index, or `true` when it covered the array (applicator.ts:604) |
-| `items` / 2019 `items`/`additionalItems` | `true` iff it applied to any item (applicator.ts:668) |
-| `contains` | matched index list, or `true` when every item matched (applicator.ts:761) |
+| Keyword                                  | Interpreter value (evaluate())                                                 |
+| ---------------------------------------- | ------------------------------------------------------------------------------ |
+| `prefixItems`                            | largest applied index, or `true` when it covered the array (applicator.ts:604) |
+| `items` / 2019 `items`/`additionalItems` | `true` iff it applied to any item (applicator.ts:668)                          |
+| `contains`                               | matched index list, or `true` when every item matched (applicator.ts:761)      |
 
 Similarly `collectedNames` covers `properties` (schema-key order),
 `patternProperties` (deduped via a Set), `additionalProperties`
@@ -162,7 +179,7 @@ that; if not, it is a pre-existing gap this work would surface).
 
 Extend the list trampoline (or add `fragAnn`): pass
 `makeRecordPredicate(registry.consumedIds(), true, retention)` so
-islands record consumed *and* retainable productions; on fragment
+islands record consumed _and_ retainable productions; on fragment
 success, render survivors via `renderAnnotation`, re-root
 `instanceLocation` under `ip` (the same one-synthetic-PathNode trick
 `fragList` uses for errors covers `evaluationPath`), apply the
@@ -202,8 +219,8 @@ Per the repo's testing discipline, the mechanism is only half the work:
 
 - **Full-suite differential**: every dialect directory, compiled
   annotation artifact vs `Engine.evaluate(..., { output: "list",
-  collectAnnotations: true })` — unit-by-unit equality *including
-  order*, plus the Basic document's annotation side. The channels tests
+collectAnnotations: true })` — unit-by-unit equality _including
+  order_, plus the Basic document's annotation side. The channels tests
   are the order oracle.
 - **Retention matrix**: allow/deny lists and `keep` predicates on/off,
   compiled vs interpreter (mirroring the M5.5 elision on/off
