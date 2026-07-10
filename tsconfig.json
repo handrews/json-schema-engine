@@ -11,6 +11,13 @@
     "customConditions": ["jse-source"],
     "types": ["node"]
   },
-  "include": ["spike", "packages", "bowtie", "scripts", "vitest.config.ts"],
+  "include": [
+    "spike",
+    "bench",
+    "packages",
+    "bowtie",
+    "scripts",
+    "vitest.config.ts"
+  ],
   "exclude": ["**/.snippets"]
 }

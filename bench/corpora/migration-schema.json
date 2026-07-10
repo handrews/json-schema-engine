@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://bench.example/migration",
+  "type": "object",
+  "required": ["userId", "email", "roles"],
+  "properties": {
+    "userId": { "type": "integer", "minimum": 1 },
+    "email": { "type": "string", "format": "email", "maxLength": 254 },
+    "displayName": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "roles": {
+      "type": "array",
+      "items": { "enum": ["admin", "editor", "viewer", "billing"] },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "settings": {
+      "type": "object",
+      "properties": {
+        "theme": { "enum": ["light", "dark", "system"] },
+        "notifications": { "type": "boolean" },
+        "locale": { "type": "string", "pattern": "^[a-z]{2}(-[A-Z]{2})?$" }
+      },
+      "additionalProperties": false
+    },
+    "createdAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

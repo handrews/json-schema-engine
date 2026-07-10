@@ -4,3 +4,4 @@ coverage/
 .cache/
 dist/
 *.tsbuildinfo
+bench/results/

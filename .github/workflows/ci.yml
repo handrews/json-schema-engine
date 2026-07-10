@@ -43,6 +43,28 @@ jobs:
       - run: git diff --exit-code packages/ajv-compat/test/fixtures/
       - run: test -z "$(git status --porcelain)"
 
+  # Report-only benchmark reproducibility run (ANALYSIS §9 harness): no
+  # thresholds — shared-runner variance makes CI perf gates noisy (the
+  # enforced gate is the local spike bench). A crash still fails the job.
+  bench-report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: npm ci
+      - run: BENCH_BUDGET=50 npm run bench:harness | tee bench-table.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench-results
+          path: |
+            bench/results/results.json
+            bench-table.txt
+
   # Conformance through Bowtie's own runner (exact per-dialect pins, zero
   # failures). Everything stays local to the runner: the harness image is
   # built here and never pushed; no results are submitted anywhere
