@@ -185,9 +185,11 @@ first slice.
   in list mode today. Schemas leaning on `unevaluated*` will mostly
   trampoline; the harvest path makes them correct, not fast. Lifting
   this needs the general channel-frames design plus runtime
-  evaluated-set tracking — a separate, much larger effort, and the
-  right revisit trigger is census data showing consumer-heavy corpora
-  dominating annotation workloads.
+  evaluated-set tracking — a separate, much larger effort, assessed
+  with measurements in [COMPILED-CONSUMERS.md](COMPILED-CONSUMERS.md)
+  (short version: one root-level consumer currently reduces the entire
+  OAS 3.1 plan to a single interpreted unit, ~230–400× behind AJV on
+  dynamic-coverage shapes).
 - **Dynamic islands, cycles, unlowerables, non-schema refs**: exactly
   the current fallback causes.
 - **Trace-shaped outputs**: hierarchical/verbose/modern LIST documents
