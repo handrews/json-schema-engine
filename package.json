@@ -21,6 +21,7 @@
     "format:check": "prettier --check .",
     "docs:api": "typedoc",
     "csp:check": "tsx --conditions=jse-source scripts/csp-check.ts",
+    "pack:check": "tsx --conditions=jse-source scripts/pack-check.ts",
     "verify": "npm run check-types && npm run lint && npm run format:check && npm test && npm run docs:api && npm run csp:check"
   },
   "devDependencies": {
