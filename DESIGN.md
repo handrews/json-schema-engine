@@ -495,6 +495,49 @@ at full 200k budget (~1.4M cases). 18228 tests; every gate green per
 commit; @emnapi lockfile recipe re-applied after the devDependency
 add, npm ci verified.
 
+**Status note (testing-lessons hardening, completed 2026-07-09; Fable
+orchestration + two Sonnet sweeps, eight commits):** the FUZZ_LIST
+incident's lessons, encoded as gates rather than memory. (1) One
+construction path for differential comparisons: test-kit gains
+`runListSide` + `DifferentialFactory`/`subjectFromFactory` — the fuzz
+hot loop and the post-divergence minimizer both derive from one
+`prepare()`, making the incident's failure shape (one rewired for a
+mode, the other silently not) unrepresentable; both consumers
+refactored onto it, and the CI vitest fuzz gains a list-mode leg
+(~4.6k cases, floor-guarded) so the list differential has a backstop
+independent of scripts/fuzz.ts. Sensitivity unit tests pin that the
+list encoding detects same-verdict/different-errors, params field
+order, and error order; a PLANTED-DIVERGENCE self-test corrupts a
+compiled artifact's params and asserts the list comparison trips while
+the flag comparison stays blind — the gate that would have caught the
+gate. (2) Class-preserving minimization: `minimizeDivergence` takes
+`sameDivergence(initial, candidate)` (compared against the ORIGINAL,
+never phase-local); `sameListDivergenceClass` guards both list legs —
+a real error-content divergence can no longer shrink into a
+garbage-schema tier gap (the 28→prefixItems:null collapse). (3) Plan
+census: `explainCompilation()` (register entry discharged) +
+test-kit's `runPlanCensus` pin EXACT per-dialect unit/cause counts —
+2020-12 and 2019-09 in both output modes (list demotes unevaluated*
+consumers and never plans their subtrees), draft7/6 at zero
+interpreted with a self-maintaining list≡flag pin, draft-04 at its
+all-static 510; a silent static→interpreted flip is now loud despite
+being behaviorally invisible. (4) Trampoline pins: depth-exhaustion
+parity (MaxDepthExceededError across interpreter/flag/list, static
+chain asserted all-static + $dynamicRef island, non-vacuity checked)
+and per-cause legacy island pins (draft-07/06 "cycle" behind items,
+2019-09 $recursiveRef "dynamic") with flag+list parity. (5) Exact
+suite-run pins: `exactRun` replaces the >= floors on all eleven
+full-suite legs — which had ALREADY drifted (every leg ran more cases
+than its stale floor: 1299/1259/927/839/618 vs 1280/1234/908/822/605),
+the exact silent-upward-drift failure the floors could not flag. (6)
+Coverage (owner decision: two-phase): @vitest/coverage-v8, report over
+compiler+ajv-compat src (`npm run coverage`, own CI step, outside npm
+test — instrumentation taxes the fuzz-heavy suite; first report 92.2%
+lines), then glob thresholds on the ajv-compat lifecycle surface only
+(index.ts 82/82, mutate.ts 93/87 vs 84.3/84.2 and 95.4/89.9 measured;
+enforcement verified by planting a 99% threshold). Register entries
+discharged: explainCompilation, coverage thresholds; corepack stays.
+
 **Handoff note (2026-07-07, owner-directed; Fable availability
 corrected 2026-07-08):** Fable access is available through midnight
 Sunday 2026-07-12 — judgment/orchestration work routes to Fable-class
@@ -600,8 +643,12 @@ audit remediation: explainCompilation() fallback diagnostics — DELIVERED
 2026-07-09 (packages/compiler/src/explain.ts, feeding the per-dialect
 plan-census gates in plan-census.test.ts/plan4.test.ts); packageManager
 pinning / corepack evaluation (the @emnapi lockfile surgery is a process
-smell); coverage thresholds for ajv-compat lifecycle paths (not for the
-conformance-driven core); custom-keyword AUTHOR contract documentation
+smell); coverage thresholds for ajv-compat lifecycle paths — DELIVERED
+2026-07-09 (vitest.config.ts: v8 report over compiler+ajv-compat src,
+glob thresholds on ajv-compat index.ts/mutate.ts only; compiler files
+stay report-only by decision — their gates are the suite/differential/
+fuzz/census stack, so line thresholds there would be maintenance
+without signal); custom-keyword AUTHOR contract documentation
 (analyze() obligations and how wrong facts break compilation); DESIGN →
 ARCHITECTURE/ADR/CHANGELOG split; serialize.ts split (UnitContext mixes
 plan lookup, statement emission, message/params rendering, guard CSE,
