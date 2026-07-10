@@ -85,7 +85,9 @@ jobs:
           python-version: "3.13"
 
       # Version-pinned to the locally verified bowtie release.
-      - run: pipx install bowtie-json-schema==2026.6.1
+      # pipx's own runtime defaults to the runner image's baked-in python,
+      # not whatever setup-python put on PATH, so it must be told explicitly.
+      - run: pipx install --python "$(which python3.13)" bowtie-json-schema==2026.6.1
 
       - run: npm ci
       - run: npm run bowtie
