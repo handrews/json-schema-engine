@@ -79,7 +79,7 @@ runSuiteFilesVitest({
     const uri = await engine.loadSchema(schema, retrievalUri);
     return engine.evaluate(uri, instance).valid;
   },
-  minRun: 605,
+  exactRun: 618,
   describe,
   it,
   expect: expect as never,
@@ -117,7 +117,7 @@ runSuiteFilesVitest({
     }
     return elided;
   },
-  minRun: 605,
+  exactRun: 618,
   describe: (name, fn) => describe(`elision differential draft4: ${name}`, fn),
   it,
   expect: expect as never,

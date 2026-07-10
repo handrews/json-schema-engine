@@ -1,10 +1,11 @@
 // Official-suite conformance for @jse/compiler's compiled tier over the
-// draft-04 dialect (M6.6). Same FILES list, remotes loader, and minRun floor
-// as suite4.test.ts's interpreter leg — every group registers as always, but
-// the verdict comes from compileValidator(...).validate(instance) instead of
-// engine.evaluate(...).valid. Now that draft-04's own minimum/maximum carry
-// lower(), every keyword in this package's vocabulary is compilable, so this
-// run's totals must match the interpreter leg's exactly, with zero skips.
+// draft-04 dialect (M6.6). Same FILES list, remotes loader, and exactRun
+// pin as suite4.test.ts's interpreter leg — every group registers as
+// always, but the verdict comes from compileValidator(...).validate(instance)
+// instead of engine.evaluate(...).valid. Now that draft-04's own
+// minimum/maximum carry lower(), every keyword in this package's vocabulary
+// is compilable, so this run's totals must match the interpreter leg's
+// exactly, with zero skips.
 
 import { describe, it, expect } from "vitest";
 import { join, dirname } from "node:path";
@@ -74,7 +75,7 @@ runSuiteFilesVitest({
     const uri = await engine.loadSchema(schema, retrievalUri);
     return compileValidator(engine, uri).validate(instance);
   },
-  minRun: 605,
+  exactRun: 618,
   describe,
   it,
   expect: expect as never,

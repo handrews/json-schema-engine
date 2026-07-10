@@ -222,6 +222,14 @@ export interface RunSuiteFilesOptions {
   onSkip?: (info: OnSkipInfo) => void;
   /** vitest-mode summary threshold; default 0. */
   minRun?: number;
+  /**
+   * vitest-mode exact-count assertion, for legs where the suite is fixed
+   * (a submodule pin, not a growing local fixture set): when set, the
+   * summary asserts `run === exactRun` instead of `run >= minRun`, so a
+   * deliberate suite-submodule bump is a one-glance count update rather
+   * than a silent pass-through.
+   */
+  exactRun?: number;
 }
 
 const DEFAULT_RETRIEVAL_BASE = "https://suite.example/schema";
@@ -624,10 +632,19 @@ export function runSuiteFilesVitest(options: RunSuiteFilesVitestOptions): void {
       // Caller-provided threshold, not a fixed invariant: some callers (e.g.
       // this package's own self-test) intentionally run fixtures that are
       // fully skipped by design.
-      const minRun = options.minRun ?? 0;
-      expect(run >= minRun, `expected at least ${minRun} case(s) to run`).toBe(
-        true,
-      );
+      if (options.exactRun !== undefined) {
+        const exactRun = options.exactRun;
+        expect(
+          run === exactRun,
+          `expected exactly ${exactRun} case(s) to run, got ${run}`,
+        ).toBe(true);
+      } else {
+        const minRun = options.minRun ?? 0;
+        expect(
+          run >= minRun,
+          `expected at least ${minRun} case(s) to run`,
+        ).toBe(true);
+      }
     });
   });
 }

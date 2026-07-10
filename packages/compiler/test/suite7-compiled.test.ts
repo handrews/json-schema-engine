@@ -81,7 +81,7 @@ runSuiteFilesVitest({
     const uri = await engine.loadSchema(schema, retrievalUri);
     return compileValidator(engine, uri).validate(instance);
   },
-  minRun: 908,
+  exactRun: 927,
   describe,
   it,
   expect: expect as never,
