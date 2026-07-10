@@ -21,6 +21,8 @@ import {
 
 export type { CompilationPlan, PlannedUnit, FallbackCause } from "./plan.js";
 export { buildPlan } from "./plan.js";
+export { explainCompilation } from "./explain.js";
+export type { CompilationExplanation } from "./explain.js";
 export { serializePlan } from "./serialize.js";
 export { emitStandalone, StandaloneUnsupportedError } from "./standalone.js";
 export type { StandaloneOptions } from "./standalone.js";

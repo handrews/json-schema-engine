@@ -50,6 +50,9 @@ export type {
   Divergence,
 } from "./differential.js";
 
+export { runPlanCensus } from "./census.js";
+export type { PlanCensusSummary, PlanCensusResult } from "./census.js";
+
 export { parseJsonWithRanges } from "./positions.js";
 export type {
   ParsedDocument,

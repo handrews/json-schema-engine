@@ -596,10 +596,11 @@ ajv-compat draft-04 class (per the M10 contract: recorded, not built);
 Bowtie harness draft-04 entry (M9 onboarding — requires shipping the
 dialect package in the harness image and appending its URI to
 `DIALECTS` in bowtie/harness.ts). Added from the 2026-07-07
-audit remediation: explainCompilation() fallback diagnostics (per-unit
-causes/counts from the existing plan data); packageManager pinning /
-corepack evaluation (the @emnapi lockfile surgery is a process smell);
-coverage thresholds for ajv-compat lifecycle paths (not for the
+audit remediation: explainCompilation() fallback diagnostics — DELIVERED
+2026-07-09 (packages/compiler/src/explain.ts, feeding the per-dialect
+plan-census gates in plan-census.test.ts/plan4.test.ts); packageManager
+pinning / corepack evaluation (the @emnapi lockfile surgery is a process
+smell); coverage thresholds for ajv-compat lifecycle paths (not for the
 conformance-driven core); custom-keyword AUTHOR contract documentation
 (analyze() obligations and how wrong facts break compilation); DESIGN →
 ARCHITECTURE/ADR/CHANGELOG split; serialize.ts split (UnitContext mixes
