@@ -10,6 +10,7 @@ import {
   outcomesAgree,
   runListSide,
   runSide,
+  sameListDivergenceClass,
   subjectFromFactory,
   type DifferentialFactory,
 } from "./index.js";
@@ -74,6 +75,49 @@ describe("runListSide sensitivity", () => {
       throw new RangeError("x");
     })(null);
     expect(outcomesAgree(boom, rangeErr)).toBe(false);
+  });
+});
+
+describe("sameListDivergenceClass", () => {
+  const div = (interpreted: unknown, compiled: unknown) => ({
+    schema: true as const,
+    instance: null,
+    interpreted: runListSide(() => {
+      if (interpreted instanceof Error) throw interpreted;
+      return interpreted;
+    })(null),
+    compiled: runListSide(() => {
+      if (compiled instanceof Error) throw compiled;
+      return compiled;
+    })(null),
+  });
+
+  it("same shape (both sides invalid results, errors differ) → same class", () => {
+    const a = div(listResult(false, [{ keyword: "a" }]), listResult(false, []));
+    const b = div(listResult(false, [{ keyword: "b" }]), listResult(false, []));
+    expect(sameListDivergenceClass(a, b)).toBe(true);
+  });
+
+  it("error-content divergence never matches a throw-vs-result tier gap", () => {
+    // The M6.6 incident shape: real bug = both sides invalid with different
+    // errors; minimizer endpoint = interpreter THREW while compiled said
+    // valid. These must never compare as the same class.
+    const real = div(
+      listResult(false, [{ keyword: "a" }]),
+      listResult(false, [{ keyword: "b" }]),
+    );
+    const tierGap = div(new TypeError("boom"), listResult(true, []));
+    expect(sameListDivergenceClass(real, tierGap)).toBe(false);
+  });
+
+  it("verdict flips are their own class", () => {
+    const flip = div(listResult(true, []), listResult(false, [{}]));
+    const content = div(
+      listResult(false, [{ keyword: "a" }]),
+      listResult(false, [{ keyword: "b" }]),
+    );
+    expect(sameListDivergenceClass(flip, content)).toBe(false);
+    expect(sameListDivergenceClass(flip, flip)).toBe(true);
   });
 });
 

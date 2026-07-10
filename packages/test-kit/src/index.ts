@@ -40,6 +40,7 @@ export {
   outcomesAgree,
   describeOutcome,
   minimizeDivergence,
+  sameListDivergenceClass,
   subjectFromFactory,
 } from "./differential.js";
 export type {
@@ -48,6 +49,7 @@ export type {
   DifferentialSides,
   DifferentialFactory,
   Divergence,
+  MinimizeOptions,
 } from "./differential.js";
 
 export { runPlanCensus } from "./census.js";

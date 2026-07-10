@@ -110,4 +110,58 @@ describe("divergence minimizer self-test", () => {
     // key is gone and "keep"'s value bottoms out to null.
     expect(min.schema).toEqual({ keep: null });
   });
+
+  it("sameDivergence keeps the shrink from wandering across classes", () => {
+    // Two planted divergence regions of DIFFERENT classes: instances
+    // containing MAGIC diverge by verdict flip (the "real bug"); null — the
+    // shrinker's favorite endpoint — diverges by throw-vs-verdict (the
+    // "garbage tier gap"). Without the class guard, minimizing the real bug
+    // wanders onto null and reports the wrong finding; the M6.6 session hit
+    // exactly this with 28 real list divergences collapsing onto a
+    // prefixItems:null tier gap.
+    const twoClasses: DifferentialSubject = {
+      registers: () => true,
+      interpreted: (_schema, instance) => {
+        if (instance === null) throw new TypeError("tier gap");
+        return { kind: "verdict", valid: true };
+      },
+      compiled: (_schema, instance) => ({
+        kind: "verdict",
+        valid: !containsMagic(instance),
+      }),
+    };
+    // Run each side through the harness's own guards so throws become
+    // outcomes, like the real subjects do.
+    const wrapped: DifferentialSubject = {
+      registers: twoClasses.registers.bind(twoClasses),
+      interpreted: (s, i) => {
+        try {
+          return twoClasses.interpreted(s, i);
+        } catch (err) {
+          return {
+            kind: "throw",
+            errorClass: (err as Error).constructor.name,
+          };
+        }
+      },
+      compiled: (s, i) => twoClasses.compiled(s, i),
+    };
+    const start = { pad: [1, 2], [MAGIC]: "x" };
+
+    // Default behavior: existence-preserving shrink wanders to null, the
+    // smaller wrong-class witness.
+    const wandered = minimizeDivergence(wrapped, true, start);
+    expect(wandered.instance).toBe(null);
+    expect(wandered.interpreted.kind).toBe("throw");
+
+    // Class-guarded shrink: the witness stays a verdict-flip divergence and
+    // keeps the trigger.
+    const held = minimizeDivergence(wrapped, true, start, {
+      sameDivergence: (initial, candidate) =>
+        initial.interpreted.kind === candidate.interpreted.kind &&
+        initial.compiled.kind === candidate.compiled.kind,
+    });
+    expect(containsMagic(held.instance)).toBe(true);
+    expect(held.interpreted.kind).toBe("verdict");
+  });
 });

@@ -23,6 +23,7 @@ import {
   outcomesAgree,
   describeOutcome,
   minimizeDivergence,
+  sameListDivergenceClass,
   subjectFromFactory,
   type DifferentialFactory,
 } from "@jse/test-kit";
@@ -222,7 +223,11 @@ describe("compiled ≡ interpreted list-output differential fuzz (M8.6, subset)"
             const compiled = validate(instance);
             if (!outcomesAgree(interpreted, compiled)) {
               const subject = subjectFromFactory(factory);
-              const min = minimizeDivergence(subject, group.schema, instance);
+              // Class-preserving shrink: the witness must stay the same
+              // kind of list divergence it started as.
+              const min = minimizeDivergence(subject, group.schema, instance, {
+                sameDivergence: sameListDivergenceClass,
+              });
               throw new Error(
                 `DIVERGENCE (list mode) ${file} group ${String(gi)} case ${String(ci)}\n` +
                   `  seed=0x${LIST_SEED.toString(16)} deriveSeed(${String(LIST_SEED)}, ${String(fi)}, ${String(gi)})\n` +

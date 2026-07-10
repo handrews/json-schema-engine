@@ -270,25 +270,50 @@ function shrinkFixpoint(
   return { value: current, divergence: currentDiv };
 }
 
+/** Options for {@link minimizeDivergence}. */
+export interface MinimizeOptions {
+  /**
+   * Class guard: a shrink candidate is accepted only when its divergence is
+   * "the same kind" as the ORIGINAL one. Without it, the minimizer
+   * preserves divergence-EXISTENCE only and can wander — a real
+   * error-content bug can shrink into an unrelated garbage-schema tier gap
+   * that also happens to diverge, masking the finding. Candidates compare
+   * against the original, never the phase-local current, or stepwise drift
+   * would re-open the same hole. A larger same-class witness beats a tiny
+   * wrong-class one.
+   */
+  sameDivergence?: (initial: Divergence, candidate: Divergence) => boolean;
+}
+
 /**
  * Given a diverging (schema, instance), shrink the instance first, then the
  * schema, holding the divergence throughout. Returns the minimal witness.
- * Purely deterministic in (subject, schema, instance).
+ * Purely deterministic in (subject, schema, instance, options).
  * @throws Error if the input pair does not actually diverge.
  */
 export function minimizeDivergence(
   subject: DifferentialSubject,
   schema: JsonValue,
   instance: JsonValue,
+  options: MinimizeOptions = {},
 ): Divergence {
   const initial = diverges(subject, schema, instance);
   if (initial === undefined) {
     throw new Error("minimizeDivergence called on a non-diverging pair");
   }
+  const sameClass = options.sameDivergence ?? (() => true);
+  const keeps = (
+    candidateSchema: JsonValue,
+    candidateInstance: JsonValue,
+  ): Divergence | undefined => {
+    const div = diverges(subject, candidateSchema, candidateInstance);
+    if (div === undefined) return undefined;
+    return sameClass(initial, div) ? div : undefined;
+  };
 
   // Phase 1: shrink the instance against the fixed schema.
   const instancePhase = shrinkFixpoint(instance, (candidate) =>
-    diverges(subject, schema, candidate),
+    keeps(schema, candidate),
   );
 
   // Phase 2: shrink the schema against the minimized instance. A schema
@@ -296,14 +321,43 @@ export function minimizeDivergence(
   // smaller reproduction); diverges() enforces that via registers().
   const minInstance = instancePhase.value;
   const schemaPhase = shrinkFixpoint(schema, (candidate) =>
-    diverges(subject, candidate, minInstance),
+    keeps(candidate, minInstance),
   );
 
   // Phase 3: re-shrink the instance once more against the minimized schema —
   // a smaller schema can unlock further instance shrinks.
   const finalPhase = shrinkFixpoint(minInstance, (candidate) =>
-    diverges(subject, schemaPhase.value, candidate),
+    keeps(schemaPhase.value, candidate),
   );
 
   return finalPhase.divergence;
+}
+
+/**
+ * Divergence-class comparator for LIST-mode witnesses (the
+ * {@link runListSide} encoding): each side's outcome signature is either
+ * the thrown error class or the decoded verdict, and both sides'
+ * signatures must match between the initial and candidate divergences.
+ * This is what keeps a real error-content divergence (both sides invalid,
+ * errors differ) from shrinking into a throw-vs-result or verdict-flip
+ * tier gap.
+ */
+export function sameListDivergenceClass(
+  initial: Divergence,
+  candidate: Divergence,
+): boolean {
+  const signature = (o: SideOutcome): string => {
+    if (o.kind === "verdict") return `verdict:${String(o.valid)}`;
+    if (o.errorClass.startsWith("THREW:")) return o.errorClass;
+    try {
+      const decoded = JSON.parse(o.errorClass) as { valid?: unknown };
+      return `result:${String(decoded.valid === true)}`;
+    } catch {
+      return "result:unparseable";
+    }
+  };
+  return (
+    signature(initial.interpreted) === signature(candidate.interpreted) &&
+    signature(initial.compiled) === signature(candidate.compiled)
+  );
 }

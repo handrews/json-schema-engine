@@ -29,6 +29,7 @@ import {
   outcomesAgree,
   describeOutcome,
   minimizeDivergence,
+  sameListDivergenceClass,
   subjectFromFactory,
   type DifferentialFactory,
 } from "@jse/test-kit";
@@ -181,7 +182,14 @@ function main(): void {
       if (!outcomesAgree(a, b)) {
         divergences++;
         const subject = subjectFromFactory(factory);
-        const min = minimizeDivergence(subject, group.schema, instance);
+        // List witnesses must keep their divergence class while shrinking,
+        // or a real error-content bug minimizes into an unrelated tier gap.
+        const min = minimizeDivergence(
+          subject,
+          group.schema,
+          instance,
+          LIST_MODE ? { sameDivergence: sameListDivergenceClass } : {},
+        );
         console.error(
           `\nDIVERGENCE ${file} group ${String(gi)} case ${String(ci)}\n` +
             `  seed=0x${SEED.toString(16)} deriveSeed(${String(SEED)}, ${String(fi)}, ${String(gi)}) caseIndex=${String(ci)}\n` +
