@@ -12,9 +12,6 @@ import { DEFAULT_MAX_DEPTH, MaxDepthExceededError } from "./registry.js";
 
 /**
  * One schema position visited by {@link walkSchema}.
- *
- * @alpha Introduced for adapter consumption (M8.6); shape may change before
- * the first published release.
  */
 export interface SchemaWalkVisit {
   /** The value in schema position: an object or a boolean. */
@@ -34,8 +31,6 @@ export interface SchemaWalkVisit {
  * `analyze()` rejects them — unknown keywords' values are never descended.
  * Nesting beyond `maxDepth` still throws {@link MaxDepthExceededError}: the
  * depth bound is a security posture, not a validity judgment.
- *
- * @alpha
  */
 export function walkSchema(
   schema: JsonValue,

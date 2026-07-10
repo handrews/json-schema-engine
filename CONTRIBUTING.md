@@ -58,8 +58,28 @@ works locally but fails `npm ci` on Linux CI with
 | `npm run format:check` | Prettier check (CI gate)                             |
 | `npm run bench`        | F1 spike benchmark; oracle-gated (see DESIGN.md D12) |
 | `npm run docs:api`     | Generate `docs/reference/` from TSDoc comments       |
+| `npm run build`        | `tsc -b`: dist/ js + d.ts for publishable packages   |
+| `npm run pack:check`   | Publication gate: offline tarball install + smoke    |
 
 CI runs check-types, lint, format:check, test, and docs:api on every push.
+
+## Package resolution and publication shape
+
+`package.json` exports are publication-first: `types`/`default` point at
+`dist/`, and in-repo development resolves TS source through the custom
+`jse-source` condition (root tsconfig `customConditions`, vitest
+`resolve.conditions`, `tsx --conditions=jse-source` in npm scripts). A
+new execution surface that imports `@jse/*` by package name must enable
+that condition or it will resolve — and possibly miss — `dist/`.
+
+Packages stay `private: true` at version `0.0.0` deliberately: `npm pack`
+works (that is the supported consumption path), `npm publish` is blocked.
+Nothing may be published or pushed to any external registry.
+
+**Consuming from sibling projects:** run `npm run build`, then install
+tarballs produced by `npm pack -w packages/<name>` (npm does not reliably
+run prepare scripts for `file:` directory dependencies, so prefer
+tarballs over directory links).
 
 ## Conformance testing
 

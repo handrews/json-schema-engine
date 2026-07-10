@@ -386,9 +386,6 @@ export function renderList(
  * subtrees that ultimately passed — adapters need those to reconstruct
  * application context (e.g. which `anyOf` branches an error competed
  * against) without parsing location strings.
- *
- * @alpha Introduced for adapter consumption (M8.6); shape may change before
- * the first published release.
  */
 export interface TraceUnit {
   /**

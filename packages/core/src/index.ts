@@ -209,8 +209,6 @@ export interface EvaluateOptions {
    * deferred register tracks a typed warning for list-only options ignored
    * on other outputs). Rendering-only: list evaluation already records the
    * trace.
-   *
-   * @alpha
    */
   trace?: boolean;
 }
@@ -231,8 +229,6 @@ export interface Result {
   /**
    * The evaluation trace, present with `trace: true` on `output: "list"`.
    * `errorIndexes` in the tree reference `errors` on this same result.
-   *
-   * @alpha
    */
   trace?: TraceUnit;
 }

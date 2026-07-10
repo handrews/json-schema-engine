@@ -405,7 +405,8 @@ draft-04 entry (M9 — the image would need the dialect package).
 **Status note (M8.6 ajv-compat hardening, completed 2026-07-09):** all
 three workstreams landed in nine local commits, every gate green per
 commit. (a) Trace-based error adapter: core exports `TraceUnit` +
-`trace: true` on list output and `walkSchema` (both `@alpha`; rendering
+`trace: true` on list output and `walkSchema` (`@alpha` until the M9a
+stabilization pass, 2026-07-10; rendering
 only — list evaluation already recorded the trace). The four string
 heuristics (NAME_POSITION/keywordPositions filtering, unitSchemaPrefix,
 instanceDescents) are deleted; filtering and companion synthesis walk
