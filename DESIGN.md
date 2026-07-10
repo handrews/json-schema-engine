@@ -673,10 +673,13 @@ Five local commits, every gate green per commit:
   gate; CI uploads results as an artifact.
 - **M9b (open, owner-gated):** final npm scope/name decision, version
   bump, `private` flip, `npm publish`; Bowtie PR + bowtie.report
-  listing (owner submits personally). The predicted first-CI-run tweak
-  materialized: the runner image's newer npm blocked esbuild's install
-  script inside the harness image, so the image now runs built dist
-  under plain node with no in-container package manager (2026-07-10).
+  listing (owner submits personally). The predicted first-CI-run tweaks
+  materialized (2026-07-10): the harness image now runs built dist under
+  plain node with no in-container package manager, and — the actual
+  startup-failed cause — bowtie-check builds the image into the backend
+  bowtie's Docker-API socket serves (dockerd on runners; podman's compat
+  socket on a podman-machine macOS), since bowtie never shells out to a
+  container CLI and podman-built images are invisible to dockerd.
 
 Deferred register (for continuity): compiled annotation
 collection (channel frames), list-mode standalone, Runtime

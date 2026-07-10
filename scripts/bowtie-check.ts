@@ -45,7 +45,25 @@ const which = (cmd: string): string | undefined => {
   }
 };
 
-const containerTool = which("podman") ?? which("docker");
+// Bowtie itself speaks the Docker API at DOCKER_HOST (default
+// /var/run/docker.sock) via aiodocker — it never shells out to a CLI — so
+// the image must be built into whatever backend serves that socket. On
+// GitHub runners that is dockerd (a podman-built image is invisible to it,
+// which surfaced as bowtie "startup-failed"); on a podman-machine macOS the
+// socket is podman's Docker-compat socket. Preferring a REACHABLE docker
+// daemon aligns the build with bowtie's view in both environments.
+const containerTool = (() => {
+  const docker = which("docker");
+  if (docker) {
+    try {
+      execFileSync(docker, ["info"], { env, stdio: "ignore" });
+      return docker;
+    } catch {
+      // docker CLI present but no reachable daemon — fall through.
+    }
+  }
+  return which("podman");
+})();
 const bowtie = which("bowtie");
 if (!containerTool || !bowtie) {
   console.error(
