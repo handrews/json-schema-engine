@@ -21,6 +21,7 @@ jobs:
       - run: npm run lint
       - run: npm run format:check
       - run: npm test
+      - run: npm run coverage
       - run: npm run docs:api
       - run: npm run csp:check
       - run: FUZZ_BUDGET=5000 npm run fuzz

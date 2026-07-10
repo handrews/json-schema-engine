@@ -1,6 +1,7 @@
 node_modules/
 test-suite/
 docs/reference/
+coverage/
 package-lock.json
 
 # Vendored spec artifacts — must stay byte-verbatim.
