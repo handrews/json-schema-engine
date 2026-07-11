@@ -643,6 +643,13 @@ export class Ajv {
     const listArtifact: { current: CompiledListArtifact | null } = {
       current: null,
     };
+    // One shared list artifact per (engine, uri): the coercion pass and the
+    // error path both draw from it, built lazily on first use. It binds the
+    // registry at build time, the same caveat the flag artifact carries.
+    const getListArtifact = (): CompiledListArtifact =>
+      (listArtifact.current ??= compileList(engine, uri, {
+        errorParams: true,
+      }));
     const flagArtifact = compileValidator(engine, uri);
     const rootBase = engine.registry.rootRef(uri).baseUri;
     const resolveSchema = (location: string): JsonValue | undefined => {
@@ -673,7 +680,14 @@ export class Ajv {
         // only changes the validated value, never the caller's binding
         // (fixture: coerce-top-level-scalar).
         const holder = { value: data };
-        runMutationFixpoint(engine, uri, holder, mutations, resolveSchema);
+        runMutationFixpoint(
+          engine,
+          uri,
+          holder,
+          mutations,
+          resolveSchema,
+          getListArtifact,
+        );
         instance = holder.value;
       }
       const flagValid = interpretOnly
@@ -695,10 +709,7 @@ export class Ajv {
         errors = traced.errors!;
         trace = traced.trace;
       } else {
-        listArtifact.current ??= compileList(engine, uri, {
-          errorParams: true,
-        });
-        ({ errors } = listArtifact.current.evaluateList(instance));
+        ({ errors } = getListArtifact().evaluateList(instance));
         assertTierAgreement(flagValid, errors);
         if (needsTrace(errors)) {
           // Context-dependent failures escalate to the interpreter — the

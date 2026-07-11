@@ -19,6 +19,7 @@
 
 import { unescapeSegment } from "@jse/core";
 import type { Engine, ErrorUnit, JsonValue, OutputUnit } from "@jse/core";
+import type { CompiledListArtifact } from "@jse/compiler";
 import { getAtPointer, joinPointer, segments } from "./pointer.js";
 
 export interface MutationOptions {
@@ -219,7 +220,10 @@ const typeMatches = (t: string, v: JsonValue): boolean => {
 /**
  * Applies the configured mutations until the instance stops changing.
  * `resolveSchema` returns the schema node at a `base#pointer` location
- * (the compat class owns the schema documents).
+ * (the compat class owns the schema documents). `getListArtifact` yields
+ * the shared compiled list validator; the coercion pass runs on plain data
+ * only (the caller routes non-plain instances wholly to the interpreter
+ * before reaching here), so the artifact's plain-data contract holds.
  */
 export function runMutationFixpoint(
   engine: Engine,
@@ -227,6 +231,7 @@ export function runMutationFixpoint(
   root: RootHolder,
   options: MutationOptions,
   resolveSchema: (location: string) => JsonValue | undefined,
+  getListArtifact: () => CompiledListArtifact,
 ): void {
   for (let pass = 0; pass < MAX_PASSES; pass++) {
     let changed = false;
@@ -295,17 +300,12 @@ export function runMutationFixpoint(
     }
 
     if (options.coerceTypes !== undefined && options.coerceTypes !== false) {
-      const result = engine.evaluate(uri, root.value, {
-        output: "list",
-        errorParams: true,
-      });
-      if (!result.valid) {
+      // Compiled list tier: `errors` is always present (empty on valid).
+      const { valid, errors } = getListArtifact().evaluateList(root.value);
+      if (!valid) {
         changed =
-          applyCoercions(
-            result.errors ?? [],
-            root,
-            options.coerceTypes === "array",
-          ) || changed;
+          applyCoercions(errors, root, options.coerceTypes === "array") ||
+          changed;
       }
     }
 
