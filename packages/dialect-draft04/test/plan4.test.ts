@@ -1,7 +1,9 @@
 // Plan-classification census for the draft-04 dialect (M6.6): every group
 // schema in the official draft4 suite (remotes resolved, same loader as
 // suite4.test.ts) builds a plan pinned to exact counts — zero interpreted
-// units at all. This is the direct evidence that draft-04's vocabulary —
+// units at all under the annotation-only format default (no formats table,
+// no assertFormats; format4-compiled.test.ts covers the asserting posture
+// separately). This is the direct evidence that draft-04's vocabulary —
 // the harvested draft-07 behaviors plus this package's own minimum/maximum
 // lower() and the inert structural() lower() — is fully capable, and the
 // exact pins make a silent static→interpreted regression loud (interpreted

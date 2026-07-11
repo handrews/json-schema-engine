@@ -3,8 +3,9 @@
 // pin as suite4.test.ts's interpreter leg — every group registers as
 // always, but the verdict comes from compileValidator(...).validate(instance)
 // instead of engine.evaluate(...).valid. Now that draft-04's own
-// minimum/maximum carry lower(), every keyword in this package's vocabulary
-// is compilable, so this run's totals must match the interpreter leg's
+// minimum/maximum carry lower(), every keyword this engine construction
+// exercises (no formats table, so `format` stays annotation-only) is
+// compilable, so this run's totals must match the interpreter leg's
 // exactly, with zero skips.
 
 import { describe, it, expect } from "vitest";
