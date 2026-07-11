@@ -42,10 +42,15 @@ instances, 2,199 annotation units order-compared, Basic side,
 retention matrix, planted self-tests), the annotations fuzz leg
 (`FUZZ_ANNOTATIONS=1`, sensitivity + planted self-tests, CI smoke),
 and plan-identity asserts. Zero divergences surfaced in stage 2's
-gates. Remaining: stage 3 bench (a compiled list+annotations subject
-in bench/harness.ts), and one recorded pre-existing caveat — dialects
-with `allowUnknownKeywords: false` throw in the interpreter but are
-silently ignored by every compiled tier, annotation mode included.
+gates. Stage 3 (bench): the harness gained a compiled
+list+annotations subject with an annotations deep-equality oracle
+before timing — compiled collection measures ~29× (api-payload) and
+~35× (migration) over interpreted collection, and interpreter-parity
+on oas-document, whose root-level consumer trampolines the whole plan
+(the COMPILED-CONSUMERS.md case). One recorded pre-existing caveat
+remains — dialects with `allowUnknownKeywords: false` throw in the
+interpreter but are silently ignored by every compiled tier,
+annotation mode included.
 
 ## 1. What already exists
 

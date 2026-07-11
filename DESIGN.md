@@ -264,17 +264,25 @@ artifacts run all branches so the error multiset matches the interpreter
 exactly. The lowering IR's `combine` is eager by definition; short-circuit
 is a licensed serializer optimization, never an IR semantic.
 
-**Compiled-output scope (amended post-M6, D9e delivered).** Compiled
-artifacts serve flag, flat error lists (`compileList` — interpreter-exact
-units, same order; list artifacts never short-circuit and run every
-branch), and the 2020-12 Basic document's error side. Compiled
-**annotation** collection would require channel frames in emitted code and
-stays on the interpreter (the Basic adapter omits `annotations` on valid
-instances; the per-output-config artifact key makes the interpreter a clean
-fallback). Modern-vocabulary LIST documents and all hierarchical/verbose
-documents are trace-shaped (renderList flattens renderHierarchical over the
+**Compiled-output scope (amended 2026-07-10, annotation collection
+delivered).** Compiled artifacts serve flag, flat error lists
+(`compileList` — interpreter-exact units, same order; list artifacts
+never short-circuit and run every branch), the 2020-12 Basic document,
+and flat annotation collection (`compileList` `collectAnnotations` +
+retention): produce IR renders into an annotation array with
+mark/truncate at every application boundary — channel rule 3 as
+contiguous-span discard, sound because application nesting is LIFO —
+retention allow/deny lists elide statically at serialize time (the
+per-output-config artifact key, D5), the `keep` predicate runs at the
+wrapper per output surface, and islands harvest their root-frame
+survivors through the annotation trampoline. Channel frames stay
+unnecessary because compiled code never CONSUMES productions (consumer
+units remain interpreted; COMPILED-CONSUMERS.md holds that design).
+Modern-vocabulary LIST documents and all hierarchical/verbose documents
+are trace-shaped (renderList flattens renderHierarchical over the
 trace) and stay on the interpreter. D9e is realized in list emission:
-error-unit objects and message strings materialize only on failure paths.
+error-unit objects and message strings materialize only on failure
+paths; annotation units materialize on success paths by definition.
 
 **Plain-data instance contract (M6.5).** Compiled artifacts assume the
 instance is plain JSON data — the output of `JSON.parse` or equivalent —
@@ -682,7 +690,9 @@ Five local commits, every gate green per commit:
   container CLI and podman-built images are invisible to dockerd.
 
 Deferred register (for continuity): compiled annotation
-collection (channel frames), list-mode standalone, Runtime
+collection — flat-list surface DELIVERED 2026-07-10
+(COMPILED-ANNOTATIONS.md stages 1–3); channel frames for compiled
+consumers remain (COMPILED-CONSUMERS.md) — list-mode standalone, Runtime
 format-table lowering, D9d thresholds, island re-entry, ajv-keywords
 transform/dynamicDefaults, code.source mapping, hyperjump-compat shim,
 idna.ts second-'--' owner review (above). Added at M10 (2026-07-08):
