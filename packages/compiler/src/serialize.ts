@@ -563,6 +563,7 @@ class UnitContext {
       instance: { kind: "instance" },
       schema: unit.ref.node as Record<string, JsonValue>,
       staticCoverage: () => unit.coverage,
+      runtimeCoverage: () => false,
       emit: (...s) => stmts.push(...s),
       binding: () => this.counters.binding++,
     };
@@ -770,6 +771,12 @@ class UnitContext {
         if (this.annMode && this.annKwKept)
           return this.produceStatement(stmt.value);
         return js``;
+      case "coverageFold":
+        // Runtime coverage (phase B) has no serializer emission yet; consumer
+        // keywords never emit this while runtimeCoverage() is false.
+        throw new SerializeError(
+          "coverageFold requires runtime coverage emission (phase B)",
+        );
       case "apply":
         return this.applyStatement(stmt.apply);
       case "combineCheck":
@@ -1221,6 +1228,12 @@ class UnitContext {
         // apply is not consulted here (it governs how a wrapping statement
         // uses the value, not how the call itself is rendered).
         return this.applyCall(e.apply);
+      case "coverageCovers":
+        // Runtime coverage (phase B) has no serializer emission yet; consumer
+        // keywords never emit this while runtimeCoverage() is false.
+        throw new SerializeError(
+          "coverageCovers requires runtime coverage emission (phase B)",
+        );
     }
   }
 

@@ -45,6 +45,50 @@ export const unevaluatedProperties: KeywordBehavior = {
   // object as interpreted when any coverage contributor is dynamic, so
   // lower() is never called with a null coverage.
   lower: (_value, lctx) => {
+    // Runtime-coverage path (phase B activates it): fold the unit's runtime
+    // channel into an evaluated-name set and sweep the names it does not
+    // cover, mirroring evaluate()'s seen-set skip. The object-gated
+    // collectedNames produce is the same one the static path emits — its
+    // attempted-apply accumulator is exactly the interpreter's `matched`.
+    if (lctx.runtimeCoverage()) {
+      const f = lctx.binding();
+      const b = lctx.binding();
+      lctx.emit(
+        lowerIR.when(lowerIR.typeIs(lctx.instance, "object"), [
+          { kind: "coverageFold", half: "names", binding: f },
+          {
+            kind: "forEachKey",
+            target: lctx.instance,
+            binding: b,
+            body: [
+              lowerIR.when(
+                lowerIR.not({
+                  kind: "coverageCovers",
+                  fold: f,
+                  target: { kind: "binding", id: b },
+                }),
+                [
+                  {
+                    kind: "apply",
+                    apply: {
+                      path: [],
+                      cursor: {
+                        kind: "child",
+                        of: { kind: "here" },
+                        segment: { kind: "binding", id: b },
+                      },
+                      fold: "allMustPass",
+                    },
+                  },
+                ],
+              ),
+            ],
+          },
+          { kind: "produce", value: { kind: "collectedNames" } },
+        ]),
+      );
+      return;
+    }
     const coverage = lctx.staticCoverage();
     if (coverage === null) {
       throw new Error(
@@ -151,6 +195,54 @@ export const unevaluatedItems: KeywordBehavior = {
   // sibling `contains`, whose coverage is instance-dependent), so lower() is
   // never called with a null/incomplete coverage.
   lower: (_value, lctx) => {
+    // Runtime-coverage path (phase B activates it): fold the unit's runtime
+    // channel into a coveredPrefix/coveredIdx summary over this array's
+    // length and sweep the indexes it does not cover, mirroring evaluate()'s
+    // skip loop. The appliedTrue produce is the same one the static path
+    // emits (any attempted apply -> true, the interpreter's `applied` flag).
+    if (lctx.runtimeCoverage()) {
+      const f = lctx.binding();
+      const b = lctx.binding();
+      lctx.emit(
+        lowerIR.when(lowerIR.typeIs(lctx.instance, "array"), [
+          { kind: "coverageFold", half: "indexes", binding: f },
+          {
+            kind: "forEachIndex",
+            target: lctx.instance,
+            binding: b,
+            start: 0,
+            body: [
+              lowerIR.when(
+                lowerIR.not({
+                  kind: "coverageCovers",
+                  fold: f,
+                  target: { kind: "binding", id: b },
+                }),
+                [
+                  {
+                    kind: "apply",
+                    apply: {
+                      path: [],
+                      cursor: {
+                        kind: "child",
+                        of: { kind: "here" },
+                        segment: { kind: "binding", id: b },
+                      },
+                      fold: "allMustPass",
+                    },
+                  },
+                ],
+              ),
+            ],
+          },
+          {
+            kind: "produce",
+            value: { kind: "collectedIndexes", render: "appliedTrue" },
+          },
+        ]),
+      );
+      return;
+    }
     const coverage = lctx.staticCoverage();
     if (coverage === null) {
       throw new Error(

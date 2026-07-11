@@ -94,7 +94,20 @@ export type LowerExpr =
    * `exactlyOne`), while a bare `applyExpr` used purely for its value (e.g.
    * as a `forEachIndex` counter guard) carries `fold: "discard"`.
    */
-  | { readonly kind: "applyExpr"; readonly apply: LowerApply };
+  | { readonly kind: "applyExpr"; readonly apply: LowerApply }
+  /**
+   * True when the folded coverage bound by a preceding `coverageFold`
+   * (identified by `fold`, its binding id) covers `target` — the swept
+   * property name (names half: set membership) or array index (indexes half:
+   * index below coveredPrefix, or index in coveredIdx). The consumer keyword's
+   * runtime sweep applies its subschema exactly where this is false, matching
+   * the interpreter's "skip already-evaluated" loop.
+   */
+  | {
+      readonly kind: "coverageCovers";
+      readonly fold: number;
+      readonly target: LowerExpr;
+    };
 
 /**
  * The closed set of runtime helpers emitted code may call. All are imported
@@ -144,6 +157,23 @@ export type LowerStmt =
     }
   /** emit this keyword's production (channel rule 2) */
   | { readonly kind: "produce"; readonly value: LowerProduceValue }
+  /**
+   * Bind the folded coverage of the unit's runtime channel (consumer
+   * keywords only). The serializer supplies the channel — the flat array of
+   * raw production values from consumed producers, merged with mark/truncate
+   * at application boundaries — and folds it per `half`: "names" yields the
+   * evaluated-name set (foldNameCoverage), "indexes" yields the coveredPrefix/
+   * coveredIdx summary over the CURRENT instance array's length
+   * (foldIndexCoverage). The result is held in `binding` for a following
+   * `coverageCovers` to test. The compiled tier's alternative to
+   * `staticCoverage()`: emitted only when the planner licensed runtime
+   * evaluated-set tracking (LoweringContext.runtimeCoverage()).
+   */
+  | {
+      readonly kind: "coverageFold";
+      readonly half: "names" | "indexes";
+      readonly binding: number;
+    }
   /**
    * Apply a subschema and fold its verdict into the keyword verdict per
    * `fold`. EAGER combine semantics (header note 2). `apply.cursor`
@@ -308,6 +338,13 @@ export interface LoweringContext {
     prefixCount: number;
     coversAllIndexes: boolean;
   } | null;
+  /**
+   * True when the planner licensed RUNTIME evaluated-set tracking for this
+   * unit's consumer keywords: coverage flows through the unit's runtime
+   * channel and the keyword must emit coverageFold/coverageCovers instead of
+   * reading staticCoverage(). Exactly one of the two paths applies.
+   */
+  runtimeCoverage(): boolean;
   /** append statements to the keyword's lowered body */
   emit(...stmts: LowerStmt[]): void;
   /** allocate a loop binding id for forEachKey/forEachIndex */

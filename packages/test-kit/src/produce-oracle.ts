@@ -115,6 +115,7 @@ export function evaluateProduceRecipes(
       instance: { kind: "instance" },
       schema: node,
       staticCoverage: () => unit.coverage,
+      runtimeCoverage: () => false,
       emit: (...s) => stmts.push(...s),
       binding: () => bindingCounter++,
     };

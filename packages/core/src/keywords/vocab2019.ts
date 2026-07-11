@@ -361,6 +361,52 @@ const unevaluatedItems2019: KeywordBehavior = {
   // per-index coveredIdx set evaluate() tracks (that set is populated only
   // from a dynamic `contains` match list, which forces interpretation).
   lower: (_value, lctx) => {
+    // Runtime-coverage path (phase B activates it): same shape as 2020-12
+    // unevaluatedItems — fold the channel into a coveredPrefix/coveredIdx
+    // summary over this array's length and sweep the uncovered indexes.
+    if (lctx.runtimeCoverage()) {
+      const f = lctx.binding();
+      const b = lctx.binding();
+      lctx.emit(
+        lowerIR.when(lowerIR.typeIs(lctx.instance, "array"), [
+          { kind: "coverageFold", half: "indexes", binding: f },
+          {
+            kind: "forEachIndex",
+            target: lctx.instance,
+            binding: b,
+            start: 0,
+            body: [
+              lowerIR.when(
+                lowerIR.not({
+                  kind: "coverageCovers",
+                  fold: f,
+                  target: { kind: "binding", id: b },
+                }),
+                [
+                  {
+                    kind: "apply",
+                    apply: {
+                      path: [],
+                      cursor: {
+                        kind: "child",
+                        of: { kind: "here" },
+                        segment: { kind: "binding", id: b },
+                      },
+                      fold: "allMustPass",
+                    },
+                  },
+                ],
+              ),
+            ],
+          },
+          {
+            kind: "produce",
+            value: { kind: "collectedIndexes", render: "appliedTrue" },
+          },
+        ]),
+      );
+      return;
+    }
     const coverage = lctx.staticCoverage();
     if (coverage === null) {
       throw new Error(
@@ -459,6 +505,48 @@ const unevaluatedProperties2019: KeywordBehavior = {
   // `additionalProperties` here are the shared 2020-12 behaviors
   // (applicator.ts), so their evaluatesNames facts are identical.
   lower: (_value, lctx) => {
+    // Runtime-coverage path (phase B activates it): same shape as 2020-12
+    // unevaluatedProperties — fold the channel into an evaluated-name set and
+    // sweep the names it does not cover.
+    if (lctx.runtimeCoverage()) {
+      const f = lctx.binding();
+      const b = lctx.binding();
+      lctx.emit(
+        lowerIR.when(lowerIR.typeIs(lctx.instance, "object"), [
+          { kind: "coverageFold", half: "names", binding: f },
+          {
+            kind: "forEachKey",
+            target: lctx.instance,
+            binding: b,
+            body: [
+              lowerIR.when(
+                lowerIR.not({
+                  kind: "coverageCovers",
+                  fold: f,
+                  target: { kind: "binding", id: b },
+                }),
+                [
+                  {
+                    kind: "apply",
+                    apply: {
+                      path: [],
+                      cursor: {
+                        kind: "child",
+                        of: { kind: "here" },
+                        segment: { kind: "binding", id: b },
+                      },
+                      fold: "allMustPass",
+                    },
+                  },
+                ],
+              ),
+            ],
+          },
+          { kind: "produce", value: { kind: "collectedNames" } },
+        ]),
+      );
+      return;
+    }
     const coverage = lctx.staticCoverage();
     if (coverage === null) {
       throw new Error(

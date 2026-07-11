@@ -148,6 +148,11 @@ export type {
   LowerStmt,
   LoweringContext,
 } from "./lowering.js";
+export {
+  foldNameCoverage,
+  foldIndexCoverage,
+  harvestCoverage,
+} from "./coverage.js";
 export { RegexCache, defaultRegexEngine } from "./regex.js";
 export type {
   AnnotationUnit,
