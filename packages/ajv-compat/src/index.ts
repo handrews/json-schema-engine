@@ -33,6 +33,7 @@ import {
 import { mapErrors, needsTrace, type AjvErrorObject } from "./errors.js";
 import {
   anyMutation,
+  DYNAMIC_DEFAULTS,
   isPlainData,
   runMutationFixpoint,
   type MutationOptions,
@@ -44,7 +45,8 @@ import {
 } from "./discriminator.js";
 
 export type { AjvErrorObject } from "./errors.js";
-export { MutationNonConvergenceError } from "./mutate.js";
+export { MutationNonConvergenceError, DYNAMIC_DEFAULTS } from "./mutate.js";
+export type { DynamicDefaultFunc } from "./mutate.js";
 export type ErrorObject = AjvErrorObject;
 export { default as addFormats } from "./formats.js";
 export { default as ajvErrors } from "./ajv-errors.js";
@@ -189,6 +191,13 @@ export class Ajv {
   private readonly metaDocs = new Map<string, JsonValue>();
   private readonly customFormats = new Map<string, Format>();
   private readonly customKeywords = new Map<string, KeywordDefinition>();
+  /**
+   * ajv-keywords transform/dynamicDefaults activation (M8.3 follow-on).
+   * These are mutation-fixpoint passes (mutate.ts), NOT engine keywords, so
+   * they live here rather than in customKeywords: strict mode treats them as
+   * known when active, and makeValidate reads this to build MutationOptions.
+   */
+  private readonly mutatingKeywords = new Set<string>();
   private engineCache: Engine | null = null;
   private readonly compiledByObject = new WeakMap<object, CompiledEntry>();
   private readonly compiledByRef = new Map<string, CompiledEntry>();
@@ -438,7 +447,9 @@ export class Ajv {
     if (def.modifying === true) {
       throw new AjvCompatUnsupportedError(
         `modifying keyword "${names.join(",")}"`,
-        "arrives with the mutation milestone (M8.3)",
+        "data mutation is delivered (coerceTypes/useDefaults/removeAdditional " +
+          "and ajv-keywords transform/dynamicDefaults), but mutation from " +
+          "arbitrary custom keywords remains out of scope",
       );
     }
     if (def.macro !== undefined) {
@@ -488,6 +499,17 @@ export class Ajv {
     ) => AjvErrorObject[],
   ): void {
     this.errorPostProcessor = processor;
+  }
+
+  /**
+   * ajv-keywords' transform/dynamicDefaults activation hook (see
+   * ajv-keywords.ts). Records the keyword as a known mutation pass and
+   * invalidates cached compiles so a subsequent compile picks it up —
+   * previously compiled validators are snapshots, unaffected until recompile.
+   */
+  activateMutatingKeyword(name: "transform" | "dynamicDefaults"): void {
+    this.mutatingKeywords.add(name);
+    this.invalidate();
   }
 
   // ---- internals -----------------------------------------------------------
@@ -583,6 +605,7 @@ export class Ajv {
 
   private compileAt(schema: JsonValue, key?: string): ValidateFunction {
     this.strictSchemaCheck(schema);
+    this.checkMutatingKeywordSchema(schema);
     if (this.opts.discriminator === true) {
       // Same eager timing as AJV: discriminator's structural requirements
       // throw from compile(), before any data is validated (oracle:
@@ -665,6 +688,8 @@ export class Ajv {
       coerceTypes: opts.coerceTypes,
       useDefaults: opts.useDefaults,
       removeAdditional: opts.removeAdditional,
+      transform: this.mutatingKeywords.has("transform"),
+      dynamicDefaults: this.mutatingKeywords.has("dynamicDefaults"),
     };
     const mutating = anyMutation(mutations);
     const fn = ((data: JsonValue): boolean => {
@@ -762,6 +787,7 @@ export class Ajv {
     const dialect = this.engine().dialects.getDialect(this.dialectUri());
     const known = new Set(dialect.ordered.map((e) => e.name));
     for (const name of this.customKeywords.keys()) known.add(name);
+    for (const name of this.mutatingKeywords) known.add(name);
     if (this.opts.discriminator === true) known.add("discriminator");
     if (this.errorPostProcessor !== undefined) known.add("errorMessage");
     const formats = this.formatTable();
@@ -787,6 +813,75 @@ export class Ajv {
         }
       }
     });
+  }
+
+  /**
+   * Eager compile-time validation for the mutating companions, matching
+   * AJV's throws (which happen before any data is seen). Only the active
+   * keyword is checked. A raw recursive walk of the registered document's
+   * own nodes covers every pinned case; nodes reachable only through a
+   * `$ref` into another document are not scanned (documented limitation) —
+   * the same conservative scope the local discriminator checker takes.
+   */
+  private checkMutatingKeywordSchema(schema: JsonValue): void {
+    if (this.mutatingKeywords.size === 0) return;
+    const checkTransform = this.mutatingKeywords.has("transform");
+    const checkDynamic = this.mutatingKeywords.has("dynamicDefaults");
+    const generatorName = (spec: JsonValue): string | undefined => {
+      if (typeof spec === "string") return spec;
+      if (typeof spec === "object" && spec !== null && !Array.isArray(spec)) {
+        const func = (spec as Record<string, JsonValue>).func;
+        if (typeof func === "string") return func;
+      }
+      return undefined;
+    };
+    const visit = (node: JsonValue): void => {
+      if (Array.isArray(node)) {
+        for (const item of node) visit(item);
+        return;
+      }
+      if (typeof node !== "object" || node === null) return;
+      const obj = node as Record<string, JsonValue>;
+      if (
+        checkTransform &&
+        Array.isArray(obj.transform) &&
+        obj.transform.includes("toEnumCase")
+      ) {
+        if (!Array.isArray(obj.enum)) {
+          throw new Error('transform: "toEnumCase" requires "enum"');
+        }
+        const seen = new Set<string>();
+        for (const member of obj.enum) {
+          if (typeof member !== "string") continue;
+          const lower = member.toLowerCase();
+          if (seen.has(lower)) {
+            throw new Error(
+              'transform: "toEnumCase" requires all lowercased "enum" values to be unique',
+            );
+          }
+          seen.add(lower);
+        }
+      }
+      if (
+        checkDynamic &&
+        typeof obj.dynamicDefaults === "object" &&
+        obj.dynamicDefaults !== null &&
+        !Array.isArray(obj.dynamicDefaults)
+      ) {
+        for (const spec of Object.values(
+          obj.dynamicDefaults as Record<string, JsonValue>,
+        )) {
+          const name = generatorName(spec);
+          if (name === undefined || !Object.hasOwn(DYNAMIC_DEFAULTS, name)) {
+            throw new Error(
+              `invalid "dynamicDefaults" keyword property value: ${name ?? JSON.stringify(spec)}`,
+            );
+          }
+        }
+      }
+      for (const value of Object.values(obj)) visit(value);
+    };
+    visit(schema);
   }
 }
 

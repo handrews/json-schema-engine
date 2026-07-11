@@ -21,6 +21,7 @@ import {
   type Options,
   type ValidateFunction,
 } from "../src/index.js";
+import ajvKeywords from "../src/ajv-keywords.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SUITE_DIR = join(
@@ -139,6 +140,105 @@ describe("mutation idempotence over the suite corpus", () => {
             `data idempotence at ${at}`,
           ).toBe(true);
         });
+      });
+    });
+  });
+
+  // The transform / dynamicDefaults passes join the same idempotence
+  // property: one validate() reaches a fixpoint, so re-validating the mutated
+  // data changes nothing and returns the same verdict. Both are safe by
+  // construction (transform ops converge, dynamicDefaults is absent-only);
+  // this leg proves it end-to-end. seq names are unique to this file so the
+  // module-global counter never collides with the fixture-consuming test.
+  const KEYWORD_CORPUS: {
+    keyword: "transform" | "dynamicDefaults";
+    options: Options;
+    schema: JsonValue;
+    seeds: JsonValue[];
+  }[] = [
+    {
+      keyword: "transform",
+      options: {},
+      schema: {
+        type: "object",
+        properties: {
+          a: { type: "string", transform: ["trim", "toUpperCase"] },
+          b: {
+            type: "string",
+            transform: ["trim", "toEnumCase"],
+            enum: ["pH"],
+          },
+        },
+      },
+      seeds: [
+        { a: "  hi  ", b: " ph " },
+        { a: "X", b: "PH" },
+        { a: 42, b: null },
+        {},
+      ],
+    },
+    {
+      keyword: "transform",
+      options: { coerceTypes: true },
+      schema: {
+        type: "object",
+        properties: { s: { type: "string", transform: ["trim"] } },
+      },
+      seeds: [{ s: 42 }, { s: "  x  " }, { s: true }, {}],
+    },
+    {
+      keyword: "dynamicDefaults",
+      options: { useDefaults: true },
+      schema: {
+        type: "object",
+        dynamicDefaults: {
+          id: { func: "seq", args: { name: "prop-seq-a" } },
+          r: "random",
+          ts: "timestamp",
+        },
+        properties: { id: { type: "integer" } },
+      },
+      seeds: [{}, { id: 999 }, { id: 5, r: 0.5 }],
+    },
+    {
+      keyword: "dynamicDefaults",
+      options: { useDefaults: "empty" },
+      schema: {
+        type: "object",
+        dynamicDefaults: {
+          a: { func: "seq", args: { name: "prop-seq-b" } },
+          b: "datetime",
+        },
+        properties: {},
+      },
+      seeds: [{ a: null, b: "" }, { a: 0, b: false }, {}],
+    },
+  ];
+
+  KEYWORD_CORPUS.forEach((entry, idx) => {
+    it(`idempotence: ${entry.keyword} #${String(idx)}`, () => {
+      const ajv = new Ajv2020({ ...entry.options, logger: false });
+      ajvKeywords(ajv, entry.keyword);
+      const fn = ajv.compile(entry.schema);
+      const prng = new Prng(deriveSeed(SEED, 9999, idx));
+      const pool = instancePool(prng, entry.seeds, 4);
+      pool.forEach((instance, instanceIdx) => {
+        const at = `${entry.keyword} #${String(idx)} instance ${String(instanceIdx)}`;
+        const first = runOnce(fn, instance);
+        expect(first.kind, `first run must not diverge at ${at}`).toBe(
+          "verdict",
+        );
+        if (first.kind !== "verdict") return;
+        const second = runOnce(fn, first.data);
+        expect(second.kind, `second run must not diverge at ${at}`).toBe(
+          "verdict",
+        );
+        if (second.kind !== "verdict") return;
+        expect(second.valid, `verdict stability at ${at}`).toBe(first.valid);
+        expect(
+          jsonEqual(second.data, first.data),
+          `data idempotence at ${at}`,
+        ).toBe(true);
       });
     });
   });

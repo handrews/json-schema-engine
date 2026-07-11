@@ -6,10 +6,10 @@
 // error shape, which the oracle showed is uniformly `{}` params and
 // `must pass "<name>" keyword validation`; see
 // test/oracle/capture-companions.ts's `ajv-keywords-*` cases).
-// transform/dynamicDefaults mutate data (the M8.3 mutation-trio milestone
-// territory); select/selectCases/selectDefault need $data (excluded by
-// design, see AjvCompatUnsupportedError for $data elsewhere). Both name
-// families raise AjvCompatUnsupportedError pointing at the right one.
+// transform/dynamicDefaults mutate data — delivered as mutation-fixpoint
+// passes (mutate.ts) and activated on the instance here;
+// select/selectCases/selectDefault need $data (excluded by design, see
+// AjvCompatUnsupportedError for $data elsewhere) and still raise it.
 
 import type { JsonValue } from "@jse/core";
 import type { Ajv, KeywordDefinition } from "./index.js";
@@ -91,7 +91,10 @@ const SUPPORTED: Readonly<Record<string, KeywordDefinition>> = {
   prohibited: prohibitedKeyword,
 };
 
-const MUTATION_TRIO_NAMES = new Set(["transform", "dynamicDefaults"]);
+// transform/dynamicDefaults are delivered as mutation-fixpoint passes
+// (mutate.ts), activated on the instance rather than registered as engine
+// keywords — the core is a pure validator, so it cannot mutate mid-evaluate.
+const MUTATING_NAMES = new Set(["transform", "dynamicDefaults"]);
 const DATA_DEPENDENT_NAMES = new Set([
   "select",
   "selectCases",
@@ -99,9 +102,10 @@ const DATA_DEPENDENT_NAMES = new Set([
 ]);
 
 /**
- * ajv-keywords parity: registers the supported subset (default: all four).
- * Any other requested name raises AjvCompatUnsupportedError naming the
- * relevant follow-up (M8.3's mutation trio, or $data exclusion).
+ * ajv-keywords parity: registers the supported subset (default: all four
+ * pure keywords) and activates the mutating companions transform /
+ * dynamicDefaults. `select*` ($data-sourced) and unknown names raise
+ * AjvCompatUnsupportedError.
  */
 export default function ajvKeywords(
   ajv: Ajv,
@@ -119,11 +123,9 @@ export default function ajvKeywords(
       ajv.addKeyword(def);
       continue;
     }
-    if (MUTATION_TRIO_NAMES.has(name)) {
-      throw new AjvCompatUnsupportedError(
-        `ajv-keywords "${name}"`,
-        "data-modifying keywords arrive with the mutation milestone (M8.3)",
-      );
+    if (MUTATING_NAMES.has(name)) {
+      ajv.activateMutatingKeyword(name as "transform" | "dynamicDefaults");
+      continue;
     }
     if (DATA_DEPENDENT_NAMES.has(name)) {
       throw new AjvCompatUnsupportedError(

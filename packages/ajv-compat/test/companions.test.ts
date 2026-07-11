@@ -230,9 +230,17 @@ describe("ajvKeywords ≡ AJV oracle", () => {
     expect(validate.errors![0]!.keyword).toBe("prohibited");
   });
 
-  it("mutation-trio names raise AjvCompatUnsupportedError naming M8.3", () => {
+  it("transform/dynamicDefaults activate (no longer refused) and mutate", () => {
     const ajv = new Ajv2020({ logger: false });
-    expect(() => ajvKeywords(ajv, "transform")).toThrow(/M8\.3/);
+    expect(() => ajvKeywords(ajv, "transform")).not.toThrow();
+    expect(() => ajvKeywords(ajv, "dynamicDefaults")).not.toThrow();
+    const fn = ajv.compile({
+      type: "object",
+      properties: { v: { type: "string", transform: ["trim"] } },
+    });
+    const data = { v: "  x  " } as JsonValue;
+    expect(fn(data)).toBe(true);
+    expect(data).toEqual({ v: "x" });
   });
 
   it("$data-dependent names raise AjvCompatUnsupportedError", () => {
@@ -245,5 +253,41 @@ describe("ajvKeywords ≡ AJV oracle", () => {
     expect(() => ajvKeywords(ajv, "nope")).toThrow(
       /not part of the supported subset/,
     );
+  });
+
+  it("a custom modifying:true keyword is still refused (generic mutation out of scope)", () => {
+    const ajv = new Ajv2020({ logger: false });
+    expect(() => ajv.addKeyword({ keyword: "myMod", modifying: true })).toThrow(
+      /out of scope/,
+    );
+  });
+
+  it("activation is a compile-time snapshot; a fresh compile after it mutates", () => {
+    // strictSchema:false so a transform-bearing schema compiles BEFORE
+    // activation (transform present but inert) — this isolates the
+    // activation, not strict-mode keyword rejection.
+    const ajv = new Ajv2020({ logger: false, strictSchema: false });
+    const schema = {
+      type: "object",
+      properties: { v: { type: "string", transform: ["trim"] } },
+    };
+    const before = ajv.compile(schema);
+    const d1 = { v: "  a  " } as JsonValue;
+    expect(before(d1)).toBe(true);
+    expect(d1).toEqual({ v: "  a  " }); // inert: transform not active yet
+
+    ajvKeywords(ajv, "transform"); // activates + invalidates caches
+
+    // `before` is a compile-time snapshot: still non-mutating.
+    const d2 = { v: "  a  " } as JsonValue;
+    expect(before(d2)).toBe(true);
+    expect(d2).toEqual({ v: "  a  " });
+
+    // A fresh compile (equal-but-distinct object recompiles past the object
+    // cache) picks up the activation and mutates.
+    const after = ajv.compile(JSON.parse(JSON.stringify(schema)) as JsonValue);
+    const d3 = { v: "  a  " } as JsonValue;
+    expect(after(d3)).toBe(true);
+    expect(d3).toEqual({ v: "a" });
   });
 });

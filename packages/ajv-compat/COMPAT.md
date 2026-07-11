@@ -76,8 +76,10 @@ valid) and `schema`.
 `type` (data-type scoping incl. `integer`), `schemaType`, `validate`
 (custom errors via assignment to `validate.errors`), `compile`, `error`
 (`{message}`), `errors`, `valid`. Accepted-and-inert: `metaSchema`,
-`passContext`, `before`, `post`, `implements`, `modifying` (refused until
-the mutation machinery supports custom keywords).
+`passContext`, `before`, `post`, `implements`, `modifying` (refused —
+built-in mutation is delivered via `coerceTypes`/`useDefaults`/
+`removeAdditional` and ajv-keywords `transform`/`dynamicDefaults`, but
+mutation from arbitrary custom keywords remains out of scope).
 
 ### Lifecycle semantics (**oracle**: `ajv-lifecycle.json`)
 
@@ -152,8 +154,18 @@ adapter filters the engine's complete error record to match (**oracle**:
   applicator does not reach nested property errors in AJV (codegen
   artifact) and is not reproduced.
 - `ajvKeywords(ajv, names?)`: `typeof`, `instanceof`,
-  `uniqueItemProperties`, `prohibited`. `transform`/`dynamicDefaults`
-  (mutating) and `select*` (`$data`) are refused with pointers.
+  `uniqueItemProperties`, `prohibited` (pure keywords), plus the mutating
+  `transform` and `dynamicDefaults`, delivered as mutation-fixpoint passes
+  (not engine keywords) and activated on the instance. `transform` ops:
+  `trim`/`trimStart`/`trimEnd`/`trimLeft`/`trimRight`/`toLowerCase`/
+  `toUpperCase`/`toEnumCase` (applied left-to-right; skipped inside combiner
+  branches and at the root, see Known divergences). `dynamicDefaults`
+  generators: `timestamp`, `datetime`, `date`, `time`, `random`, `randomint`,
+  `seq` (no `uuid`); the registry is exported as `DYNAMIC_DEFAULTS`.
+  `dynamicDefaults` fills only under `useDefaults`, after plain `default`
+  (which wins a collision). Compile-time throws match AJV: `toEnumCase`
+  without a sibling `enum` or with case-colliding `enum` values, and unknown
+  generator names. `select*` (`$data`) is still refused with a pointer.
 
 ## Known divergences
 
@@ -180,6 +192,24 @@ adapter filters the engine's complete error record to match (**oracle**:
   intermediate state. A compat-layer extension: AJV mutates inline
   during evaluation and can silently settle on order-dependent values
   there.
+- `transform` (ajv-keywords) never fires inside an `anyOf`/`oneOf` branch or
+  at the instance root. AJV mutates inline during evaluation, so a branch's
+  transform runs (and can leak its result to sibling branches); the compat
+  layer's evaluate→mutate→re-evaluate fixpoint over a single un-mutated
+  hierarchy cannot reproduce that short-circuit-order/cross-branch
+  interleaving. Non-combiner transforms match AJV exactly. `dynamicDefaults`
+  in combiner branches is EXACT (AJV's own compositeRule guard skips them
+  too). **Oracle**: the `transform-anyOf-*`/`transform-oneOf-*`/
+  `transform-interleaving-*` cases in `ajv-keywords-mutation.json`; the
+  interleaving cases are verdict divergences (jse rejects what AJV accepts)
+  and are pinned in `mutation-keywords.test.ts`.
+- A non-idempotent `transform` op composite diverges: `["toEnumCase","trim"]`
+  where trimming enables a later enum match. AJV applies the array once inline
+  (`" ph "` → `"ph"`, which fails the `enum`); jse's fixpoint re-applies until
+  stable (`"ph"` → `"pH"`, which passes). Matching AJV would need a single-shot
+  pass that re-mutates on every re-validation, breaking the idempotence the
+  property leg relies on. **Oracle**:
+  `transform-op-order-toEnumCase-trim-sensitive-toEnumCase-first`.
 - On a MUTATING validator (any of the trio enabled), non-plain data —
   class instances, `Map`, `Date`, anything without a plain
   object/array shape — is never mutated: the instance validates through

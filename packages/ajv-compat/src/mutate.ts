@@ -1,5 +1,6 @@
-// Mutation trio (M8.3): coerceTypes / useDefaults / removeAdditional as a
-// compat-layer evaluate→mutate→re-evaluate fixpoint — the engine stays a
+// Mutation passes: the coerceTypes / useDefaults / removeAdditional trio
+// plus ajv-keywords' transform / dynamicDefaults, all run as a compat-layer
+// evaluate→mutate→re-evaluate fixpoint — the engine stays a
 // pure validator. Each pass reads two engine outputs: the hierarchical
 // verbose document (schema-application pairs drive defaults and property
 // removal) and the flat error list with structured params (type failures
@@ -26,12 +27,60 @@ export interface MutationOptions {
   coerceTypes?: boolean | "array";
   useDefaults?: boolean | "empty";
   removeAdditional?: boolean | "all" | "failing";
+  // ajv-keywords companions (activated via ajvKeywords, not options): both
+  // are mutation passes here, never engine keywords — the core stays a pure
+  // validator and the compat vocabulary has no before:enum primitive to run
+  // them mid-evaluate. See applyTransform / applyDynamicDefaults.
+  transform?: boolean;
+  dynamicDefaults?: boolean;
 }
 
 export const anyMutation = (o: MutationOptions): boolean =>
   o.coerceTypes !== undefined ||
   o.useDefaults !== undefined ||
-  o.removeAdditional !== undefined;
+  o.removeAdditional !== undefined ||
+  o.transform === true ||
+  o.dynamicDefaults === true;
+
+/**
+ * ajv-keywords `dynamicDefaults` generator shape: the outer function takes
+ * the schema's `args` and returns a per-fill thunk (matching the real
+ * package). Exported so callers can register additional generators (the
+ * unknown-name compile check consults this table, so user additions are
+ * honored).
+ */
+export type DynamicDefaultFunc = (
+  args?: Record<string, unknown>,
+) => () => JsonValue;
+
+// `seq` counters are module-global and keyed by name — the same contract as
+// ajv-keywords' own DEFAULTS.seq (one shared counter per name across every
+// validator in the process). jse's table is independent of the real
+// package's; only its post-increment-from-0 behavior is matched.
+const SEQ_COUNTERS = new Map<string, number>();
+
+/** Built-in generators (no `uuid` — deliberately out of scope). */
+export const DYNAMIC_DEFAULTS: Record<string, DynamicDefaultFunc> = {
+  timestamp: () => () => Date.now(),
+  datetime: () => () => new Date().toISOString(),
+  date: () => () => new Date().toISOString().slice(0, 10),
+  time: () => () => new Date().toISOString().slice(11),
+  random: () => () => Math.random(),
+  randomint: (args) => {
+    const max =
+      args !== undefined && typeof args.max === "number" ? args.max : 2;
+    return () => Math.floor(Math.random() * max);
+  },
+  seq: (args) => {
+    const name =
+      args !== undefined && typeof args.name === "string" ? args.name : "";
+    return () => {
+      const current = SEQ_COUNTERS.get(name) ?? 0;
+      SEQ_COUNTERS.set(name, current + 1);
+      return current;
+    };
+  },
+};
 
 /** Mutable root holder: top-level replacement has no parent to write to. */
 export interface RootHolder {
@@ -238,7 +287,8 @@ export function runMutationFixpoint(
 
     if (
       options.useDefaults !== undefined ||
-      options.removeAdditional !== undefined
+      options.removeAdditional !== undefined ||
+      options.transform === true
     ) {
       const doc = engine.evaluate(uri, root.value, {
         output: "hierarchical",
@@ -279,14 +329,37 @@ export function runMutationFixpoint(
       };
       walk(doc, false, false);
 
+      const nonCombiner = units.filter((u) => !inCombiner.has(u));
       if (options.useDefaults !== undefined) {
         changed =
           applyDefaults(
-            units.filter((u) => !inCombiner.has(u)),
+            nonCombiner,
             root,
             options.useDefaults,
             resolveSchema,
           ) || changed;
+        // dynamicDefaults fills AFTER plain defaults so a colliding `default`
+        // wins the property (fixture: default-collision-default-wins), and
+        // only when useDefaults is enabled (its real gate). The combiner
+        // exclusion is EXACT here: AJV's own compositeRule guard skips
+        // dynamicDefaults inside anyOf/oneOf branches too.
+        if (options.dynamicDefaults === true && options.useDefaults !== false) {
+          changed =
+            applyDynamicDefaults(
+              nonCombiner,
+              root,
+              resolveSchema,
+              options.useDefaults === "empty",
+            ) || changed;
+        }
+      }
+      // transform reuses defaults' non-combiner unit set. Inside a combiner
+      // branch it does NOT fire — a documented divergence: AJV's
+      // transform-in-combiner semantics depend on inline short-circuit order
+      // and cross-branch mutation interleaving, which this evaluate→mutate→
+      // re-evaluate fixpoint over one un-mutated hierarchy cannot reproduce.
+      if (options.transform === true) {
+        changed = applyTransform(nonCombiner, root, resolveSchema) || changed;
       }
       if (options.removeAdditional !== undefined) {
         changed =
@@ -373,6 +446,113 @@ const applyDefaults = (
           break;
         }
       }
+    }
+  }
+  return changed;
+};
+
+// ---- transform ----------------------------------------------------------
+
+// String ops that touch only whitespace or case; all idempotent when
+// re-applied, which keeps the fixpoint converging. trimLeft/trimRight are
+// the historical aliases for trimStart/trimEnd.
+const TRANSFORM_OPS: Record<string, (s: string) => string> = {
+  trim: (s) => s.trim(),
+  trimStart: (s) => s.trimStart(),
+  trimEnd: (s) => s.trimEnd(),
+  trimLeft: (s) => s.trimStart(),
+  trimRight: (s) => s.trimEnd(),
+  toLowerCase: (s) => s.toLowerCase(),
+  toUpperCase: (s) => s.toUpperCase(),
+};
+
+// toEnumCase canonicalizes to the sibling enum member matching case-
+// insensitively; a value matching none is left untouched. The colliding /
+// missing-enum error cases are caught at compile time, so a well-formed
+// schema always has a unique lowercased→member mapping here.
+const toEnumCase = (
+  value: string,
+  enumValues: JsonValue | undefined,
+): string => {
+  if (!Array.isArray(enumValues)) return value;
+  const lower = value.toLowerCase();
+  for (const member of enumValues) {
+    if (typeof member === "string" && member.toLowerCase() === lower) {
+      return member;
+    }
+  }
+  return value;
+};
+
+const applyTransform = (
+  units: readonly OutputUnit[],
+  root: RootHolder,
+  resolveSchema: (location: string) => JsonValue | undefined,
+): boolean => {
+  let changed = false;
+  for (const unit of units) {
+    // Root guard (AJV's `parentData !== undefined`): a top-level value has
+    // no holder to write back through, so transform never touches it.
+    if (unit.instanceLocation === "") continue;
+    const node = resolveSchema(unit.schemaLocation!);
+    if (!isPlainObject(node) || !Array.isArray(node.transform)) continue;
+    const current = getAt(root, unit.instanceLocation);
+    if (typeof current !== "string") continue;
+    let next = current;
+    for (const op of node.transform) {
+      if (op === "toEnumCase") next = toEnumCase(next, node.enum);
+      else if (typeof op === "string" && Object.hasOwn(TRANSFORM_OPS, op)) {
+        next = TRANSFORM_OPS[op]!(next);
+      }
+    }
+    if (next !== current) {
+      setAt(root, unit.instanceLocation, next);
+      changed = true;
+    }
+  }
+  return changed;
+};
+
+// ---- dynamicDefaults ------------------------------------------------------
+
+const resolveGenerator = (spec: JsonValue): (() => JsonValue) | null => {
+  const name = typeof spec === "string" ? spec : undefined;
+  const objName =
+    name === undefined && isPlainObject(spec) && typeof spec.func === "string"
+      ? spec.func
+      : name;
+  if (objName === undefined || !Object.hasOwn(DYNAMIC_DEFAULTS, objName)) {
+    return null;
+  }
+  const factory = DYNAMIC_DEFAULTS[objName]!;
+  const args =
+    isPlainObject(spec) && isPlainObject(spec.args) ? spec.args : undefined;
+  return factory(args);
+};
+
+const applyDynamicDefaults = (
+  units: readonly OutputUnit[],
+  root: RootHolder,
+  resolveSchema: (location: string) => JsonValue | undefined,
+  empty: boolean,
+): boolean => {
+  let changed = false;
+  // Same fillable gate as applyDefaults: absent, plus null/"" under "empty"
+  // mode. Checked FRESH against the live instance so a plain `default`
+  // filled earlier this pass suppresses the generator.
+  const fillable = (v: JsonValue | undefined): boolean =>
+    v === undefined || (empty && (v === null || v === ""));
+  for (const unit of units) {
+    const node = resolveSchema(unit.schemaLocation!);
+    if (!isPlainObject(node) || !isPlainObject(node.dynamicDefaults)) continue;
+    const instance = getAt(root, unit.instanceLocation);
+    if (!isPlainObject(instance)) continue;
+    for (const [prop, spec] of Object.entries(node.dynamicDefaults)) {
+      if (!fillable(instance[prop])) continue;
+      const generator = resolveGenerator(spec);
+      if (generator === null) continue;
+      instance[prop] = generator();
+      changed = true;
     }
   }
   return changed;
