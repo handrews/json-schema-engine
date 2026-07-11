@@ -8,14 +8,24 @@
 import { describe, it, expect } from "vitest";
 import {
   outcomesAgree,
+  runAnnotationsSide,
   runListSide,
   runSide,
+  sameAnnotationsDivergenceClass,
   sameListDivergenceClass,
   subjectFromFactory,
   type DifferentialFactory,
 } from "./index.js";
 
 const listResult = (valid: boolean, errors: unknown[]) => ({ valid, errors });
+
+// Annotations-mode payload: the list result WITH the annotations key, so
+// present-but-empty and absent encode differently (part of the contract).
+const listAnn = (
+  valid: boolean,
+  errors: unknown[],
+  annotations: unknown[],
+) => ({ valid, errors, annotations });
 
 describe("runListSide sensitivity", () => {
   it("same verdict, different error lists → disagreement", () => {
@@ -118,6 +128,140 @@ describe("sameListDivergenceClass", () => {
     );
     expect(sameListDivergenceClass(flip, content)).toBe(false);
     expect(sameListDivergenceClass(flip, flip)).toBe(true);
+  });
+});
+
+// One annotation unit with all rendered fields; `extra` overrides any of them
+// (keyword, vocabulary, the locations, the value) so a test can vary exactly
+// the field it means to probe.
+const annUnit = (
+  annotation: unknown,
+  extra: Record<string, unknown> = {},
+): Record<string, unknown> => ({
+  keyword: "title",
+  vocabulary: "https://json-schema.org/draft/2020-12/vocab/meta-data",
+  evaluationPath: "/title",
+  schemaLocation: "https://s.example#/title",
+  instanceLocation: "",
+  annotation,
+  ...extra,
+});
+
+describe("runAnnotationsSide sensitivity", () => {
+  // The plain list and flag encodings the annotation leg must out-see: same
+  // verdict, same (empty) errors — annotations never enter their payload.
+  const flag = () => runSide(() => true)(null);
+  const list = () => runListSide(() => listResult(true, []))(null);
+
+  it("same verdict, same errors, different annotation VALUE → disagreement", () => {
+    const a = runAnnotationsSide(() => listAnn(true, [], [annUnit("A")]))(null);
+    const b = runAnnotationsSide(() => listAnn(true, [], [annUnit("B")]))(null);
+    expect(outcomesAgree(a, b)).toBe(false);
+    // The flag and plain-list encodings are blind to exactly this.
+    expect(outcomesAgree(flag(), flag())).toBe(true);
+    expect(outcomesAgree(list(), list())).toBe(true);
+  });
+
+  it("different annotation ORDER → disagreement", () => {
+    const u1 = annUnit("A", { instanceLocation: "/a" });
+    const u2 = annUnit("B", { instanceLocation: "/b" });
+    const a = runAnnotationsSide(() => listAnn(true, [], [u1, u2]))(null);
+    const b = runAnnotationsSide(() => listAnn(true, [], [u2, u1]))(null);
+    expect(outcomesAgree(a, b)).toBe(false);
+    expect(outcomesAgree(list(), list())).toBe(true);
+  });
+
+  it("a missing annotation unit → disagreement", () => {
+    const a = runAnnotationsSide(() =>
+      listAnn(
+        true,
+        [],
+        [annUnit("A"), annUnit("B", { instanceLocation: "/b" })],
+      ),
+    )(null);
+    const b = runAnnotationsSide(() => listAnn(true, [], [annUnit("A")]))(null);
+    expect(outcomesAgree(a, b)).toBe(false);
+    expect(outcomesAgree(list(), list())).toBe(true);
+  });
+
+  it("annotations key present vs absent → disagreement", () => {
+    const present = runAnnotationsSide(() => listAnn(true, [], []))(null);
+    const absent = runAnnotationsSide(() => listResult(true, []))(null);
+    expect(outcomesAgree(present, absent)).toBe(false);
+    // Both flag and plain-list are blind: neither payload carried annotations.
+    expect(outcomesAgree(flag(), flag())).toBe(true);
+    expect(outcomesAgree(list(), list())).toBe(true);
+  });
+
+  it("identical results (annotations included) → agreement", () => {
+    const make = () =>
+      runAnnotationsSide(() => listAnn(true, [], [annUnit("A")]))(null);
+    expect(outcomesAgree(make(), make())).toBe(true);
+  });
+});
+
+describe("sameAnnotationsDivergenceClass", () => {
+  interface AnnPayload {
+    valid: boolean;
+    errors: unknown[];
+    annotations?: unknown[];
+  }
+  const adiv = (
+    interpreted: AnnPayload | Error,
+    compiled: AnnPayload | Error,
+  ) => ({
+    schema: true as const,
+    instance: null,
+    interpreted: runAnnotationsSide(() => {
+      if (interpreted instanceof Error) throw interpreted;
+      return interpreted;
+    })(null),
+    compiled: runAnnotationsSide(() => {
+      if (compiled instanceof Error) throw compiled;
+      return compiled;
+    })(null),
+  });
+
+  it("both valid with annotations, contents differ → same class", () => {
+    const a = adiv(
+      listAnn(true, [], [annUnit("A")]),
+      listAnn(true, [], [annUnit("B")]),
+    );
+    const b = adiv(
+      listAnn(true, [], [annUnit("A"), annUnit("C")]),
+      listAnn(true, [], []),
+    );
+    expect(sameAnnotationsDivergenceClass(a, b)).toBe(true);
+  });
+
+  it("annotation-content divergence never matches a throw-vs-result tier gap", () => {
+    const real = adiv(
+      listAnn(true, [], [annUnit("A")]),
+      listAnn(true, [], [annUnit("B")]),
+    );
+    const tierGap = adiv(new TypeError("boom"), listAnn(true, [], []));
+    expect(sameAnnotationsDivergenceClass(real, tierGap)).toBe(false);
+  });
+
+  it("verdict flips are their own class", () => {
+    const flip = adiv(listAnn(true, [], []), listResult(false, [{}]));
+    const content = adiv(
+      listAnn(true, [], [annUnit("A")]),
+      listAnn(true, [], [annUnit("B")]),
+    );
+    expect(sameAnnotationsDivergenceClass(flip, content)).toBe(false);
+  });
+
+  it("key-present-vs-absent is a distinct class from content divergence", () => {
+    // Both valid, but one side omits the annotations key entirely — a
+    // different kind of annotation bug than two present-but-differing arrays.
+    const keyGap = adiv(listAnn(true, [], []), listResult(true, []));
+    const content = adiv(
+      listAnn(true, [], [annUnit("A")]),
+      listAnn(true, [], [annUnit("B")]),
+    );
+    expect(sameAnnotationsDivergenceClass(keyGap, content)).toBe(false);
+    expect(sameAnnotationsDivergenceClass(keyGap, keyGap)).toBe(true);
   });
 });
 

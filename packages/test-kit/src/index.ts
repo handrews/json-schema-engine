@@ -33,14 +33,17 @@ export {
   STRING_EDGES,
   PROTO_TRAP_KEYS,
   POINTER_ESCAPE_KEYS,
+  ANNOTATION_SEED_GROUPS,
 } from "./fuzz.js";
 export {
   runSide,
   runListSide,
+  runAnnotationsSide,
   outcomesAgree,
   describeOutcome,
   minimizeDivergence,
   sameListDivergenceClass,
+  sameAnnotationsDivergenceClass,
   subjectFromFactory,
 } from "./differential.js";
 export type {

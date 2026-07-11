@@ -20,11 +20,14 @@ import {
   instancePool,
   runSide,
   runListSide,
+  runAnnotationsSide,
   outcomesAgree,
   describeOutcome,
   minimizeDivergence,
   sameListDivergenceClass,
+  sameAnnotationsDivergenceClass,
   subjectFromFactory,
+  ANNOTATION_SEED_GROUPS,
   type DifferentialFactory,
 } from "@jse/test-kit";
 
@@ -247,5 +250,147 @@ describe("compiled ≡ interpreted list-output differential fuzz (M8.6, subset)"
     // Floor proves the subset loop above actually executed rather than
     // silently skipping every group (the FUZZ_LIST incident's failure mode).
     expect(listCases).toBeGreaterThanOrEqual(3000);
+  });
+});
+
+// Annotations leg: the list leg above referees {valid, errors} only, so an
+// annotation bug (wrong value, wrong order, dropped unit, missing key) can
+// hide behind agreeing errors. Same subset/budget shape as the list leg,
+// plus the ANNOTATION_SEED_GROUPS corpus (the suite's schemas barely use
+// pure annotation producers) which always runs, never subsetted. The full
+// sweep lives in scripts/fuzz.ts (FUZZ_ANNOTATIONS=1 npm run fuzz).
+const ANN_SEED = 0x9e3779b9;
+const ANN_MUTATIONS_PER_GROUP = 45;
+
+/** Annotations-mode factory: compares full {valid, errors, annotations?} output. */
+function annotationsFactoryFor(
+  file: string,
+  groupIndex: number,
+): DifferentialFactory {
+  const baseUri = `https://fuzz.example/${file}/${String(groupIndex)}/ann`;
+  return {
+    prepare(schema) {
+      try {
+        const engine = createEngine();
+        const uri = engine.registerSchema(schema, baseUri);
+        const artifact = compileList(engine, uri, {
+          errorParams: true,
+          collectAnnotations: true,
+        });
+        return {
+          interpret: runAnnotationsSide((x) => {
+            const r = engine.evaluate(uri, x, {
+              output: "list",
+              errorParams: true,
+              collectAnnotations: true,
+            });
+            const base = { valid: r.valid, errors: r.errors ?? [] };
+            // Key presence is part of the contract: only spread annotations
+            // in when the side actually produced the key.
+            return r.annotations === undefined
+              ? base
+              : { ...base, annotations: r.annotations };
+          }),
+          validate: runAnnotationsSide((x) => {
+            const r = artifact.evaluateList(x);
+            const base = { valid: r.valid, errors: r.valid ? [] : r.errors };
+            return r.annotations === undefined
+              ? base
+              : { ...base, annotations: r.annotations };
+          }),
+        };
+      } catch {
+        return undefined;
+      }
+    },
+  };
+}
+
+describe("compiled ≡ interpreted annotations differential fuzz (subset)", () => {
+  const files = readdirSync(SUITE_DIR)
+    .filter((f) => f.endsWith(".json"))
+    .sort();
+
+  let annCases = 0;
+  let annRegistrableGroups = 0;
+
+  const runPool = (
+    factory: DifferentialFactory,
+    sides: NonNullable<ReturnType<DifferentialFactory["prepare"]>>,
+    file: string,
+    fi: number,
+    gi: number,
+    group: SuiteGroup,
+  ): void => {
+    const prng = new Prng(deriveSeed(ANN_SEED, fi, gi));
+    const seeds = group.tests.map((t) => t.data);
+    const pool = instancePool(
+      prng,
+      seeds,
+      seeds.length + ANN_MUTATIONS_PER_GROUP,
+    );
+
+    for (let ci = 0; ci < pool.length; ci++) {
+      const instance = pool[ci]!;
+      annCases++;
+      const interpreted = sides.interpret(instance);
+      const compiled = sides.validate(instance);
+      if (!outcomesAgree(interpreted, compiled)) {
+        const subject = subjectFromFactory(factory);
+        // Class-preserving shrink: an annotation-content witness must not
+        // wander into a verdict or tier-gap class while shrinking.
+        const min = minimizeDivergence(subject, group.schema, instance, {
+          sameDivergence: sameAnnotationsDivergenceClass,
+        });
+        throw new Error(
+          `DIVERGENCE (annotations mode) ${file} group ${String(gi)} case ${String(ci)}\n` +
+            `  seed=0x${ANN_SEED.toString(16)} deriveSeed(${String(ANN_SEED)}, ${String(fi)}, ${String(gi)})\n` +
+            `  minimized schema:   ${JSON.stringify(min.schema)}\n` +
+            `  minimized instance: ${JSON.stringify(min.instance)}\n` +
+            `  interpreted: ${describeOutcome(min.interpreted)}\n` +
+            `  compiled:    ${describeOutcome(min.compiled)}`,
+        );
+      }
+    }
+  };
+
+  for (let fi = 0; fi < files.length; fi++) {
+    const file = files[fi]!.replace(/\.json$/, "");
+    const groups = JSON.parse(
+      readFileSync(join(SUITE_DIR, files[fi]!), "utf8"),
+    ) as SuiteGroup[];
+
+    describe(file, () => {
+      groups.forEach((group, gi) => {
+        it(`${group.description} (annotations mode)`, () => {
+          const factory = annotationsFactoryFor(file, gi);
+          const sides = factory.prepare(group.schema);
+          if (sides === undefined) return; // out of scope, same as the other legs
+
+          annRegistrableGroups++;
+          if (annRegistrableGroups % 4 !== 0) return; // subset: every 4th
+          runPool(factory, sides, file, fi, gi, group);
+        });
+      });
+    });
+  }
+
+  // The annotation-producer corpus runs in full — it exists precisely
+  // because the suite under-exercises the channel, so it never subsets.
+  describe("annotation-seeds", () => {
+    ANNOTATION_SEED_GROUPS.forEach((group, gi) => {
+      it(`${group.description} (annotations mode)`, () => {
+        const factory = annotationsFactoryFor("annotation-seeds", gi);
+        const sides = factory.prepare(group.schema);
+        expect(sides).toBeDefined(); // the corpus must register, or the nudge is vacuous
+        runPool(factory, sides!, "annotation-seeds", files.length, gi, group);
+      });
+    });
+  });
+
+  it(`ran ≥3,000 annotations-mode cases with zero divergence (seed 0x${ANN_SEED.toString(16)})`, () => {
+    // Floor proves the loops above actually executed rather than silently
+    // skipping every group (the FUZZ_LIST incident's failure mode).
+    expect(annCases).toBeGreaterThanOrEqual(3000);
   });
 });

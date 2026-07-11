@@ -29,6 +29,7 @@ jobs:
       - run: npm run pack:check
       - run: FUZZ_BUDGET=5000 npm run fuzz
       - run: FUZZ_LIST=1 FUZZ_BUDGET=5000 npm run fuzz
+      - run: FUZZ_ANNOTATIONS=1 FUZZ_BUDGET=5000 npm run fuzz
       - run: FUZZ_DIALECT=draft7 FUZZ_BUDGET=3000 npm run fuzz
       - run: FUZZ_DIALECT=draft7 FUZZ_LIST=1 FUZZ_BUDGET=3000 npm run fuzz
       - run: FUZZ_DIALECT=draft6 FUZZ_LIST=1 FUZZ_BUDGET=3000 npm run fuzz

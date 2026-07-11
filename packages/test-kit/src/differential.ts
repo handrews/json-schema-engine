@@ -77,6 +77,28 @@ export function runListSide(
   };
 }
 
+/**
+ * Annotations-mode outcome encoding: the list encoding extended with the
+ * annotation channel. The whole `{ valid, errors, annotations }` record is
+ * canonicalized by {@link runListSide}, so the compared signature covers the
+ * verdict, every error unit (as list mode already encodes them), AND every
+ * annotation unit — keyword, vocabulary, evaluationPath, schemaLocation,
+ * instanceLocation, and the annotation value — in ORDER. Because
+ * `JSON.stringify` drops `undefined`-valued keys, the presence vs absence of
+ * the `annotations` key itself is part of the signature (present-but-empty
+ * `[]` and absent encode differently). One encoding path: the annotation leg
+ * rides the same JSON canonicalization as the list leg, never a parallel one.
+ */
+export function runAnnotationsSide(
+  evaluate: (instance: JsonValue) => {
+    valid: boolean;
+    errors: unknown;
+    annotations?: unknown;
+  },
+): (instance: JsonValue) => SideOutcome {
+  return runListSide(evaluate);
+}
+
 /** Both prepared sides for ONE schema, sharing whatever `prepare` built. */
 export interface DifferentialSides {
   /** The interpreter's outcome on an instance. */
@@ -352,6 +374,42 @@ export function sameListDivergenceClass(
     try {
       const decoded = JSON.parse(o.errorClass) as { valid?: unknown };
       return `result:${String(decoded.valid === true)}`;
+    } catch {
+      return "result:unparseable";
+    }
+  };
+  return (
+    signature(initial.interpreted) === signature(candidate.interpreted) &&
+    signature(initial.compiled) === signature(candidate.compiled)
+  );
+}
+
+/**
+ * Divergence-class comparator for ANNOTATIONS-mode witnesses (the
+ * {@link runAnnotationsSide} encoding). Extends {@link sameListDivergenceClass}
+ * with the annotation dimension: each side's signature carries the thrown
+ * class, or the decoded verdict PLUS whether the `annotations` key was
+ * present. An annotation-content divergence (both sides valid, both carrying
+ * an annotations array, contents differ) therefore forms its own class,
+ * distinct from a verdict flip, a throw-vs-result tier gap, a both-invalid
+ * error-content divergence, and a key-present-vs-absent divergence. Without
+ * the key dimension a real annotation divergence could shrink into one of
+ * those unrelated classes and hide the finding.
+ */
+export function sameAnnotationsDivergenceClass(
+  initial: Divergence,
+  candidate: Divergence,
+): boolean {
+  const signature = (o: SideOutcome): string => {
+    if (o.kind === "verdict") return `verdict:${String(o.valid)}`;
+    if (o.errorClass.startsWith("THREW:")) return o.errorClass;
+    try {
+      const decoded = JSON.parse(o.errorClass) as { valid?: unknown };
+      const hasAnnotations = Object.prototype.hasOwnProperty.call(
+        decoded,
+        "annotations",
+      );
+      return `result:${String(decoded.valid === true)}:${String(hasAnnotations)}`;
     } catch {
       return "result:unparseable";
     }

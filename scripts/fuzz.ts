@@ -10,6 +10,8 @@
 //   FUZZ_BUDGET=50000 npm run fuzz     # target total case count
 //   FUZZ_SEED=12345 npm run fuzz       # override the seed
 //   FUZZ_DIALECT=draft7 npm run fuzz   # seed from another dialect's suite
+//   FUZZ_LIST=1 npm run fuzz           # referee full list output
+//   FUZZ_ANNOTATIONS=1 npm run fuzz    # referee list output + annotations
 //
 // Deterministic: the summary reports the seed, and every case reproduces
 // from (seed, fileIndex, groupIndex, caseIndex). Exit code is nonzero on any
@@ -26,11 +28,14 @@ import {
   instancePool,
   runSide,
   runListSide,
+  runAnnotationsSide,
   outcomesAgree,
   describeOutcome,
   minimizeDivergence,
   sameListDivergenceClass,
+  sameAnnotationsDivergenceClass,
   subjectFromFactory,
+  ANNOTATION_SEED_GROUPS,
   type DifferentialFactory,
 } from "@jse/test-kit";
 
@@ -45,6 +50,14 @@ const COMPILE_OPTS = {
 // (errorParams on both sides), so the JSON comparison also referees the
 // M8.1 params channel — including field order.
 const LIST_MODE = process.env.FUZZ_LIST === "1";
+// FUZZ_ANNOTATIONS=1 referees annotation parity on top of the list encoding:
+// both sides' {valid, errors, annotations?} results are compared as canonical
+// JSON, so the comparison covers every annotation unit (keyword, vocabulary,
+// locations, value) in ORDER, and the presence/absence of the annotations key
+// itself. The suite corpus is extended with ANNOTATION_SEED_GROUPS because
+// suite schemas barely use pure annotation producers. Takes precedence over
+// FUZZ_LIST (it is a strict superset of that comparison).
+const ANNOTATIONS_MODE = process.env.FUZZ_ANNOTATIONS === "1";
 
 // FUZZ_DIALECT seeds the corpus from another dialect's suite directory
 // (M6.6: legacy dialects compile natively, so they need fuzz pressure too).
@@ -93,6 +106,35 @@ function factoryFor(baseUri: string): DifferentialFactory {
       try {
         const engine = createEngine(ENGINE_OPTS);
         const uri = engine.registerSchema(schema, baseUri);
+        if (ANNOTATIONS_MODE) {
+          const artifact = compileList(engine, uri, {
+            ...COMPILE_OPTS,
+            errorParams: true,
+            collectAnnotations: true,
+          });
+          return {
+            interpret: runAnnotationsSide((x) => {
+              const r = engine.evaluate(uri, x, {
+                output: "list",
+                errorParams: true,
+                collectAnnotations: true,
+              });
+              const base = { valid: r.valid, errors: r.errors ?? [] };
+              // Key presence is part of the contract: only spread the
+              // annotations in when the side actually produced the key.
+              return r.annotations === undefined
+                ? base
+                : { ...base, annotations: r.annotations };
+            }),
+            validate: runAnnotationsSide((x) => {
+              const r = artifact.evaluateList(x);
+              const base = { valid: r.valid, errors: r.valid ? [] : r.errors };
+              return r.annotations === undefined
+                ? base
+                : { ...base, annotations: r.annotations };
+            }),
+          };
+        }
         if (LIST_MODE) {
           const artifact = compileList(engine, uri, {
             ...COMPILE_OPTS,
@@ -150,6 +192,19 @@ function main(): void {
       registrable.push({ file, fi, gi, group });
     });
   });
+  if (ANNOTATIONS_MODE) {
+    // Annotation-producer corpus, appended exactly like another suite file.
+    ANNOTATION_SEED_GROUPS.forEach((group, gi) => {
+      const baseUri = `https://fuzz.example/annotation-seeds/${String(gi)}`;
+      if (factoryFor(baseUri).prepare(group.schema) === undefined) return;
+      registrable.push({
+        file: "annotation-seeds",
+        fi: files.length,
+        gi,
+        group,
+      });
+    });
+  }
 
   const ownTests = registrable.reduce((s, g) => s + g.group.tests.length, 0);
   const perGroup = Math.max(
@@ -182,13 +237,17 @@ function main(): void {
       if (!outcomesAgree(a, b)) {
         divergences++;
         const subject = subjectFromFactory(factory);
-        // List witnesses must keep their divergence class while shrinking,
-        // or a real error-content bug minimizes into an unrelated tier gap.
+        // List/annotation witnesses must keep their divergence class while
+        // shrinking, or a real content bug minimizes into an unrelated tier gap.
         const min = minimizeDivergence(
           subject,
           group.schema,
           instance,
-          LIST_MODE ? { sameDivergence: sameListDivergenceClass } : {},
+          ANNOTATIONS_MODE
+            ? { sameDivergence: sameAnnotationsDivergenceClass }
+            : LIST_MODE
+              ? { sameDivergence: sameListDivergenceClass }
+              : {},
         );
         console.error(
           `\nDIVERGENCE ${file} group ${String(gi)} case ${String(ci)}\n` +
