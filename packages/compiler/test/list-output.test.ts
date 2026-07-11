@@ -203,7 +203,11 @@ describe("compiled list output ≡ interpreter (full local suite)", () => {
     // unevaluatedItems reports additional errors. Verdict-invisible (flag
     // artifacts stay statically licensed), but list artifacts must
     // reproduce the interpreter's units exactly — found by the list-mode
-    // fuzz leg, pinned here deterministically.
+    // fuzz leg, pinned here deterministically. Runtime evaluated-set
+    // tracking is what makes COMPILING this consumer sound where static
+    // licensing was not (the failed contributor's channel span truncates,
+    // so the sweep covers less), so the list plan must classify it tracked
+    // — never static-licensed, never demoted.
     const engine = createEngine();
     const uri = engine.registerSchema(
       {
@@ -214,6 +218,9 @@ describe("compiled list output ≡ interpreter (full local suite)", () => {
       "https://list.example/unevaluated-failing-contributor",
     );
     const artifact = compileList(engine, uri, { errorParams: true });
+    const root = artifact.plan.units.get(artifact.plan.rootKey)!;
+    expect(root.kind).toBe("static");
+    expect(root.tracking).toBe(true);
     for (const instance of [
       [{ "/": 1 }, [], true] as JsonValue,
       [{}] as JsonValue,

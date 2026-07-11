@@ -93,6 +93,11 @@ export interface Runtime {
    * List-mode trampoline: evaluates the fragment with the caller's
    * evaluation-path prefix, maps its error records to interpreter-exact
    * units (instance locations re-rooted under `ip`), and appends them.
+   * `ev` (an island applied IN-PLACE from a tracked consumer's region body)
+   * additionally receives the {@link Runtime.fragCov} coverage harvest — the
+   * error mapping is unconditional either way, because a failed in-place
+   * island's ERRORS survive in list output (only its coverage span, which is
+   * empty on failure anyway, is the caller's truncate concern).
    */
   fragList(
     target: SchemaRef,
@@ -102,12 +107,16 @@ export interface Runtime {
     ep: string,
     ip: string,
     errs: ErrorUnit[],
+    ev?: unknown[],
   ): boolean;
   /**
    * Annotation-mode list trampoline: like {@link fragList} for errors, then
    * harvests the island's surviving root productions as annotation units
    * (retention lists applied, instance locations re-rooted under `ip`) onto
-   * `anns`. Present only on annotation-mode artifacts.
+   * `anns`. `ev` composes exactly as on {@link Runtime.fragList} — the
+   * recording predicate here already includes every consumed id, so the
+   * coverage harvest sees the same productions a consumer would. Present
+   * only on annotation-mode artifacts.
    */
   fragListAnn?(
     target: SchemaRef,
@@ -118,6 +127,7 @@ export interface Runtime {
     ip: string,
     errs: ErrorUnit[],
     anns: AnnotationUnit[],
+    ev?: unknown[],
   ): boolean;
 }
 
@@ -203,11 +213,13 @@ export function makeRuntime(
       ev.push(...harvestCoverage(result.productions, cursor, consumedIds));
       return result.valid;
     },
-    fragList: (target, value, scope, depth, ep, ip, errs) => {
+    fragList: (target, value, scope, depth, ep, ip, errs, ev) => {
       // One synthetic pre-escaped PathNode segment reproduces the caller's
       // whole evaluation-path prefix (materializePath joins on "/").
       const pathNode: PathNode | null =
         ep === "" ? null : { parent: null, segment: ep.slice(1) };
+      // The SAME cursor object must reach harvestCoverage (see fragCov).
+      const cursor = rootCursor(value);
       const options: FragmentOptions = {
         dynamicScope: scope,
         depth,
@@ -216,24 +228,34 @@ export function makeRuntime(
         shouldRecord,
         pathNode,
       };
-      const result = evaluateFragment(
-        registry,
-        target,
-        rootCursor(value),
-        options,
-      );
+      const result = evaluateFragment(registry, target, cursor, options);
       for (const record of result.errors) {
         const unit = renderError(record, "modern", listParams);
         unit.instanceLocation = ip + unit.instanceLocation;
         errs.push(unit);
       }
+      if (ev !== undefined) {
+        ev.push(...harvestCoverage(result.productions, cursor, consumedIds));
+      }
       return result.valid;
     },
     ...(annotate
       ? {
-          fragListAnn: (target, value, scope, depth, ep, ip, errs, anns) => {
+          fragListAnn: (
+            target,
+            value,
+            scope,
+            depth,
+            ep,
+            ip,
+            errs,
+            anns,
+            ev,
+          ) => {
             const pathNode: PathNode | null =
               ep === "" ? null : { parent: null, segment: ep.slice(1) };
+            // The SAME cursor object must reach harvestCoverage (see fragCov).
+            const cursor = rootCursor(value);
             const options: FragmentOptions = {
               dynamicScope: scope,
               depth,
@@ -242,12 +264,7 @@ export function makeRuntime(
               shouldRecord: annRecord,
               pathNode,
             };
-            const result = evaluateFragment(
-              registry,
-              target,
-              rootCursor(value),
-              options,
-            );
+            const result = evaluateFragment(registry, target, cursor, options);
             for (const record of result.errors) {
               const unit = renderError(record, "modern", listParams);
               unit.instanceLocation = ip + unit.instanceLocation;
@@ -261,6 +278,11 @@ export function makeRuntime(
               const unit = renderAnnotation(p, "modern");
               unit.instanceLocation = ip + unit.instanceLocation;
               anns.push(unit);
+            }
+            if (ev !== undefined) {
+              ev.push(
+                ...harvestCoverage(result.productions, cursor, consumedIds),
+              );
             }
             return result.valid;
           },

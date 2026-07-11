@@ -46,12 +46,14 @@ export interface PlannedUnit {
   /** static coverage for this schema object, when computable (slice rule) */
   coverage: StaticNameCoverage | null;
   /**
-   * FLAG-mode consumer whose evaluated coverage is dynamic (static licensing
-   * failed): compiled with RUNTIME evaluated-set tracking instead of the
-   * interpreter (COMPILED-CONSUMERS.md phase B). `coverage` stays null; the
-   * unit's body threads a runtime coverage channel through its in-place
-   * closure (its {@link inRegion} members) and its consumer keywords read it.
-   * Never set together with {@link inRegion} (nested tracked consumers island).
+   * Consumer compiled with RUNTIME evaluated-set tracking instead of the
+   * interpreter (COMPILED-CONSUMERS.md phase B): a flag-mode consumer whose
+   * evaluated coverage is dynamic (static licensing failed), or ANY list-mode
+   * consumer (list plans never static-license — see PlanOptions.output).
+   * `coverage` stays null; the unit's body threads a runtime coverage channel
+   * through its in-place closure (its {@link inRegion} members) and its
+   * consumer keywords read it. Never set together with {@link inRegion}
+   * (nested tracked consumers island).
    */
   tracking?: boolean;
   /**
@@ -95,8 +97,11 @@ export interface PlanOptions {
    * FAILS, the interpreter drops its annotations and unevaluated* reports
    * additional errors. That difference is verdict-invisible — the failing
    * contributor already fails the parent — but list output must reproduce
-   * the interpreter's error units exactly, so "list" plans classify those
-   * consumers interpreted.
+   * the interpreter's error units exactly. So "list" plans NEVER static-
+   * license a consumer: every consumer is compiled with runtime coverage
+   * tracking (`tracking`), which reproduces the drop-on-failure behavior by
+   * construction (a failed application's channel span truncates, so the sweep
+   * covers less). "flag" keeps the static-coverage fast path.
    */
   output?: "flag" | "list";
 }
@@ -197,39 +202,50 @@ export function buildPlan(
     // if/dependentSchemas branches, if's condition, dynamic references,
     // cycles) makes that coverage kind dynamic and the node interpreted.
     if (consumerPresent) {
-      // See PlanOptions.output: static coverage is a flag-mode license only.
       if (options.output === "list") {
-        unit.kind = "interpreted";
-        unit.cause = "unlowerable";
-        return unit;
-      }
-      const halves = coverageHalves(registry, ref, new Set(), true);
-      const needsNames = present.some(
-        (k) => (k.facts.consumes?.length ?? 0) > 0 && k.facts.evaluatesNames,
-      );
-      const needsIndexes = present.some(
-        (k) => (k.facts.consumes?.length ?? 0) > 0 && k.facts.evaluatesIndexes,
-      );
-      if (
-        (needsNames && halves.name === null) ||
-        (needsIndexes && halves.index === null)
-      ) {
-        // Static licensing failed. FLAG mode compiles the consumer anyway,
-        // with runtime evaluated-set tracking (coverage stays null); the unit
-        // stays static and CONTINUES to edge resolution / child planning like
-        // any static unit — its tracked body needs planned in-place edges to
-        // thread the coverage channel through. The region membership of those
-        // edges is computed after the walk (below).
+        // See PlanOptions.output: list mode NEVER static-licenses. Static
+        // coverage models only the parent-SUCCESS path (the M6.6 finding) —
+        // a FAILING contributor's dropped annotations make the interpreter
+        // emit additional unevaluated* errors, verdict-invisible but list-
+        // visible. Runtime tracking reproduces that by construction: the
+        // failed application's channel span truncates and the consumer sweep
+        // then covers less. So every list consumer is tracked; the unit stays
+        // static and CONTINUES to edge resolution (its tracked body needs
+        // planned in-place edges to thread the channel), and the region
+        // fixpoint below threads its in-place closure.
         unit.tracking = true;
       } else {
-        unit.coverage = {
-          names: halves.name ? [...halves.name.names] : [],
-          patterns: halves.name ? halves.name.patterns : [],
-          coversAllNames: halves.name?.all ?? false,
-          prefixCount: halves.index?.prefix ?? 0,
-          coversAllIndexes: halves.index?.all ?? false,
-        };
-        for (const pat of unit.coverage.patterns) patterns.add(pat);
+        // Flag mode: static-coverage licensing is sound (verdict-only), so a
+        // consumer whose coverage kind is statically known keeps the fast path.
+        const halves = coverageHalves(registry, ref, new Set(), true);
+        const needsNames = present.some(
+          (k) => (k.facts.consumes?.length ?? 0) > 0 && k.facts.evaluatesNames,
+        );
+        const needsIndexes = present.some(
+          (k) =>
+            (k.facts.consumes?.length ?? 0) > 0 && k.facts.evaluatesIndexes,
+        );
+        if (
+          (needsNames && halves.name === null) ||
+          (needsIndexes && halves.index === null)
+        ) {
+          // Static licensing failed. FLAG mode compiles the consumer anyway,
+          // with runtime evaluated-set tracking (coverage stays null); the
+          // unit stays static and CONTINUES to edge resolution / child
+          // planning like any static unit — its tracked body needs planned
+          // in-place edges to thread the coverage channel through. The region
+          // membership of those edges is computed after the walk (below).
+          unit.tracking = true;
+        } else {
+          unit.coverage = {
+            names: halves.name ? [...halves.name.names] : [],
+            patterns: halves.name ? halves.name.patterns : [],
+            coversAllNames: halves.name?.all ?? false,
+            prefixCount: halves.index?.prefix ?? 0,
+            coversAllIndexes: halves.index?.all ?? false,
+          };
+          for (const pat of unit.coverage.patterns) patterns.add(pat);
+        }
       }
     }
 

@@ -752,10 +752,12 @@ describe("Leg 5 — collectAnnotations does not change plan classification", () 
       "https://ann-suite.example/plan-consumer",
     );
     expectSamePlanShape(engine, uri);
-    // The consumer must actually exercise the interpreted path, or this
-    // assert proves nothing.
+    // The consumer must actually exercise runtime coverage tracking (list
+    // plans never static-license, plan.ts), or this assert proves nothing.
     const annotated = compileList(engine, uri, { collectAnnotations: true });
-    expect(annotated.plan.targets.length).toBeGreaterThan(0);
+    const root = annotated.plan.units.get(annotated.plan.rootKey)!;
+    expect(root.kind).toBe("static");
+    expect(root.tracking).toBe(true);
   });
 
   it("OAS 3.1 schema corpus plans identically", () => {

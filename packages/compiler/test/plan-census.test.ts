@@ -46,13 +46,13 @@ interface Expected {
 
 // Transcribed from a local run (deterministic — two runs hash-identical).
 // FLAG mode compiles dynamic-coverage unevaluated* consumers with runtime
-// tracking (phase B): the former `unlowerable` interpreted units become
-// static `trackingUnits`, their in-place closures become `regionUnits`, and
-// their now-planned subtrees raise `totalUnits`. LIST mode still demotes every
-// such consumer (its static-coverage license is flag-only) — a demoted unit's
-// subtree is never planned — so list plans have FEWER total units, MORE
-// interpreted ones, and NO tracking. The list pins must not move under a
-// flag-only change (asserted below).
+// tracking (phase B) and keeps static-coverage consumers on the static-license
+// fast path. LIST mode never static-licenses (plan.ts: static coverage models
+// the parent-success path only), so it tracks EVERY consumer: list
+// trackingUnits EXCEED flag's, total units match flag's (tracked subtrees are
+// planned), and the remaining `unlowerable` units are exactly the nested
+// tracked consumers islanded by the region fixpoint. The flag pins must not
+// move under a list-only change (their own rows assert that).
 const PINS: Record<string, DialectPin> = {
   "draft2020-12": {
     dir: "draft2020-12",
@@ -66,9 +66,11 @@ const PINS: Record<string, DialectPin> = {
     },
     list: {
       groups: 383,
-      totalUnits: 1056,
-      interpretedUnits: 134,
-      causes: { dynamic: 58, unlowerable: 76 },
+      totalUnits: 1338,
+      interpretedUnits: 66,
+      causes: { dynamic: 59, unlowerable: 7 },
+      trackingUnits: 76,
+      regionUnits: 64,
     },
   },
   "draft2019-09": {
@@ -84,9 +86,11 @@ const PINS: Record<string, DialectPin> = {
     },
     list: {
       groups: 372,
-      totalUnits: 1034,
-      interpretedUnits: 122,
-      causes: { dynamic: 49, unlowerable: 73 },
+      totalUnits: 1297,
+      interpretedUnits: 56,
+      causes: { dynamic: 49, unlowerable: 7 },
+      trackingUnits: 73,
+      regionUnits: 58,
     },
   },
   draft7: {

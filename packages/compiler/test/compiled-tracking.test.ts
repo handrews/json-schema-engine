@@ -1,15 +1,17 @@
 // Compiled-consumer runtime coverage tracking (COMPILED-CONSUMERS.md phase B):
 // FLAG-mode plans compile dynamic-coverage unevaluated* consumers with a
-// runtime evaluated-set channel instead of trampolining the whole subtree.
-// The five compiled suite legs and the flag fuzz leg are the broad correctness
-// gates; this file pins the two SHAPES those gates under-exercise directly —
-// the classification (root static+tracking, its in-place closure a region) and
-// the two channel paths (region variants; the nested-island fragCov harvest) —
-// so a regression in either is a loud, small failure rather than a census drift.
+// runtime evaluated-set channel instead of trampolining the whole subtree;
+// LIST-mode plans track EVERY consumer (stage 3), because static licensing is
+// list-unsound. The five compiled suite legs and the fuzz legs are the broad
+// correctness gates; this file pins the SHAPES those gates under-exercise
+// directly — the classification (root static+tracking, its in-place closure a
+// region), the two channel paths (region variants; the nested-island fragCov
+// harvest), and the M6.6 failing-contributor list shapes — so a regression in
+// any is a loud, small failure rather than a census drift.
 
 import { describe, it, expect } from "vitest";
 import { createEngine, type JsonValue } from "@jse/core";
-import { buildPlan, compileValidator } from "@jse/compiler";
+import { buildPlan, compileList, compileValidator } from "@jse/compiler";
 
 /** Every verdict of the compiled artifact must match the interpreter. */
 function expectVerdictParity(
@@ -162,6 +164,89 @@ describe("runtime coverage tracking (phase B)", () => {
         ["s", 12, "x"], // invalid: index 2 must be boolean (unmatched by contains)
         ["s", 5], // invalid: contains has no match (min 10)
         ["s", 12, 13, false], // multiple contains matches; index 3 boolean ok
+      ],
+    );
+  });
+});
+
+// The M6.6 shapes: a consumer whose coverage contributor sits in a FAILING
+// branch. Static coverage models the parent-success path only, so licensing
+// these was list-unsound — the interpreter drops the failed branch's
+// annotations and unevaluated* reports ADDITIONAL errors, verdict-invisible
+// but list-visible. Runtime tracking reproduces that by construction (the
+// failed application's channel span truncates, the sweep covers less); these
+// pins hold list-mode compilation of consumers to the interpreter's exact
+// error multiset AND order on exactly the cases static licensing got wrong.
+describe("list-mode tracking: failing coverage contributors (M6.6 shapes)", () => {
+  /** Compiled list output must equal the interpreter's, element by element. */
+  function expectListParity(
+    schema: JsonValue,
+    uriTag: string,
+    instances: JsonValue[],
+  ): void {
+    const engine = createEngine();
+    const uri = engine.registerSchema(
+      schema,
+      `https://tracking.example/${uriTag}`,
+    );
+    const artifact = compileList(engine, uri, { errorParams: true });
+    // The consumer must be COMPILED (tracked), or this proves nothing: an
+    // interpreted fallback would pass trivially.
+    const root = artifact.plan.units.get(artifact.plan.rootKey)!;
+    expect(root.kind).toBe("static");
+    expect(root.tracking).toBe(true);
+    for (const instance of instances) {
+      const expected = engine.evaluate(uri, instance, {
+        output: "list",
+        errorParams: true,
+      });
+      const got = artifact.evaluateList(instance);
+      expect(
+        { valid: got.valid, errors: got.valid ? [] : got.errors },
+        JSON.stringify(instance),
+      ).toEqual({ valid: expected.valid, errors: expected.errors ?? [] });
+    }
+  }
+
+  it("unevaluatedItems sees a failed allOf branch's prefixItems as dropped", () => {
+    expectListParity(
+      {
+        allOf: [{ prefixItems: [{ type: "string" }] }],
+        unevaluatedItems: false,
+      },
+      "m66-items",
+      [
+        // prefixItems fails on item 0 → its annotation drops → unevaluatedItems
+        // ALSO reports index 0 (two errors at the same instance location).
+        [5],
+        // branch passes → index 0 covered → unevaluatedItems reports only 1.
+        ["ok", 5],
+        [], // vacuous both ways
+        ["ok"], // fully covered, valid
+      ],
+    );
+  });
+
+  it("unevaluatedProperties sees a failed anyOf branch's properties as dropped", () => {
+    expectListParity(
+      {
+        anyOf: [
+          { properties: { a: { type: "string" } }, required: ["a"] },
+          { properties: { b: { type: "number" } }, required: ["b"] },
+        ],
+        unevaluatedProperties: false,
+      },
+      "m66-props",
+      [
+        // First branch fails (a not a string) while the second passes: 'a' is
+        // dropped from coverage and unevaluatedProperties reports it too.
+        { a: 5, b: 1 },
+        // Both branches pass: both names covered, valid.
+        { a: "ok", b: 1 },
+        // Second branch fails: 'b' unevaluated, reported alongside its type error.
+        { a: "ok", b: "no" },
+        // Both branches fail: anyOf error AND both names swept as unevaluated.
+        { a: 5, b: "no" },
       ],
     );
   });
