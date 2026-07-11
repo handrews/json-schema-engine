@@ -39,7 +39,7 @@ import {
   compileList,
   type CompiledListArtifact,
 } from "@jse/compiler";
-import { Ajv as CompatAjv } from "@jse/ajv-compat";
+import { Ajv as CompatAjv, Ajv2020 as CompatAjv2020 } from "@jse/ajv-compat";
 
 // CJS interop: at runtime module.exports is the class and also carries
 // .default, but ajv's own types declare `.default` as always present.
@@ -251,6 +251,17 @@ async function subjectsFor(corpus: Corpus): Promise<CorpusSubjects> {
     } else {
       console.log(`note: ${corpus.name}: ajv excluded — ${corpus.ajvExcluded}`);
     }
+    // Unlike real AJV, ajv-compat has no independent 2020-12 implementation
+    // to disagree with jse: it wraps the same engine the other jse subjects
+    // do, so its verdicts should agree even on the corpus real AJV cannot
+    // handle. Compiled once here (outside the timed loop) like every other
+    // subject.
+    const compat2020 = new CompatAjv2020(AJV_OPTIONS);
+    const compat2020Validate = compat2020.compile(corpus.schema);
+    subjects.push({
+      name: "ajv-compat (2020)",
+      verdict: (x) => compat2020Validate(x),
+    });
     hjRegister(corpus.schema as never);
     const hj = await hjValidate(corpus.uri);
     subjects.push({ name: "hyperjump", verdict: (x) => hj(x).valid });
