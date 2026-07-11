@@ -147,6 +147,15 @@ export function emitStandalone(
         "standalone emission covers fully static schemas only",
     );
   }
+  // Format assertions resolve through the engine's format table (predicates
+  // like IDNA that a zero-import module cannot duplicate); a format-bearing
+  // schema stays on the interpreter (CSP) or runtime compilation (no CSP).
+  if (plan.formats.length > 0) {
+    throw new StandaloneUnsupportedError(
+      `schema '${schemaUri}' asserts formats (${plan.formats.join(", ")}); ` +
+        "standalone emission cannot carry the engine's format predicates",
+    );
+  }
   // A tracked consumer's runtime coverage channel binds the harvest/fold
   // helpers the standalone preamble deliberately omits (phase B is runtime
   // mode only); the interpreter is the CSP-safe tier for these schemas.

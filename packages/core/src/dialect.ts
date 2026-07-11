@@ -83,6 +83,12 @@ export interface StaticFacts {
    * `rejectUnsafeRegex` at registration (see regex.ts)
    */
   regexes?: readonly string[];
+  /**
+   * format names this keyword needs a table entry for (the compiler hoists
+   * one lookup per name); screened by `UnknownFormatError` at registration
+   * under the refuse-unknown posture (see keywords/format.ts)
+   */
+  formats?: readonly string[];
   /** participates in dynamic scope resolution ($dynamicRef and friends) */
   dynamicScopeSensitive?: boolean;
   /** static evaluated-name contribution (D9a; see {@link NameCoverage}) */

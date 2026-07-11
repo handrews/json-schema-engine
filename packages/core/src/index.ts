@@ -309,6 +309,7 @@ export class Engine {
   private validateSchemas: boolean;
   private regexCache: RegexCache;
   private maxDepth: number;
+  private formatTable: FormatTable | undefined;
   // Dialect URIs whose assembly is in progress, to fail metaschema cycles.
   private assembling = new Set<string>();
 
@@ -327,6 +328,7 @@ export class Engine {
     // The format-assertion vocabulary exists whenever a table is supplied;
     // without one, a dialect requiring it fails with UnknownVocabularyError,
     // which is the correct "cannot honor the assertion promise" answer.
+    this.formatTable = options.formats;
     if (options.formats) {
       const table = options.formats;
       this.dialects.registerVocabulary(VOCAB_FORMAT_ASSERTION, {
@@ -396,6 +398,16 @@ export class Engine {
   /** The engine's compiled-pattern cache, shared with compiled artifacts (M6). */
   get patternCache(): RegexCache {
     return this.regexCache;
+  }
+
+  /**
+   * The format table backing this engine's asserting `format`, or undefined
+   * when none was configured — the compiler tier's read surface for
+   * format-assertion lowering (M7). The asserting `format` behaviors close
+   * over this same table, so a compiled `formatTest` and the interpreter agree.
+   */
+  get formats(): FormatTable | undefined {
+    return this.formatTable;
   }
 
   /**

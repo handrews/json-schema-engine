@@ -74,6 +74,8 @@ export interface CompilationPlan {
   units: Map<string, PlannedUnit>;
   /** every regex source any static unit tests (pattern + coverage patterns) */
   patterns: string[];
+  /** every format name any static unit's asserting `format` tests */
+  formats: string[];
   /** interpreted units in stable order; index = target-table slot */
   targets: PlannedUnit[];
 }
@@ -114,6 +116,7 @@ export function buildPlan(
   const registry = engine.registry;
   const units = new Map<string, PlannedUnit>();
   const patterns = new Set<string>();
+  const formats = new Set<string>();
 
   const rootRef = registry.rootRef(schemaUri);
 
@@ -191,6 +194,7 @@ export function buildPlan(
       }
       if ((facts.consumes?.length ?? 0) > 0) consumerPresent = true;
       for (const rx of facts.regexes ?? []) patterns.add(rx);
+      for (const fmt of facts.formats ?? []) formats.add(fmt);
       present.push({ name: entry.name, facts });
     }
     // Unknown keywords: annotation-only productions, elided in flag mode.
@@ -366,6 +370,7 @@ export function buildPlan(
     rootKey: root.key,
     units,
     patterns: [...patterns],
+    formats: [...formats],
     targets,
   };
 }

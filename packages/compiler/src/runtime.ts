@@ -22,6 +22,7 @@ import {
   jsonEqual,
   makeRecordPredicate,
   rootCursor,
+  type FormatTable,
   type FragmentOptions,
   type JsonValue,
   type RetentionPolicy,
@@ -58,6 +59,8 @@ export interface Runtime {
   readonly foldIndexCoverage: typeof foldIndexCoverage;
   /** compiled RegExp by pattern source */
   readonly re: Record<string, { test(s: string): boolean }>;
+  /** asserting-format definitions by name (the engine's format table, filtered) */
+  readonly formats: Record<string, { test(v: JsonValue): boolean }>;
   /** the artifact's depth bound (D20), shared with trampolined fragments */
   readonly maxDepth: number;
   /** throws the typed depth error a compiled unit's guard trips (D20) */
@@ -139,12 +142,32 @@ export function makeRuntime(
   maxDepth: number,
   listParams = false,
   annotate?: { retention?: RetentionPolicy },
+  formatTable?: FormatTable,
+  usedFormats: readonly string[] = [],
 ): Runtime {
   const re = Object.create(null) as Record<
     string,
     { test(s: string): boolean }
   >;
   for (const source of patterns) re[source] = regexCache.compile(source);
+  // Filter the engine's format table down to the names the artifact tests,
+  // exactly as `re` narrows the pattern cache. A used name with no backing
+  // definition is unreachable via public paths (the constructor rejects
+  // assertFormats without a table, and lower() only emits formatTest for
+  // table-present names), so a miss here is a compiler bug — fail loudly.
+  const formats = Object.create(null) as Record<
+    string,
+    { test(v: JsonValue): boolean }
+  >;
+  for (const name of usedFormats) {
+    const definition = formatTable?.[name];
+    if (definition === undefined) {
+      throw new TypeError(
+        `compiled artifact tests format '${name}' with no table definition`,
+      );
+    }
+    formats[name] = definition;
+  }
   // Flag-mode elision predicate. NOT `() => false`: consumed behavior ids
   // must always record (M5.5 invariant) or unevaluated* inside fragments
   // would see an empty channel.
@@ -180,6 +203,7 @@ export function makeRuntime(
     foldNameCoverage,
     foldIndexCoverage,
     re,
+    formats,
     maxDepth,
     tooDeep: () => {
       throw new MaxDepthExceededError(

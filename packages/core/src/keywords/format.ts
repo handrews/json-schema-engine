@@ -13,6 +13,7 @@
 
 import { JsonValue, JsonType, jsonTypeOf } from "../json.js";
 import { KeywordBehavior } from "../dialect.js";
+import { lowerIR } from "../lowering.js";
 
 /** 2020-12 format-assertion vocabulary URI. */
 export const VOCAB_FORMAT_ASSERTION =
@@ -56,6 +57,16 @@ const appliesTo = (
  * Builds an asserting `format` behavior over a table. `refuseUnknown`
  * selects the vocabulary posture (refuse at registration) versus the
  * best-effort configuration posture (annotate unknowns).
+ *
+ * Single-table contract: {@link lower} resolves the format definition against
+ * the closed-over `table` at compile time, so it is correct only when that
+ * table is the compiling engine's `formats` — true by construction for the
+ * Engine-constructed instances, the only production call sites (both the
+ * `assertFormats` configuration and the format-assertion vocabulary close over
+ * `options.formats`, which the compiler reads back through `engine.formats`).
+ * A custom dialect that wires `assertingFormat` with a foreign table must drop
+ * `lower` (accepting the interpreter fallback) rather than compile against a
+ * table the artifact's runtime would not carry.
  */
 export function assertingFormat(
   id: string,
@@ -75,7 +86,44 @@ export function assertingFormat(
             "vocabulary requires refusing formats it cannot assert",
         );
       }
-      return { produces: [id] };
+      // Report only formats the table can assert — the exact set lower()
+      // emits a formatTest for (an unknown format under the best-effort
+      // posture falls back to annotation-only and needs no table entry). This
+      // keeps plan.formats == the artifact's used-format set, so the runtime's
+      // missing-definition guard stays unreachable via public paths.
+      return typeof value === "string" && Object.hasOwn(table, value)
+        ? { produces: [id], formats: [value] }
+        : { produces: [id] };
+    },
+    lower: (value, lctx) => {
+      // Produce the annotation first, unconditionally — evaluate()'s
+      // produce-before-assertion order (format's annotation value is the name).
+      lctx.emit({ kind: "produce", value: { kind: "const", value } });
+      if (typeof value !== "string") return; // metaschema's concern
+      // Resolve against the closed-over table (the compiling engine's, per the
+      // single-table contract above); the name is a schema constant. A
+      // refuseUnknown instance never reaches here undefined — analyze() threw
+      // at registration — so an undefined definition is the best-effort
+      // posture's unrecognized format: fall back to annotation-only, emitting
+      // nothing further (evaluate() parity).
+      const definition = Object.hasOwn(table, value) ? table[value] : undefined;
+      if (definition === undefined) return;
+      const { and, not, typeIs, when, failWith, constant, formatTest } =
+        lowerIR;
+      lctx.emit(
+        when(
+          and(
+            typeIs(lctx.instance, ...(definition.types ?? ["string"])),
+            not(formatTest(value, lctx.instance)),
+          ),
+          [
+            failWith(
+              { format: constant(value) },
+              "must match format '" + value + "'",
+            ),
+          ],
+        ),
+      );
     },
     evaluate: (value, cursor, ctx) => {
       // The annotation is produced regardless of assertion outcome

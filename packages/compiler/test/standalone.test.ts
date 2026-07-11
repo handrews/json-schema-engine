@@ -19,6 +19,7 @@ import {
   type JsonValue,
 } from "@jse/core";
 import { emitStandalone, StandaloneUnsupportedError } from "@jse/compiler";
+import { FORMATS_2020_12 } from "@jse/formats";
 import { STANDALONE_PREAMBLE } from "../src/standalone.js";
 
 interface PreambleHelpers {
@@ -170,6 +171,20 @@ describe("emitStandalone (M6.5)", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it("refuses format-asserting schemas (the table's predicates cannot be inlined)", () => {
+    const engine = createEngine({
+      formats: FORMATS_2020_12,
+      assertFormats: true,
+    });
+    const uri = engine.registerSchema(
+      { format: "ipv4" },
+      "https://standalone.example/fmt",
+    );
+    expect(() => emitStandalone(engine, uri)).toThrow(
+      StandaloneUnsupportedError,
+    );
   });
 
   it("refuses island plans, naming the interpreter as the CSP path", () => {

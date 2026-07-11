@@ -134,6 +134,10 @@ export function compileValidator(
     engine.patternCache,
     plan.patterns,
     options.maxDepth ?? DEFAULT_MAX_DEPTH,
+    false,
+    undefined,
+    engine.formats,
+    plan.formats,
   );
   const validate = instantiate(
     source,
@@ -181,6 +185,8 @@ export function compileList(
     options.maxDepth ?? DEFAULT_MAX_DEPTH,
     errorParams,
     collect ? { retention } : undefined,
+    engine.formats,
+    plan.formats,
   );
   const targets = plan.targets.map((t) => t.ref);
   const root = engine.registry.rootRef(schemaUri);

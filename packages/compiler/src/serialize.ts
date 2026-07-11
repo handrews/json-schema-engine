@@ -38,6 +38,7 @@ const unitFnRegion = (index: number): CodeChunk =>
   id("u" + String(index) + "c");
 const bindingVar = (n: number): CodeChunk => id("b" + String(n));
 const regexConst = (i: number): CodeChunk => id("r" + String(i));
+const formatConst = (i: number): CodeChunk => id("fmt" + String(i));
 const counterVar = (n: number): CodeChunk => id("c" + String(n));
 const foldVar = (n: number): CodeChunk => id("f" + String(n));
 
@@ -278,6 +279,13 @@ export function serializePlan(
         ? js`const ${regexConst(i)} = ${R}.re[${str(source)}];`
         : js`const ${regexConst(i)} = ${id("h_rx")}(${str(source)});`,
     );
+  });
+  // One format-definition lookup per used name (runtime mode only). Standalone
+  // never reaches a format-bearing plan — emitStandalone rejects plan.formats
+  // (a format predicate like IDNA cannot be duplicated into a zero-import
+  // module), so plan.formats is empty here in that mode.
+  plan.formats.forEach((name, i) => {
+    prologue.push(js`const ${formatConst(i)} = ${R}.formats[${str(name)}];`);
   });
 
   const footer = annMode
@@ -1514,6 +1522,15 @@ class UnitContext {
           idx = this.plan.patterns.push(e.source) - 1;
         }
         return js`${regexConst(idx)}.test(${this.expr(e.target)})`;
+      }
+      case "formatTest": {
+        let idx = this.plan.formats.indexOf(e.name);
+        if (idx === -1) {
+          // The prologue hoists after all units serialize (as with regexTest),
+          // so a name first seen here still gets its lookup const.
+          idx = this.plan.formats.push(e.name) - 1;
+        }
+        return js`${formatConst(idx)}.test(${this.expr(e.target)})`;
       }
       case "not":
         return js`!(${this.expr(e.expr)})`;

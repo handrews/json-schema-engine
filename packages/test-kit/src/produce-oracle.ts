@@ -20,6 +20,7 @@ import {
   hasDuplicateItems,
   isMultipleOf,
   jsonEqual,
+  type FormatTable,
   type JsonValue,
   type LowerApply,
   type LowerCursor,
@@ -97,6 +98,7 @@ export function evaluateProduceRecipes(
   regexCache: RegexCache,
   unit: OracleUnit,
   instance: JsonValue,
+  formats?: FormatTable,
 ): RecipeProduction[] {
   const node = unit.ref.node;
   if (typeof node === "boolean" || !isObjectValue(node)) return [];
@@ -143,6 +145,7 @@ export function evaluateProduceRecipes(
       bindings,
       accum,
       productions,
+      formats,
     );
     exec.runStmts(stmts);
   }
@@ -160,6 +163,7 @@ class RecipeExecutor {
     private bindings: Map<number, string | number>,
     private accum: Accumulators,
     private out: RecipeProduction[],
+    private formats?: FormatTable,
   ) {}
 
   runStmts(stmts: readonly LowerStmt[]): void {
@@ -362,6 +366,12 @@ class RecipeExecutor {
         return this.regexCache
           .compile(e.source)
           .test(this.evalExpr(e.target) as string);
+      case "formatTest":
+        // Loud when the table or entry is missing: the caller must pass the
+        // engine's format table whenever a lowered format assertion is present.
+        return this.formats![e.name]!.test(
+          this.evalExpr(e.target) as JsonValue,
+        );
       case "not":
         return !truthy(this.evalExpr(e.expr));
       case "logic": {

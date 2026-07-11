@@ -70,6 +70,12 @@ export type LowerExpr =
       readonly source: string;
       readonly target: LowerExpr;
     }
+  /** test a hoisted format definition (compiled through the engine's format table) */
+  | {
+      readonly kind: "formatTest";
+      readonly name: string;
+      readonly target: LowerExpr;
+    }
   | { readonly kind: "not"; readonly expr: LowerExpr }
   | {
       readonly kind: "logic";
@@ -373,6 +379,11 @@ export const lowerIR = {
   regexTest: (source: string, target: LowerExpr): LowerExpr => ({
     kind: "regexTest",
     source,
+    target,
+  }),
+  formatTest: (name: string, target: LowerExpr): LowerExpr => ({
+    kind: "formatTest",
+    name,
     target,
   }),
   helper: (helper: LowerHelper, ...args: readonly LowerExpr[]): LowerExpr => ({

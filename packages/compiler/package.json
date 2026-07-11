@@ -16,6 +16,9 @@
   "dependencies": {
     "@jse/core": "0.0.0"
   },
+  "devDependencies": {
+    "@jse/formats": "0.0.0"
+  },
   "types": "./dist/index.d.ts",
   "files": [
     "dist",

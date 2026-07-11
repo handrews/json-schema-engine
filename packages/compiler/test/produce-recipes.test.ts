@@ -30,6 +30,7 @@ import {
 } from "@jse/core";
 import { buildPlan, type PlannedUnit } from "@jse/compiler";
 import { registerDraft04, DIALECT_DRAFT_04 } from "@jse/dialect-draft04";
+import { FORMATS_2020_12 } from "@jse/formats";
 import {
   evaluateProduceRecipes,
   suiteRemotesLoader,
@@ -439,6 +440,89 @@ describe("Leg A — produce recipes match the interpreter and their pinned value
         `${c.name}: oracle ≠ interpreter: ${JSON.stringify(divergence)}`,
       ).toBeNull();
       // Pin the interpreter (not just agreement) and the oracle to the value.
+      expect(interpreter, `${c.name}: interpreter productions`).toEqual(
+        c.expected,
+      );
+      expect(oracle, `${c.name}: oracle productions`).toEqual(c.expected);
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Leg A (formats) — the asserting `format` recipe. Its lower() emits the name
+// annotation unconditionally, then a formatTest assertion; the oracle needs
+// the engine's format table to replay the (production-irrelevant) assertion
+// condition. The produce is the format name regardless of assertion outcome,
+// so the contract holds for a conforming string, a non-applicable type (the
+// assertion is type-scoped), and an unknown format (produce-only fallback).
+// ---------------------------------------------------------------------------
+
+interface FormatCase {
+  name: string;
+  schema: JsonValue;
+  instance: JsonValue;
+  expected: RecipeProduction[];
+}
+
+const FORMAT_TABLE: FormatCase[] = [
+  {
+    name: "known format, conforming string → name annotation",
+    schema: { format: "ipv4" },
+    instance: "10.0.0.1",
+    expected: [{ keyword: "format", value: "ipv4" }],
+  },
+  {
+    name: "known format, non-applicable type → name annotation, no assertion",
+    schema: { format: "ipv4" },
+    instance: 42,
+    expected: [{ keyword: "format", value: "ipv4" }],
+  },
+  {
+    name: "unknown format under assertFormats → produce-only fallback",
+    schema: { format: "no-such-format" },
+    instance: "anything",
+    expected: [{ keyword: "format", value: "no-such-format" }],
+  },
+];
+
+describe("Leg A (formats) — asserting format recipes match the interpreter", () => {
+  for (const c of FORMAT_TABLE) {
+    it(c.name, () => {
+      const engine = createEngine({
+        formats: FORMATS_2020_12,
+        assertFormats: true,
+      });
+      const uri = engine.registerSchema(
+        c.schema,
+        `https://recipes.example/fmt/${encodeURIComponent(c.name)}`,
+      );
+      const plan = buildPlan(engine, uri, { output: "flag" });
+      const unit = plan.units.get(plan.rootKey)!;
+      expect(unit.kind, `${c.name}: root unit must be static`).toBe("static");
+
+      const { valid, productions: interpreter } = ownInterpretations(
+        engine,
+        unit.ref,
+        c.instance,
+      );
+      // The oracle replays the formatTest condition, so it needs the table.
+      const oracle = evaluateProduceRecipes(
+        engine.registry,
+        engine.patternCache,
+        unit,
+        c.instance,
+        engine.formats,
+      );
+      expect(valid, `${c.name}: instance must be valid at the unit`).toBe(true);
+      const divergence = compareProductions(
+        oracle,
+        interpreter,
+        `${unit.ref.baseUri}#${unit.ref.pointer}`,
+      );
+      expect(
+        divergence,
+        `${c.name}: oracle ≠ interpreter: ${JSON.stringify(divergence)}`,
+      ).toBeNull();
       expect(interpreter, `${c.name}: interpreter productions`).toEqual(
         c.expected,
       );
