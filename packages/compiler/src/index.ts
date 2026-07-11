@@ -6,9 +6,11 @@
 
 import {
   DEFAULT_MAX_DEPTH,
+  type AnnotationUnit,
   type Engine,
   type ErrorUnit,
   type JsonValue,
+  type RetentionPolicy,
 } from "@jse/core";
 import { buildPlan, type CompilationPlan } from "./plan.js";
 import { serializePlan } from "./serialize.js";
@@ -16,6 +18,7 @@ import { makeRuntime } from "./runtime.js";
 import {
   instantiate,
   instantiateList,
+  instantiateListAnn,
   type CompiledValidate,
 } from "./runtime-compile.js";
 
@@ -46,12 +49,30 @@ export interface ListCompileOptions extends CompileOptions {
    * `Engine.evaluate(uri, x, { output: "list", errorParams: true })` (D13).
    */
   errorParams?: boolean;
+  /**
+   * Collect annotations, matching the interpreter's list output under
+   * `collectAnnotations: true`: `evaluateList` gains an `annotations` array on
+   * valid instances and `basic()` gains the Basic document's annotation side.
+   */
+  collectAnnotations?: boolean;
+  /**
+   * Retention policy for collected annotations (D5). Allow/deny lists are
+   * specialized into the artifact at compile time; the `keep` predicate runs
+   * at evaluation. Ignored unless `collectAnnotations` is set.
+   */
+  retention?: RetentionPolicy;
 }
 
-/** A compiled list-mode result: interpreter-exact flat error units. */
+/** A compiled list-mode result: interpreter-exact flat error units, plus annotations when collected. */
 export interface CompiledListResult {
   valid: boolean;
   errors: ErrorUnit[];
+  /**
+   * Present on valid instances when compiled with `collectAnnotations`
+   * (absent on invalid ones, matching `Engine.evaluate`'s valid-only
+   * annotation contract); always absent otherwise.
+   */
+  annotations?: AnnotationUnit[];
 }
 
 /** A compiled list-mode artifact (see {@link compileList}). */
@@ -59,10 +80,11 @@ export interface CompiledListArtifact {
   /** evaluate with full error collection ({@link CompiledListResult}) */
   evaluateList(instance: JsonValue): CompiledListResult;
   /**
-   * The same result renamed to the 2020-12 Basic document field names.
-   * Matches the interpreter's Basic document exactly for INVALID instances;
-   * valid ones omit `annotations` (compiled annotation collection is out of
-   * scope — DESIGN §7 — use the interpreter when annotations are needed).
+   * The same result renamed to the 2020-12 Basic document field names. On
+   * invalid instances it carries the flat `errors` array; on valid instances
+   * compiled with `collectAnnotations`, the `annotations` array (2020-12
+   * field names, `keep`-filtered), present only when non-empty — matching the
+   * interpreter's `renderBasic`.
    */
   basic(instance: JsonValue): {
     valid: boolean;
@@ -75,6 +97,7 @@ export interface CompiledListArtifact {
       instanceLocation: string;
       error: string;
     }[];
+    annotations?: AnnotationUnit[];
   };
   plan: CompilationPlan;
   source: string;
@@ -136,6 +159,9 @@ export function compileList(
   schemaUri: string,
   options: ListCompileOptions = {},
 ): CompiledListArtifact {
+  const collect = options.collectAnnotations ?? false;
+  const errorParams = options.errorParams ?? false;
+  const retention = collect ? options.retention : undefined;
   const plan = buildPlan(engine, schemaUri, { output: "list" });
   const source = serializePlan(
     plan,
@@ -145,43 +171,102 @@ export function compileList(
       ? { inline: false, plainData: false }
       : { inline: true, plainData: true },
     "list",
-    options.errorParams ?? false,
+    errorParams,
+    collect ? { retention } : undefined,
   );
   const runtime = makeRuntime(
     engine.registry,
     engine.patternCache,
     plan.patterns,
     options.maxDepth ?? DEFAULT_MAX_DEPTH,
-    options.errorParams ?? false,
+    errorParams,
+    collect ? { retention } : undefined,
   );
-  const evaluateList = instantiateList<ErrorUnit>(
-    source,
-    runtime,
-    plan.targets.map((t) => t.ref),
-  );
+  const targets = plan.targets.map((t) => t.ref);
   const root = engine.registry.rootRef(schemaUri);
   const rootLocation = `${root.baseUri}#${root.pointer}`;
+  const keep = retention?.keep;
+
+  if (!collect) {
+    const evaluateList = instantiateList<ErrorUnit>(source, runtime, targets);
+    return {
+      evaluateList,
+      basic: (instance) => {
+        const { valid, errors } = evaluateList(instance);
+        const doc: ReturnType<CompiledListArtifact["basic"]> = {
+          valid,
+          keywordLocation: "",
+          absoluteKeywordLocation: rootLocation,
+          instanceLocation: "",
+        };
+        if (!valid) {
+          doc.errors = errors.map((e) => ({
+            keywordLocation: e.evaluationPath!,
+            absoluteKeywordLocation: e.schemaLocation!,
+            instanceLocation: e.instanceLocation,
+            error: e.error,
+          }));
+        }
+        return doc;
+      },
+      plan,
+      source,
+    };
+  }
+
+  // The emitted evaluator returns the raw (static-list-filtered) annotation
+  // array; the wrapper applies `keep` and the valid-only presence rule,
+  // matching `Engine.evaluate`'s Result.annotations. `basic()` re-projects to
+  // the 2020-12 field names and applies `keep` over those (renderBasic's
+  // vocabulary is "2020-12"), so a keep predicate sees the shape it will in
+  // each surface.
+  const rawEval = instantiateListAnn<ErrorUnit>(source, runtime, targets);
   return {
-    evaluateList,
+    evaluateList: (instance): CompiledListResult => {
+      const r = rawEval(instance);
+      if (!r.valid) return { valid: false, errors: r.errors };
+      const anns = keep ? r.annotations.filter(keep) : r.annotations;
+      return { valid: true, errors: r.errors, annotations: anns };
+    },
     basic: (instance) => {
-      const { valid, errors } = evaluateList(instance);
+      const r = rawEval(instance);
       const doc: ReturnType<CompiledListArtifact["basic"]> = {
-        valid,
+        valid: r.valid,
         keywordLocation: "",
         absoluteKeywordLocation: rootLocation,
         instanceLocation: "",
       };
-      if (!valid) {
-        doc.errors = errors.map((e) => ({
+      if (!r.valid) {
+        doc.errors = r.errors.map((e) => ({
           keywordLocation: e.evaluationPath!,
           absoluteKeywordLocation: e.schemaLocation!,
           instanceLocation: e.instanceLocation,
           error: e.error,
         }));
+        return doc;
       }
+      let mapped = r.annotations.map(annToBasic);
+      if (keep) mapped = mapped.filter(keep);
+      if (mapped.length > 0) doc.annotations = mapped;
       return doc;
     },
     plan,
     source,
+  };
+}
+
+/**
+ * Re-project a modern-shaped annotation unit to the 2020-12 Basic field names,
+ * key order matching `renderAnnotation(_, "2020-12")` (keyword, vocabulary?,
+ * keywordLocation, absoluteKeywordLocation, instanceLocation, annotation).
+ */
+function annToBasic(u: AnnotationUnit): AnnotationUnit {
+  return {
+    keyword: u.keyword,
+    ...(u.vocabulary !== undefined ? { vocabulary: u.vocabulary } : {}),
+    keywordLocation: u.evaluationPath,
+    absoluteKeywordLocation: u.schemaLocation,
+    instanceLocation: u.instanceLocation,
+    annotation: u.annotation,
   };
 }

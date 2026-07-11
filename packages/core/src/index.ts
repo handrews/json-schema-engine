@@ -132,7 +132,11 @@ export type {
   SubschemaApplication,
 } from "./dialect.js";
 export { lowerIR } from "./lowering.js";
-export { makeRecordPredicate, renderError } from "./output.js";
+export {
+  makeRecordPredicate,
+  renderAnnotation,
+  renderError,
+} from "./output.js";
 export type {
   LowerApply,
   LowerCursor,

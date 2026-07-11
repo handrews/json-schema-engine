@@ -4,7 +4,9 @@
 
 import {
   MaxDepthExceededError,
+  renderAnnotation,
   renderError,
+  type AnnotationUnit,
   type ErrorUnit,
   type PathNode,
   canonicalKey,
@@ -19,6 +21,7 @@ import {
   rootCursor,
   type FragmentOptions,
   type JsonValue,
+  type RetentionPolicy,
   type SchemaRef,
   type SchemaRegistry,
   type RegexCache,
@@ -78,6 +81,22 @@ export interface Runtime {
     ip: string,
     errs: ErrorUnit[],
   ): boolean;
+  /**
+   * Annotation-mode list trampoline: like {@link fragList} for errors, then
+   * harvests the island's surviving root productions as annotation units
+   * (retention lists applied, instance locations re-rooted under `ip`) onto
+   * `anns`. Present only on annotation-mode artifacts.
+   */
+  fragListAnn?(
+    target: SchemaRef,
+    value: JsonValue,
+    scope: readonly string[],
+    depth: number,
+    ep: string,
+    ip: string,
+    errs: ErrorUnit[],
+    anns: AnnotationUnit[],
+  ): boolean;
 }
 
 /** Builds the {@link Runtime} closure for an artifact bound to one registry. */
@@ -87,6 +106,7 @@ export function makeRuntime(
   patterns: readonly string[],
   maxDepth: number,
   listParams = false,
+  annotate?: { retention?: RetentionPolicy },
 ): Runtime {
   const re = Object.create(null) as Record<
     string,
@@ -101,6 +121,17 @@ export function makeRuntime(
     false,
     undefined,
   );
+  // Annotation harvest predicates (built once): an island records consumed
+  // AND retainable productions so consumers inside it still see their
+  // channel; the lists-only pass then drops consumed-only survivors, leaving
+  // exactly what retention would keep. `keep` runs later in the wrapper.
+  const retention = annotate?.retention;
+  const annRecord = annotate
+    ? makeRecordPredicate(registry.consumedIds(), true, retention)
+    : null;
+  const annLists = annotate
+    ? makeRecordPredicate(new Set(), true, retention)
+    : null;
   return {
     isObject,
     isInteger,
@@ -155,5 +186,42 @@ export function makeRuntime(
       }
       return result.valid;
     },
+    ...(annotate
+      ? {
+          fragListAnn: (target, value, scope, depth, ep, ip, errs, anns) => {
+            const pathNode: PathNode | null =
+              ep === "" ? null : { parent: null, segment: ep.slice(1) };
+            const options: FragmentOptions = {
+              dynamicScope: scope,
+              depth,
+              regexCache,
+              maxDepth,
+              shouldRecord: annRecord,
+              pathNode,
+            };
+            const result = evaluateFragment(
+              registry,
+              target,
+              rootCursor(value),
+              options,
+            );
+            for (const record of result.errors) {
+              const unit = renderError(record, "modern", listParams);
+              unit.instanceLocation = ip + unit.instanceLocation;
+              errs.push(unit);
+            }
+            // Drop consumed-only productions the lists would not retain; the
+            // island's own channel consumers already read them inside it.
+            for (const p of result.productions) {
+              if (!annLists!(p.behaviorId, p.keywordName, p.vocabularyUri))
+                continue;
+              const unit = renderAnnotation(p, "modern");
+              unit.instanceLocation = ip + unit.instanceLocation;
+              anns.push(unit);
+            }
+            return result.valid;
+          },
+        }
+      : {}),
   };
 }

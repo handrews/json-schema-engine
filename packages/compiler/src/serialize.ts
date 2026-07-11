@@ -11,9 +11,13 @@ import {
   type LowerExpr,
   type LowerMessage,
   type LowerParams,
+  type LowerProduceValue,
   type LowerStmt,
   type LoweringContext,
+  type RecordPredicate,
+  type RetentionPolicy,
   type SchemaRegistry,
+  makeRecordPredicate,
 } from "@jse/core";
 import { CodeChunk, frag, id, join, js, num, raw, str, json } from "./emit.js";
 import { escapeSegment } from "@jse/core";
@@ -31,6 +35,46 @@ const regexConst = (i: number): CodeChunk => id("r" + String(i));
 const counterVar = (n: number): CodeChunk => id("c" + String(n));
 
 class SerializeError extends Error {}
+
+/**
+ * Annotation-mode options threaded through serialization. Its presence (with
+ * `output === "list"`) turns on annotation collection; `retention`'s
+ * allow/deny lists are applied statically at produce sites (the compiled
+ * analogue of produce-time elision — the same {@link makeRecordPredicate}
+ * decision the interpreter's renderer makes). The `keep` predicate runs at
+ * runtime in the artifact wrapper, never here.
+ */
+export interface AnnotateOptions {
+  retention?: RetentionPolicy;
+}
+
+/** First `produce` node in a keyword's lowered statement list (searched into blocks). */
+function findProduce(stmts: readonly LowerStmt[]): LowerProduceValue | null {
+  for (const stmt of stmts) {
+    switch (stmt.kind) {
+      case "produce":
+        return stmt.value;
+      case "if": {
+        const t = findProduce(stmt.then);
+        if (t) return t;
+        if (stmt.else) {
+          const e = findProduce(stmt.else);
+          if (e) return e;
+        }
+        break;
+      }
+      case "forEachKey":
+      case "forEachIndex": {
+        const b = findProduce(stmt.body);
+        if (b) return b;
+        break;
+      }
+      default:
+        break;
+    }
+  }
+  return null;
+}
 
 /**
  * Emission mode: "runtime" artifacts close over the Runtime object R
@@ -68,10 +112,20 @@ export function serializePlan(
   flags: EmitFlags = DEFAULT_FLAGS,
   output: EmitOutput = "flag",
   listParams = false,
+  annotate?: AnnotateOptions,
 ): string {
   if (output === "list" && mode === "standalone") {
     throw new SerializeError("standalone emission is flag-only (M6.5 scope)");
   }
+  // Annotation collection is a list-mode variant: it reuses the list plan and
+  // fail-open, no-short-circuit discipline, adding a flat `anns` channel with
+  // mark/truncate at every application boundary (channel rule 3).
+  const annMode = annotate !== undefined && output === "list";
+  // Static retention: the produce/unknown-keyword allow/deny decision, applied
+  // at emit time so ruled-out productions never emit. `keep` is deferred.
+  const annKeep: RecordPredicate | null = annMode
+    ? makeRecordPredicate(new Set(), true, annotate.retention)
+    : null;
   // List mode disables inlining and boolean-literal folding: shared units
   // carry the evaluation-path/instance-pointer parameters, and a `false`
   // subschema must report "schema is false" rather than fold away.
@@ -104,6 +158,8 @@ export function serializePlan(
         effFlags,
         output,
         listParams,
+        annMode,
+        annKeep,
       ),
     );
   }
@@ -123,14 +179,21 @@ export function serializePlan(
 
   const root = plan.units.get(plan.rootKey)!;
   const ERRS = id("errs");
-  const rootCall =
-    output === "list"
-      ? root.kind === "static"
-        ? js`${unitFn(fnIndex.get(root.key)!)}(${V}, 0, ${id("h_s0")}, "", "", ${ERRS})`
-        : js`${id("h_fragl")}(${T}[${num(tableIndex.get(root.key)!)}], ${V}, ${id("h_s0")}, 0, "", "", ${ERRS})`
-      : root.kind === "static"
-        ? js`${unitFn(fnIndex.get(root.key)!)}(${V}, 0, ${id("h_s0")})`
-        : js`${id("h_frag")}(${T}[${num(tableIndex.get(root.key)!)}], ${V}, ${id("h_s0")}, 0)`;
+  const ANNS = id("anns");
+  const rootStatic = root.kind === "static";
+  const rootFn = rootStatic ? unitFn(fnIndex.get(root.key)!) : null;
+  const rootSlot = rootStatic ? null : num(tableIndex.get(root.key)!);
+  const rootCall = annMode
+    ? rootStatic
+      ? js`${rootFn!}(${V}, 0, ${id("h_s0")}, "", "", ${ERRS}, ${ANNS})`
+      : js`${id("h_fragla")}(${T}[${rootSlot!}], ${V}, ${id("h_s0")}, 0, "", "", ${ERRS}, ${ANNS})`
+    : output === "list"
+      ? rootStatic
+        ? js`${rootFn!}(${V}, 0, ${id("h_s0")}, "", "", ${ERRS})`
+        : js`${id("h_fragl")}(${T}[${rootSlot!}], ${V}, ${id("h_s0")}, 0, "", "", ${ERRS})`
+      : rootStatic
+        ? js`${rootFn!}(${V}, 0, ${id("h_s0")})`
+        : js`${id("h_frag")}(${T}[${rootSlot!}], ${V}, ${id("h_s0")}, 0)`;
 
   // Prologue hoists (D9f): helper bindings, the depth bound, and one const
   // per regex source — property/table lookups move out of the hot path.
@@ -146,6 +209,7 @@ export function serializePlan(
       js`const h_s0 = [];`,
       js`const h_hop = Object.prototype.hasOwnProperty;`,
     );
+    if (annMode) prologue.push(js`const h_fragla = ${R}.fragListAnn;`);
   }
   plan.patterns.forEach((source, i) => {
     prologue.push(
@@ -155,8 +219,9 @@ export function serializePlan(
     );
   });
 
-  const footer =
-    output === "list"
+  const footer = annMode
+    ? js`\nreturn function evaluateList(${V}) { const ${ERRS} = []; const ${ANNS} = []; const ok = ${rootCall}; return { valid: ok, errors: ${ERRS}, annotations: ${ANNS} }; };\n`
+    : output === "list"
       ? js`\nreturn function evaluateList(${V}) { const ${ERRS} = []; const ok = ${rootCall}; return { valid: ok, errors: ${ERRS} }; };\n`
       : mode === "runtime"
         ? js`\nreturn function validate(${V}) { return ${rootCall}; };\n`
@@ -179,6 +244,8 @@ function serializeUnit(
   flags: EmitFlags,
   output: EmitOutput,
   listParams: boolean,
+  annMode: boolean,
+  annKeep: RecordPredicate | null,
 ): {
   key: string;
   boolean: boolean;
@@ -187,16 +254,22 @@ function serializeUnit(
 } {
   const fn = unitFn(fnIndex.get(unit.key)!);
   const node = unit.ref.node;
+  // Annotation mode extends the list signature with a trailing `anns` channel.
+  const listSig = annMode
+    ? js`(${V}, ${D}, ${S}, ${id("ep")}, ${id("ip")}, ${id("errs")}, ${id("anns")})`
+    : js`(${V}, ${D}, ${S}, ${id("ep")}, ${id("ip")}, ${id("errs")})`;
 
   if (typeof node === "boolean") {
     // List mode: `false` reports the interpreter's boolean-schema error
     // (keywordName null — no keyword suffix on either location).
     // Structured-params mode: keywordName is null here, so the unit gets
     // empty params and no keyword field (renderError's includeParams shape).
+    // A `false` schema never produces an annotation; the `anns` parameter is
+    // carried only to match the call signature.
     const falseParams = listParams ? js`, params: {}` : js``;
     const chunk =
       output === "list" && !node
-        ? js`function ${fn}(${V}, ${D}, ${S}, ${id("ep")}, ${id("ip")}, ${id("errs")}) { ${id("errs")}.push({ evaluationPath: ${id("ep")}, schemaLocation: ${str(unit.ref.baseUri + "#" + unit.ref.pointer)}, instanceLocation: ${id("ip")}, error: "schema is false"${falseParams} }); return false; }`
+        ? js`function ${fn}${listSig} { ${id("errs")}.push({ evaluationPath: ${id("ep")}, schemaLocation: ${str(unit.ref.baseUri + "#" + unit.ref.pointer)}, instanceLocation: ${id("ip")}, error: "schema is false"${falseParams} }); return false; }`
         : js`function ${fn}() { return ${raw(String(node))}; }`;
     return { key: unit.key, boolean: true, chunk, inlined: new Set() };
   }
@@ -222,6 +295,8 @@ function serializeUnit(
     flags,
     output,
     listParams,
+    annMode,
+    annKeep,
   );
   const unitStmts = ctx.unitBody();
   // Depth guard (D20 combined budget) only where a chain can grow: a
@@ -240,7 +315,7 @@ function serializeUnit(
     return {
       key: unit.key,
       boolean: false,
-      chunk: js`function ${fn}(${V}, ${D}, ${S}, ${id("ep")}, ${id("ip")}, ${id("errs")}) { ${join("\n", body)} }`,
+      chunk: js`function ${fn}${listSig} { ${join("\n", body)} }`,
       inlined: ctx.inlinedKeys,
     };
   }
@@ -260,8 +335,28 @@ interface Counters {
   temp: number;
 }
 
+/**
+ * The accumulator(s) a keyword's collected-value produce reads: names build a
+ * deduped `Set`, indexes a max tracker / applied flag / matched list. Set by
+ * {@link UnitContext.beginKeyword} for a retained collected-value producer, and
+ * driven by the application call sites within the keyword's own statements.
+ */
+interface KeywordAnn {
+  produceKind:
+    "collectedNames" | "largestOrTrue" | "appliedTrue" | "matchedOrAllTrue";
+  names?: CodeChunk;
+  max?: CodeChunk;
+  applied?: CodeChunk;
+  matched?: CodeChunk;
+}
+
 class UnitContext {
   private currentKeyword = "";
+  private currentVocab: string | null = null;
+  // Annotation state for the keyword currently being emitted: whether its
+  // produce is retained (static lists), and the collected-value accumulators.
+  private annKwKept = false;
+  private annKw: KeywordAnn | null = null;
   // Object-guard CSE: one `const gN = (typeof x === "object" && …)` per
   // unit value, prepended by the body builder when used. Inlined `here`-
   // cursor children share the parent's guard (same value, same variable).
@@ -287,6 +382,8 @@ class UnitContext {
     private flags: EmitFlags = DEFAULT_FLAGS,
     private output: EmitOutput = "flag",
     private listParams = false,
+    private annMode = false,
+    private annKeep: RecordPredicate | null = null,
   ) {}
 
   /**
@@ -393,9 +490,68 @@ class UnitContext {
       const stmts = this.collect(entry.name, (lctx) => {
         behavior.lower!(node[entry.name]!, lctx);
       });
-      out.push(...this.keywordStatements(stmts));
+      this.currentVocab = entry.vocabularyUri;
+      // Accumulator declarations hoist above the keyword's statements: the
+      // application call sites feed them, the produce reads them.
+      const decls = this.beginKeyword(stmts);
+      const chunks = this.keywordStatements(stmts);
+      out.push(...decls, ...chunks);
+    }
+    // Unknown keywords collect as annotations (engine.ts:414): unconditional
+    // constant productions, in schema-key order, after every dialect keyword.
+    // The refOnly break silences siblings, matching the interpreter.
+    if (this.annMode && !refOnly) {
+      for (const name of Object.keys(node)) {
+        if (dialect.keywords.has(name)) continue;
+        if (this.annKeep && !this.annKeep("", name, null)) continue;
+        const suffix = "/" + escapeSegment(name);
+        const sloc =
+          this.unit.ref.baseUri + "#" + this.unit.ref.pointer + suffix;
+        out.push(
+          js`${id("anns")}.push({ keyword: ${str(name)}, evaluationPath: ${id("ep")} + ${str(suffix)}, schemaLocation: ${str(sloc)}, instanceLocation: ${id("ip")}, annotation: ${json(node[name]!)} });`,
+        );
+      }
     }
     return out;
+  }
+
+  /**
+   * Prepare the keyword currently being emitted for annotation mode: decide
+   * whether its produce survives the static retention lists, and allocate any
+   * collected-value accumulator (declared by the returned chunks). No-op
+   * outside annotation mode or for keywords that never produce.
+   */
+  private beginKeyword(stmts: readonly LowerStmt[]): CodeChunk[] {
+    this.annKw = null;
+    this.annKwKept = false;
+    if (!this.annMode) return [];
+    const value = findProduce(stmts);
+    if (!value) return [];
+    this.annKwKept =
+      !this.annKeep || this.annKeep("", this.currentKeyword, this.currentVocab);
+    if (!this.annKwKept) return [];
+    if (value.kind === "collectedNames") {
+      const n = id("n" + String(this.counters.temp++));
+      this.annKw = { produceKind: "collectedNames", names: n };
+      return [js`const ${n} = new Set();`];
+    }
+    if (value.kind === "collectedIndexes") {
+      if (value.render === "largestOrTrue") {
+        const m = id("n" + String(this.counters.temp++));
+        this.annKw = { produceKind: "largestOrTrue", max: m };
+        return [js`let ${m} = -1;`];
+      }
+      if (value.render === "appliedTrue") {
+        const a = id("n" + String(this.counters.temp++));
+        this.annKw = { produceKind: "appliedTrue", applied: a };
+        return [js`let ${a} = false;`];
+      }
+      const t = id("n" + String(this.counters.temp++));
+      this.annKw = { produceKind: "matchedOrAllTrue", matched: t };
+      return [js`const ${t} = [];`];
+    }
+    // const / expr: retained, but the produce reads its value directly.
+    return [];
   }
 
   /** Run one keyword's lower() against a fresh LoweringContext, return its stmts. */
@@ -429,7 +585,23 @@ class UnitContext {
     let oneRun: CodeChunk[] = [];
     const flushAny = (message?: LowerMessage, params?: LowerParams) => {
       if (anyRun.length === 0) return;
-      if (this.output === "list") {
+      if (this.annMode) {
+        // Every branch runs; a failed branch's productions truncate, a passing
+        // branch's merge (channel rule 3 per anyOf branch).
+        const a = counterVar(this.counters.tally++);
+        const runs = anyRun.map((call) => {
+          const m = id("m" + String(this.counters.temp++));
+          return js`{ const ${m} = ${id("anns")}.length; if (${call}) ${a} = true; else ${id("anns")}.length = ${m}; }`;
+        });
+        const onFail = this.pushError(
+          this.message(message ?? ["no branch matched"]),
+          true,
+          this.paramsChunk(params),
+        );
+        out.push(
+          js`let ${a} = false; ${join(" ", runs)} if (!${a}) { ${onFail} }`,
+        );
+      } else if (this.output === "list") {
         // Every branch runs (§7: list artifacts never short-circuit).
         const a = counterVar(this.counters.tally++);
         const runs = anyRun.map((call) => js`if (${call}) ${a} = true;`);
@@ -449,7 +621,27 @@ class UnitContext {
     const flushOne = (message?: LowerMessage, params?: LowerParams) => {
       if (oneRun.length === 0) return;
       const c = counterVar(this.counters.tally++);
-      if (this.output === "list") {
+      if (this.annMode) {
+        // Both-pass discards at the caller (the unit fails, its span
+        // truncates); each branch marks/truncates its own span here.
+        const wantsList =
+          this.listParams &&
+          params !== undefined &&
+          Object.values(params).some((p) => p.kind === "tallyList");
+        const p = wantsList ? counterVar(this.counters.tally++) : undefined;
+        const incs = oneRun.map((call, k) => {
+          const m = id("m" + String(this.counters.temp++));
+          const hit = p ? js`${c}++; ${p}.push(${num(k)});` : js`${c}++;`;
+          return js`{ const ${m} = ${id("anns")}.length; if (${call}) { ${hit} } else ${id("anns")}.length = ${m}; }`;
+        });
+        const decl = p ? js`let ${c} = 0; const ${p} = [];` : js`let ${c} = 0;`;
+        const onFail = this.pushError(
+          this.message(message ?? [{ kind: "tally" }, " branches matched"], c),
+          true,
+          this.paramsChunk(params, c, p),
+        );
+        out.push(js`${decl} ${join(" ", incs)} if (${c} !== 1) { ${onFail} }`);
+      } else if (this.output === "list") {
         // Params referencing the passing-branch indexes (tallyList) need an
         // index accumulator next to the count; branch order IS run order.
         const wantsList =
@@ -506,6 +698,26 @@ class UnitContext {
   statement(stmt: LowerStmt): CodeChunk {
     switch (stmt.kind) {
       case "if": {
+        // `if`'s condition IS a bare applyExpr (the only such shape besides
+        // contains' probe): hoist the call so its span marks/truncates before
+        // the branch reads the verdict. Any other applyExpr position throws in
+        // annotation mode (expr()), so no silent annotation loss.
+        if (this.annMode && stmt.cond.kind === "applyExpr") {
+          const m = id("m" + String(this.counters.temp++));
+          const t = id("m" + String(this.counters.temp++));
+          const call = this.applyCall(stmt.cond.apply);
+          const head = js`const ${m} = ${id("anns")}.length; const ${t} = ${call}; if (!${t}) ${id("anns")}.length = ${m};`;
+          const thenBody = join(
+            "\n",
+            stmt.then.map((s) => this.statement(s)),
+          );
+          if (!stmt.else) return js`${head} if (${t}) { ${thenBody} }`;
+          const elseBody = join(
+            "\n",
+            stmt.else.map((s) => this.statement(s)),
+          );
+          return js`${head} if (${t}) { ${thenBody} } else { ${elseBody} }`;
+        }
         const thenBody = join(
           "\n",
           stmt.then.map((s) => this.statement(s)),
@@ -552,8 +764,11 @@ class UnitContext {
         // Flag mode: verdict-only, fail fast.
         return js`return false;`;
       case "produce":
-        // Flag mode: productions are elided (nothing observes them —
-        // consumer-bearing nodes were interpreted by the planner).
+        // Only annotation mode observes productions; flag/list-without-
+        // annotations elide them (consumer-bearing nodes were interpreted by
+        // the planner). Retention lists rule some out at emit (annKwKept).
+        if (this.annMode && this.annKwKept)
+          return this.produceStatement(stmt.value);
         return js``;
       case "apply":
         return this.applyStatement(stmt.apply);
@@ -564,7 +779,6 @@ class UnitContext {
       case "countRange": {
         const b = bindingVar(stmt.binding);
         const c = counterVar(this.counters.tally++);
-        const loop = js`let ${c} = 0; for (let ${b} = 0; ${b} < ${this.expr(stmt.target)}.length; ${b}++) { if (${this.expr(stmt.countWhen)}) ${c}++; }`;
         const max = Number.isFinite(stmt.max) ? num(stmt.max) : null;
         const outOfRange =
           max === null
@@ -578,8 +792,95 @@ class UnitContext {
                 this.paramsChunk(stmt.outOfRangeParams, c),
               )
             : js`return false;`;
+        // contains' probe IS a bare applyExpr (the only shape besides `if`'s
+        // condition): mark/truncate each probe so a matching item's
+        // productions merge and a failing item's discard. collectIndexes feeds
+        // the matched-index accumulator the following produce renders.
+        if (this.annMode && stmt.countWhen.kind === "applyExpr") {
+          const probe = this.applyCall(stmt.countWhen.apply);
+          const m = id("m" + String(this.counters.temp++));
+          const pushIdx =
+            this.annKw?.matched && stmt.collectIndexes
+              ? js` ${this.annKw.matched}.push(${b});`
+              : js``;
+          const loop = js`let ${c} = 0; for (let ${b} = 0; ${b} < ${this.expr(stmt.target)}.length; ${b}++) { const ${m} = ${id("anns")}.length; if (${probe}) { ${c}++;${pushIdx} } else ${id("anns")}.length = ${m}; }`;
+          return js`${loop} if (${outOfRange}) { ${onFail} }`;
+        }
+        const loop = js`let ${c} = 0; for (let ${b} = 0; ${b} < ${this.expr(stmt.target)}.length; ${b}++) { if (${this.expr(stmt.countWhen)}) ${c}++; }`;
         return js`${loop} if (${outOfRange}) { ${onFail} }`;
       }
+    }
+  }
+
+  /** Emit the annotation-unit push for a retained keyword's produce. */
+  private produceStatement(value: LowerProduceValue): CodeChunk {
+    switch (value.kind) {
+      case "const":
+        return js`${id("anns")}.push(${this.annUnit(json(value.value))});`;
+      case "expr":
+        return js`${id("anns")}.push(${this.annUnit(this.expr(value.expr))});`;
+      case "collectedNames":
+        // lower() already gated this produce behind the object-type check; the
+        // Set spreads to an array in insertion (attempted) order.
+        return js`${id("anns")}.push(${this.annUnit(js`[...${this.annKw!.names!}]`)});`;
+      case "collectedIndexes": {
+        const v = this.valueVar;
+        if (value.render === "largestOrTrue") {
+          const mx = this.annKw!.max!;
+          return js`if (${mx} >= 0) ${id("anns")}.push(${this.annUnit(js`${mx} + 1 === ${v}.length ? true : ${mx}`)});`;
+        }
+        if (value.render === "appliedTrue") {
+          const ap = this.annKw!.applied!;
+          return js`if (${ap}) ${id("anns")}.push(${this.annUnit(js`true`)});`;
+        }
+        const mt = this.annKw!.matched!;
+        return js`if (${mt}.length > 0) ${id("anns")}.push(${this.annUnit(js`${mt}.length === ${v}.length ? true : ${mt}`)});`;
+      }
+    }
+  }
+
+  /**
+   * The annotation-unit object literal for the current keyword: constant
+   * keyword/vocabulary/schemaLocation, runtime evaluationPath (`ep` suffix)
+   * and instanceLocation (`ip`), key order matching core's renderAnnotation.
+   * `vocabulary` is omitted when null (unknown keywords only).
+   */
+  private annUnit(valueExpr: CodeChunk): CodeChunk {
+    const suffix = "/" + escapeSegment(this.currentKeyword);
+    const sloc = this.unit.ref.baseUri + "#" + this.unit.ref.pointer + suffix;
+    const vocab =
+      this.currentVocab !== null
+        ? js`vocabulary: ${str(this.currentVocab)}, `
+        : js``;
+    return js`{ keyword: ${str(this.currentKeyword)}, ${vocab}evaluationPath: ${id("ep")} + ${str(suffix)}, schemaLocation: ${str(sloc)}, instanceLocation: ${id("ip")}, annotation: ${valueExpr} }`;
+  }
+
+  /**
+   * Record an attempted child-of-here application's segment into the current
+   * keyword's collected-value accumulator (before the verdict — the segment is
+   * "attempted", not "succeeded"). Non-child-of-here cursors, and keywords
+   * without an active accumulator, record nothing.
+   */
+  private annRecordSegment(cursor: LowerCursor): CodeChunk | null {
+    if (!this.annKw) return null;
+    if (cursor.kind !== "child" || cursor.of.kind !== "here") return null;
+    const seg = cursor.segment;
+    const segExpr =
+      typeof seg === "string"
+        ? str(seg)
+        : typeof seg === "number"
+          ? num(seg)
+          : this.expr(seg);
+    switch (this.annKw.produceKind) {
+      case "collectedNames":
+        return js`${this.annKw.names!}.add(${segExpr});`;
+      case "largestOrTrue":
+        return js`if (${segExpr} > ${this.annKw.max!}) ${this.annKw.max!} = ${segExpr};`;
+      case "appliedTrue":
+        return js`${this.annKw.applied!} = true;`;
+      default:
+        // matchedOrAllTrue records inside its countRange, not at apply sites.
+        return null;
     }
   }
 
@@ -589,6 +890,30 @@ class UnitContext {
       if (inlined) return inlined;
     }
     const call = this.applyCall(apply);
+    if (this.annMode) {
+      switch (apply.fold) {
+        case "allMustPass": {
+          // Record the attempted segment (before the verdict), then mark the
+          // span so a failing child's productions truncate (rule 3 discard).
+          const rec = this.annRecordSegment(apply.cursor);
+          const pre = rec ? js`${rec} ` : js``;
+          const m = id("m" + String(this.counters.temp++));
+          return js`${pre}const ${m} = ${id("anns")}.length; if (!${call}) { ok = false; ${id("anns")}.length = ${m}; }`;
+        }
+        case "negate": {
+          // A passing negated subschema merges (the unit then fails and the
+          // caller truncates the whole span); a failing one truncates here.
+          const m = id("m" + String(this.counters.temp++));
+          return js`const ${m} = ${id("anns")}.length; if (${call}) { ${this.pushError(
+            this.message(apply.message ?? ["must not match the subschema"]),
+            true,
+            this.paramsChunk(apply.params),
+          )} } else { ${id("anns")}.length = ${m}; }`;
+        }
+        default:
+          break; // grouped folds handled by keywordStatements; discard by applyExpr
+      }
+    }
     if (this.output === "list") {
       switch (apply.fold) {
         case "allMustPass":
@@ -676,6 +1001,8 @@ class UnitContext {
       this.flags,
       this.output,
       this.listParams,
+      this.annMode,
+      this.annKeep,
     );
     const body = child.unitBody();
     if (child.calledUnit) this.calledUnit = true;
@@ -719,6 +1046,9 @@ class UnitContext {
       const fn = unitFn(this.fnIndex.get(targetKey)!);
       const scope = this.unit.reachesInterpreted ? S : id("h_s0");
       this.calledUnit = true;
+      if (this.annMode) {
+        return js`${fn}(${valueExpr}, ${D}, ${scope}, ${this.applyEp(apply)}, ${this.applyIp(apply)}, ${id("errs")}, ${id("anns")})`;
+      }
       if (this.output === "list") {
         return js`${fn}(${valueExpr}, ${D}, ${scope}, ${this.applyEp(apply)}, ${this.applyIp(apply)}, ${id("errs")})`;
       }
@@ -726,6 +1056,9 @@ class UnitContext {
     }
     const slot = num(this.tableIndex.get(targetKey)!);
     this.calledUnit = true;
+    if (this.annMode) {
+      return js`${id("h_fragla")}(${T}[${slot}], ${valueExpr}, ${S}, ${D}, ${this.applyEp(apply)}, ${this.applyIp(apply)}, ${id("errs")}, ${id("anns")})`;
+    }
     if (this.output === "list") {
       return js`${id("h_fragl")}(${T}[${slot}], ${valueExpr}, ${S}, ${D}, ${this.applyEp(apply)}, ${this.applyIp(apply)}, ${id("errs")})`;
     }
@@ -872,6 +1205,18 @@ class UnitContext {
           "'" + e.kind + "' is only meaningful inside a combineCheck message",
         );
       case "applyExpr":
+        // The two legal applyExpr positions (`if`'s condition, contains'
+        // probe) are intercepted at the statement level so their span can
+        // mark/truncate. Reaching here in annotation mode means an
+        // unrecognized shape whose productions could not be discarded — fail
+        // loud rather than lose annotations silently.
+        if (this.annMode) {
+          throw new SerializeError(
+            "applyExpr in an unmarkable position for keyword '" +
+              this.currentKeyword +
+              "' (annotation mode)",
+          );
+        }
         // Same call expression an `apply` statement builds; `fold` on this
         // apply is not consulted here (it governs how a wrapping statement
         // uses the value, not how the call itself is rendered).

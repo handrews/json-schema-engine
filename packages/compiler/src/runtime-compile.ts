@@ -3,7 +3,7 @@
 // else, including the interpreter, is greppably free of code generation.
 // Standalone source emission (M6.5) bypasses this module entirely.
 
-import type { JsonValue, SchemaRef } from "@jse/core";
+import type { AnnotationUnit, JsonValue, SchemaRef } from "@jse/core";
 import type { Runtime } from "./runtime.js";
 
 /** A compiled flag-mode validator. */
@@ -13,6 +13,17 @@ export type CompiledValidate = (instance: JsonValue) => boolean;
 export type CompiledEvaluateList<E> = (instance: JsonValue) => {
   valid: boolean;
   errors: E[];
+};
+
+/**
+ * A compiled annotation-mode evaluator: flat error units plus the raw
+ * (list-filtered) annotation units. The artifact wrapper applies the `keep`
+ * predicate and the valid-only presence rule over these.
+ */
+export type CompiledEvaluateListAnn<E> = (instance: JsonValue) => {
+  valid: boolean;
+  errors: E[];
+  annotations: AnnotationUnit[];
 };
 
 /** Instantiate list-mode artifact source (same closure contract as {@link instantiate}). */
@@ -26,6 +37,20 @@ export function instantiateList<E>(
     R: Runtime,
     T: readonly SchemaRef[],
   ) => CompiledEvaluateList<E>;
+  return factory(runtime, targets);
+}
+
+/** Instantiate annotation-mode artifact source (same closure contract as {@link instantiate}). */
+export function instantiateListAnn<E>(
+  source: string,
+  runtime: Runtime,
+  targets: readonly SchemaRef[],
+): CompiledEvaluateListAnn<E> {
+  // eslint-disable-next-line @typescript-eslint/no-implied-eval
+  const factory = new Function("R", "T", source) as (
+    R: Runtime,
+    T: readonly SchemaRef[],
+  ) => CompiledEvaluateListAnn<E>;
   return factory(runtime, targets);
 }
 
