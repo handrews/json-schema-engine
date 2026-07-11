@@ -58,7 +58,7 @@ const appliesTo = (
  * selects the vocabulary posture (refuse at registration) versus the
  * best-effort configuration posture (annotate unknowns).
  *
- * Single-table contract: {@link lower} resolves the format definition against
+ * Single-table contract: `lower()` resolves the format definition against
  * the closed-over `table` at compile time, so it is correct only when that
  * table is the compiling engine's `formats` — true by construction for the
  * Engine-constructed instances, the only production call sites (both the
