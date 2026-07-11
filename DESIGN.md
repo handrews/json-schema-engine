@@ -276,8 +276,13 @@ retention allow/deny lists elide statically at serialize time (the
 per-output-config artifact key, D5), the `keep` predicate runs at the
 wrapper per output surface, and islands harvest their root-frame
 survivors through the annotation trampoline. Channel frames stay
-unnecessary because compiled code never CONSUMES productions (consumer
-units remain interpreted; COMPILED-CONSUMERS.md holds that design).
+unnecessary even for consumption: FLAG plans compile dynamic-coverage
+`unevaluated*` units with runtime evaluated-set tracking — a per-region
+`ev` channel of raw consumed-producer production values,
+shape-dispatched by the core coverage folds, mark/truncate at every
+in-place boundary, every branch of grouped folds evaluated, islands
+contributing through the coverage trampoline — while LIST plans still
+interpret consumers (COMPILED-CONSUMERS.md stage 3).
 Modern-vocabulary LIST documents and all hierarchical/verbose documents
 are trace-shaped (renderList flattens renderHierarchical over the
 trace) and stay on the interpreter. D9e is realized in list emission:
@@ -691,8 +696,10 @@ Five local commits, every gate green per commit:
 
 Deferred register (for continuity): compiled annotation
 collection — flat-list surface DELIVERED 2026-07-10
-(COMPILED-ANNOTATIONS.md stages 1–3); channel frames for compiled
-consumers remain (COMPILED-CONSUMERS.md) — list-mode standalone, Runtime
+(COMPILED-ANNOTATIONS.md stages 1–3); compiled consumers — flag-mode
+runtime evaluated-set tracking (D9(a)'s else branch) DELIVERED
+2026-07-10, list-mode consumer parity remains (COMPILED-CONSUMERS.md
+stage 3) — list-mode standalone, Runtime
 format-table lowering, D9d thresholds, island re-entry, ajv-keywords
 transform/dynamicDefaults, code.source mapping, hyperjump-compat shim,
 idna.ts second-'--' owner review (above). Added at M10 (2026-07-08):

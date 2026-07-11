@@ -16,6 +16,25 @@ beat AJV and gain nothing; OAS-document-shaped workloads currently get
 almost nothing from compilation and stand to gain roughly an order of
 magnitude.**
 
+**Status (2026-07-10): §5 stages 1–2 are delivered.** Flag-mode plans
+compile dynamic-coverage consumers via runtime evaluated-set tracking:
+the coverage channel carries raw consumed-producer production values
+(shape-dispatched by core's `foldNameCoverage`/`foldIndexCoverage`,
+exactly the interpreter readers' semantics), region emission threads it
+with mark/truncate at every in-place boundary and runs every grouped
+branch, islands contribute through `fragCov` + `harvestCoverage`, and
+nested tracked consumers island rather than nest channels. Measured
+outcomes against §1's baselines: the §1.1 dynamic rows recover from
+1/229 and 1/391 of AJV to **0.39×/0.73× AJV** (the §1.3 "AJV-class,
+spec-correct" target); the OAS 3.1 corpus plans as **367 units with
+only the 4 `$dynamicRef` islands interpreted** (was 1 interpreted unit)
+and compiled flag reaches **~40.6k ops/s** — ~19× the §1.2 baseline,
+exceeding the consumers-stripped bound measured there and ~13× ahead of
+Hyperjump. Gates: five-dialect suite legs, census pins
+(tracking/region counts), consumer-heavy fuzz seeds across all legs —
+250k+ cases, zero divergences. Remaining: stage 3, list-mode consumer
+parity (lifting the plan.ts list-mode demotion).
+
 ## 1. What the fallback costs today — measurements
 
 All numbers: this machine, Node v24.13.0, tinybench (300–500 ms/task),
