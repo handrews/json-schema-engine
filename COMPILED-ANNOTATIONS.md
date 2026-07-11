@@ -21,19 +21,31 @@ merge on success, discard on failure) reduce to a mark/truncate
 discipline on one flat array. The genuinely new work is in the produce
 IR's value shapes, the serializer's produce emission, and the gates.
 
-**Status (2026-07-10): stage 1 (§7) is delivered.** `LowerProduceValue`
-carries per-keyword render recipes (`collectedIndexes` with
-`largestOrTrue`/`appliedTrue`/`matchedOrAllTrue`; `countRange` gained
-`collectIndexes`), every `lower()` emits produce IR matching its
-`evaluate()` oracle across all five dialects, and the recipe gate
-(packages/compiler/test/produce-recipes.test.ts, backed by test-kit's
-`evaluateProduceRecipes` reference evaluator) pins oracle ≡ interpreter
-over every suite directory with exact compared-production counts plus
-planted-divergence self-tests. The gate's first honest run caught a
-real recipe gap — `unevaluatedProperties` with statically-total
-coverage must still produce the empty names annotation — now fixed.
-Stages 2–3 (serializer emission, trampoline harvest, public API)
-remain; the serializer still discards produce IR.
+**Status (2026-07-10): stages 1 and 2 (§7) are delivered.** Stage 1:
+`LowerProduceValue` carries per-keyword render recipes
+(`collectedIndexes` with `largestOrTrue`/`appliedTrue`/
+`matchedOrAllTrue`; `countRange` gained `collectIndexes`), every
+`lower()` emits produce IR matching its `evaluate()` oracle across all
+five dialects, pinned by the recipe gate
+(packages/compiler/test/produce-recipes.test.ts over test-kit's
+`evaluateProduceRecipes` reference evaluator; its first honest run
+caught and fixed a real gap — `unevaluatedProperties` with
+statically-total coverage must still produce the empty names
+annotation). Stage 2: `compileList(engine, uri, { collectAnnotations,
+retention })` emits interpreter-exact annotations — mark/truncate at
+every application boundary, hoisted marks for the two `applyExpr`
+shapes, unknown-keyword constant pushes, static retention-list elision
+at serialize time with `keep` at the wrapper, and `fragListAnn` island
+harvest — gated by the five-dialect suite differential with exact pins
+(packages/compiler/test/list-annotations-suite.test.ts: 4,942
+instances, 2,199 annotation units order-compared, Basic side,
+retention matrix, planted self-tests), the annotations fuzz leg
+(`FUZZ_ANNOTATIONS=1`, sensitivity + planted self-tests, CI smoke),
+and plan-identity asserts. Zero divergences surfaced in stage 2's
+gates. Remaining: stage 3 bench (a compiled list+annotations subject
+in bench/harness.ts), and one recorded pre-existing caveat — dialects
+with `allowUnknownKeywords: false` throw in the interpreter but are
+silently ignored by every compiled tier, annotation mode included.
 
 ## 1. What already exists
 
