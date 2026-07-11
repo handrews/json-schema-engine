@@ -357,8 +357,12 @@ type-scoped (`types`, default ["string"]) so the OpenAPI format registry's
 number-scoped entries fit later; the format-assertion VOCABULARY refuses
 unsupported formats at registration (UnknownFormatError) while
 format-annotation + assertFormats stays best-effort (unknown → annotate).
-Asserting-format nodes classify interpreted under compilation (Runtime
-format-table lowering deferred). Separately, compiled list/Basic output
+Asserting-format nodes compile (Runtime format-table lowering,
+delivered 2026-07-10): the closed-over table resolves the schema-constant
+format name at lower time, formatTest IR mirrors regexTest's table-keyed
+hoists through Runtime.formats, and standalone emission rejects
+format-asserting plans (predicates cannot inline into a zero-import
+module). Separately, compiled list/Basic output
 landed (D9e; commit 613ac51): compileList produces interpreter-exact flat
 error units — full-suite differential zero divergence, FUZZ_LIST leg.
 
@@ -702,8 +706,10 @@ collection — flat-list surface DELIVERED 2026-07-10
 (COMPILED-ANNOTATIONS.md stages 1–3); compiled consumers — runtime
 evaluated-set tracking (D9(a)'s else branch) DELIVERED 2026-07-10 in
 both output modes (COMPILED-CONSUMERS.md stages 1–3 complete) —
-list-mode standalone, Runtime
-format-table lowering, D9d thresholds, island re-entry, ajv-keywords
+Runtime format-table
+lowering DELIVERED 2026-07-10 (assertion-mode census pins deep-equal
+plain plans; official format-assertion suite compiled) — list-mode
+standalone, D9d thresholds, island re-entry, ajv-keywords
 transform/dynamicDefaults, code.source mapping, hyperjump-compat shim,
 idna.ts second-'--' owner review (above). Added at M10 (2026-07-08):
 draft-04 `lower()` sweep for the package-defined keywords — DELIVERED
