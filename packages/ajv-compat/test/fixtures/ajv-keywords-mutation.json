@@ -1,0 +1,1260 @@
+{
+  "transform-basic-ops": {
+    "keywords": "transform",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "properties": {
+        "trim": {
+          "type": "string",
+          "transform": ["trim"]
+        },
+        "trimStart": {
+          "type": "string",
+          "transform": ["trimStart"]
+        },
+        "trimEnd": {
+          "type": "string",
+          "transform": ["trimEnd"]
+        },
+        "trimLeft": {
+          "type": "string",
+          "transform": ["trimLeft"]
+        },
+        "trimRight": {
+          "type": "string",
+          "transform": ["trimRight"]
+        },
+        "toLowerCase": {
+          "type": "string",
+          "transform": ["toLowerCase"]
+        },
+        "toUpperCase": {
+          "type": "string",
+          "transform": ["toUpperCase"]
+        }
+      }
+    },
+    "data": {
+      "trim": "  MiXeD  ",
+      "trimStart": "  MiXeD  ",
+      "trimEnd": "  MiXeD  ",
+      "trimLeft": "  MiXeD  ",
+      "trimRight": "  MiXeD  ",
+      "toLowerCase": "  MiXeD  ",
+      "toUpperCase": "  MiXeD  "
+    },
+    "valid": true,
+    "dataAfter": {
+      "trim": "MiXeD",
+      "trimStart": "MiXeD  ",
+      "trimEnd": "  MiXeD",
+      "trimLeft": "MiXeD  ",
+      "trimRight": "  MiXeD",
+      "toLowerCase": "  mixed  ",
+      "toUpperCase": "  MIXED  "
+    },
+    "errors": null
+  },
+  "transform-op-order-trim-then-lower": {
+    "keywords": "transform",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "properties": {
+        "v": {
+          "type": "string",
+          "transform": ["trim", "toLowerCase"]
+        }
+      }
+    },
+    "data": {
+      "v": "  MiXeD  "
+    },
+    "valid": true,
+    "dataAfter": {
+      "v": "mixed"
+    },
+    "errors": null
+  },
+  "transform-op-order-lower-then-trim": {
+    "keywords": "transform",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "properties": {
+        "v": {
+          "type": "string",
+          "transform": ["toLowerCase", "trim"]
+        }
+      }
+    },
+    "data": {
+      "v": "  MiXeD  "
+    },
+    "valid": true,
+    "dataAfter": {
+      "v": "mixed"
+    },
+    "errors": null
+  },
+  "transform-op-order-toEnumCase-trim-sensitive-trim-first": {
+    "keywords": "transform",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "properties": {
+        "v": {
+          "type": "string",
+          "transform": ["trim", "toEnumCase"],
+          "enum": ["pH"]
+        }
+      }
+    },
+    "data": {
+      "v": " ph "
+    },
+    "valid": true,
+    "dataAfter": {
+      "v": "pH"
+    },
+    "errors": null
+  },
+  "transform-op-order-toEnumCase-trim-sensitive-toEnumCase-first": {
+    "keywords": "transform",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "properties": {
+        "v": {
+          "type": "string",
+          "transform": ["toEnumCase", "trim"],
+          "enum": ["pH"]
+        }
+      }
+    },
+    "data": {
+      "v": " ph "
+    },
+    "valid": false,
+    "dataAfter": {
+      "v": "ph"
+    },
+    "errors": [
+      {
+        "instancePath": "/v",
+        "schemaPath": "#/properties/v/enum",
+        "keyword": "enum",
+        "params": {
+          "allowedValues": ["pH"]
+        },
+        "message": "must be equal to one of the allowed values"
+      }
+    ]
+  },
+  "transform-non-string-value-untouched": {
+    "keywords": "transform",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "properties": {
+        "v": {
+          "transform": ["trim"]
+        }
+      }
+    },
+    "data": {
+      "v": 42
+    },
+    "valid": true,
+    "dataAfter": {
+      "v": 42
+    },
+    "errors": null
+  },
+  "transform-root-level-untouched": {
+    "keywords": "transform",
+    "options": {},
+    "schema": {
+      "type": "string",
+      "transform": ["trim"]
+    },
+    "data": "  x  ",
+    "valid": true,
+    "dataAfter": "  x  ",
+    "errors": null
+  },
+  "transform-array-items": {
+    "keywords": "transform",
+    "options": {},
+    "schema": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "transform": ["trim", "toUpperCase"]
+      }
+    },
+    "data": ["  a  ", " b"],
+    "valid": true,
+    "dataAfter": ["A", "B"],
+    "errors": null
+  },
+  "transform-anyOf-branch0-passes-allErrors-false": {
+    "keywords": "transform",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {},
+        "v": {}
+      },
+      "anyOf": [
+        {
+          "properties": {
+            "kind": {
+              "const": "a"
+            },
+            "v": {
+              "type": "string",
+              "transform": ["toUpperCase"]
+            }
+          }
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "b"
+            },
+            "v": {
+              "type": "string",
+              "transform": ["trim"]
+            }
+          }
+        }
+      ]
+    },
+    "data": {
+      "kind": "a",
+      "v": " mixed "
+    },
+    "valid": true,
+    "dataAfter": {
+      "kind": "a",
+      "v": " MIXED "
+    },
+    "errors": null
+  },
+  "transform-anyOf-branch0-passes-allErrors-true": {
+    "keywords": "transform",
+    "options": {
+      "allErrors": true
+    },
+    "schema": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {},
+        "v": {}
+      },
+      "anyOf": [
+        {
+          "properties": {
+            "kind": {
+              "const": "a"
+            },
+            "v": {
+              "type": "string",
+              "transform": ["toUpperCase"]
+            }
+          }
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "b"
+            },
+            "v": {
+              "type": "string",
+              "transform": ["trim"]
+            }
+          }
+        }
+      ]
+    },
+    "data": {
+      "kind": "a",
+      "v": " mixed "
+    },
+    "valid": true,
+    "dataAfter": {
+      "kind": "a",
+      "v": "MIXED"
+    },
+    "errors": null
+  },
+  "transform-anyOf-branch0-fails-branch1-passes": {
+    "keywords": "transform",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {},
+        "v": {}
+      },
+      "anyOf": [
+        {
+          "properties": {
+            "v": {
+              "type": "string",
+              "transform": ["toUpperCase"]
+            },
+            "kind": {
+              "const": "a"
+            }
+          }
+        },
+        {
+          "properties": {
+            "v": {
+              "type": "string",
+              "transform": ["trim"]
+            },
+            "kind": {
+              "const": "b"
+            }
+          }
+        }
+      ]
+    },
+    "data": {
+      "kind": "b",
+      "v": " mixed "
+    },
+    "valid": true,
+    "dataAfter": {
+      "kind": "b",
+      "v": "MIXED"
+    },
+    "errors": null
+  },
+  "transform-anyOf-both-branches-fail": {
+    "keywords": "transform",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {},
+        "v": {}
+      },
+      "anyOf": [
+        {
+          "properties": {
+            "v": {
+              "type": "string",
+              "transform": ["toUpperCase"]
+            },
+            "kind": {
+              "const": "a"
+            }
+          }
+        },
+        {
+          "properties": {
+            "v": {
+              "type": "string",
+              "transform": ["trim"]
+            },
+            "kind": {
+              "const": "b"
+            }
+          }
+        }
+      ]
+    },
+    "data": {
+      "kind": "c",
+      "v": " mixed "
+    },
+    "valid": false,
+    "dataAfter": {
+      "kind": "c",
+      "v": "MIXED"
+    },
+    "errors": [
+      {
+        "instancePath": "/kind",
+        "schemaPath": "#/anyOf/0/properties/kind/const",
+        "keyword": "const",
+        "params": {
+          "allowedValue": "a"
+        },
+        "message": "must be equal to constant"
+      },
+      {
+        "instancePath": "/kind",
+        "schemaPath": "#/anyOf/1/properties/kind/const",
+        "keyword": "const",
+        "params": {
+          "allowedValue": "b"
+        },
+        "message": "must be equal to constant"
+      },
+      {
+        "instancePath": "",
+        "schemaPath": "#/anyOf",
+        "keyword": "anyOf",
+        "params": {},
+        "message": "must match a schema in anyOf"
+      }
+    ]
+  },
+  "transform-oneOf-branch0-passes-kind-before-v": {
+    "keywords": "transform",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {},
+        "v": {}
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "kind": {
+              "const": "a"
+            },
+            "v": {
+              "type": "string",
+              "transform": ["toUpperCase"]
+            }
+          }
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "b"
+            },
+            "v": {
+              "type": "string",
+              "transform": ["trim"]
+            }
+          }
+        }
+      ]
+    },
+    "data": {
+      "kind": "a",
+      "v": " mixed "
+    },
+    "valid": true,
+    "dataAfter": {
+      "kind": "a",
+      "v": " MIXED "
+    },
+    "errors": null
+  },
+  "transform-oneOf-branch0-passes-v-before-kind": {
+    "keywords": "transform",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {},
+        "v": {}
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "v": {
+              "type": "string",
+              "transform": ["toUpperCase"]
+            },
+            "kind": {
+              "const": "a"
+            }
+          }
+        },
+        {
+          "properties": {
+            "v": {
+              "type": "string",
+              "transform": ["trim"]
+            },
+            "kind": {
+              "const": "b"
+            }
+          }
+        }
+      ]
+    },
+    "data": {
+      "kind": "a",
+      "v": " mixed "
+    },
+    "valid": true,
+    "dataAfter": {
+      "kind": "a",
+      "v": "MIXED"
+    },
+    "errors": null
+  },
+  "transform-oneOf-branch0-fails-branch1-passes": {
+    "keywords": "transform",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {},
+        "v": {}
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "v": {
+              "type": "string",
+              "transform": ["toUpperCase"]
+            },
+            "kind": {
+              "const": "a"
+            }
+          }
+        },
+        {
+          "properties": {
+            "v": {
+              "type": "string",
+              "transform": ["trim"]
+            },
+            "kind": {
+              "const": "b"
+            }
+          }
+        }
+      ]
+    },
+    "data": {
+      "kind": "b",
+      "v": " mixed "
+    },
+    "valid": true,
+    "dataAfter": {
+      "kind": "b",
+      "v": "MIXED"
+    },
+    "errors": null
+  },
+  "transform-oneOf-both-branches-fail": {
+    "keywords": "transform",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {},
+        "v": {}
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "v": {
+              "type": "string",
+              "transform": ["toUpperCase"]
+            },
+            "kind": {
+              "const": "a"
+            }
+          }
+        },
+        {
+          "properties": {
+            "v": {
+              "type": "string",
+              "transform": ["trim"]
+            },
+            "kind": {
+              "const": "b"
+            }
+          }
+        }
+      ]
+    },
+    "data": {
+      "kind": "c",
+      "v": " mixed "
+    },
+    "valid": false,
+    "dataAfter": {
+      "kind": "c",
+      "v": "MIXED"
+    },
+    "errors": [
+      {
+        "instancePath": "/kind",
+        "schemaPath": "#/oneOf/0/properties/kind/const",
+        "keyword": "const",
+        "params": {
+          "allowedValue": "a"
+        },
+        "message": "must be equal to constant"
+      },
+      {
+        "instancePath": "/kind",
+        "schemaPath": "#/oneOf/1/properties/kind/const",
+        "keyword": "const",
+        "params": {
+          "allowedValue": "b"
+        },
+        "message": "must be equal to constant"
+      },
+      {
+        "instancePath": "",
+        "schemaPath": "#/oneOf",
+        "keyword": "oneOf",
+        "params": {
+          "passingSchemas": null
+        },
+        "message": "must match exactly one schema in oneOf"
+      }
+    ]
+  },
+  "transform-interleaving-failed-branch-mutation-enables-later-branch": {
+    "keywords": "transform",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "properties": {
+        "v": {}
+      },
+      "anyOf": [
+        {
+          "properties": {
+            "v": {
+              "type": "string",
+              "pattern": "^NEVER$",
+              "transform": ["toUpperCase"]
+            }
+          }
+        },
+        {
+          "properties": {
+            "v": {
+              "type": "string",
+              "pattern": "^[A-Z]+$"
+            }
+          }
+        }
+      ]
+    },
+    "data": {
+      "v": "abc"
+    },
+    "valid": true,
+    "dataAfter": {
+      "v": "ABC"
+    },
+    "errors": null
+  },
+  "transform-interleaving-allErrors-true": {
+    "keywords": "transform",
+    "options": {
+      "allErrors": true
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "v": {}
+      },
+      "anyOf": [
+        {
+          "properties": {
+            "v": {
+              "type": "string",
+              "pattern": "^NEVER$",
+              "transform": ["toUpperCase"]
+            }
+          }
+        },
+        {
+          "properties": {
+            "v": {
+              "type": "string",
+              "pattern": "^[A-Z]+$"
+            }
+          }
+        }
+      ]
+    },
+    "data": {
+      "v": "abc"
+    },
+    "valid": true,
+    "dataAfter": {
+      "v": "ABC"
+    },
+    "errors": null
+  },
+  "transform-runs-before-pattern-regardless-of-json-key-order": {
+    "keywords": "transform",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "properties": {
+        "v": {
+          "type": "string",
+          "pattern": "^[A-Z]+$",
+          "transform": ["toUpperCase"]
+        }
+      }
+    },
+    "data": {
+      "v": "abc"
+    },
+    "valid": true,
+    "dataAfter": {
+      "v": "ABC"
+    },
+    "errors": null
+  },
+  "transform-control-outside-combiner-with-sibling-anyOf": {
+    "keywords": "transform",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "properties": {
+        "v": {
+          "type": "string",
+          "transform": ["trim"]
+        }
+      },
+      "anyOf": [
+        {
+          "required": ["v"]
+        },
+        {
+          "required": ["other"]
+        }
+      ]
+    },
+    "data": {
+      "v": "  x  "
+    },
+    "valid": true,
+    "dataAfter": {
+      "v": "x"
+    },
+    "errors": null
+  },
+  "transform-coerceTypes-number-to-string": {
+    "keywords": "transform",
+    "options": {
+      "coerceTypes": true
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "s": {
+          "type": "string",
+          "transform": ["trim"]
+        }
+      }
+    },
+    "data": {
+      "s": 42
+    },
+    "valid": true,
+    "dataAfter": {
+      "s": "42"
+    },
+    "errors": null
+  },
+  "transform-toEnumCase-without-enum": {
+    "keywords": "transform",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "properties": {
+        "v": {
+          "type": "string",
+          "transform": ["toEnumCase"]
+        }
+      }
+    },
+    "data": {
+      "v": "abc"
+    },
+    "compileError": "Error: transform: \"toEnumCase\" requires \"enum\""
+  },
+  "transform-toEnumCase-colliding-enum": {
+    "keywords": "transform",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "properties": {
+        "v": {
+          "type": "string",
+          "transform": ["toEnumCase"],
+          "enum": ["ph", "PH"]
+        }
+      }
+    },
+    "data": {
+      "v": "Ph"
+    },
+    "compileError": "Error: transform: \"toEnumCase\" requires all lowercased \"enum\" values to be unique"
+  },
+  "dynamicDefaults-noop-without-useDefaults": {
+    "keywords": "dynamicDefaults",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "dynamicDefaults": {
+        "id": {
+          "func": "seq",
+          "args": {
+            "name": "jse-oracle-noop-useDefaults"
+          }
+        }
+      },
+      "properties": {
+        "id": {
+          "type": "integer"
+        }
+      }
+    },
+    "data": {},
+    "valid": true,
+    "dataAfter": {},
+    "errors": null
+  },
+  "dynamicDefaults-inside-anyOf-branch-no-fill-allErrors-false": {
+    "keywords": "dynamicDefaults",
+    "options": {
+      "useDefaults": true
+    },
+    "schema": {
+      "type": "object",
+      "anyOf": [
+        {
+          "type": "object",
+          "dynamicDefaults": {
+            "id": {
+              "func": "seq",
+              "args": {
+                "name": "jse-oracle-anyof-guard-1"
+              }
+            }
+          },
+          "properties": {
+            "id": {
+              "type": "integer"
+            }
+          }
+        }
+      ]
+    },
+    "data": {},
+    "valid": true,
+    "dataAfter": {},
+    "errors": null
+  },
+  "dynamicDefaults-inside-anyOf-branch-no-fill-allErrors-true": {
+    "keywords": "dynamicDefaults",
+    "options": {
+      "useDefaults": true,
+      "allErrors": true
+    },
+    "schema": {
+      "type": "object",
+      "anyOf": [
+        {
+          "type": "object",
+          "dynamicDefaults": {
+            "id": {
+              "func": "seq",
+              "args": {
+                "name": "jse-oracle-anyof-guard-2"
+              }
+            }
+          },
+          "properties": {
+            "id": {
+              "type": "integer"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["other"]
+        }
+      ]
+    },
+    "data": {},
+    "valid": true,
+    "dataAfter": {},
+    "errors": null
+  },
+  "dynamicDefaults-unknown-generator-error": {
+    "keywords": "dynamicDefaults",
+    "options": {
+      "useDefaults": true
+    },
+    "schema": {
+      "type": "object",
+      "dynamicDefaults": {
+        "x": "nonexistent-generator-xyz"
+      },
+      "properties": {
+        "x": {}
+      }
+    },
+    "data": {},
+    "compileError": "Error: invalid \"dynamicDefaults\" keyword property value: nonexistent-generator-xyz"
+  },
+  "strict-rejects-transform-when-ajv-keywords-not-loaded": {
+    "keywords": [],
+    "options": {},
+    "schema": {
+      "type": "object",
+      "properties": {
+        "v": {
+          "type": "string",
+          "transform": ["trim"]
+        }
+      }
+    },
+    "data": {
+      "v": "x"
+    },
+    "compileError": "Error: strict mode: unknown keyword: \"transform\""
+  },
+  "transform-toEnumCase-with-sibling-enum": {
+    "keywords": "transform",
+    "options": {},
+    "schema": {
+      "type": "object",
+      "properties": {
+        "v": {
+          "type": "string",
+          "transform": ["trim", "toEnumCase"],
+          "enum": ["pH"]
+        }
+      }
+    },
+    "values": [
+      {
+        "input": "ph",
+        "output": "pH",
+        "valid": true
+      },
+      {
+        "input": " Ph",
+        "output": "pH",
+        "valid": true
+      },
+      {
+        "input": "PH",
+        "output": "pH",
+        "valid": true
+      },
+      {
+        "input": "pH ",
+        "output": "pH",
+        "valid": true
+      },
+      {
+        "input": "pH",
+        "output": "pH",
+        "valid": true
+      }
+    ]
+  },
+  "dynamicDefaults-seq-counter-increment": {
+    "keywords": "dynamicDefaults",
+    "options": {
+      "useDefaults": true
+    },
+    "schema": {
+      "type": "object",
+      "dynamicDefaults": {
+        "id": {
+          "func": "seq",
+          "args": {
+            "name": "jse-oracle-seq-13"
+          }
+        }
+      },
+      "properties": {
+        "id": {
+          "type": "integer"
+        }
+      }
+    },
+    "firstCall": {
+      "data": {},
+      "valid": true,
+      "dataAfter": {
+        "id": 0
+      }
+    },
+    "secondCall": {
+      "data": {},
+      "valid": true,
+      "dataAfter": {
+        "id": 1
+      }
+    }
+  },
+  "dynamicDefaults-useDefaults-empty-mode": {
+    "keywords": "dynamicDefaults",
+    "options": {
+      "useDefaults": "empty"
+    },
+    "schema": {
+      "type": "object",
+      "dynamicDefaults": {
+        "a": {
+          "func": "seq",
+          "args": {
+            "name": "jse-oracle-empty-a"
+          }
+        },
+        "b": {
+          "func": "seq",
+          "args": {
+            "name": "jse-oracle-empty-b"
+          }
+        },
+        "c": "timestamp",
+        "d": {
+          "func": "seq",
+          "args": {
+            "name": "jse-oracle-empty-d"
+          }
+        }
+      },
+      "properties": {}
+    },
+    "data": {
+      "a": null,
+      "b": "",
+      "c": 0,
+      "d": false
+    },
+    "valid": true,
+    "dataAfter": {
+      "a": 0,
+      "b": 0,
+      "c": 0,
+      "d": false
+    }
+  },
+  "dynamicDefaults-absent-only-present-untouched": {
+    "keywords": "dynamicDefaults",
+    "options": {
+      "useDefaults": true
+    },
+    "schema": {
+      "type": "object",
+      "dynamicDefaults": {
+        "id": {
+          "func": "seq",
+          "args": {
+            "name": "jse-oracle-seq-14"
+          }
+        }
+      },
+      "properties": {
+        "id": {}
+      }
+    },
+    "data": {
+      "id": 999
+    },
+    "valid": true,
+    "dataAfter": {
+      "id": 999
+    },
+    "generatorNotInvokedProbe": {
+      "schema": {
+        "type": "object",
+        "dynamicDefaults": {
+          "id": {
+            "func": "seq",
+            "args": {
+              "name": "jse-oracle-seq-14"
+            }
+          }
+        },
+        "properties": {
+          "id": {}
+        }
+      },
+      "data": {},
+      "valid": true,
+      "dataAfter": {
+        "id": 0
+      },
+      "note": "id:0 here proves the presence-case above never consumed a seq tick"
+    }
+  },
+  "dynamicDefaults-default-collision-default-wins": {
+    "keywords": "dynamicDefaults",
+    "options": {
+      "useDefaults": true
+    },
+    "propertiesDeclaredFirst": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "integer",
+            "default": 111
+          }
+        },
+        "dynamicDefaults": {
+          "x": {
+            "func": "seq",
+            "args": {
+              "name": "jse-oracle-seq-18a"
+            }
+          }
+        }
+      },
+      "data": {},
+      "valid": true,
+      "dataAfter": {
+        "x": 111
+      }
+    },
+    "dynamicDefaultsDeclaredFirst": {
+      "schema": {
+        "type": "object",
+        "dynamicDefaults": {
+          "x": {
+            "func": "seq",
+            "args": {
+              "name": "jse-oracle-seq-18b"
+            }
+          }
+        },
+        "properties": {
+          "x": {
+            "type": "integer",
+            "default": 222
+          }
+        }
+      },
+      "data": {},
+      "valid": true,
+      "dataAfter": {
+        "x": 222
+      }
+    },
+    "seqNeverInvokedProbe": {
+      "schema": {
+        "type": "object",
+        "dynamicDefaults": {
+          "y": {
+            "func": "seq",
+            "args": {
+              "name": "jse-oracle-seq-18b"
+            }
+          }
+        },
+        "properties": {
+          "y": {}
+        }
+      },
+      "data": {},
+      "dataAfter": {
+        "y": 0
+      },
+      "note": "y:0 proves 'jse-oracle-seq-18b' was never ticked by the collision case above"
+    }
+  },
+  "dynamicDefaults-string-form-vs-object-form": {
+    "keywords": "dynamicDefaults",
+    "options": {
+      "useDefaults": true
+    },
+    "schema": {
+      "type": "object",
+      "dynamicDefaults": {
+        "bare": "randomint",
+        "withArgs": {
+          "func": "randomint",
+          "args": {
+            "max": 100
+          }
+        }
+      },
+      "properties": {}
+    },
+    "data": {},
+    "valid": true,
+    "dataAfterShape": {
+      "bare": {
+        "kind": "number",
+        "integer": true,
+        "oneOf": [0, 1]
+      },
+      "withArgs": {
+        "kind": "number",
+        "integer": true,
+        "min": 0,
+        "max": 100,
+        "exclusiveMax": true
+      }
+    }
+  },
+  "dynamicDefaults-combined-all-generators": {
+    "keywords": "dynamicDefaults",
+    "options": {
+      "useDefaults": true
+    },
+    "schema": {
+      "type": "object",
+      "dynamicDefaults": {
+        "ts": "timestamp",
+        "dt": "datetime",
+        "d": "date",
+        "t": "time",
+        "r": "random"
+      },
+      "properties": {}
+    },
+    "data": {},
+    "valid": true,
+    "dataAfterShape": {
+      "ts": {
+        "kind": "number",
+        "integer": true,
+        "min": 1600000000000
+      },
+      "dt": {
+        "kind": "string",
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+      },
+      "d": {
+        "kind": "string",
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+      },
+      "t": {
+        "kind": "string",
+        "pattern": "^\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+      },
+      "r": {
+        "kind": "number",
+        "min": 0,
+        "max": 1,
+        "exclusiveMax": true
+      }
+    }
+  }
+}
