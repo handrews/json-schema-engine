@@ -34,6 +34,7 @@ export {
   PROTO_TRAP_KEYS,
   POINTER_ESCAPE_KEYS,
   ANNOTATION_SEED_GROUPS,
+  CONSUMER_SEED_GROUPS,
 } from "./fuzz.js";
 export {
   runSide,

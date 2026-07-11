@@ -36,6 +36,7 @@ import {
   sameAnnotationsDivergenceClass,
   subjectFromFactory,
   ANNOTATION_SEED_GROUPS,
+  CONSUMER_SEED_GROUPS,
   type DifferentialFactory,
 } from "@jse/test-kit";
 
@@ -205,6 +206,20 @@ function main(): void {
       });
     });
   }
+  // Compiled-consumer corpus (COMPILED-CONSUMERS.md phase B). Unlike the
+  // annotation seeds, these matter in EVERY mode — the default flag leg is
+  // exactly what runs coverage tracking, and list/annotations exercise the
+  // same consumer sweeps — so they append regardless of FUZZ_LIST/ANNOTATIONS.
+  CONSUMER_SEED_GROUPS.forEach((group, gi) => {
+    const baseUri = `https://fuzz.example/consumer-seeds/${String(gi)}`;
+    if (factoryFor(baseUri).prepare(group.schema) === undefined) return;
+    registrable.push({
+      file: "consumer-seeds",
+      fi: files.length + 1,
+      gi,
+      group,
+    });
+  });
 
   const ownTests = registrable.reduce((s, g) => s + g.group.tests.length, 0);
   const perGroup = Math.max(

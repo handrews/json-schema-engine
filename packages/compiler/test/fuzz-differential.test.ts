@@ -28,6 +28,7 @@ import {
   sameAnnotationsDivergenceClass,
   subjectFromFactory,
   ANNOTATION_SEED_GROUPS,
+  CONSUMER_SEED_GROUPS,
   type DifferentialFactory,
 } from "@jse/test-kit";
 
@@ -134,6 +135,48 @@ describe("compiled ≡ interpreted differential fuzz (M6.3)", () => {
       });
     });
   }
+
+  // Compiled-consumer corpus (COMPILED-CONSUMERS.md phase B): the suite
+  // under-represents the dynamic-coverage shapes where flag-mode runtime
+  // tracking can be subtly wrong, so — like annotation-seeds — this corpus
+  // always runs in full, never subsetted. It belongs on the FLAG leg above
+  // all: the flag verdict is exactly what coverage tracking decides.
+  describe("consumer-seeds", () => {
+    CONSUMER_SEED_GROUPS.forEach((group, gi) => {
+      it(group.description, () => {
+        const factory = flagFactoryFor("consumer-seeds", gi);
+        const sides = factory.prepare(group.schema);
+        expect(sides).toBeDefined(); // the corpus must register, or the nudge is vacuous
+        registrableGroups++;
+
+        const prng = new Prng(deriveSeed(SEED, files.length, gi));
+        const seeds = group.tests.map((t) => t.data);
+        const pool = instancePool(
+          prng,
+          seeds,
+          seeds.length + MUTATIONS_PER_GROUP,
+        );
+        for (let ci = 0; ci < pool.length; ci++) {
+          const instance = pool[ci]!;
+          totalCases++;
+          const interpreted = sides!.interpret(instance);
+          const compiled = sides!.validate(instance);
+          if (!outcomesAgree(interpreted, compiled)) {
+            const subject = subjectFromFactory(factory);
+            const min = minimizeDivergence(subject, group.schema, instance);
+            throw new Error(
+              `DIVERGENCE consumer-seeds group ${String(gi)} case ${String(ci)}\n` +
+                `  seed=0x${SEED.toString(16)} deriveSeed(${String(SEED)}, ${String(files.length)}, ${String(gi)})\n` +
+                `  minimized schema:   ${JSON.stringify(min.schema)}\n` +
+                `  minimized instance: ${JSON.stringify(min.instance)}\n` +
+                `  interpreted: ${describeOutcome(min.interpreted)}\n` +
+                `  compiled:    ${describeOutcome(min.compiled)}`,
+            );
+          }
+        }
+      });
+    });
+  });
 
   it(`ran ≥20,000 cases with zero divergence (seed 0x${SEED.toString(16)})`, () => {
     // Floor per the M6.3 done-signal; the assertion also proves the loop
@@ -245,6 +288,47 @@ describe("compiled ≡ interpreted list-output differential fuzz (M8.6, subset)"
       });
     });
   }
+
+  // Compiled-consumer corpus in list mode: the consumer sweep also emits
+  // errors, so list-output parity (error content and order) over these shapes
+  // needs its own pressure. Full corpus, never subsetted.
+  describe("consumer-seeds", () => {
+    CONSUMER_SEED_GROUPS.forEach((group, gi) => {
+      it(`${group.description} (list mode)`, () => {
+        const factory = listFactoryFor("consumer-seeds", gi);
+        const sides = factory.prepare(group.schema);
+        expect(sides).toBeDefined(); // the corpus must register, or the nudge is vacuous
+
+        const prng = new Prng(deriveSeed(LIST_SEED, files.length, gi));
+        const seeds = group.tests.map((t) => t.data);
+        const pool = instancePool(
+          prng,
+          seeds,
+          seeds.length + LIST_MUTATIONS_PER_GROUP,
+        );
+        for (let ci = 0; ci < pool.length; ci++) {
+          const instance = pool[ci]!;
+          listCases++;
+          const interpreted = sides!.interpret(instance);
+          const compiled = sides!.validate(instance);
+          if (!outcomesAgree(interpreted, compiled)) {
+            const subject = subjectFromFactory(factory);
+            const min = minimizeDivergence(subject, group.schema, instance, {
+              sameDivergence: sameListDivergenceClass,
+            });
+            throw new Error(
+              `DIVERGENCE (list mode) consumer-seeds group ${String(gi)} case ${String(ci)}\n` +
+                `  seed=0x${LIST_SEED.toString(16)} deriveSeed(${String(LIST_SEED)}, ${String(files.length)}, ${String(gi)})\n` +
+                `  minimized schema:   ${JSON.stringify(min.schema)}\n` +
+                `  minimized instance: ${JSON.stringify(min.instance)}\n` +
+                `  interpreted: ${describeOutcome(min.interpreted)}\n` +
+                `  compiled:    ${describeOutcome(min.compiled)}`,
+            );
+          }
+        }
+      });
+    });
+  });
 
   it(`ran ≥3,000 list-mode cases with zero divergence (seed 0x${LIST_SEED.toString(16)})`, () => {
     // Floor proves the subset loop above actually executed rather than
@@ -384,6 +468,21 @@ describe("compiled ≡ interpreted annotations differential fuzz (subset)", () =
         const sides = factory.prepare(group.schema);
         expect(sides).toBeDefined(); // the corpus must register, or the nudge is vacuous
         runPool(factory, sides!, "annotation-seeds", files.length, gi, group);
+      });
+    });
+  });
+
+  // The compiled-consumer corpus also runs in full here: a consumer sweep
+  // both reads coverage and re-emits the annotations that fed it, so its
+  // annotation output needs the same full pressure. Distinct fi so its
+  // per-group seed streams never collide with annotation-seeds.
+  describe("consumer-seeds", () => {
+    CONSUMER_SEED_GROUPS.forEach((group, gi) => {
+      it(`${group.description} (annotations mode)`, () => {
+        const factory = annotationsFactoryFor("consumer-seeds", gi);
+        const sides = factory.prepare(group.schema);
+        expect(sides).toBeDefined(); // the corpus must register, or the nudge is vacuous
+        runPool(factory, sides!, "consumer-seeds", files.length + 1, gi, group);
       });
     });
   });
