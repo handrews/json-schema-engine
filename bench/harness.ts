@@ -14,10 +14,14 @@
 //   tasks would measure registry bookkeeping, not compilation.
 // - Every subject must agree with every instance's expected verdict before
 //   any timing runs (the spike's oracle discipline).
+// - Compiled list+annotations output must also deep-equal the interpreter's
+//   Result.annotations (order included), not just agree on verdict —
+//   COMPILED-ANNOTATIONS.md's stage-3 bar.
 //
 // Run: npm run bench:harness   (BENCH_BUDGET=<ms per task>, default 250)
 
 import { Bench } from "tinybench";
+import { deepStrictEqual } from "node:assert";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -30,7 +34,11 @@ import {
 import "@hyperjump/json-schema/draft-07";
 
 import { createEngine, type Engine, type JsonValue } from "@jse/core";
-import { compileValidator, compileList } from "@jse/compiler";
+import {
+  compileValidator,
+  compileList,
+  type CompiledListArtifact,
+} from "@jse/compiler";
 import { Ajv as CompatAjv } from "@jse/ajv-compat";
 
 // CJS interop: at runtime module.exports is the class and also carries
@@ -203,13 +211,28 @@ const freshEngine = (corpus: Corpus): { engine: Engine; uri: string } => {
   return { engine, uri };
 };
 
-async function subjectsFor(corpus: Corpus): Promise<Subject[]> {
+interface CorpusSubjects {
+  subjects: Subject[];
+  engine: Engine;
+  uri: string;
+  listAnn: CompiledListArtifact;
+}
+
+async function subjectsFor(corpus: Corpus): Promise<CorpusSubjects> {
   const { engine, uri } = freshEngine(corpus);
   const flag = compileValidator(engine, uri);
   const list = compileList(engine, uri, { errorParams: false });
+  const listAnn = compileList(engine, uri, {
+    errorParams: false,
+    collectAnnotations: true,
+  });
   const subjects: Subject[] = [
     { name: "jse compiled flag", verdict: (x) => flag.validate(x) },
     { name: "jse compiled list", verdict: (x) => list.evaluateList(x).valid },
+    {
+      name: "jse compiled list+annotations",
+      verdict: (x) => listAnn.evaluateList(x).valid,
+    },
     {
       name: "jse interpreter flag",
       verdict: (x) => engine.evaluate(uri, x).valid,
@@ -242,7 +265,7 @@ async function subjectsFor(corpus: Corpus): Promise<Subject[]> {
       verdict: (x) => compatValidate(x),
     });
   }
-  return subjects;
+  return { subjects, engine, uri, listAnn };
 }
 
 // --- Oracle, then timing ---------------------------------------------------
@@ -251,7 +274,7 @@ const bench = new Bench({ time: BUDGET_MS });
 let oracleFailures = 0;
 
 for (const corpus of corpora) {
-  const subjects = await subjectsFor(corpus);
+  const { subjects, engine, uri, listAnn } = await subjectsFor(corpus);
   for (const subject of subjects) {
     corpus.instances.forEach((instance, i) => {
       const got = subject.verdict(instance.value);
@@ -264,6 +287,28 @@ for (const corpus of corpora) {
       }
     });
   }
+
+  // Stronger than verdict agreement: the compiled annotation artifact must
+  // reproduce the interpreter's Result.annotations exactly, order included
+  // (COMPILED-ANNOTATIONS.md §5 "Bench" / stage 3).
+  corpus.instances.forEach((instance, i) => {
+    const compiledAnnotations = listAnn.evaluateList(
+      instance.value,
+    ).annotations;
+    const interpreterAnnotations = engine.evaluate(uri, instance.value, {
+      output: "list",
+      collectAnnotations: true,
+    }).annotations;
+    try {
+      deepStrictEqual(compiledAnnotations, interpreterAnnotations);
+    } catch (e) {
+      oracleFailures++;
+      console.error(
+        `ORACLE FAIL: ${corpus.name}#${String(i)}: compiled annotations ` +
+          `diverge from the interpreter — ${(e as Error).message}`,
+      );
+    }
+  });
 
   // Hot-path throughput: precompiled subjects, instances round-robin.
   for (const subject of subjects) {
