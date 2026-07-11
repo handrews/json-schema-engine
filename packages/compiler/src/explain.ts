@@ -22,6 +22,13 @@ export interface CompilationExplanation {
   interpretedKeys: string[];
   /** Units whose apply paths can reach an interpreted unit. */
   reachesInterpretedCount: number;
+  /**
+   * Static consumer units compiled with runtime evaluated-set tracking (phase
+   * B) — the flag-mode alternative to interpreting a dynamic-coverage consumer.
+   */
+  trackingUnits: number;
+  /** Static units in some tracked unit's in-place coverage region (phase B). */
+  regionUnits: number;
 }
 
 /** Summarizes a plan's classification for census gates and diagnostics. */
@@ -32,6 +39,8 @@ export function explainCompilation(
   const interpretedKeys: string[] = [];
   let staticUnits = 0;
   let reachesInterpretedCount = 0;
+  let trackingUnits = 0;
+  let regionUnits = 0;
   for (const unit of plan.units.values()) {
     if (unit.kind === "static") staticUnits++;
     else {
@@ -41,6 +50,8 @@ export function explainCompilation(
       }
     }
     if (unit.reachesInterpreted) reachesInterpretedCount++;
+    if (unit.tracking) trackingUnits++;
+    if (unit.inRegion) regionUnits++;
   }
   interpretedKeys.sort();
   return {
@@ -50,5 +61,7 @@ export function explainCompilation(
     causes,
     interpretedKeys,
     reachesInterpretedCount,
+    trackingUnits,
+    regionUnits,
   };
 }

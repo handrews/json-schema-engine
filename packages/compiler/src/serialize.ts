@@ -28,11 +28,18 @@ const D = id("d"); // depth parameter
 const S = id("s"); // dynamic-scope parameter
 const R = id("R"); // runtime closure
 const T = id("T"); // interpreted-target table
+const EV = id("ev"); // runtime coverage channel (region emission, phase B)
 
 const unitFn = (index: number): CodeChunk => id("u" + String(index));
+// Region-variant of a unit function: same body with the trailing coverage
+// channel threaded (COMPILED-CONSUMERS.md phase B). A distinct name so a unit
+// can carry both a plain and a channel-threaded emission.
+const unitFnRegion = (index: number): CodeChunk =>
+  id("u" + String(index) + "c");
 const bindingVar = (n: number): CodeChunk => id("b" + String(n));
 const regexConst = (i: number): CodeChunk => id("r" + String(i));
 const counterVar = (n: number): CodeChunk => id("c" + String(n));
+const foldVar = (n: number): CodeChunk => id("f" + String(n));
 
 class SerializeError extends Error {}
 
@@ -117,6 +124,25 @@ export function serializePlan(
   if (output === "list" && mode === "standalone") {
     throw new SerializeError("standalone emission is flag-only (M6.5 scope)");
   }
+  // Runtime coverage tracking (phase B) is FLAG-only: list plans demote every
+  // consumer (plan.ts), so a tracked or region unit under list output is a
+  // planner/serializer contract violation — fail loud (rule 9).
+  const hasRegion = [...plan.units.values()].some(
+    (u) => u.tracking === true || u.inRegion === true,
+  );
+  if (hasRegion && output === "list") {
+    throw new SerializeError(
+      "runtime coverage tracking is flag-only; list plans must demote consumers",
+    );
+  }
+  if (hasRegion && mode === "standalone") {
+    throw new SerializeError(
+      "standalone emission does not support runtime coverage tracking (phase B)",
+    );
+  }
+  // The behavior ids a consumer observes: a region producer pushes its raw
+  // production onto the channel only when its id is consumed (rule 5).
+  const consumedIds = registry.consumedIds();
   // Annotation collection is a list-mode variant: it reuses the list plan and
   // fail-open, no-short-circuit discipline, adding a flat `anns` channel with
   // mark/truncate at every application boundary (channel rule 3).
@@ -145,6 +171,8 @@ export function serializePlan(
     boolean: boolean;
     chunk: CodeChunk;
     inlined: ReadonlySet<string>;
+    /** a channel-threaded region variant (never a dead-function candidate) */
+    region: boolean;
   }[] = [];
   for (const unit of plan.units.values()) {
     if (unit.kind !== "static") continue;
@@ -160,11 +188,36 @@ export function serializePlan(
         listParams,
         annMode,
         annKeep,
+        consumedIds,
+        false,
       ),
     );
+    // A region member carries a second emission whose signature takes the
+    // coverage channel; the plain variant above still serves child-cursor
+    // and non-region callers (phase B).
+    if (unit.inRegion) {
+      rendered.push(
+        serializeUnit(
+          unit,
+          plan,
+          registry,
+          fnIndex,
+          tableIndex,
+          effFlags,
+          output,
+          listParams,
+          annMode,
+          annKeep,
+          consumedIds,
+          true,
+        ),
+      );
+    }
   }
   // Drop dead functions: units expanded into their caller (D9c) and boolean
   // units (their applications folded to literals). The root always stays.
+  // Region variants are always retained (correctness first; an uncalled one is
+  // inert declaration bytes, phase B size note).
   const inlinedEverywhere = new Set<string>();
   for (const r of rendered) for (const k of r.inlined) inlinedEverywhere.add(k);
   // List mode calls boolean-false units (they report "schema is false"),
@@ -172,6 +225,7 @@ export function serializePlan(
   const functions = rendered
     .filter(
       (r) =>
+        r.region ||
         r.key === plan.rootKey ||
         (!inlinedEverywhere.has(r.key) && (!r.boolean || output === "list")),
     )
@@ -210,6 +264,14 @@ export function serializePlan(
       js`const h_hop = Object.prototype.hasOwnProperty;`,
     );
     if (annMode) prologue.push(js`const h_fragla = ${R}.fragListAnn;`);
+    // Region emission (phase B) helpers: the two channel folds and the
+    // coverage-harvesting island trampoline. Only bound when a tracked/region
+    // unit exists, so consumer-free artifacts keep their prologue unchanged.
+    if (hasRegion) {
+      prologue.push(
+        js`const h_covN = ${R}.foldNameCoverage, h_covI = ${R}.foldIndexCoverage, h_fragc = ${R}.fragCov;`,
+      );
+    }
   }
   plan.patterns.forEach((source, i) => {
     prologue.push(
@@ -246,13 +308,27 @@ function serializeUnit(
   listParams: boolean,
   annMode: boolean,
   annKeep: RecordPredicate | null,
+  consumedIds: ReadonlySet<string>,
+  /** emitting the channel-threaded region variant of an inRegion unit */
+  regionVariant: boolean,
 ): {
   key: string;
   boolean: boolean;
   chunk: CodeChunk;
   inlined: ReadonlySet<string>;
+  region: boolean;
 } {
-  const fn = unitFn(fnIndex.get(unit.key)!);
+  // Region emission (phase B) applies to a tracked unit's body (a local
+  // channel `const ev = []`) and to an inRegion unit's region variant (the
+  // channel is a trailing parameter). A tracked unit is never inRegion (nested
+  // tracked consumers island), so the two never coincide.
+  const regionMode = regionVariant || unit.tracking === true;
+  if (regionVariant && unit.tracking) {
+    throw new SerializeError("a tracked unit cannot also be a region member");
+  }
+  const fn = regionVariant
+    ? unitFnRegion(fnIndex.get(unit.key)!)
+    : unitFn(fnIndex.get(unit.key)!);
   const node = unit.ref.node;
   // Annotation mode extends the list signature with a trailing `anns` channel.
   const listSig = annMode
@@ -271,7 +347,13 @@ function serializeUnit(
       output === "list" && !node
         ? js`function ${fn}${listSig} { ${id("errs")}.push({ evaluationPath: ${id("ep")}, schemaLocation: ${str(unit.ref.baseUri + "#" + unit.ref.pointer)}, instanceLocation: ${id("ip")}, error: "schema is false"${falseParams} }); return false; }`
         : js`function ${fn}() { return ${raw(String(node))}; }`;
-    return { key: unit.key, boolean: true, chunk, inlined: new Set() };
+    return {
+      key: unit.key,
+      boolean: true,
+      chunk,
+      inlined: new Set(),
+      region: false,
+    };
   }
 
   const body: CodeChunk[] = [];
@@ -282,6 +364,12 @@ function serializeUnit(
     body.push(js`${S} = [...${S}, ${str(unit.ref.baseUri)}];`);
   }
 
+  // A unit that participates in region emission (a tracked unit, or an
+  // inRegion unit — through EITHER variant) never inlines: a single-use child
+  // inlined into the plain variant would be dropped by the dead-function
+  // filter yet still called by the region variant (which does not inline).
+  const unitFlags =
+    regionMode || unit.inRegion === true ? { ...flags, inline: false } : flags;
   const ctx = new UnitContext(
     unit,
     plan,
@@ -292,11 +380,13 @@ function serializeUnit(
     { binding: 0, tally: 0, temp: 0 },
     new Set([unit.key]),
     null,
-    flags,
+    unitFlags,
     output,
     listParams,
     annMode,
     annKeep,
+    regionMode,
+    consumedIds,
   );
   const unitStmts = ctx.unitBody();
   // Depth guard (D20 combined budget) only where a chain can grow: a
@@ -308,6 +398,9 @@ function serializeUnit(
   const guard = ctx.guardDecl();
   if (guard) body.push(guard);
   if (output === "list") body.push(js`let ok = true;`);
+  // A tracked unit owns its channel locally (it is entered like any plain
+  // unit); a region variant receives the caller's channel as `ev`.
+  if (regionMode && !regionVariant) body.push(js`const ${EV} = [];`);
   body.push(...unitStmts);
 
   if (output === "list") {
@@ -317,14 +410,19 @@ function serializeUnit(
       boolean: false,
       chunk: js`function ${fn}${listSig} { ${join("\n", body)} }`,
       inlined: ctx.inlinedKeys,
+      region: regionVariant,
     };
   }
   body.push(js`return true;`);
+  const sig = regionVariant
+    ? js`(${V}, ${D}, ${S}, ${EV})`
+    : js`(${V}, ${D}, ${S})`;
   return {
     key: unit.key,
     boolean: false,
-    chunk: js`function ${fn}(${V}, ${D}, ${S}) { ${join("\n", body)} }`,
+    chunk: js`function ${fn}${sig} { ${join("\n", body)} }`,
     inlined: ctx.inlinedKeys,
+    region: regionVariant,
   };
 }
 
@@ -364,6 +462,14 @@ class UnitContext {
   objGuardUsed = false;
   /** set when this unit's body (incl. inlines) emits any unit/frag call */
   calledUnit = false;
+  // Region emission (phase B): the current keyword's behavior id (for the
+  // consumed-producer channel-push gate) and the JS variable + half bound by
+  // each coverageFold, read by a following coverageCovers.
+  private currentBehaviorId = "";
+  private coverageFolds = new Map<
+    number,
+    { readonly var: CodeChunk; readonly half: "names" | "indexes" }
+  >();
 
   constructor(
     private unit: PlannedUnit,
@@ -384,6 +490,10 @@ class UnitContext {
     private listParams = false,
     private annMode = false,
     private annKeep: RecordPredicate | null = null,
+    /** region emission: thread the runtime coverage channel `ev` (phase B) */
+    private regionMode = false,
+    /** behavior ids a consumer observes (region channel-push gate, rule 5) */
+    private consumedIds: ReadonlySet<string> = new Set(),
   ) {}
 
   /**
@@ -491,6 +601,7 @@ class UnitContext {
         behavior.lower!(node[entry.name]!, lctx);
       });
       this.currentVocab = entry.vocabularyUri;
+      this.currentBehaviorId = behavior.id;
       // Accumulator declarations hoist above the keyword's statements: the
       // application call sites feed them, the produce reads them.
       const decls = this.beginKeyword(stmts);
@@ -524,12 +635,27 @@ class UnitContext {
   private beginKeyword(stmts: readonly LowerStmt[]): CodeChunk[] {
     this.annKw = null;
     this.annKwKept = false;
-    if (!this.annMode) return [];
+    if (!this.annMode && !this.regionMode) return [];
     const value = findProduce(stmts);
     if (!value) return [];
-    this.annKwKept =
-      !this.annKeep || this.annKeep("", this.currentKeyword, this.currentVocab);
-    if (!this.annKwKept) return [];
+    if (this.regionMode) {
+      // Region channel-push gate (rule 5): only a CONSUMED producer whose
+      // recipe is collectedNames/collectedIndexes feeds the channel. A
+      // const/expr produce (title-like) must never reach it — its value can be
+      // a string[] and would poison the value-shape dispatch (coverage.ts).
+      if (
+        !this.consumedIds.has(this.currentBehaviorId) ||
+        (value.kind !== "collectedNames" && value.kind !== "collectedIndexes")
+      ) {
+        return [];
+      }
+      this.annKwKept = true;
+    } else {
+      this.annKwKept =
+        !this.annKeep ||
+        this.annKeep("", this.currentKeyword, this.currentVocab);
+      if (!this.annKwKept) return [];
+    }
     if (value.kind === "collectedNames") {
       const n = id("n" + String(this.counters.temp++));
       this.annKw = { produceKind: "collectedNames", names: n };
@@ -563,7 +689,10 @@ class UnitContext {
       instance: { kind: "instance" },
       schema: unit.ref.node as Record<string, JsonValue>,
       staticCoverage: () => unit.coverage,
-      runtimeCoverage: () => false,
+      // A tracked unit's consumers read the runtime channel; a static-coverage
+      // consumer (even one that is a region member) keeps its static path and
+      // instead PUSHES its produce onto the channel for the enclosing consumer.
+      runtimeCoverage: () => unit.tracking === true,
       emit: (...s) => stmts.push(...s),
       binding: () => this.counters.binding++,
     };
@@ -614,6 +743,18 @@ class UnitContext {
         out.push(
           js`let ${a} = false; ${join(" ", runs)} if (!${a}) { ${onFail} }`,
         );
+      } else if (this.regionMode) {
+        // Every branch runs (no short-circuit — a later branch's success
+        // contributes coverage the interpreter would merge), each marking and
+        // truncating its own channel span (rule 2). Flag failure on no match.
+        const a = counterVar(this.counters.tally++);
+        const runs = anyRun.map((call) => {
+          const m = id("m" + String(this.counters.temp++));
+          return js`{ const ${m} = ${EV}.length; if (${call}) ${a} = true; else ${EV}.length = ${m}; }`;
+        });
+        out.push(
+          js`let ${a} = false; ${join(" ", runs)} if (!${a}) return false;`,
+        );
       } else {
         out.push(js`if (!(${join(" || ", anyRun)})) return false;`);
       }
@@ -662,6 +803,17 @@ class UnitContext {
           this.paramsChunk(params, c, p),
         );
         out.push(js`${decl} ${join(" ", incs)} if (${c} !== 1) { ${onFail} }`);
+      } else if (this.regionMode) {
+        // Run every branch with a per-branch mark/truncate (rule 2): a passing
+        // branch's coverage merges, a failing branch's truncates. On a non-unit
+        // count the unit fails and the caller truncates the whole span.
+        const incs = oneRun.map((call) => {
+          const m = id("m" + String(this.counters.temp++));
+          return js`{ const ${m} = ${EV}.length; if (${call}) ${c}++; else ${EV}.length = ${m}; }`;
+        });
+        out.push(
+          js`let ${c} = 0; ${join(" ", incs)} if (${c} !== 1) return false;`,
+        );
       } else {
         const incs = oneRun.map((call) => js`if (${call}) ${c}++;`);
         out.push(
@@ -703,11 +855,19 @@ class UnitContext {
         // contains' probe): hoist the call so its span marks/truncates before
         // the branch reads the verdict. Any other applyExpr position throws in
         // annotation mode (expr()), so no silent annotation loss.
-        if (this.annMode && stmt.cond.kind === "applyExpr") {
+        if (
+          (this.annMode || this.regionMode) &&
+          stmt.cond.kind === "applyExpr"
+        ) {
+          // `if`'s condition is in-place: hoist the call so its channel span
+          // marks/truncates on the condition verdict (a passing condition's
+          // coverage merges, a failing one's — with the else taken — truncates;
+          // rule 4). ann marks `anns`, region marks `ev`.
+          const chan = this.annMode ? id("anns") : EV;
           const m = id("m" + String(this.counters.temp++));
           const t = id("m" + String(this.counters.temp++));
           const call = this.applyCall(stmt.cond.apply);
-          const head = js`const ${m} = ${id("anns")}.length; const ${t} = ${call}; if (!${t}) ${id("anns")}.length = ${m};`;
+          const head = js`const ${m} = ${chan}.length; const ${t} = ${call}; if (!${t}) ${chan}.length = ${m};`;
           const thenBody = join(
             "\n",
             stmt.then.map((s) => this.statement(s)),
@@ -765,18 +925,31 @@ class UnitContext {
         // Flag mode: verdict-only, fail fast.
         return js`return false;`;
       case "produce":
-        // Only annotation mode observes productions; flag/list-without-
-        // annotations elide them (consumer-bearing nodes were interpreted by
-        // the planner). Retention lists rule some out at emit (annKwKept).
+        // Annotation mode records productions as units; region mode pushes a
+        // consumed producer's raw value onto the channel (rule 5). Flag/list
+        // without either elide the produce.
         if (this.annMode && this.annKwKept)
           return this.produceStatement(stmt.value);
+        if (this.regionMode && this.annKwKept)
+          return this.produceChannel(stmt.value);
         return js``;
-      case "coverageFold":
-        // Runtime coverage (phase B) has no serializer emission yet; consumer
-        // keywords never emit this while runtimeCoverage() is false.
-        throw new SerializeError(
-          "coverageFold requires runtime coverage emission (phase B)",
-        );
+      case "coverageFold": {
+        // Bind the channel fold a following coverageCovers reads (rule 6). Only
+        // a tracked unit's consumer emits this, and only in region mode.
+        if (!this.regionMode) {
+          throw new SerializeError(
+            "coverageFold requires region emission (phase B)",
+          );
+        }
+        const f = foldVar(this.counters.temp++);
+        this.coverageFolds.set(stmt.binding, { var: f, half: stmt.half });
+        if (stmt.half === "names") {
+          return js`const ${f} = ${id("h_covN")}(${EV});`;
+        }
+        // indexes: fold over the current instance array's length (the enclosing
+        // lower() guards this with an array-type test).
+        return js`const ${f} = ${id("h_covI")}(${EV}, ${this.valueVar}.length);`;
+      }
       case "apply":
         return this.applyStatement(stmt.apply);
       case "combineCheck":
@@ -813,6 +986,19 @@ class UnitContext {
           const loop = js`let ${c} = 0; for (let ${b} = 0; ${b} < ${this.expr(stmt.target)}.length; ${b}++) { const ${m} = ${id("anns")}.length; if (${probe}) { ${c}++;${pushIdx} } else ${id("anns")}.length = ${m}; }`;
           return js`${loop} if (${outOfRange}) { ${onFail} }`;
         }
+        if (this.regionMode && stmt.countWhen.kind === "applyExpr") {
+          // The probe is a CHILD-cursor apply (a plain call that never receives
+          // `ev`), so there is no channel span to mark here — `contains`'
+          // coverage reaches the channel only through its matched-index produce
+          // (rule 5). Accumulate the matched indexes for that produce.
+          const probe = this.applyCall(stmt.countWhen.apply);
+          const pushIdx =
+            this.annKw?.matched && stmt.collectIndexes
+              ? js` ${this.annKw.matched}.push(${b});`
+              : js``;
+          const loop = js`let ${c} = 0; for (let ${b} = 0; ${b} < ${this.expr(stmt.target)}.length; ${b}++) { if (${probe}) { ${c}++;${pushIdx} } }`;
+          return js`${loop} if (${outOfRange}) { ${onFail} }`;
+        }
         const loop = js`let ${c} = 0; for (let ${b} = 0; ${b} < ${this.expr(stmt.target)}.length; ${b}++) { if (${this.expr(stmt.countWhen)}) ${c}++; }`;
         return js`${loop} if (${outOfRange}) { ${onFail} }`;
       }
@@ -843,6 +1029,43 @@ class UnitContext {
         const mt = this.annKw!.matched!;
         return js`if (${mt}.length > 0) ${id("anns")}.push(${this.annUnit(js`${mt}.length === ${v}.length ? true : ${mt}`)});`;
       }
+    }
+  }
+
+  /**
+   * Push a consumed producer's raw production onto the runtime coverage channel
+   * (rule 5), mirroring {@link produceStatement}'s accumulator reads but writing
+   * the value the interpreter would produce (never an annotation unit). Only
+   * collectedNames/collectedIndexes reach here (beginKeyword's channel gate);
+   * the "has a production" guards match the interpreter's produce conditions so
+   * the channel carries exactly what a consumer's visible-productions fold sees.
+   */
+  private produceChannel(value: LowerProduceValue): CodeChunk {
+    const v = this.valueVar;
+    switch (value.kind) {
+      case "collectedNames":
+        // The enclosing lower() gates this produce behind an object-type test;
+        // the (attempted, deduped) name array spreads from the Set.
+        return js`${EV}.push([...${this.annKw!.names!}]);`;
+      case "collectedIndexes": {
+        if (value.render === "largestOrTrue") {
+          const mx = this.annKw!.max!;
+          return js`if (${mx} >= 0) ${EV}.push(${mx} + 1 === ${v}.length ? true : ${mx});`;
+        }
+        if (value.render === "appliedTrue") {
+          const ap = this.annKw!.applied!;
+          return js`if (${ap}) ${EV}.push(true);`;
+        }
+        const mt = this.annKw!.matched!;
+        return js`if (${mt}.length > 0) ${EV}.push(${mt}.length === ${v}.length ? true : ${mt});`;
+      }
+      case "const":
+      case "expr":
+        // Guarded out by beginKeyword's channel gate (rule 5): a const/expr
+        // value must never poison the channel's shape dispatch.
+        throw new SerializeError(
+          "const/expr produce must not reach the coverage channel",
+        );
     }
   }
 
@@ -921,6 +1144,44 @@ class UnitContext {
           break; // grouped folds handled by keywordStatements; discard by applyExpr
       }
     }
+    if (this.regionMode) {
+      // A call RECEIVES the channel exactly when it is an in-place apply to a
+      // non-boolean target (a region variant or fragCov); a child-cursor apply
+      // is a plain call, and a boolean folds to a literal — neither touches the
+      // channel, so neither needs a mark/truncate span (rule 1).
+      const receivesEv =
+        apply.cursor.kind === "here" &&
+        call.text !== "true" &&
+        call.text !== "false";
+      switch (apply.fold) {
+        case "allMustPass": {
+          // Record the attempted child segment (before the verdict) for a
+          // consumed producer's channel push (rule 5).
+          const rec = this.annRecordSegment(apply.cursor);
+          const pre = rec ? js`${rec} ` : js``;
+          if (call.text === "true") return rec ?? js``;
+          if (call.text === "false") return js`${pre}return false;`;
+          if (receivesEv) {
+            // In-place conjunct: a failed span truncates and fails the unit;
+            // the caller's own span then truncates this whole call (rule 2).
+            const m = id("m" + String(this.counters.temp++));
+            return js`const ${m} = ${EV}.length; if (!${call}) { ${EV}.length = ${m}; return false; }`;
+          }
+          // Child-cursor conjunct (a swept property/item): no channel span.
+          return js`${pre}if (!${call}) return false;`;
+        }
+        case "negate": {
+          if (call.text === "true") return js`return false;`;
+          if (call.text === "false") return js``;
+          // A passing negated subschema dies with the unit (return false → the
+          // caller truncates); a failing one truncates its own span (rule 3).
+          const m = id("m" + String(this.counters.temp++));
+          return js`const ${m} = ${EV}.length; if (${call}) return false; ${EV}.length = ${m};`;
+        }
+        default:
+          break; // grouped folds handled by keywordStatements; discard by applyExpr
+      }
+    }
     if (this.output === "list") {
       switch (apply.fold) {
         case "allMustPass":
@@ -972,6 +1233,9 @@ class UnitContext {
    */
   private tryInline(apply: LowerApply): CodeChunk | null {
     if (!this.flags.inline) return null;
+    // Region emission never inlines: an in-place target is called through its
+    // channel-threaded region variant, not expanded (rule 8).
+    if (this.regionMode) return null;
     let targetKey: string;
     if (apply.ref !== undefined) {
       targetKey = this.edgeTarget(apply.ref, null);
@@ -984,6 +1248,11 @@ class UnitContext {
       typeof target.ref.node === "boolean" ||
       target.useCount !== 1 ||
       target.reachesInterpreted ||
+      // A tracked unit owns a local channel and a region member is entered
+      // through its channel-threaded variant; neither can be expanded verbatim
+      // into a plain caller (phase B).
+      target.tracking ||
+      target.inRegion ||
       this.inlineStack.has(targetKey) ||
       this.inlineStack.size > 32
     ) {
@@ -1050,15 +1319,31 @@ class UnitContext {
         }
         if (target.ref.node) return js`true`;
       }
-      const fn = unitFn(this.fnIndex.get(targetKey)!);
       const scope = this.unit.reachesInterpreted ? S : id("h_s0");
       this.calledUnit = true;
       if (this.annMode) {
+        const fn = unitFn(this.fnIndex.get(targetKey)!);
         return js`${fn}(${valueExpr}, ${D}, ${scope}, ${this.applyEp(apply)}, ${this.applyIp(apply)}, ${id("errs")}, ${id("anns")})`;
       }
       if (this.output === "list") {
+        const fn = unitFn(this.fnIndex.get(targetKey)!);
         return js`${fn}(${valueExpr}, ${D}, ${scope}, ${this.applyEp(apply)}, ${this.applyIp(apply)}, ${id("errs")})`;
       }
+      // Region emission: an in-place apply threads the channel through the
+      // target's region variant (rule 5). Such a target is always a region
+      // member — a would-be tracked one was islanded (below), a boolean folded
+      // above. Child-cursor applies use the plain variant (a child location's
+      // coverage never joins this unit's channel).
+      if (this.regionMode && apply.cursor.kind === "here") {
+        if (!target.inRegion) {
+          throw new SerializeError(
+            "in-place region target '" + targetKey + "' is not a region member",
+          );
+        }
+        const fnc = unitFnRegion(this.fnIndex.get(targetKey)!);
+        return js`${fnc}(${valueExpr}, ${D}, ${scope}, ${EV})`;
+      }
+      const fn = unitFn(this.fnIndex.get(targetKey)!);
       return js`${fn}(${valueExpr}, ${D}, ${scope})`;
     }
     const slot = num(this.tableIndex.get(targetKey)!);
@@ -1068,6 +1353,11 @@ class UnitContext {
     }
     if (this.output === "list") {
       return js`${id("h_fragl")}(${T}[${slot}], ${valueExpr}, ${S}, ${D}, ${this.applyEp(apply)}, ${this.applyIp(apply)}, ${id("errs")})`;
+    }
+    // Region emission: an in-place island harvests its root coverage into the
+    // channel (fragCov, rule 7); a child-cursor island uses the plain frag.
+    if (this.regionMode && apply.cursor.kind === "here") {
+      return js`${id("h_fragc")}(${T}[${slot}], ${valueExpr}, ${S}, ${D}, ${EV})`;
     }
     return js`${id("h_frag")}(${T}[${slot}], ${valueExpr}, ${S}, ${D})`;
   }
@@ -1217,23 +1507,40 @@ class UnitContext {
         // mark/truncate. Reaching here in annotation mode means an
         // unrecognized shape whose productions could not be discarded — fail
         // loud rather than lose annotations silently.
-        if (this.annMode) {
+        // Region mode intercepts the two legal applyExpr positions at the
+        // statement level (if-condition, contains-probe) so their channel span
+        // can mark/truncate; reaching here means an unmarkable position.
+        if (this.annMode || this.regionMode) {
           throw new SerializeError(
             "applyExpr in an unmarkable position for keyword '" +
               this.currentKeyword +
-              "' (annotation mode)",
+              "' (" +
+              (this.annMode ? "annotation" : "region") +
+              " mode)",
           );
         }
         // Same call expression an `apply` statement builds; `fold` on this
         // apply is not consulted here (it governs how a wrapping statement
         // uses the value, not how the call itself is rendered).
         return this.applyCall(e.apply);
-      case "coverageCovers":
-        // Runtime coverage (phase B) has no serializer emission yet; consumer
-        // keywords never emit this while runtimeCoverage() is false.
-        throw new SerializeError(
-          "coverageCovers requires runtime coverage emission (phase B)",
-        );
+      case "coverageCovers": {
+        // Test the folded channel bound by a preceding coverageFold (rule 6):
+        // set membership for names, prefix-or-index membership for indexes.
+        if (!this.regionMode) {
+          throw new SerializeError(
+            "coverageCovers requires region emission (phase B)",
+          );
+        }
+        const fold = this.coverageFolds.get(e.fold);
+        if (!fold) {
+          throw new SerializeError(
+            "coverageCovers without a preceding coverageFold",
+          );
+        }
+        const target = this.expr(e.target);
+        if (fold.half === "names") return js`${fold.var}.has(${target})`;
+        return js`(${target} < ${fold.var}.coveredPrefix || ${fold.var}.coveredIdx.has(${target}))`;
+      }
     }
   }
 

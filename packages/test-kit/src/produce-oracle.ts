@@ -49,6 +49,14 @@ export interface OracleCoverage {
 export interface OracleUnit {
   ref: SchemaRef;
   coverage: OracleCoverage | null;
+  /**
+   * Set when the planner compiled this consumer with runtime coverage tracking
+   * (COMPILED-CONSUMERS.md phase B): its coverage crosses unit boundaries
+   * through the runtime channel, which this standalone oracle cannot replay, so
+   * the gate skips it (and its consumer keywords' coverageFold/coverageCovers
+   * lowering, which the oracle does not model).
+   */
+  tracking?: boolean;
 }
 
 /** One keyword's rendered production. */
@@ -92,6 +100,10 @@ export function evaluateProduceRecipes(
 ): RecipeProduction[] {
   const node = unit.ref.node;
   if (typeof node === "boolean" || !isObjectValue(node)) return [];
+  // Tracked consumers read a cross-unit runtime channel (phase B) the oracle
+  // cannot replay; the gate skips them (and counts the skips) rather than
+  // running a lower() whose coverageFold/coverageCovers this evaluator lacks.
+  if (unit.tracking) return [];
 
   const dialect = registry.dialectFor(unit.ref.baseUri);
   // Mirror engine/serializer refOnly: a draft-07/06/04 $ref silences siblings.

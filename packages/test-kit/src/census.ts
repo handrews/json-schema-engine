@@ -17,6 +17,10 @@ export interface PlanCensusSummary {
   causes: Readonly<Partial<Record<string, number>>>;
   /** Canonical keys of interpreted units, for failure diagnosis. */
   interpretedKeys?: readonly string[];
+  /** Consumer units compiled with runtime coverage tracking (phase B). */
+  trackingUnits?: number;
+  /** Units in some tracked unit's coverage region (phase B). */
+  regionUnits?: number;
 }
 
 /** Aggregated census over every group of every file in a suite directory. */
@@ -30,6 +34,10 @@ export interface PlanCensusResult {
   causes: Record<string, number>;
   /** Diagnosis payload: every interpreted unit key, tagged by group. */
   interpretedKeys: string[];
+  /** Consumer units compiled with runtime coverage tracking (phase B). */
+  trackingUnits: number;
+  /** Units in some tracked unit's coverage region (phase B). */
+  regionUnits: number;
 }
 
 /**
@@ -53,6 +61,8 @@ export async function runPlanCensus(options: {
     interpretedUnits: 0,
     causes: {},
     interpretedKeys: [],
+    trackingUnits: 0,
+    regionUnits: 0,
   };
   const files = readdirSync(options.suiteDir)
     .filter((f) => f.endsWith(".json"))
@@ -75,6 +85,8 @@ export async function runPlanCensus(options: {
       }
       result.totalUnits += summary.totalUnits;
       result.interpretedUnits += summary.interpretedUnits;
+      result.trackingUnits += summary.trackingUnits ?? 0;
+      result.regionUnits += summary.regionUnits ?? 0;
       for (const [cause, count] of Object.entries(summary.causes)) {
         if (count === undefined || count === 0) continue;
         result.causes[cause] = (result.causes[cause] ?? 0) + count;

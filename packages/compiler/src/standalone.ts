@@ -147,6 +147,15 @@ export function emitStandalone(
         "standalone emission covers fully static schemas only",
     );
   }
+  // A tracked consumer's runtime coverage channel binds the harvest/fold
+  // helpers the standalone preamble deliberately omits (phase B is runtime
+  // mode only); the interpreter is the CSP-safe tier for these schemas.
+  if ([...plan.units.values()].some((u) => u.tracking)) {
+    throw new StandaloneUnsupportedError(
+      `schema '${schemaUri}' has a dynamic-coverage consumer needing runtime ` +
+        "tracking; standalone emission covers static-coverage schemas only",
+    );
+  }
   const maxDepth = options.maxDepth ?? 512;
   const depthPreamble =
     `const h_maxd = ${String(maxDepth)};\n` +

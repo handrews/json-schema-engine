@@ -45,6 +45,22 @@ export interface PlannedUnit {
   edges: PlannedApplication[];
   /** static coverage for this schema object, when computable (slice rule) */
   coverage: StaticNameCoverage | null;
+  /**
+   * FLAG-mode consumer whose evaluated coverage is dynamic (static licensing
+   * failed): compiled with RUNTIME evaluated-set tracking instead of the
+   * interpreter (COMPILED-CONSUMERS.md phase B). `coverage` stays null; the
+   * unit's body threads a runtime coverage channel through its in-place
+   * closure (its {@link inRegion} members) and its consumer keywords read it.
+   * Never set together with {@link inRegion} (nested tracked consumers island).
+   */
+  tracking?: boolean;
+  /**
+   * A static unit in some tracked unit's in-place coverage region: reachable
+   * from a tracked (or region) unit via in-place edges. Emitted with a second
+   * calling convention (a trailing coverage channel) so its producers'
+   * post-success coverage flows to the consumer (COMPILED-CONSUMERS.md phase B).
+   */
+  inRegion?: boolean;
   /** true when any apply path from this unit can reach an interpreted unit */
   reachesInterpreted: boolean;
   /** number of planned edges targeting this unit (D9 inline licensing) */
@@ -198,18 +214,23 @@ export function buildPlan(
         (needsNames && halves.name === null) ||
         (needsIndexes && halves.index === null)
       ) {
-        unit.kind = "interpreted";
-        unit.cause = "unlowerable";
-        return unit;
+        // Static licensing failed. FLAG mode compiles the consumer anyway,
+        // with runtime evaluated-set tracking (coverage stays null); the unit
+        // stays static and CONTINUES to edge resolution / child planning like
+        // any static unit — its tracked body needs planned in-place edges to
+        // thread the coverage channel through. The region membership of those
+        // edges is computed after the walk (below).
+        unit.tracking = true;
+      } else {
+        unit.coverage = {
+          names: halves.name ? [...halves.name.names] : [],
+          patterns: halves.name ? halves.name.patterns : [],
+          coversAllNames: halves.name?.all ?? false,
+          prefixCount: halves.index?.prefix ?? 0,
+          coversAllIndexes: halves.index?.all ?? false,
+        };
+        for (const pat of unit.coverage.patterns) patterns.add(pat);
       }
-      unit.coverage = {
-        names: halves.name ? [...halves.name.names] : [],
-        patterns: halves.name ? halves.name.patterns : [],
-        coversAllNames: halves.name?.all ?? false,
-        prefixCount: halves.index?.prefix ?? 0,
-        coversAllIndexes: halves.index?.all ?? false,
-      };
-      for (const pat of unit.coverage.patterns) patterns.add(pat);
     }
 
     // Resolve application edges; plan children.
@@ -259,6 +280,48 @@ export function buildPlan(
   };
 
   const root = plan(rootRef, []);
+
+  // Coverage-region fixpoint (COMPILED-CONSUMERS.md phase B). A tracked
+  // consumer's coverage comes from its own producers AND, recursively, its
+  // asserting in-place applications; each static unit in that in-place closure
+  // must report its post-success coverage through the runtime channel, so it
+  // gets the second (channel-threaded) calling convention (inRegion). Seeded
+  // by tracked units, propagated through in-place edges of static units.
+  //
+  // Exception — a nested tracked consumer reached inside the closure: threading
+  // one unit's channel through another's consumer is a v1 non-goal, so it is
+  // re-classified interpreted and becomes an ISLAND. The parent then trampolines
+  // it (fragCov) and folds its harvested root coverage — no nested channel.
+  // Islands and already-interpreted targets reached by region edges stay
+  // interpreted. A consumer-bearing STATIC-coverage unit stays a normal region
+  // member (its produces flow like any producer's).
+  const regionStack = [...units.values()]
+    .filter((u) => u.tracking)
+    .map((u) => u.key);
+  while (regionStack.length > 0) {
+    const u = units.get(regionStack.pop()!)!;
+    if (u.kind !== "static") continue; // a seed islanded by another seed
+    for (const edge of u.edges) {
+      if (edge.app.mode !== "inPlace") continue;
+      const m = units.get(edge.targetKey)!;
+      if (m.kind !== "static") continue; // island target: stays interpreted
+      // Boolean subschemas contribute no coverage and fold to a literal at the
+      // call site — never a channel-threaded member.
+      if (typeof m.ref.node === "boolean") continue;
+      if (m.tracking) {
+        // Nested tracked consumer: island it (v1 nested-channel simplification).
+        m.kind = "interpreted";
+        m.cause = "unlowerable";
+        m.edges = [];
+        delete m.tracking;
+        continue;
+      }
+      if (!m.inRegion) {
+        m.inRegion = true;
+        regionStack.push(m.key);
+      }
+    }
+  }
 
   // reachesInterpreted fixpoint over the edge graph.
   let changed = true;

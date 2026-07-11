@@ -14,6 +14,9 @@ import {
   escapeSegment,
   evaluateFragment,
   firstDuplicatePair,
+  foldIndexCoverage,
+  foldNameCoverage,
+  harvestCoverage,
   hasDuplicateItems,
   isMultipleOf,
   jsonEqual,
@@ -50,6 +53,9 @@ export interface Runtime {
   readonly isMultipleOf: typeof isMultipleOf;
   readonly hasDuplicateItems: typeof hasDuplicateItems;
   readonly firstDuplicatePair: typeof firstDuplicatePair;
+  /** compiled-consumer coverage folds (COMPILED-CONSUMERS.md phase B) */
+  readonly foldNameCoverage: typeof foldNameCoverage;
+  readonly foldIndexCoverage: typeof foldIndexCoverage;
   /** compiled RegExp by pattern source */
   readonly re: Record<string, { test(s: string): boolean }>;
   /** the artifact's depth bound (D20), shared with trampolined fragments */
@@ -66,6 +72,22 @@ export interface Runtime {
     value: JsonValue,
     scope: readonly string[],
     depth: number,
+  ): boolean;
+  /**
+   * Coverage-harvesting trampoline (COMPILED-CONSUMERS.md phase B, §5): like
+   * {@link frag} for an island applied IN-PLACE under a compiled consumer,
+   * but the island's surviving root-cursor consumed productions are folded
+   * into the parent's runtime coverage channel `ev`. `shouldRecord` already
+   * records consumed ids (the M5.5 invariant), so an island always reports the
+   * coverage a consumer would observe. A failed island's root productions are
+   * empty; the caller's mark/truncate is the uniform backstop either way.
+   */
+  fragCov(
+    target: SchemaRef,
+    value: JsonValue,
+    scope: readonly string[],
+    depth: number,
+    ev: unknown[],
   ): boolean;
   /**
    * List-mode trampoline: evaluates the fragment with the caller's
@@ -121,6 +143,9 @@ export function makeRuntime(
     false,
     undefined,
   );
+  // Captured once: the behavior ids a consumer would observe, for fragCov's
+  // coverage harvest (COMPILED-CONSUMERS.md §5).
+  const consumedIds = registry.consumedIds();
   // Annotation harvest predicates (built once): an island records consumed
   // AND retainable productions so consumers inside it still see their
   // channel; the lists-only pass then drops consumed-only survivors, leaving
@@ -142,6 +167,8 @@ export function makeRuntime(
     isMultipleOf,
     hasDuplicateItems,
     firstDuplicatePair,
+    foldNameCoverage,
+    foldIndexCoverage,
     re,
     maxDepth,
     tooDeep: () => {
@@ -159,6 +186,22 @@ export function makeRuntime(
       };
       return evaluateFragment(registry, target, rootCursor(value), options)
         .valid;
+    },
+    fragCov: (target, value, scope, depth, ev) => {
+      // The SAME cursor object must reach harvestCoverage: it filters root
+      // productions by cursor identity (coverage.ts), so a second rootCursor()
+      // would match nothing.
+      const cursor = rootCursor(value);
+      const options: FragmentOptions = {
+        dynamicScope: scope,
+        depth,
+        regexCache,
+        maxDepth,
+        shouldRecord,
+      };
+      const result = evaluateFragment(registry, target, cursor, options);
+      ev.push(...harvestCoverage(result.productions, cursor, consumedIds));
+      return result.valid;
     },
     fragList: (target, value, scope, depth, ep, ip, errs) => {
       // One synthetic pre-escaped PathNode segment reproduces the caller's

@@ -460,30 +460,46 @@ interface SweepPin {
   setup?: (engine: Engine) => void;
   pairs: number;
   productions: number;
+  /**
+   * Skipped tracked-consumer trace positions (COMPILED-CONSUMERS.md phase B):
+   * a tracked unit's coverage crosses unit boundaries through the runtime
+   * channel, which this standalone oracle cannot replay, so the sweep skips it
+   * loudly and pins the count (a drop to 0 would mean tracking silently stopped
+   * being exercised here).
+   */
+  skippedTracked: number;
 }
 
 // Transcribed from a local run (deterministic — two runs agree). `pairs` is
 // every compared (unit, instance-position); `productions` the total compared
 // productions. Both substantial by construction.
 const SWEEP: Record<string, SweepPin> = {
-  "draft2020-12": { dir: "draft2020-12", pairs: 1719, productions: 639 },
+  "draft2020-12": {
+    dir: "draft2020-12",
+    pairs: 2110,
+    productions: 750,
+    skippedTracked: 40,
+  },
   "draft2019-09": {
     dir: "draft2019-09",
     defaultDialect: DIALECT_2019_09,
-    pairs: 1753,
-    productions: 622,
+    pairs: 2094,
+    productions: 722,
+    skippedTracked: 32,
   },
   draft7: {
     dir: "draft7",
     defaultDialect: DIALECT_DRAFT_07,
     pairs: 1272,
     productions: 358,
+    skippedTracked: 0,
   },
   draft6: {
     dir: "draft6",
     defaultDialect: DIALECT_DRAFT_06,
     pairs: 1155,
     productions: 310,
+    skippedTracked: 0,
   },
   draft4: {
     dir: "draft4",
@@ -491,6 +507,7 @@ const SWEEP: Record<string, SweepPin> = {
     setup: registerDraft04,
     pairs: 902,
     productions: 263,
+    skippedTracked: 0,
   },
 };
 
@@ -507,13 +524,14 @@ function walkTrace(node: TraceNode, visit: (n: TraceNode) => void): void {
 
 async function sweepDialect(
   pin: SweepPin,
-): Promise<{ pairs: number; productions: number }> {
+): Promise<{ pairs: number; productions: number; skippedTracked: number }> {
   const suiteDir = join(SUITE_ROOT, "tests", pin.dir);
   const files = readdirSync(suiteDir)
     .filter((f) => f.endsWith(".json"))
     .sort();
   let pairs = 0;
   let productions = 0;
+  let skippedTracked = 0;
   for (const file of files) {
     const groups = JSON.parse(
       readFileSync(join(suiteDir, file), "utf8"),
@@ -570,6 +588,12 @@ async function sweepDialect(
           const key = `${node.schemaRef.baseUri}#${node.schemaRef.pointer}`;
           const unit = staticUnits.get(key);
           if (!unit) return;
+          // Tracked consumers read a cross-unit runtime channel the oracle
+          // cannot replay (phase B); skip and count instead of comparing.
+          if (unit.tracking) {
+            skippedTracked++;
+            return;
+          }
           const oracle = evaluateProduceRecipes(
             registry,
             engine.patternCache,
@@ -603,16 +627,20 @@ async function sweepDialect(
       }
     }
   }
-  return { pairs, productions };
+  return { pairs, productions, skippedTracked };
 }
 
 describe("Leg B — full suite sweep, oracle ≡ interpreter own productions", () => {
   for (const [name, pin] of Object.entries(SWEEP)) {
     it(`${name} agrees on every static unit and matches the pinned totals`, async () => {
-      const { pairs, productions } = await sweepDialect(pin);
-      expect({ pairs, productions }, `${name} sweep totals`).toEqual({
+      const { pairs, productions, skippedTracked } = await sweepDialect(pin);
+      expect(
+        { pairs, productions, skippedTracked },
+        `${name} sweep totals`,
+      ).toEqual({
         pairs: pin.pairs,
         productions: pin.productions,
+        skippedTracked: pin.skippedTracked,
       });
     });
   }

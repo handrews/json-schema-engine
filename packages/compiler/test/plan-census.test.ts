@@ -38,21 +38,31 @@ interface Expected {
   totalUnits: number;
   interpretedUnits: number;
   causes: Record<string, number>;
+  /** Consumer units compiled with runtime coverage tracking (phase B); default 0. */
+  trackingUnits?: number;
+  /** Units in a tracked unit's coverage region (phase B); default 0. */
+  regionUnits?: number;
 }
 
 // Transcribed from a local run (deterministic — two runs hash-identical).
-// unevaluated* consumers demote to interpreted under list output (their
-// static-coverage license is flag-only), and a demoted unit's subtree is
-// never planned — hence list plans have FEWER total units and MORE
-// interpreted ones for the dialects that have unevaluated*.
+// FLAG mode compiles dynamic-coverage unevaluated* consumers with runtime
+// tracking (phase B): the former `unlowerable` interpreted units become
+// static `trackingUnits`, their in-place closures become `regionUnits`, and
+// their now-planned subtrees raise `totalUnits`. LIST mode still demotes every
+// such consumer (its static-coverage license is flag-only) — a demoted unit's
+// subtree is never planned — so list plans have FEWER total units, MORE
+// interpreted ones, and NO tracking. The list pins must not move under a
+// flag-only change (asserted below).
 const PINS: Record<string, DialectPin> = {
   "draft2020-12": {
     dir: "draft2020-12",
     flag: {
       groups: 383,
-      totalUnits: 1205,
-      interpretedUnits: 79,
-      causes: { dynamic: 59, unlowerable: 20 },
+      totalUnits: 1338,
+      interpretedUnits: 59,
+      causes: { dynamic: 59 },
+      trackingUnits: 20,
+      regionUnits: 50,
     },
     list: {
       groups: 383,
@@ -66,9 +76,11 @@ const PINS: Record<string, DialectPin> = {
     defaultDialect: "https://json-schema.org/draft/2019-09/schema",
     flag: {
       groups: 372,
-      totalUnits: 1183,
-      interpretedUnits: 65,
-      causes: { dynamic: 49, unlowerable: 16 },
+      totalUnits: 1297,
+      interpretedUnits: 49,
+      causes: { dynamic: 49 },
+      trackingUnits: 16,
+      regionUnits: 43,
     },
     list: {
       groups: 372,
@@ -134,6 +146,12 @@ function assertPinned(
   expect(result.totalUnits, diagnosis).toBe(expected.totalUnits);
   expect(result.interpretedUnits, diagnosis).toBe(expected.interpretedUnits);
   expect(result.causes, diagnosis).toEqual(expected.causes);
+  expect(result.trackingUnits, `${label}: tracking units`).toBe(
+    expected.trackingUnits ?? 0,
+  );
+  expect(result.regionUnits, `${label}: region units`).toBe(
+    expected.regionUnits ?? 0,
+  );
 }
 
 describe("plan-classification census (exact pins per dialect)", () => {
