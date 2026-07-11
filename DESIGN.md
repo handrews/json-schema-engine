@@ -389,9 +389,12 @@ with injected traffic; OpenAPI 3.1 document schemas incl. discriminator),
 migration guide docs/guide/ajv-migration.md (tested snippets). Deferred,
 recorded: FUZZ_AJV random differential (AJV's own non-compliance makes a
 random referee noisy; the deterministic suite differential + oracle
-fixtures cover the mapping), code.source standalone mapping, ajv-keywords
-transform/dynamicDefaults (ride the mutation machinery when demanded),
-ajv-i18n.
+fixtures cover the mapping), code.source standalone mapping, ajv-i18n.
+ajv-keywords transform/dynamicDefaults DELIVERED 2026-07-10 (mutation-
+fixpoint passes, activated on the instance; executed-ajv-keywords oracle
+capture; two documented divergences the fixpoint model entails —
+transform skips combiner branches, non-idempotent op composites
+converge).
 
 **Status note (M10 @jse/dialect-draft04, completed 2026-07-08):** done-
 signals green: official draft4 suite 618/618 cases zero-skip (interpreter
@@ -709,8 +712,8 @@ both output modes (COMPILED-CONSUMERS.md stages 1–3 complete) —
 Runtime format-table
 lowering DELIVERED 2026-07-10 (assertion-mode census pins deep-equal
 plain plans; official format-assertion suite compiled) — list-mode
-standalone, D9d thresholds, island re-entry, ajv-keywords
-transform/dynamicDefaults, code.source mapping, hyperjump-compat shim,
+standalone, D9d thresholds, island re-entry, code.source mapping,
+hyperjump-compat shim,
 idna.ts second-'--' owner review (above). Added at M10 (2026-07-08):
 draft-04 `lower()` sweep for the package-defined keywords — DELIVERED
 with M6.6; ajv-compat draft-04 class (per the M10 contract: recorded,
