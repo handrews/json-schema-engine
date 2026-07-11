@@ -281,8 +281,11 @@ unnecessary even for consumption: FLAG plans compile dynamic-coverage
 `ev` channel of raw consumed-producer production values,
 shape-dispatched by the core coverage folds, mark/truncate at every
 in-place boundary, every branch of grouped folds evaluated, islands
-contributing through the coverage trampoline — while LIST plans still
-interpret consumers (COMPILED-CONSUMERS.md stage 3).
+contributing through the coverage trampolines. LIST plans track every
+consumer (never static-licensed — static coverage models only the
+parent-success path, the M6.6 finding; channel truncation reproduces
+drop-on-failure by construction), composing the coverage channel with
+the error and annotation channels (errs never truncates).
 Modern-vocabulary LIST documents and all hierarchical/verbose documents
 are trace-shaped (renderList flattens renderHierarchical over the
 trace) and stay on the interpreter. D9e is realized in list emission:
@@ -696,10 +699,10 @@ Five local commits, every gate green per commit:
 
 Deferred register (for continuity): compiled annotation
 collection — flat-list surface DELIVERED 2026-07-10
-(COMPILED-ANNOTATIONS.md stages 1–3); compiled consumers — flag-mode
-runtime evaluated-set tracking (D9(a)'s else branch) DELIVERED
-2026-07-10, list-mode consumer parity remains (COMPILED-CONSUMERS.md
-stage 3) — list-mode standalone, Runtime
+(COMPILED-ANNOTATIONS.md stages 1–3); compiled consumers — runtime
+evaluated-set tracking (D9(a)'s else branch) DELIVERED 2026-07-10 in
+both output modes (COMPILED-CONSUMERS.md stages 1–3 complete) —
+list-mode standalone, Runtime
 format-table lowering, D9d thresholds, island re-entry, ajv-keywords
 transform/dynamicDefaults, code.source mapping, hyperjump-compat shim,
 idna.ts second-'--' owner review (above). Added at M10 (2026-07-08):

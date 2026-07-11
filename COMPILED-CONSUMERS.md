@@ -16,7 +16,7 @@ beat AJV and gain nothing; OAS-document-shaped workloads currently get
 almost nothing from compilation and stand to gain roughly an order of
 magnitude.**
 
-**Status (2026-07-10): §5 stages 1–2 are delivered.** Flag-mode plans
+**Status (2026-07-10): §5 stages 1–3 are delivered.** Flag-mode plans
 compile dynamic-coverage consumers via runtime evaluated-set tracking:
 the coverage channel carries raw consumed-producer production values
 (shape-dispatched by core's `foldNameCoverage`/`foldIndexCoverage`,
@@ -30,10 +30,23 @@ spec-correct" target); the OAS 3.1 corpus plans as **367 units with
 only the 4 `$dynamicRef` islands interpreted** (was 1 interpreted unit)
 and compiled flag reaches **~40.6k ops/s** — ~19× the §1.2 baseline,
 exceeding the consumers-stripped bound measured there and ~13× ahead of
-Hyperjump. Gates: five-dialect suite legs, census pins
-(tracking/region counts), consumer-heavy fuzz seeds across all legs —
-250k+ cases, zero divergences. Remaining: stage 3, list-mode consumer
-parity (lifting the plan.ts list-mode demotion).
+Hyperjump. Stage 3 lifts the list-mode demotion: list plans never
+static-license — every consumer is tracked (the drop-on-failure
+semantics static coverage cannot model fall out of channel truncation),
+region emission composes with the list and annotation channels (`ev`
+truncates at application boundaries; `errs` never does — a failed
+branch's errors are list output), and in-place islands harvest coverage
+through the list trampolines' trailing-`ev` parameter. The M6.6
+failing-contributor shapes are pinned to interpreter-exact list output
+in compiled-tracking.test.ts. Gates: five-dialect suite legs, census
+pins (tracking/region counts), consumer-heavy fuzz seeds across all
+legs — 250k+ cases plus 60k-case list and annotation bursts, zero
+divergences. Stage-3 measured outcomes: the §1.1 compiled-list column
+recovers from 31–44k ops/s to **1.7–3.1M** (static-coverage,
+dynamic-properties, dynamic-items cases), and the OAS 3.1 corpus goes
+from ~1.9k to **17.9k ops/s compiled list / 16.5k list+annotations**
+(~9×; ~11× over interpreted annotation collection), with the harness's
+annotations-equality oracle passing throughout.
 
 ## 1. What the fallback costs today — measurements
 
