@@ -742,7 +742,17 @@ glob thresholds on ajv-compat index.ts/mutate.ts only; compiler files
 stay report-only by decision — their gates are the suite/differential/
 fuzz/census stack, so line thresholds there would be maintenance
 without signal); custom-keyword AUTHOR contract documentation
-(analyze() obligations and how wrong facts break compilation); DESIGN →
+(analyze() obligations and how wrong facts break compilation);
+**ajv-compat custom-keyword `compile` lifecycle** (OPEN correctness defect,
+2026-07-12): `toBehavior()` currently calls
+`def.compile(schemaValue, parentSchema)` from `evaluate()`, rebuilding the
+returned validator on every instance evaluation instead of once during
+`ajv.compile(schema)` as AJV does. This changes invocation count, exception
+timing, preprocessing cost, and the semantics of stateful returned validators.
+Add an executed-AJV lifecycle fixture that pins compile-hook call/throw timing
+and retained-validator state, then specialize/cache the returned validator per
+registered schema occurrence (not merely per keyword value or shared behavior);
+DESIGN →
 ARCHITECTURE/ADR/CHANGELOG split; serialize.ts split (UnitContext mixes
 plan lookup, statement emission, message/params rendering, guard CSE,
 and inlining — separate unit orchestration from statement emission
