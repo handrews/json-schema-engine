@@ -2,8 +2,10 @@
 
 Annotations are keyword values a schema attaches to instance locations —
 `title`, `deprecated`, `readOnly`, unknown extension keywords, and others.
-The engine collects them per evaluation when asked; collection off is the
-default and costs nothing.
+The engine returns them per evaluation when asked; public collection is off by
+default, so output-only annotations can be elided. Annotation values needed by
+consumer keywords such as `unevaluatedProperties` still flow internally
+regardless of the public collection setting.
 
 Annotations are reported only for valid results. On failure, a failed
 subschema's annotations are dropped, per the specification.

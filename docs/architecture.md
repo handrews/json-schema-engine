@@ -3,9 +3,10 @@
 Maintainer-facing overview of how the engine is put together. The decision
 record behind each element is [DESIGN.md](../DESIGN.md); the market and
 architecture analysis is [ANALYSIS.md](../ANALYSIS.md). This page describes
-the system as built through M6.5: both tiers are operational — the full
-draft2020-12 suite passes through the compiled tier, and the differential
-fuzzer holds the two tiers verdict-identical.
+the system as built through M9a: both tiers are operational across every
+supported dialect, including compiled list/annotation output and runtime
+evaluated-set tracking for dynamic `unevaluated*` coverage. Differential
+suite and fuzz gates referee flag, list, and annotation agreement.
 
 ## Two tiers, one keyword registry
 
@@ -69,6 +70,13 @@ discarded on failure. Consumers (`unevaluatedProperties`/`unevaluatedItems`)
 see the current frame filtered by cursor identity. Retention policy filters
 only the final result — never consumer visibility — and produce-time elision
 (D5) drops productions that are provably neither consumed nor retainable.
+
+The compiler specializes statically known evaluated coverage directly into
+consumer sweeps. Dynamic coverage uses a runtime channel with the same
+success-merge/failure-discard semantics (array marks and truncation); in-place
+islands return surviving root-cursor productions to that channel. A tracked
+consumer nested inside another tracked in-place region still islands rather
+than nesting compiled channel scopes.
 
 ## Dynamic scope and islands
 

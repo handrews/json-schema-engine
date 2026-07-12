@@ -22,8 +22,9 @@ later, and which gates run where.
   with its own zero-skip suite leg, and coexists with every other draft
   in one registry.
 - **Annotation-first:** annotations are a primary output, not an
-  afterthought. Collection is configurable per evaluation and costs nothing
-  when off.
+  afterthought. Public collection is configurable per evaluation; when it is
+  off, output-only annotation work is elided while values needed internally by
+  consumers such as `unevaluatedProperties` still flow through the channel.
 - **Full location data:** every error and annotation carries the evaluation
   path, schema location, and instance location, in either the current output
   spec's field names or the 2020-12 names.

@@ -72,7 +72,7 @@ forms; object `compare` powers the formatMinimum/Maximum keywords),
 (`separator`, `dataVar`). `ValidateFunction` exposes `errors` (null when
 valid) and `schema`.
 
-`addKeyword` definition fields honored: `keyword` (string|string[]),
+`addKeyword` definition fields accepted: `keyword` (string|string[]),
 `type` (data-type scoping incl. `integer`), `schemaType`, `validate`
 (custom errors via assignment to `validate.errors`), `compile`, `error`
 (`{message}`), `errors`, `valid`. Accepted-and-inert: `metaSchema`,
@@ -181,6 +181,22 @@ stabilizes, the compiled flag artifact determines the final verdict.
 
 ## Known divergences
 
+- Custom-keyword `compile` callbacks currently run from evaluation and rebuild
+  their returned validator for every instance, rather than running once during
+  `ajv.compile(schema)`. This changes call count, exception timing, setup cost,
+  and stateful-validator behavior; the correction and lifecycle oracle are
+  recorded in DESIGN.md's deferred register.
+- `discriminator`'s eager checker currently walks arbitrary JSON values as
+  schemas, so a data property named `discriminator` under `const`, `default`,
+  or `examples` can make `compile()` throw. It also resolves external `oneOf`
+  branch references against the current root rather than the registered target.
+  Both are open correctness defects. Enabling the option additionally replaces
+  `oneOf` dialect-wide with an unlowered behavior, so unrelated `oneOf` schemas
+  become interpreted islands.
+- `ajv-errors` likewise discovers `errorMessage` through a raw root-document
+  recursion: instance-valued occurrences can incorrectly rewrite errors, while
+  occurrences in registered resources reached through `$ref` are missed. Both
+  registry/dialect-aware discovery fixes are recorded in DESIGN.md.
 - `strictNumbers` (validation-time NaN/Infinity rejection) is not
   enforced; JSON-parsed data cannot contain them.
 - Error list ORDER and branch error sets under `allErrors` can differ in
