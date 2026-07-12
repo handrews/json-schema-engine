@@ -796,6 +796,17 @@ schema paths. Discover owning `errorMessage` nodes across the artifact's
 registry snapshot (without exposing later registrations), and pin an
 executed-AJV fixture for a root `$ref` to an external schema with a custom
 message, plus nested and same-document controls;
+**optional `registerSchema` retrieval URI** (public API ergonomics,
+2026-07-12): allow callers to omit the retrieval URI when the selected
+dialect's `IdentifierExtractor` yields an absolute root resource identifier,
+using that identifier as the initial retrieval/base URI. Preserve the explicit
+form for anonymous and boolean schemas, relative identifiers, aliases/caches,
+and differing retrieval/canonical identities. Dialect selection (`$schema` or
+the engine default) must precede inference, and legacy `$ref`-ignores-siblings
+rules must remain authoritative; do not special-case `$id`/draft-04 `id` in
+the API. Choose overload versus options-object syntax during implementation,
+emit a targeted inference-failure error, and test native absolute/relative/no-id
+schemas, draft-04 `id`, boolean schemas, and ignored identifier siblings;
 DESIGN →
 ARCHITECTURE/ADR/CHANGELOG split; serialize.ts split (UnitContext mixes
 plan lookup, statement emission, message/params rendering, guard CSE,
