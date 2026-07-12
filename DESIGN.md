@@ -772,6 +772,21 @@ map in both `discriminator` and routed `oneOf` evaluation. Retain/cache the map
 per registered schema occurrence and add lowering (including ordinary `oneOf`
 fallback); gate with plan-census cases proving that enabling the option does
 not silently decompile unrelated `oneOf` schemas;
+**ajv-errors schema-position discovery** (OPEN correctness defect,
+2026-07-12): `collectErrorMessageNodes()` recursively visits arbitrary JSON
+values, so instance data under `const`, `default`, or `examples` can be
+mistaken for schemas and an instance-valued `errorMessage` can rewrite a real
+validation error. Replace raw recursion with dialect-aware schema walking and
+pin the executed-AJV contrast for
+`{const: {errorMessage: "DATA, not schema"}}`;
+**ajv-errors referenced-resource discovery** (OPEN correctness defect,
+2026-07-12): the postprocessor scans only the root schema passed to
+`compile()`, so `errorMessage` in a registered schema reached through `$ref`
+is ignored even though mapped errors carry that external resource's canonical
+schema paths. Discover owning `errorMessage` nodes across the artifact's
+registry snapshot (without exposing later registrations), and pin an
+executed-AJV fixture for a root `$ref` to an external schema with a custom
+message, plus nested and same-document controls;
 DESIGN →
 ARCHITECTURE/ADR/CHANGELOG split; serialize.ts split (UnitContext mixes
 plan lookup, statement emission, message/params rendering, guard CSE,
