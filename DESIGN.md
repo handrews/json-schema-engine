@@ -752,6 +752,26 @@ timing, preprocessing cost, and the semantics of stateful returned validators.
 Add an executed-AJV lifecycle fixture that pins compile-hook call/throw timing
 and retained-validator state, then specialize/cache the returned validator per
 registered schema occurrence (not merely per keyword value or shared behavior);
+**ajv-compat discriminator eager walk** (OPEN correctness defect, 2026-07-12):
+`checkDiscriminators()` recursively visits every object/array value, so
+instance-valued data under keywords such as `const`, `default`, or `examples`
+is misread as schemas and a data property named `discriminator` can make
+`compile()` throw. Replace the raw JSON recursion with a dialect-aware schema
+walk and pin a regression with `const: {discriminator: ...}`;
+**ajv-compat discriminator external branch refs** (OPEN correctness defect,
+2026-07-12): eager discriminator checks resolve every `oneOf` branch `$ref`
+against the current root document, so an already-registered external branch is
+rejected before runtime registry resolution. Make the compile-time check use
+the engine registry (preserving AJV's eager throw timing) and pin local,
+external, and unresolved branch-reference cases against executed AJV;
+**ajv-compat discriminator compilation coverage** (performance follow-up,
+2026-07-12): enabling `discriminator: true` replaces `oneOf` dialect-wide with
+a behavior lacking `lower()`, making even non-discriminated `oneOf` schemas
+interpreted islands, while discriminated validation rebuilds the checked tag
+map in both `discriminator` and routed `oneOf` evaluation. Retain/cache the map
+per registered schema occurrence and add lowering (including ordinary `oneOf`
+fallback); gate with plan-census cases proving that enabling the option does
+not silently decompile unrelated `oneOf` schemas;
 DESIGN →
 ARCHITECTURE/ADR/CHANGELOG split; serialize.ts split (UnitContext mixes
 plan lookup, statement emission, message/params rendering, guard CSE,
