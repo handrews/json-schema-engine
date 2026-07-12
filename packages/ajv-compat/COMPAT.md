@@ -167,6 +167,18 @@ adapter filters the engine's complete error record to match (**oracle**:
   without a sibling `enum` or with case-colliding `enum` values, and unknown
   generator names. `select*` (`$data`) is still refused with a pointer.
 
+### Mutation execution model
+
+The adapter keeps the JSE engine pure and implements mutation as an
+evaluate→mutate→re-evaluate fixpoint. Defaults, removal, and `transform`
+consume the interpreter's **verbose hierarchical** output: unlike ordinary
+hierarchical output (which contains the same contributing information as the
+flat list, arranged as a tree), verbose output also retains successful,
+annotation-free schema applications. Those schema-location/instance-location
+pairs identify where mutation keywords apply. Type coercion instead consumes
+structured type failures from the compiled list artifact. After mutation
+stabilizes, the compiled flag artifact determines the final verdict.
+
 ## Known divergences
 
 - `strictNumbers` (validation-time NaN/Infinity rejection) is not
