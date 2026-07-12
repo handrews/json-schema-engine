@@ -763,6 +763,11 @@ mutation-property corpus (the vitest leg covers it today); stabilize
 `TraceUnit`/`trace`/`walkSchema` out of `@alpha` at the M9 publication
 pass — DELIVERED 2026-07-10 (M9a stabilization).
 
+Cross-repository command, package, TypeScript, and package-manager alignment is tracked by the
+canonical public [oaskit tooling-convergence plan](https://github.com/handrews/oaskit/blob/main/docs/tooling-convergence.md).
+JSE's next infrastructure step there is migration from npm workspaces to pnpm while preserving every
+current gate and oaskit's tarball-vendoring boundary.
+
 **Owner review (idn-hostname):** `isValidALabel` in
 packages/formats/src/idna.ts rejects any second `--` in an A-label's
 ASCII text after the `xn--` prefix (suite case `XN--aa---o47jg78q`,

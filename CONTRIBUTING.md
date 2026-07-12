@@ -5,6 +5,10 @@ overview and diagram live in [docs/architecture.md](docs/architecture.md);
 decision rationale lives in [DESIGN.md](DESIGN.md); do not look for either
 here.
 
+The joint unpublished-development plan for aligning this repository with oaskit, including the
+planned pnpm migration, is maintained in oaskit's
+[tooling-convergence plan](https://github.com/handrews/oaskit/blob/main/docs/tooling-convergence.md).
+
 ## Setup
 
 Requirements: Node 24+, git. Optional for conformance reporting: podman and
