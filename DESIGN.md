@@ -752,6 +752,17 @@ Include interpreter/compiled differential tests, mixed-dialect reference tests,
 structured-error pins, and plan-census gates as the required verification
 recipe, plus the intentional interpreted-island posture when `lower()` is
 absent;
+**explicit dialect keyword overrides** (public extension-boundary hardening,
+2026-07-12): `registerDialect()` currently lets a later vocabulary silently
+replace an earlier vocabulary's binding for the same keyword name via
+`Map.set()` order. Reject undeclared collisions and add an explicit override
+declaration to dialect assembly (exact API shape to be chosen during
+implementation), identifying the replacing vocabulary/behavior per keyword.
+Migrate ajv-compat's discriminated `oneOf` to declare its replacement; keep
+the base dialect immutable. Pin accidental-collision rejection, intentional
+override precedence and evaluation order, behavior/vocabulary identity, and
+multiple-override ambiguity. Document the contract in the dialect-authoring
+guide so extensions never depend on implicit vocabulary ordering;
 **ajv-compat custom-keyword `compile` lifecycle** (OPEN correctness defect,
 2026-07-12): `toBehavior()` currently calls
 `def.compile(schemaValue, parentSchema)` from `evaluate()`, rebuilding the
