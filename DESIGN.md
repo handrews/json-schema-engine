@@ -818,6 +818,18 @@ rules must remain authoritative; do not special-case `$id`/draft-04 `id` in
 the API. Choose overload versus options-object syntax during implementation,
 emit a targeted inference-failure error, and test native absolute/relative/no-id
 schemas, draft-04 `id`, boolean schemas, and ignored identifier siblings;
+**nested tracked consumers** (compiler performance follow-up, 2026-07-12):
+replace the current interpreted-island fallback for a tracked consumer inside
+an outer in-place coverage region with nested runtime coverage scopes
+(stacked channels, ranges, or equivalent). Preserve the interpreter contract:
+the inner consumer reads only its local visible coverage, inner failure exports
+nothing, inner success merges surviving coverage outward, and the outer
+consumer reads the merged outer scope. Before deciding to implement, measure
+the frequency and cost of the current island fallback on representative
+consumer-heavy workloads; prototype/benchmark candidate nested-scope designs
+far enough to evaluate their runtime benefit against generated-code size,
+calling-convention overhead, planner/serializer complexity, and maintenance
+risk;
 DESIGN →
 ARCHITECTURE/ADR/CHANGELOG split; serialize.ts split (UnitContext mixes
 plan lookup, statement emission, message/params rendering, guard CSE,
