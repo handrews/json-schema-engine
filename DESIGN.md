@@ -741,8 +741,17 @@ smell); coverage thresholds for ajv-compat lifecycle paths — DELIVERED
 glob thresholds on ajv-compat index.ts/mutate.ts only; compiler files
 stay report-only by decision — their gates are the suite/differential/
 fuzz/census stack, so line thresholds there would be maintenance
-without signal); custom-keyword AUTHOR contract documentation
-(analyze() obligations and how wrong facts break compilation);
+without signal); dedicated dialect/keyword authoring guide, using
+`@jse/dialect-draft04` as the end-to-end exemplar: document vocabulary and
+dialect assembly, identifier extractors and reference options, behavior reuse,
+and the `analyze()`/`evaluate()`/`lower()` contract. Emphasize that
+`analyze().subschemas` and application/coverage facts are correctness-critical
+for registration, schema walking, reference discovery, channel semantics, and
+planning (not optimization hints); show how wrong facts break each consumer.
+Include interpreter/compiled differential tests, mixed-dialect reference tests,
+structured-error pins, and plan-census gates as the required verification
+recipe, plus the intentional interpreted-island posture when `lower()` is
+absent;
 **ajv-compat custom-keyword `compile` lifecycle** (OPEN correctness defect,
 2026-07-12): `toBehavior()` currently calls
 `def.compile(schemaValue, parentSchema)` from `evaluate()`, rebuilding the
