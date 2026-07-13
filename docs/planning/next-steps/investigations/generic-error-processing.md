@@ -47,4 +47,3 @@ escalation, combiner-heavy grouping, carried context, and source correlation.
 - AJV consumes rather than defines the generic layer.
 - Custom vocabulary errors have a clear extension story.
 - Output-model feedback is recorded.
-

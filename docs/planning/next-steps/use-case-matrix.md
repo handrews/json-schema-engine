@@ -3,47 +3,47 @@
 `Required` means the investigation must support or explicitly reject the use
 case. `Evidence` means it supplies fixtures or constraints.
 
-| Consumer or use case | Output | Generic errors | Annotation / transformation | Defaults |
-|---|---|---|---|---|
-| Cheapest boolean validation | Required | — | — | — |
-| Complete machine-readable failures | Required | Required | — | — |
-| Human error presentation | Evidence | Required | — | — |
-| Applicator/branch grouping | Required | Required | — | — |
-| AJV errors and `ajv-errors` | Evidence | Required | — | — |
-| oaskit `SchemaViolation` grouping | Required | Required | — | — |
-| SARIF/LSP source locations | Required | Required | — | — |
-| Annotation collection for tooling | Required | — | Required | Evidence |
-| OAS annotation viewer | Required | — | Required | — |
-| `unevaluated*` channel consumers | Evidence | — | Required | — |
-| Extension-keyword `transform` | Required | — | Required | — |
-| Multi-pass `contentSchema` | Required | Evidence | Required | — |
-| Runtime-option `coerceTypes` | Required | Evidence | Required, separate policy class | — |
-| Runtime-option `removeAdditional` | Required | — | Required, separate policy class | — |
-| Static and dynamic defaults | Required | Evidence | Evidence | Required |
-| Parent creation then nested defaults | Required | — | Evidence | Required |
-| Conflict/non-convergence diagnostics | Evidence | Required | Required | Required |
-| Compiled/interpreted parity | Required | Evidence | Required | Required |
-| Standalone artifacts | Required | Evidence | Evidence | Evidence |
-| Full application-history diagnostics | Required | Evidence | Required | Evidence |
-| oaskit Overlay preprocessing | — | Evidence | Evidence only | — |
+| Consumer or use case                 | Output   | Generic errors | Annotation / transformation     | Defaults |
+| ------------------------------------ | -------- | -------------- | ------------------------------- | -------- |
+| Cheapest boolean validation          | Required | —              | —                               | —        |
+| Complete machine-readable failures   | Required | Required       | —                               | —        |
+| Human error presentation             | Evidence | Required       | —                               | —        |
+| Applicator/branch grouping           | Required | Required       | —                               | —        |
+| AJV errors and `ajv-errors`          | Evidence | Required       | —                               | —        |
+| oaskit `SchemaViolation` grouping    | Required | Required       | —                               | —        |
+| SARIF/LSP source locations           | Required | Required       | —                               | —        |
+| Annotation collection for tooling    | Required | —              | Required                        | Evidence |
+| OAS annotation viewer                | Required | —              | Required                        | —        |
+| `unevaluated*` channel consumers     | Evidence | —              | Required                        | —        |
+| Extension-keyword `transform`        | Required | —              | Required                        | —        |
+| Multi-pass `contentSchema`           | Required | Evidence       | Required                        | —        |
+| Runtime-option `coerceTypes`         | Required | Evidence       | Required, separate policy class | —        |
+| Runtime-option `removeAdditional`    | Required | —              | Required, separate policy class | —        |
+| Static and dynamic defaults          | Required | Evidence       | Evidence                        | Required |
+| Parent creation then nested defaults | Required | —              | Evidence                        | Required |
+| Conflict/non-convergence diagnostics | Evidence | Required       | Required                        | Required |
+| Compiled/interpreted parity          | Required | Evidence       | Required                        | Required |
+| Standalone artifacts                 | Required | Evidence       | Evidence                        | Evidence |
+| Full application-history diagnostics | Required | Evidence       | Required                        | Evidence |
+| oaskit Overlay preprocessing         | —        | Evidence       | Evidence only                   | —        |
 
 ## Information required at processing boundaries
 
-| Information or invariant | Errors | Transformation | Defaults |
-|---|---|---|---|
-| Application validity | Required | Required | Required |
-| Existing instance location | Required | Required | Required |
-| Proposed absent instance location | — | Sometimes | Required |
-| Canonical schema/resource location | Required | Required | Required |
-| Evaluation/applicator path | Required | Required | Evidence |
-| Keyword and vocabulary identity | Required | Required | Required |
-| Structured failure parameters | Required | Evidence | Evidence |
-| Annotation value and multiplicity | — | Required | Evidence |
-| Successful annotation-free applications | — | Current compat dependency | Current compat dependency |
-| Branch/frame success and rollback | Required | Required | Required |
-| Stable resource snapshot | Required | Required | Required |
-| Deterministic encounter/order data | Required | Required | Required |
-| Source position | Required | Evidence | Evidence |
+| Information or invariant                | Errors   | Transformation            | Defaults                  |
+| --------------------------------------- | -------- | ------------------------- | ------------------------- |
+| Application validity                    | Required | Required                  | Required                  |
+| Existing instance location              | Required | Required                  | Required                  |
+| Proposed absent instance location       | —        | Sometimes                 | Required                  |
+| Canonical schema/resource location      | Required | Required                  | Required                  |
+| Evaluation/applicator path              | Required | Required                  | Evidence                  |
+| Keyword and vocabulary identity         | Required | Required                  | Required                  |
+| Structured failure parameters           | Required | Evidence                  | Evidence                  |
+| Annotation value and multiplicity       | —        | Required                  | Evidence                  |
+| Successful annotation-free applications | —        | Current compat dependency | Current compat dependency |
+| Branch/frame success and rollback       | Required | Required                  | Required                  |
+| Stable resource snapshot                | Required | Required                  | Required                  |
+| Deterministic encounter/order data      | Required | Required                  | Required                  |
+| Source position                         | Required | Evidence                  | Evidence                  |
 
 Successful annotation-free applications are needed by the current compat
 traversal of verbose output. They are not yet a requirement on the future
@@ -90,4 +90,3 @@ native model; a focused application-record or plan API may be better.
 - Defaults for absent nested objects and arrays and across successful branches.
 - Immutable-result versus in-place transformation ergonomics.
 - Exact interpreter/compiler/standalone parity for chosen facilities.
-

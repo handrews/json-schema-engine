@@ -47,4 +47,3 @@ post-processing, and cloning/immutable-result cost.
 - Generic and AJV behavior are separately described.
 - Tier parity requirements are testable.
 - Output/transformation feedback is recorded.
-

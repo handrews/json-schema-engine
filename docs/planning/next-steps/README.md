@@ -66,4 +66,3 @@ implementation planning. Later findings may reopen output-model work.
 - [Default filling](investigations/default-filling.md)
 - [Decision records](decisions/README.md)
 - [Roadmap](roadmap.md)
-

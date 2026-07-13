@@ -63,4 +63,3 @@ size/runtime cost, and islands caused by nested tracked consumers.
 - Ordering, conflict, repetition, and diagnostics have candidate contracts.
 - `contentSchema` has a coherent example.
 - Tier parity and output-model feedback are recorded.
-

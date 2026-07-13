@@ -59,4 +59,3 @@ well as runtime shapes.
 - Measurements and TypeScript examples are available.
 - Error/transformation/default investigations review the proposal.
 - Compatibility and migration consequences are explicit.
-
