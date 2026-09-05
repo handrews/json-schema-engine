@@ -1,11 +1,12 @@
-// Produce-recipe gate (COMPILED-ANNOTATIONS.md §5 stage 1): an independent
+// Record-recipe gate (COMPILED-ANNOTATIONS.md §5 stage 1): an independent
 // reference evaluator (@jse/test-kit's evaluateProduceRecipes) runs each
-// keyword's produce IR against a concrete instance and is differentially
-// compared against the interpreter's OWN productions. The serializer still
-// discards produce IR, so a wrong recipe is otherwise invisible until stage 2
-// — this gate makes it fail loudly first.
+// keyword's annotate/produce IR against a concrete instance and is
+// differentially compared against the interpreter's OWN records (annotations
+// and dependency data, in dialect order). A wrong recipe would otherwise be
+// invisible until the serializer consumes it — this gate makes it fail loudly
+// first.
 //
-// The comparison is VALID-ONLY by design: annotations only surface on success
+// The comparison is VALID-ONLY by design: records only surface on success
 // paths; consumer keywords' static-coverage lowering is sound only there
 // (M6.6); and `contains` produces only after its range check passes.
 
@@ -21,10 +22,12 @@ import {
   DIALECT_2019_09,
   DIALECT_DRAFT_07,
   DIALECT_DRAFT_06,
+  type AnnotationRecord,
+  type DependencyRecord,
+  type Dialect,
   type Engine,
   type JsonValue,
   type KeywordBehavior,
-  type Production,
   type SchemaRef,
   type TraceNode,
 } from "@jse/core";
@@ -118,11 +121,42 @@ function compareProductions(
 }
 
 /**
- * The interpreter's OWN-keyword productions for a unit evaluated standalone:
- * evaluateFragment then keep only productions at the passed root cursor whose
- * schemaRef is the unit's own (not merged child-applicator productions) and
- * whose keyword is a known dialect keyword (unknown keywords carry a null
- * vocabulary and are a separate serializer concern — §3.3).
+ * Merges one schema application's annotation and dependency records into the
+ * oracle's order — dialect keyword order, which is also the interpreter's
+ * evaluation order (the two record stores are each in evaluation order, so a
+ * stable sort by keyword position interleaves them exactly). Unknown keywords
+ * carry a null vocabulary and are a separate serializer concern (§3.3).
+ */
+function mergeOwn(
+  dialect: Dialect,
+  annotations: readonly AnnotationRecord[],
+  dependencies: readonly DependencyRecord[],
+): Interp[] {
+  const position = new Map(dialect.ordered.map((e, i) => [e.name, i]));
+  const merged: { at: number; keyword: string; value: unknown }[] = [];
+  for (const a of annotations) {
+    if (a.vocabularyUri === null) continue;
+    merged.push({
+      at: position.get(a.keywordName)!,
+      keyword: a.keywordName,
+      value: a.value,
+    });
+  }
+  for (const d of dependencies) {
+    merged.push({
+      at: position.get(d.keywordName)!,
+      keyword: d.keywordName,
+      value: d.data,
+    });
+  }
+  merged.sort((x, y) => x.at - y.at);
+  return merged.map(({ keyword, value }) => ({ keyword, value }));
+}
+
+/**
+ * The interpreter's OWN-keyword records for a unit evaluated standalone:
+ * evaluateFragment then keep only records at the passed root cursor whose
+ * schemaRef is the unit's own (not merged child-applicator records).
  */
 function ownInterpretations(
   engine: Engine,
@@ -133,15 +167,20 @@ function ownInterpretations(
   const fragment = evaluateFragment(engine.registry, unitRef, cursor, {
     regexCache: engine.patternCache,
   });
-  const productions = fragment.productions
-    .filter(
-      (p) =>
-        p.cursor === cursor &&
-        p.schemaRef.baseUri === unitRef.baseUri &&
-        p.schemaRef.pointer === unitRef.pointer &&
-        p.vocabularyUri !== null,
-    )
-    .map((p) => ({ keyword: p.keywordName, value: p.value }));
+  const own = <T extends AnnotationRecord | DependencyRecord>(
+    records: readonly T[],
+  ): T[] =>
+    records.filter(
+      (r) =>
+        r.cursor === cursor &&
+        r.schemaRef.baseUri === unitRef.baseUri &&
+        r.schemaRef.pointer === unitRef.pointer,
+    );
+  const productions = mergeOwn(
+    engine.registry.dialectFor(unitRef.baseUri),
+    own(fragment.annotations),
+    own(fragment.dependencies),
+  );
   return { valid: fragment.valid, productions };
 }
 
@@ -651,7 +690,8 @@ async function sweepDialect(
       const registry = engine.registry;
       for (const test of group.tests) {
         let root: TraceNode | null;
-        let all: Production[];
+        let allAnnotations: AnnotationRecord[];
+        let allDependencies: DependencyRecord[];
         try {
           const { state } = runEvaluation(
             registry,
@@ -662,7 +702,8 @@ async function sweepDialect(
             engine.patternCache,
           );
           root = state.traceRoot;
-          all = state.allProductions ?? [];
+          allAnnotations = state.allAnnotations ?? [];
+          allDependencies = state.allDependencies ?? [];
         } catch {
           continue; // maxDepth/infinite-loop cases: verdict legs cover them
         }
@@ -684,13 +725,13 @@ async function sweepDialect(
             unit,
             node.cursor.value,
           );
-          // Own productions of THIS application share the node's pathNode
-          // identity; unknown keywords (null vocabulary) are out of scope.
-          const interp = all
-            .filter(
-              (p) => p.pathNode === node.pathNode && p.vocabularyUri !== null,
-            )
-            .map((p) => ({ keyword: p.keywordName, value: p.value }));
+          // Own records of THIS application share the node's pathNode
+          // identity.
+          const interp = mergeOwn(
+            registry.dialectFor(node.schemaRef.baseUri),
+            allAnnotations.filter((a) => a.pathNode === node.pathNode),
+            allDependencies.filter((d) => d.pathNode === node.pathNode),
+          );
           const divergence = compareProductions(
             oracle,
             interp,
@@ -738,7 +779,8 @@ describe("Leg B — full suite sweep, oracle ≡ interpreter own productions", (
 
 const PLANTED_VOCAB = "urn:jse:test:planted";
 
-// evaluate() produces one value; lower()'s recipe a different one.
+// evaluate() produces one value; lower()'s recipe a different one (no
+// child-of-here applications, so the recipe renders an empty name list).
 const plantedWrong: KeywordBehavior = {
   id: `${PLANTED_VOCAB}#plantedWrong`,
   analyze: () => ({ produces: [`${PLANTED_VOCAB}#plantedWrong`] }),
@@ -747,7 +789,7 @@ const plantedWrong: KeywordBehavior = {
     return true;
   },
   lower: (_value, lctx) => {
-    lctx.emit({ kind: "produce", value: { kind: "const", value: "wrong" } });
+    lctx.emit({ kind: "produce", value: { kind: "collectedNames" } });
   },
 };
 
@@ -791,7 +833,7 @@ describe("Leg C — planted divergences are reported by the comparison", () => {
     expect(divergence?.keyword).toBe("plantedWrong");
     expect(divergence?.oracle).toEqual({
       keyword: "plantedWrong",
-      value: "wrong",
+      value: [],
     });
     expect(divergence?.interpreter).toEqual({
       keyword: "plantedWrong",

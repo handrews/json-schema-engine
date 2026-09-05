@@ -65,8 +65,10 @@ export class SchemaRegistry {
   private anchors = new Map<string, SchemaRef>(); // "resource#anchor"
   private dynamicAnchors = new Map<string, SchemaRef>(); // $dynamicAnchor only (D8)
   private recursiveRoots = new Set<string>(); // 2019-09 $recursiveAnchor at root
-  // Union of StaticFacts.consumes over every registered keyword occurrence:
-  // the elision predicate's "someone might read this" side (D5/M5.5).
+  // Unions of StaticFacts.produces / consumes over every registered keyword
+  // occurrence: produce()'s declaration guard and the elision predicate's
+  // "someone might read this" side (D5/M5.5).
+  private producedBehaviorIds = new Set<string>();
   private consumedBehaviorIds = new Set<string>();
   private documentDialects = new Map<string, string>(); // resource URI -> dialect URI
   private resourceLocations = new Map<string, DocumentLocation>();
@@ -182,6 +184,7 @@ export class SchemaRegistry {
       const behavior = dialect.keywords.get(name)?.behavior;
       const facts = behavior?.analyze?.(value, { schema: node });
       if (!facts) continue;
+      for (const p of facts.produces ?? []) this.producedBehaviorIds.add(p);
       for (const c of facts.consumes ?? []) this.consumedBehaviorIds.add(c);
       if (this.onRegex) {
         const keywordLocation = `${baseUri}#${pointer}/${escapeSegment(name)}`;
@@ -265,7 +268,12 @@ export class SchemaRegistry {
     return this.recursiveRoots.has(this.canonical(resourceUri));
   }
 
-  /** Production behavior ids some registered keyword declares it consumes. */
+  /** Behavior ids some registered keyword declares it produces dependency data under. */
+  producedIds(): ReadonlySet<string> {
+    return this.producedBehaviorIds;
+  }
+
+  /** Behavior ids some registered keyword declares it consumes. */
   consumedIds(): ReadonlySet<string> {
     return this.consumedBehaviorIds;
   }

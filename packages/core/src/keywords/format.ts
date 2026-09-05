@@ -92,13 +92,13 @@ export function assertingFormat(
       // keeps plan.formats == the artifact's used-format set, so the runtime's
       // missing-definition guard stays unreachable via public paths.
       return typeof value === "string" && Object.hasOwn(table, value)
-        ? { produces: [id], formats: [value] }
-        : { produces: [id] };
+        ? { formats: [value] }
+        : {};
     },
     lower: (value, lctx) => {
-      // Produce the annotation first, unconditionally — evaluate()'s
-      // produce-before-assertion order (format's annotation value is the name).
-      lctx.emit({ kind: "produce", value: { kind: "const", value } });
+      // Annotate first, unconditionally — evaluate()'s annotate-before-
+      // assertion order (format's annotation value is the name).
+      lctx.emit({ kind: "annotate" });
       if (typeof value !== "string") return; // metaschema's concern
       // Resolve against the closed-over table (the compiling engine's, per the
       // single-table contract above); the name is a schema constant. A
@@ -126,9 +126,9 @@ export function assertingFormat(
       );
     },
     evaluate: (value, cursor, ctx) => {
-      // The annotation is produced regardless of assertion outcome
+      // The annotation is recorded regardless of assertion outcome
       // (format's annotation value is the format name).
-      ctx.produce(value);
+      ctx.annotate();
       if (typeof value !== "string") return true; // metaschema's concern
       const definition = Object.hasOwn(table, value) ? table[value] : undefined;
       if (definition === undefined) return true; // best-effort fallback

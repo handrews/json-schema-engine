@@ -12,7 +12,7 @@ import {
   foldIndexCoverage,
   harvestCoverage,
   rootCursor,
-  type Production,
+  type DependencyRecord,
 } from "@jse/core";
 
 describe("foldNameCoverage", () => {
@@ -115,26 +115,27 @@ describe("foldIndexCoverage", () => {
 });
 
 describe("harvestCoverage", () => {
-  // A minimal Production with only the fields harvest reads.
+  // A minimal DependencyRecord with only the fields harvest reads.
   const prod = (
     behaviorId: string,
-    cursor: Production["cursor"],
-    value: unknown,
-  ): Production => ({ behaviorId, cursor, value }) as unknown as Production;
+    cursor: DependencyRecord["cursor"],
+    data: unknown,
+  ): DependencyRecord =>
+    ({ kind: "dependency", behaviorId, cursor, data }) as DependencyRecord;
 
-  it("filters by cursor identity AND consumedIds, passing values untouched", () => {
+  it("filters by cursor identity AND consumedIds, passing data untouched", () => {
     const here = rootCursor({ a: 1 });
     const elsewhere = rootCursor({ a: 1 });
     const consumed = new Set(["prop", "pattern"]);
     const namesValue = ["a", "b"];
-    const productions = [
+    const dependencies = [
       prod("prop", here, namesValue), // kept
       prod("pattern", here, ["x"]), // kept
       prod("prop", elsewhere, ["z"]), // wrong cursor
       prod("other", here, ["q"]), // not consumed
-      prod("prop", here, true), // kept, value passed through
+      prod("prop", here, true), // kept, data passed through
     ];
-    const out = harvestCoverage(productions, here, consumed);
+    const out = harvestCoverage(dependencies, here, consumed);
     expect(out).toEqual([["a", "b"], ["x"], true]);
     // Values are the same references, not copies.
     expect(out[0]).toBe(namesValue);
@@ -175,15 +176,15 @@ describe("differential: fold equals the interpreter consumer's skip set", () => 
 
     const instance = { a: 1, b: 2, xy: 3, c: 4, d: 5 };
 
-    // 1. Harvest producer productions at the fragment root and fold them.
+    // 1. Harvest producer records at the fragment root and fold them.
     const target = engine.registry.resolveRef(
       `${producerUri}#/$defs/producers`,
       producerUri,
     );
     const cursor = rootCursor(instance);
-    const { productions } = evaluateFragment(engine.registry, target, cursor);
+    const { dependencies } = evaluateFragment(engine.registry, target, cursor);
     const folded = foldNameCoverage(
-      harvestCoverage(productions, cursor, engine.registry.consumedIds()),
+      harvestCoverage(dependencies, cursor, engine.registry.consumedIds()),
     );
 
     // 2. Independent interpreter observation: the names the consumer applied

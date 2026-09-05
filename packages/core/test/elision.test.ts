@@ -87,11 +87,7 @@ describe("produce-time elision (white box)", () => {
       { title: "T", type: "object", properties: { a: { title: "A" } } },
       "https://elide.example/plain",
     );
-    const predicate = makeRecordPredicate(
-      registry.consumedIds(),
-      false,
-      undefined,
-    );
+    const predicate = makeRecordPredicate(false, undefined);
     const { valid, state } = runEvaluation(
       registry,
       "https://elide.example/plain",
@@ -100,7 +96,8 @@ describe("produce-time elision (white box)", () => {
       predicate,
     );
     expect(valid).toBe(true);
-    expect(state.rootProductions).toEqual([]);
+    expect(state.rootAnnotations).toEqual([]);
+    expect(state.rootDependencies).toEqual([]);
   });
 
   it("keeps consumed productions once any registered schema consumes them", () => {
@@ -109,11 +106,7 @@ describe("produce-time elision (white box)", () => {
       { properties: { a: true }, unevaluatedProperties: false },
       "https://elide.example/consumer",
     );
-    const predicate = makeRecordPredicate(
-      registry.consumedIds(),
-      false,
-      undefined,
-    );
+    const predicate = makeRecordPredicate(false, undefined);
     const { valid, state } = runEvaluation(
       registry,
       "https://elide.example/consumer",
@@ -122,14 +115,12 @@ describe("produce-time elision (white box)", () => {
       predicate,
     );
     expect(valid).toBe(true);
-    // properties' production had to survive for unevaluatedProperties.
+    // properties' dependency data had to survive for unevaluatedProperties.
     expect(
-      state.rootProductions.some((p) => p.keywordName === "properties"),
+      state.rootDependencies.some((d) => d.keywordName === "properties"),
     ).toBe(true);
     // title-class annotations still elide.
-    expect(state.rootProductions.some((p) => p.keywordName === "title")).toBe(
-      false,
-    );
+    expect(state.rootAnnotations).toEqual([]);
   });
 
   it("respects retention allow and deny lists at produce time", () => {

@@ -71,18 +71,18 @@ The existing production/channel architecture already has useful ingredients:
 - runtime tracked coverage handles dynamic `unevaluated*` dependencies;
 - schema-application frames prevent failed subscopes from exporting data;
 - the trace retains otherwise dropped data for diagnostic output;
-- retention-driven elision recognizes that internal consumer demand overrides
-  annotation-output demand;
+- annotation elision and dependency elision are separate decisions, and
+  retention never touches dependency data;
 - unrecognized keywords are already treated as exact-value annotations by
-  default.
+  default;
+- the two record kinds are separate stores in both tiers (S1):
+  `AnnotationRecord` is written by `ctx.annotate()` with the keyword's own
+  value, `DependencyRecord` by `ctx.produce()` and read through
+  `ctx.visible()`; renderers accept annotation records only; a producer that
+  does not declare `produces` throws `UndeclaredProductionError`.
 
-The current model nevertheless conflates distinct semantics:
+Remaining gaps:
 
-- `Production` and `ctx.produce()` represent both exact-value annotations and
-  computed evaluated-location information;
-- all surviving productions can be rendered as annotations;
-- `properties`, `patternProperties`, `additionalProperties`, `prefixItems`,
-  `items`, `contains`, and `unevaluated*` produce computed values;
 - frames exist at schema-application boundaries, not necessarily at every
   keyword evaluation needed to determine relevance;
 - errors are one flat array that is never rolled back
@@ -94,8 +94,8 @@ The current model nevertheless conflates distinct semantics:
   when the run is invalid;
 - annotations from accepting sub-evaluations under a rejecting schema object
   reach `list` output: `packages/core/test/goldens/list.json` keeps the
-  `/properties/item` annotations under an invalid root, which §13.4 excludes
-  from relevant-level output. The goldens are regenerated in Phase 1.
+  `/properties/item` `title` annotation under an invalid root, which §13.4
+  excludes from relevant-level output.
 
 The reconciliation must determine whether relevance is recorded explicitly or
 derived from a richer evaluation graph. It must not assume that current schema
@@ -121,14 +121,44 @@ Applicator keywords produce dependency information only. The machines-oriented
 proposal's examples that show computed annotations are structural evidence
 only.
 
+## Compiler impact estimate
+
+Inputs for the relevance step (S2/S3) in the compiled tier, from the
+2026-09-05 census after the record split:
+
+- Compiled list-mode errors are one flat `errs` array that is deliberately
+  never a span (`packages/compiler/src/serialize.ts`, `channelSpans` and
+  `pushError`); spans with mark/truncate exist only for the annotation list
+  and the coverage channel (`branchSpan`). The reverse irrelevance case
+  (annotations under a rejecting schema object) is therefore already handled
+  for compiled annotations; error relevance needs error spans at every
+  `pushError` site plus branch bookkeeping.
+- Rules to reproduce in compiled list mode: an accepting `anyOf`/`oneOf`
+  drops the errors of its rejecting branches; `if`'s subschema errors are
+  always irrelevant (the keyword accepts); an accepting `contains` drops
+  non-matching items' errors while a rejecting one keeps them; `not` never
+  surfaces sub-errors.
+- Order must match the interpreter byte-for-byte (`differential.ts` compares
+  whole results), so the interpreter defines it: remove irrelevant units,
+  keep encounter order. Splicing a branch's span out of `errs` reproduces
+  that.
+- Unaffected: plan-census pins, the produce oracle, standalone emission
+  (flag-only), Bowtie (validity only).
+- Consequences to plan for: `Result.trace`'s positional `errorIndexes`
+  correlation (`renderTrace`) must be recomputed when `Result.errors` omits
+  units; ajv-compat's `makeSurvives` filter (`packages/ajv-compat/src/errors.ts`)
+  becomes partly redundant, and its oracle fixture `anyOf-pass-sibling-fail`
+  proves the current leak.
+- Estimate: interpreter error scoping is the semantic work; the compiler side
+  is span plumbing at the `pushError` sites in the largest file in the repo,
+  gated by `list-output.test.ts` and the FUZZ_LIST leg.
+
 ## TypeScript implications
 
-The public and internal types should make accidental conflation difficult. The
-investigation should compare separate stores/APIs with a discriminated record
-union, but must ensure that:
+Separate stores were chosen for the record split (S1): renderers accept
+`AnnotationRecord[]` only, so a dependency record cannot reach one by
+structural coincidence. The relevance work must also ensure that:
 
-- dependency records cannot be passed to an annotation renderer by structural
-  coincidence;
 - exact-value annotation typing remains extensible for custom vocabularies;
 - relevance metadata is available where a renderer or processor needs it;
 - streamed records and relevance transitions cannot be mismatched by

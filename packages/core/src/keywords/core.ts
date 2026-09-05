@@ -40,13 +40,12 @@ export const inertSubschema = (id: string): KeywordBehavior => ({
 /** EXEMPLAR (annotation-only class): the keyword's value is its annotation. */
 export const annotationOnly = (id: string): KeywordBehavior => ({
   id,
-  analyze: () => ({ produces: [id] }),
-  evaluate: (value, _cursor, ctx) => {
-    ctx.produce(value);
+  evaluate: (_value, _cursor, ctx) => {
+    ctx.annotate();
     return true;
   },
-  lower: (value, lctx) => {
-    lctx.emit({ kind: "produce", value: { kind: "const", value } });
+  lower: (_value, lctx) => {
+    lctx.emit({ kind: "annotate" });
   },
 });
 

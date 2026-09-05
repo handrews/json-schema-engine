@@ -1,26 +1,29 @@
-// Evaluation engine: frame-scoped production channel (DESIGN.md §4,
-// normative), evaluation-path tracking with lazy string materialization,
-// cycle guard, retention policy.
+// Evaluation engine: frame-scoped record channel (DESIGN.md §4, normative),
+// evaluation-path tracking with lazy string materialization, cycle guard,
+// annotation retention.
 //
 // Channel rules implemented here and nowhere else:
 //  1. each schema application pushes a frame;
-//  2. produce() appends to the current frame;
+//  2. annotate() appends an annotation record (the keyword's own value) and
+//     produce() a dependency record (computed data for other keywords) to
+//     the current frame;
 //  3. on success the frame merges into its parent, on failure it is
 //     discarded;
-//  4. visibility = current frame filtered by cursor identity;
-//  5. the annotation result is the root frame filtered by retention;
-//     retention never affects rule 4.
+//  4. visibility = the current frame's dependency records filtered by
+//     cursor identity;
+//  5. the annotation result is the root frame's annotation records filtered
+//     by retention; retention never affects rule 4.
 
 import { JsonValue, isObject, escapeSegment } from "./json.js";
 import { resolveUri, splitFragment } from "./uri.js";
 import { Cursor, rootCursor } from "./cursor.js";
 import { SchemaRef } from "./ref.js";
 import {
+  DependencyView,
   Dialect,
   DialectKeyword,
   ErrorParams,
   KeywordContext,
-  ProductionView,
   unknownKeywordId,
 } from "./dialect.js";
 import {
@@ -36,14 +39,16 @@ import { CompiledRegex, RegexCache } from "./regex.js";
 export class InfiniteLoopError extends Error {}
 /** Thrown when a dialect disallows unknown keywords and one is present. */
 export class UnknownKeywordError extends Error {}
-/** Thrown when a keyword reads a channel behavior id it never declared via `analyze().consumes`. */
+/** Thrown when a keyword reads a dependency behavior id it never declared via `analyze().consumes`. */
 export class UndeclaredConsumptionError extends Error {}
+/** Thrown when a keyword produces dependency data without declaring its own id via `analyze().produces`. */
+export class UndeclaredProductionError extends Error {}
 
 /**
- * Produce-time elision (D5/M5.5): when set, a production is recorded only if
- * this returns true. Correctness rests on two invariants: consumed behavior
- * ids (per registry-accumulated StaticFacts.consumes) always record, and the
- * predicate is never set while tracing (verbose output needs everything).
+ * Annotation elision (D5/M5.5): when set, an annotation record is recorded
+ * only if this returns true, and dependency records are recorded only for
+ * behavior ids some registered keyword consumes. Never set while tracing
+ * (verbose output needs every annotation).
  */
 export type RecordPredicate = (
   behaviorId: string,
@@ -67,8 +72,13 @@ export function materializePath(node: PathNode | null): string {
   return s;
 }
 
-/** One channel production (DESIGN.md §4). */
-export interface Production {
+/**
+ * An annotation (DESIGN.md §4): application-facing output whose value is
+ * the keyword's own value (draft-03 §12.9). The only record kind renderers
+ * accept.
+ */
+export interface AnnotationRecord {
+  readonly kind: "annotation";
   behaviorId: string;
   keywordName: string;
   /** `null` for unknown keywords. */
@@ -78,6 +88,21 @@ export interface Production {
   pathNode: PathNode | null;
   cursor: Cursor;
   value: unknown;
+}
+
+/**
+ * Dependency information (DESIGN.md §4; draft-03 Appendix D): computed data
+ * one keyword communicates to another through the channel. Never rendered.
+ */
+export interface DependencyRecord {
+  readonly kind: "dependency";
+  behaviorId: string;
+  keywordName: string;
+  schemaRef: SchemaRef;
+  /** Path of the schema object the producing keyword belongs to. */
+  pathNode: PathNode | null;
+  cursor: Cursor;
+  data: unknown;
 }
 
 /** One assertion failure. */
@@ -91,9 +116,10 @@ export interface ErrorRecord {
   params?: ErrorParams;
 }
 
-/** One channel frame: the productions of an in-flight schema application. */
+/** One channel frame: the records of an in-flight schema application. */
 export interface Frame {
-  productions: Production[];
+  annotations: AnnotationRecord[];
+  dependencies: DependencyRecord[];
 }
 
 /**
@@ -111,16 +137,18 @@ export interface TraceNode {
 
 /** Mutable state for one evaluation run: frames, errors, dynamic scope, and tracing. */
 export class EvalState {
-  frames: Frame[] = [{ productions: [] }];
+  frames: Frame[] = [{ annotations: [], dependencies: [] }];
   errors: ErrorRecord[] = [];
   // Dynamic scope (D8): resources entered by schema application, outermost
   // first. Duplicates are fine — resolution takes the first (outermost) hit.
   dynamicScope: string[] = [];
   // Tracing (opt-in, zero cost when off): every application as a tree, and
-  // every production regardless of frame discard — failed-branch
-  // productions surface as droppedAnnotations in verbose outputs.
+  // every record regardless of frame discard — failed-branch annotations
+  // surface as droppedAnnotations in verbose outputs; dependency records are
+  // kept for diagnostics and never rendered.
   traceRoot: TraceNode | null = null;
-  allProductions: Production[] | null = null;
+  allAnnotations: AnnotationRecord[] | null = null;
+  allDependencies: DependencyRecord[] | null = null;
   // Active schema-application nesting, bounded by maxDepth (see applySchema).
   depth = 0;
   private traceStack: TraceNode[] = [];
@@ -133,12 +161,15 @@ export class EvalState {
     public regexCache: RegexCache = new RegexCache(),
     public maxDepth: number = DEFAULT_MAX_DEPTH,
   ) {
-    if (tracing) this.allProductions = [];
+    if (tracing) {
+      this.allAnnotations = [];
+      this.allDependencies = [];
+    }
   }
 
   /** True when tracing is active for this run. */
   get tracing(): boolean {
-    return this.allProductions !== null;
+    return this.allAnnotations !== null;
   }
 
   /** Opens a trace node for a schema application and links it under the current one. */
@@ -171,9 +202,13 @@ export class EvalState {
   get frame(): Frame {
     return this.frames[this.frames.length - 1]!;
   }
-  /** Productions retained at the root frame — the annotation result before retention filtering. */
-  get rootProductions(): Production[] {
-    return this.frames[0]!.productions;
+  /** Annotations surviving at the root frame — the annotation result before retention filtering. */
+  get rootAnnotations(): AnnotationRecord[] {
+    return this.frames[0]!.annotations;
+  }
+  /** Dependency records surviving at the root frame. */
+  get rootDependencies(): DependencyRecord[] {
+    return this.frames[0]!.dependencies;
   }
 
   /**
@@ -210,6 +245,7 @@ class KeywordContextImpl implements KeywordContext {
       name: string;
       behaviorId: string;
       vocabularyUri: string | null;
+      value: JsonValue;
     },
     public cursor: Cursor,
     private pathNode: PathNode | null,
@@ -281,7 +317,7 @@ class KeywordContextImpl implements KeywordContext {
     return this.state.regexCache.compile(pattern);
   }
 
-  produce(value: unknown): void {
+  annotate(): void {
     const record = this.state.shouldRecord;
     if (
       record &&
@@ -289,24 +325,55 @@ class KeywordContextImpl implements KeywordContext {
     ) {
       return;
     }
-    const production = {
+    const annotation: AnnotationRecord = {
+      kind: "annotation",
       behaviorId: this.entry.behaviorId,
       keywordName: this.entry.name,
       vocabularyUri: this.entry.vocabularyUri,
       schemaRef: this.schemaRef,
       pathNode: this.pathNode,
       cursor: this.cursor,
-      value,
+      value: this.entry.value,
     };
-    this.state.frame.productions.push(production);
+    this.state.frame.annotations.push(annotation);
     // Frames discard on failure; the trace keeps everything so verbose
     // outputs can report droppedAnnotations.
-    this.state.allProductions?.push(production);
+    this.state.allAnnotations?.push(annotation);
   }
 
-  visible(behaviorIds: readonly string[]): readonly ProductionView[] {
+  produce(data: unknown): void {
+    // A producer nobody declared is invisible to elision analysis and to the
+    // compiler's channel routing — fail loud, not wrong. The check is per
+    // behavior id: the registry unions every occurrence's declarations.
+    const registry = this.state.registry;
+    if (!registry.producedIds().has(this.entry.behaviorId)) {
+      throw new UndeclaredProductionError(
+        `'${this.entry.behaviorId}' produces dependency data without declaring it in analyze().produces`,
+      );
+    }
+    // Under elision, dependency data nobody consumes is never read.
+    if (
+      this.state.shouldRecord !== null &&
+      !registry.consumedIds().has(this.entry.behaviorId)
+    ) {
+      return;
+    }
+    const dependency: DependencyRecord = {
+      kind: "dependency",
+      behaviorId: this.entry.behaviorId,
+      keywordName: this.entry.name,
+      schemaRef: this.schemaRef,
+      pathNode: this.pathNode,
+      cursor: this.cursor,
+      data,
+    };
+    this.state.frame.dependencies.push(dependency);
+    this.state.allDependencies?.push(dependency);
+  }
+
+  visible(behaviorIds: readonly string[]): readonly DependencyView[] {
     // Under elision, reading an id nobody declared via StaticFacts.consumes
-    // means the productions may already be gone — fail loud, not wrong.
+    // means the records may already be gone — fail loud, not wrong.
     if (this.state.shouldRecord !== null) {
       const consumed = this.state.registry.consumedIds();
       for (const id of behaviorIds) {
@@ -317,8 +384,8 @@ class KeywordContextImpl implements KeywordContext {
         }
       }
     }
-    return this.state.frame.productions.filter(
-      (p) => p.cursor === this.cursor && behaviorIds.includes(p.behaviorId),
+    return this.state.frame.dependencies.filter(
+      (d) => d.cursor === this.cursor && behaviorIds.includes(d.behaviorId),
     );
   }
 
@@ -399,7 +466,7 @@ function applySchemaAtDepth(
 
   state.enter(schemaRef, cursor);
   state.dynamicScope.push(schemaRef.baseUri);
-  state.frames.push({ productions: [] });
+  state.frames.push({ annotations: [], dependencies: [] });
   const traceNode = state.tracing
     ? state.traceEnter(schemaRef, pathNode, cursor)
     : null;
@@ -424,7 +491,8 @@ function applySchemaAtDepth(
       const behaviorId = unknownKeywordId(name);
       if (state.shouldRecord && !state.shouldRecord(behaviorId, name, null))
         continue;
-      const production = {
+      const annotation: AnnotationRecord = {
+        kind: "annotation",
         behaviorId,
         keywordName: name,
         vocabularyUri: null,
@@ -433,12 +501,15 @@ function applySchemaAtDepth(
         cursor,
         value: node[name],
       };
-      state.frame.productions.push(production);
-      state.allProductions?.push(production);
+      state.frame.annotations.push(annotation);
+      state.allAnnotations?.push(annotation);
     }
   } finally {
     const frame = state.frames.pop()!;
-    if (valid) state.frame.productions.push(...frame.productions);
+    if (valid) {
+      state.frame.annotations.push(...frame.annotations);
+      state.frame.dependencies.push(...frame.dependencies);
+    }
     if (traceNode) state.traceExit(traceNode, valid);
     state.dynamicScope.pop();
     state.exit(schemaRef, cursor);
@@ -453,6 +524,7 @@ function evaluateKeyword(
   cursor: Cursor,
   pathNode: PathNode | null,
 ): boolean {
+  const value = (schemaRef.node as Record<string, JsonValue>)[entry.name]!;
   const ctx = new KeywordContextImpl(
     state,
     schemaRef,
@@ -460,11 +532,11 @@ function evaluateKeyword(
       name: entry.name,
       behaviorId: entry.behavior.id,
       vocabularyUri: entry.vocabularyUri,
+      value,
     },
     cursor,
     pathNode,
   );
-  const value = (schemaRef.node as Record<string, JsonValue>)[entry.name]!;
   return entry.behavior.evaluate(value, cursor, ctx);
 }
 
@@ -526,7 +598,7 @@ export interface FragmentOptions {
   pathNode?: PathNode | null;
   /** depth already consumed by the caller's nesting (D20 combined budget) */
   depth?: number;
-  /** produce-time elision predicate (D5); null records everything */
+  /** annotation elision predicate (D5); null records everything */
   shouldRecord?: RecordPredicate | null;
   regexCache?: RegexCache;
   maxDepth?: number;
@@ -536,16 +608,21 @@ export interface FragmentOptions {
  * Evaluates one schema fragment with pre-seeded state: the compiled tier's
  * trampoline into the interpreter (M6), used for dynamic islands and for
  * fallback units alike. Returns the fragment's verdict, its errors, and its
- * root frame's surviving productions — cursor identities intact, so a
- * compiled caller can merge them under channel rule 3 and filter under
- * rule 4 exactly as an interpreted parent would.
+ * root frame's surviving annotation and dependency records — cursor
+ * identities intact, so a compiled caller can merge them under channel rule
+ * 3 and filter under rule 4 exactly as an interpreted parent would.
  */
 export function evaluateFragment(
   registry: SchemaRegistry,
   target: SchemaRef,
   cursor: Cursor,
   options: FragmentOptions = {},
-): { valid: boolean; errors: ErrorRecord[]; productions: Production[] } {
+): {
+  valid: boolean;
+  errors: ErrorRecord[];
+  annotations: AnnotationRecord[];
+  dependencies: DependencyRecord[];
+} {
   const maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH;
   const state = new EvalState(
     registry,
@@ -563,5 +640,10 @@ export function evaluateFragment(
     options.pathNode ?? null,
     maxDepth,
   );
-  return { valid, errors: state.errors, productions: state.rootProductions };
+  return {
+    valid,
+    errors: state.errors,
+    annotations: state.rootAnnotations,
+    dependencies: state.rootDependencies,
+  };
 }

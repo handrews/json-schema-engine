@@ -1,11 +1,13 @@
 # Annotations
 
 Annotations are keyword values a schema attaches to instance locations —
-`title`, `deprecated`, `readOnly`, unknown extension keywords, and others.
-The engine returns them per evaluation when asked; public collection is off by
-default, so output-only annotations can be elided. Annotation values needed by
-consumer keywords such as `unevaluatedProperties` still flow internally
-regardless of the public collection setting.
+`title`, `deprecated`, `readOnly`, `format`, unknown extension keywords, and
+others. An annotation's value is always the keyword's own value. Applicator
+keywords such as `properties` never appear as annotations: what they
+communicate to `unevaluatedProperties` is dependency data, internal to
+evaluation and unaffected by any annotation setting. The engine returns
+annotations per evaluation when asked; collection is off by default, so
+annotation work can be elided.
 
 Annotations are reported only for valid results. On failure, a failed
 subschema's annotations are dropped, per the specification.
@@ -78,7 +80,7 @@ assert.deepEqual(result.annotations?.map((a) => a.keyword).sort(), [
 
 `retention.excludeKeywords` and `retention.excludeVocabularies` subtract
 after the allow lists. Use a deny list alone to keep everything except
-specific noise — for example, the applicator bookkeeping annotations.
+specific keywords or vocabularies.
 
 ```ts
 import assert from "node:assert";
@@ -86,26 +88,17 @@ import { createEngine } from "@jse/core";
 
 const engine = createEngine();
 const uri = engine.registerSchema(
-  { title: "T", properties: { a: { title: "A" } } },
+  { title: "T", description: "D", "x-internal": true },
   "https://example.com/deny",
 );
 
-const result = engine.evaluate(
-  uri,
-  { a: 1 },
-  {
-    collectAnnotations: true,
-    retention: {
-      excludeVocabularies: [
-        "https://json-schema.org/draft/2020-12/vocab/applicator",
-      ],
-    },
-  },
-);
-// Both titles remain; the applicator's `properties` annotation is denied.
+const result = engine.evaluate(uri, 1, {
+  collectAnnotations: true,
+  retention: { excludeKeywords: ["description"] },
+});
 assert.deepEqual(
   result.annotations?.map((a) => a.keyword),
-  ["title", "title"],
+  ["title", "x-internal"],
 );
 ```
 
@@ -140,11 +133,11 @@ assert.equal(result.annotations?.[0]?.annotation, "root");
 
 ## Retention never affects validation
 
-Keywords that read other keywords' annotations internally
-(`unevaluatedProperties`, `unevaluatedItems`) see them regardless of any
-retention policy. Retention controls only what the caller receives. See
-[Custom keywords and vocabularies](custom-keywords.md) for the underlying
-mechanism.
+Keywords that read other keywords' dependency data (`unevaluatedProperties`,
+`unevaluatedItems`) see it regardless of any retention policy: dependency
+data is not annotation output. Retention controls only what the caller
+receives. See [Custom keywords and vocabularies](custom-keywords.md) for the
+underlying mechanism.
 
 ```ts
 import assert from "node:assert";
@@ -156,7 +149,7 @@ const uri = engine.registerSchema(
   "https://example.com/unevaluated",
 );
 
-const options = { retention: { excludeKeywords: ["properties"] } };
+const options = { collectAnnotations: true, retention: { keywords: [] } };
 assert.equal(engine.evaluate(uri, { a: 1 }, options).valid, true);
 assert.equal(engine.evaluate(uri, { a: 1, b: 2 }, options).valid, false);
 ```

@@ -1,12 +1,15 @@
 // Golden fixtures (M5): one representative schema/instance pair exercising
 // $ref, properties, annotations, and a failing branch, rendered through all
 // five output documents. Fixtures are the regression contract — reviewed by
-// hand against the spec text (see DESIGN.md M5 row) before being committed:
-// notably, `/item` validates and retains its `title`/`properties`
-// annotations even though the root ultimately fails (its own `count`
+// hand against the spec text before being committed. Applicator keywords
+// (`properties`) never appear: they produce dependency data, not annotations
+// (ADR 0002, draft-03 Appendix D). `/item` validates and keeps its `title`
+// annotation even though the root ultimately fails (its own `count`
 // branch), while the root's own annotations are dropped (§4 rule 3: a
-// frame's productions merge to the parent only on success, and the root
-// application itself is the failing one here).
+// frame's records merge to the parent only on success, and the root
+// application itself is the failing one here). Draft-03 §12.2 makes `/item`'s
+// annotation irrelevant under a rejecting root; the relevance model that
+// removes it from non-verbose output is the next reconciliation step.
 
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";

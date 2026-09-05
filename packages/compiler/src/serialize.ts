@@ -1,6 +1,6 @@
 // IR serializer (M6.2): planned units + keyword lower() IR → artifact
 // source. Flag-mode semantics: fail-fast within a unit (verdict-only),
-// productions elided, anyOf short-circuit licensed because the planner
+// annotations elided, anyOf short-circuit licensed because the planner
 // interprets any node whose channel could be observed (slice licensing;
 // DESIGN §7). All text assembly goes through the gated formatter (emit.ts).
 
@@ -47,8 +47,8 @@ class SerializeError extends Error {}
 /**
  * Annotation-mode options threaded through serialization. Its presence (with
  * `output === "list"`) turns on annotation collection; `retention`'s
- * allow/deny lists are applied statically at produce sites (the compiled
- * analogue of produce-time elision — the same {@link makeRecordPredicate}
+ * allow/deny lists are applied statically at annotate sites (the compiled
+ * analogue of annotation elision — the same {@link makeRecordPredicate}
  * decision the interpreter's renderer makes). The `keep` predicate runs at
  * runtime in the artifact wrapper, never here.
  */
@@ -82,6 +82,27 @@ function findProduce(stmts: readonly LowerStmt[]): LowerProduceValue | null {
     }
   }
   return null;
+}
+
+/** True when a keyword's lowered statement list contains an `annotate` node (searched into blocks). */
+function hasAnnotate(stmts: readonly LowerStmt[]): boolean {
+  for (const stmt of stmts) {
+    switch (stmt.kind) {
+      case "annotate":
+        return true;
+      case "if":
+        if (hasAnnotate(stmt.then) || (stmt.else && hasAnnotate(stmt.else)))
+          return true;
+        break;
+      case "forEachKey":
+      case "forEachIndex":
+        if (hasAnnotate(stmt.body)) return true;
+        break;
+      default:
+        break;
+    }
+  }
+  return false;
 }
 
 /**
@@ -137,16 +158,16 @@ export function serializePlan(
     );
   }
   // The behavior ids a consumer observes: a region producer pushes its raw
-  // production onto the channel only when its id is consumed (rule 5).
+  // dependency data onto the channel only when its id is consumed (rule 5).
   const consumedIds = registry.consumedIds();
   // Annotation collection is a list-mode variant: it reuses the list plan and
   // fail-open, no-short-circuit discipline, adding a flat `anns` channel with
   // mark/truncate at every application boundary (channel rule 3).
   const annMode = annotate !== undefined && output === "list";
-  // Static retention: the produce/unknown-keyword allow/deny decision, applied
-  // at emit time so ruled-out productions never emit. `keep` is deferred.
+  // Static retention: the annotate/unknown-keyword allow/deny decision, applied
+  // at emit time so ruled-out annotations never emit. `keep` is deferred.
   const annKeep: RecordPredicate | null = annMode
-    ? makeRecordPredicate(new Set(), true, annotate.retention)
+    ? makeRecordPredicate(true, annotate.retention)
     : null;
   // List mode disables inlining and boolean-literal folding: shared units
   // carry the evaluation-path/instance-pointer parameters, and a `false`
@@ -446,10 +467,11 @@ interface Counters {
 }
 
 /**
- * The accumulator(s) a keyword's collected-value produce reads: names build a
- * deduped `Set`, indexes a max tracker / applied flag / matched list. Set by
- * {@link UnitContext.beginKeyword} for a retained collected-value producer, and
- * driven by the application call sites within the keyword's own statements.
+ * The accumulator(s) a keyword's produce recipe reads: names build a deduped
+ * `Set`, indexes a max tracker / applied flag / matched list. Set by
+ * {@link UnitContext.beginKeyword} for a consumed producer in region emission,
+ * and driven by the application call sites within the keyword's own
+ * statements.
  */
 interface KeywordAnn {
   produceKind:
@@ -463,11 +485,10 @@ interface KeywordAnn {
 class UnitContext {
   private currentKeyword = "";
   private currentVocab: string | null = null;
-  // State for the keyword currently being emitted: whether its produce is
-  // retained as an annotation (static lists), whether it feeds the runtime
-  // coverage channel (consumed collected-recipe producer), and the shared
-  // collected-value accumulators both reads use. The two flags are
-  // independent — retention must never affect coverage semantics.
+  // State for the keyword currently being emitted: whether its annotate is
+  // retained (static lists), whether its produce feeds the runtime coverage
+  // channel (consumed producer), and the accumulators the produce reads. The
+  // two flags are independent — retention must never affect coverage.
   private annKwKept = false;
   private covKwKept = false;
   private annKw: KeywordAnn | null = null;
@@ -625,7 +646,7 @@ class UnitContext {
       out.push(...decls, ...chunks);
     }
     // Unknown keywords collect as annotations (engine.ts:414): unconditional
-    // constant productions, in schema-key order, after every dialect keyword.
+    // constant annotations, in schema-key order, after every dialect keyword.
     // The refOnly break silences siblings, matching the interpreter.
     if (this.annMode && !refOnly) {
       for (const name of Object.keys(node)) {
@@ -643,56 +664,46 @@ class UnitContext {
   }
 
   /**
-   * Prepare the keyword currently being emitted for annotation mode: decide
-   * whether its produce survives the static retention lists, and allocate any
-   * collected-value accumulator (declared by the returned chunks). No-op
-   * outside annotation mode or for keywords that never produce.
+   * Prepare the keyword currently being emitted: decide whether its annotate
+   * survives the static retention lists, whether its produce feeds the
+   * coverage channel, and allocate the produce's accumulator (declared by the
+   * returned chunks). No-op outside annotation and region modes.
    */
   private beginKeyword(stmts: readonly LowerStmt[]): CodeChunk[] {
     this.annKw = null;
     this.annKwKept = false;
     this.covKwKept = false;
     if (!this.annMode && !this.regionMode) return [];
-    const value = findProduce(stmts);
-    if (!value) return [];
-    // Region channel-push gate (rule 5): only a CONSUMED producer whose
-    // recipe is collectedNames/collectedIndexes feeds the channel. A
-    // const/expr produce (title-like) must never reach it — its value can be
-    // a string[] and would poison the value-shape dispatch (coverage.ts).
-    this.covKwKept =
-      this.regionMode &&
-      this.consumedIds.has(this.currentBehaviorId) &&
-      (value.kind === "collectedNames" || value.kind === "collectedIndexes");
-    // Annotation retention is a rendering decision only: a produce the lists
-    // drop still feeds the coverage channel (the interpreter's recording
-    // predicate keeps every consumed id regardless of retention, M5.5).
     this.annKwKept =
       this.annMode &&
+      hasAnnotate(stmts) &&
       (!this.annKeep ||
         this.annKeep("", this.currentKeyword, this.currentVocab));
-    if (!this.annKwKept && !this.covKwKept) return [];
+    const value = findProduce(stmts);
+    if (!value) return [];
+    // Region channel-push gate (rule 5): only a CONSUMED producer feeds the
+    // channel. Retention never affects it — dependency data is not output.
+    this.covKwKept =
+      this.regionMode && this.consumedIds.has(this.currentBehaviorId);
+    if (!this.covKwKept) return [];
     if (value.kind === "collectedNames") {
       const n = id("n" + String(this.counters.temp++));
       this.annKw = { produceKind: "collectedNames", names: n };
       return [js`const ${n} = new Set();`];
     }
-    if (value.kind === "collectedIndexes") {
-      if (value.render === "largestOrTrue") {
-        const m = id("n" + String(this.counters.temp++));
-        this.annKw = { produceKind: "largestOrTrue", max: m };
-        return [js`let ${m} = -1;`];
-      }
-      if (value.render === "appliedTrue") {
-        const a = id("n" + String(this.counters.temp++));
-        this.annKw = { produceKind: "appliedTrue", applied: a };
-        return [js`let ${a} = false;`];
-      }
-      const t = id("n" + String(this.counters.temp++));
-      this.annKw = { produceKind: "matchedOrAllTrue", matched: t };
-      return [js`const ${t} = [];`];
+    if (value.render === "largestOrTrue") {
+      const m = id("n" + String(this.counters.temp++));
+      this.annKw = { produceKind: "largestOrTrue", max: m };
+      return [js`let ${m} = -1;`];
     }
-    // const / expr: retained, but the produce reads its value directly.
-    return [];
+    if (value.render === "appliedTrue") {
+      const a = id("n" + String(this.counters.temp++));
+      this.annKw = { produceKind: "appliedTrue", applied: a };
+      return [js`let ${a} = false;`];
+    }
+    const t = id("n" + String(this.counters.temp++));
+    this.annKw = { produceKind: "matchedOrAllTrue", matched: t };
+    return [js`const ${t} = [];`];
   }
 
   /** Run one keyword's lower() against a fresh LoweringContext, return its stmts. */
@@ -752,7 +763,7 @@ class UnitContext {
 
   /**
    * One grouped-fold branch: run `call`, apply `hit` on success, truncate the
-   * active channel spans on failure (a failed branch's productions and
+   * active channel spans on failure (a failed branch's records and
    * coverage discard; a passing branch's merge — channel rule 3 per branch).
    */
   private branchSpan(call: CodeChunk, hit: CodeChunk): CodeChunk {
@@ -950,17 +961,19 @@ class UnitContext {
         }
         // Flag mode: verdict-only, fail fast.
         return js`return false;`;
-      case "produce": {
-        // Annotation mode records productions as units; region mode pushes a
-        // consumed producer's raw value onto the channel (rule 5). One site
-        // can do both — a consumer keyword's own produce is consumed by outer
-        // folds AND retained as an annotation. Flag/list without either elide.
-        const parts: CodeChunk[] = [];
-        if (this.covKwKept) parts.push(this.produceChannel(stmt.value));
-        if (this.annMode && this.annKwKept)
-          parts.push(this.produceStatement(stmt.value));
-        return parts.length === 0 ? js`` : join("\n", parts);
+      case "annotate": {
+        // Annotation mode records the keyword's own value as a unit; every
+        // other mode elides. The value is a schema constant (draft-03 §12.9).
+        if (!this.annMode || !this.annKwKept) return js``;
+        const value = (this.unit.ref.node as Record<string, JsonValue>)[
+          this.currentKeyword
+        ]!;
+        return js`${id("anns")}.push(${this.annUnit(json(value))});`;
       }
+      case "produce":
+        // Region mode pushes a consumed producer's dependency data onto the
+        // channel (rule 5); dependency data is never an annotation unit.
+        return this.covKwKept ? this.produceChannel(stmt.value) : js``;
       case "coverageFold": {
         // Bind the channel fold a following coverageCovers reads (rule 6). Only
         // a tracked unit's consumer emits this, and only in region mode.
@@ -1002,7 +1015,7 @@ class UnitContext {
             : js`return false;`;
         // contains' probe IS a bare applyExpr (the only shape besides `if`'s
         // condition): mark/truncate each probe so a matching item's
-        // productions merge and a failing item's discard. collectIndexes feeds
+        // annotations merge and a failing item's discard. collectIndexes feeds
         // the matched-index accumulator the following produce renders.
         if (this.annMode && stmt.countWhen.kind === "applyExpr") {
           const probe = this.applyCall(stmt.countWhen.apply);
@@ -1033,68 +1046,29 @@ class UnitContext {
     }
   }
 
-  /** Emit the annotation-unit push for a retained keyword's produce. */
-  private produceStatement(value: LowerProduceValue): CodeChunk {
-    switch (value.kind) {
-      case "const":
-        return js`${id("anns")}.push(${this.annUnit(json(value.value))});`;
-      case "expr":
-        return js`${id("anns")}.push(${this.annUnit(this.expr(value.expr))});`;
-      case "collectedNames":
-        // lower() already gated this produce behind the object-type check; the
-        // Set spreads to an array in insertion (attempted) order.
-        return js`${id("anns")}.push(${this.annUnit(js`[...${this.annKw!.names!}]`)});`;
-      case "collectedIndexes": {
-        const v = this.valueVar;
-        if (value.render === "largestOrTrue") {
-          const mx = this.annKw!.max!;
-          return js`if (${mx} >= 0) ${id("anns")}.push(${this.annUnit(js`${mx} + 1 === ${v}.length ? true : ${mx}`)});`;
-        }
-        if (value.render === "appliedTrue") {
-          const ap = this.annKw!.applied!;
-          return js`if (${ap}) ${id("anns")}.push(${this.annUnit(js`true`)});`;
-        }
-        const mt = this.annKw!.matched!;
-        return js`if (${mt}.length > 0) ${id("anns")}.push(${this.annUnit(js`${mt}.length === ${v}.length ? true : ${mt}`)});`;
-      }
-    }
-  }
-
   /**
-   * Push a consumed producer's raw production onto the runtime coverage channel
-   * (rule 5), mirroring {@link produceStatement}'s accumulator reads but writing
-   * the value the interpreter would produce (never an annotation unit). Only
-   * collectedNames/collectedIndexes reach here (beginKeyword's channel gate);
-   * the "has a production" guards match the interpreter's produce conditions so
-   * the channel carries exactly what a consumer's visible-productions fold sees.
+   * Push a consumed producer's dependency data onto the runtime coverage
+   * channel (rule 5), writing the value the interpreter would produce. The
+   * "has data" guards match the interpreter's produce conditions so the
+   * channel carries exactly what a consumer's visible-records fold sees.
    */
   private produceChannel(value: LowerProduceValue): CodeChunk {
     const v = this.valueVar;
-    switch (value.kind) {
-      case "collectedNames":
-        // The enclosing lower() gates this produce behind an object-type test;
-        // the (attempted, deduped) name array spreads from the Set.
-        return js`${EV}.push([...${this.annKw!.names!}]);`;
-      case "collectedIndexes": {
-        if (value.render === "largestOrTrue") {
-          const mx = this.annKw!.max!;
-          return js`if (${mx} >= 0) ${EV}.push(${mx} + 1 === ${v}.length ? true : ${mx});`;
-        }
-        if (value.render === "appliedTrue") {
-          const ap = this.annKw!.applied!;
-          return js`if (${ap}) ${EV}.push(true);`;
-        }
-        const mt = this.annKw!.matched!;
-        return js`if (${mt}.length > 0) ${EV}.push(${mt}.length === ${v}.length ? true : ${mt});`;
-      }
-      case "const":
-      case "expr":
-        // Guarded out by beginKeyword's channel gate (rule 5): a const/expr
-        // value must never poison the channel's shape dispatch.
-        throw new SerializeError(
-          "const/expr produce must not reach the coverage channel",
-        );
+    if (value.kind === "collectedNames") {
+      // The enclosing lower() gates this produce behind an object-type test;
+      // the (attempted, deduped) name array spreads from the Set.
+      return js`${EV}.push([...${this.annKw!.names!}]);`;
     }
+    if (value.render === "largestOrTrue") {
+      const mx = this.annKw!.max!;
+      return js`if (${mx} >= 0) ${EV}.push(${mx} + 1 === ${v}.length ? true : ${mx});`;
+    }
+    if (value.render === "appliedTrue") {
+      const ap = this.annKw!.applied!;
+      return js`if (${ap}) ${EV}.push(true);`;
+    }
+    const mt = this.annKw!.matched!;
+    return js`if (${mt}.length > 0) ${EV}.push(${mt}.length === ${v}.length ? true : ${mt});`;
   }
 
   /**
@@ -1115,7 +1089,7 @@ class UnitContext {
 
   /**
    * Record an attempted child-of-here application's segment into the current
-   * keyword's collected-value accumulator (before the verdict — the segment is
+   * keyword's produce accumulator (before the verdict — the segment is
    * "attempted", not "succeeded"). Non-child-of-here cursors, and keywords
    * without an active accumulator, record nothing.
    */
@@ -1175,7 +1149,7 @@ class UnitContext {
         }
         case "negate": {
           // A failing negated subschema's spans truncate; a PASSING one's
-          // productions and coverage STAY (the interpreter merges any passing
+          // annotations and coverage STAY (the interpreter merges any passing
           // application into the unit frame, and same-unit consumers see it)
           // while the unit records the not-error.
           const spans = this.channelSpans(evSpan);
@@ -1550,7 +1524,7 @@ class UnitContext {
         // The two legal applyExpr positions (`if`'s condition, contains'
         // probe) are intercepted at the statement level so their span can
         // mark/truncate. Reaching here in annotation mode means an
-        // unrecognized shape whose productions could not be discarded — fail
+        // unrecognized shape whose records could not be discarded — fail
         // loud rather than lose annotations silently.
         // Region mode intercepts the two legal applyExpr positions at the
         // statement level (if-condition, contains-probe) so their channel span

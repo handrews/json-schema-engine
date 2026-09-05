@@ -9,9 +9,9 @@ import { escapeSegment, unescapeSegment } from "./json.js";
 import { instancePointer } from "./cursor.js";
 import { ErrorParams } from "./dialect.js";
 import {
+  AnnotationRecord,
   ErrorRecord,
   PathNode,
-  Production,
   RecordPredicate,
   TraceNode,
   materializePath,
@@ -42,7 +42,7 @@ export interface ErrorUnit {
   params?: ErrorParams;
 }
 
-/** One rendered channel production. */
+/** One rendered annotation record. */
 export interface AnnotationUnit extends Omit<
   ErrorUnit,
   "error" | "keyword" | "params"
@@ -113,50 +113,44 @@ export function renderError(
   return unit;
 }
 
-/** Renders one channel production into its output unit. */
+/** Renders one annotation record into its output unit. */
 export function renderAnnotation(
-  production: Production,
+  record: AnnotationRecord,
   vocabulary: LocationVocabulary,
 ): AnnotationUnit {
   return {
-    keyword: production.keywordName,
-    ...(production.vocabularyUri === null
+    keyword: record.keywordName,
+    ...(record.vocabularyUri === null
       ? {}
-      : { vocabulary: production.vocabularyUri }),
+      : { vocabulary: record.vocabularyUri }),
     ...locations(
-      production.pathNode,
-      production.keywordName,
-      production.schemaRef,
+      record.pathNode,
+      record.keywordName,
+      record.schemaRef,
       vocabulary,
     ),
-    instanceLocation: instancePointer(production.cursor),
-    annotation: production.value,
+    instanceLocation: instancePointer(record.cursor),
+    annotation: record.value,
   };
 }
 
-// Retention only runs in renderers (§4 rule 5: it never affects rule 4's
-// channel visibility), so deny lists here can never hide a production from
-// ctx.visible() — the concern the M5.5 elision milestone must keep separate.
-
-const NO_CONSUMED_IDS: ReadonlySet<string> = new Set();
+// Retention applies to annotation records only (§4 rule 5); dependency
+// records live in a separate store, so no retention setting can hide one
+// from ctx.visible().
 
 /**
- * Produce-time recording decision (D5/M5.5): record iff someone might read
- * the production — a declared channel consumer (`consumedIds`), or the
- * annotation output path (collection on, and the retention allow/deny lists
- * do not rule the keyword out). The `keep` predicate runs only at render:
+ * Annotation recording decision (D5/M5.5): record iff the annotation output
+ * path might read it — collection on, and the retention allow/deny lists do
+ * not rule the keyword out. The `keep` predicate runs only at render:
  * recording a superset of what it keeps is correct, eliding on its behalf
  * would not be. This is also selectRetained's list stage, so the two can
  * never disagree.
  */
 export function makeRecordPredicate(
-  consumedIds: ReadonlySet<string>,
   collectAnnotations: boolean,
   retention: RetentionPolicy | undefined,
 ): RecordPredicate {
-  if (!collectAnnotations) {
-    return (behaviorId) => consumedIds.has(behaviorId);
-  }
+  if (!collectAnnotations) return () => false;
   const allow =
     retention?.keywords !== undefined || retention?.vocabularies !== undefined
       ? {
@@ -166,8 +160,7 @@ export function makeRecordPredicate(
       : null;
   const denyNames = new Set(retention?.excludeKeywords ?? []);
   const denyVocabs = new Set(retention?.excludeVocabularies ?? []);
-  return (behaviorId, keywordName, vocabularyUri) => {
-    if (consumedIds.has(behaviorId)) return true;
+  return (_behaviorId, keywordName, vocabularyUri) => {
     if (
       allow !== null &&
       !allow.names.has(keywordName) &&
@@ -182,31 +175,31 @@ export function makeRecordPredicate(
   };
 }
 
-/** The retention decision on raw productions, shared by every renderer. */
+/** The retention decision on raw annotation records, shared by every renderer. */
 export function selectRetained(
-  productions: readonly Production[],
+  annotations: readonly AnnotationRecord[],
   retention: RetentionPolicy | undefined,
   vocabulary: LocationVocabulary,
-): Production[] {
-  const byLists = makeRecordPredicate(NO_CONSUMED_IDS, true, retention);
-  let selected = productions.filter((p) =>
-    byLists(p.behaviorId, p.keywordName, p.vocabularyUri),
+): AnnotationRecord[] {
+  const byLists = makeRecordPredicate(true, retention);
+  let selected = annotations.filter((a) =>
+    byLists(a.behaviorId, a.keywordName, a.vocabularyUri),
   );
   if (retention?.keep) {
     const keep = retention.keep;
-    selected = selected.filter((p) => keep(renderAnnotation(p, vocabulary)));
+    selected = selected.filter((a) => keep(renderAnnotation(a, vocabulary)));
   }
   return selected;
 }
 
-/** Applies retention and renders the surviving productions into annotation units. */
+/** Applies retention and renders the surviving annotation records into units. */
 export function applyRetention(
-  productions: readonly Production[],
+  annotations: readonly AnnotationRecord[],
   retention: RetentionPolicy | undefined,
   vocabulary: LocationVocabulary,
 ): AnnotationUnit[] {
-  return selectRetained(productions, retention, vocabulary).map((p) =>
-    renderAnnotation(p, vocabulary),
+  return selectRetained(annotations, retention, vocabulary).map((a) =>
+    renderAnnotation(a, vocabulary),
   );
 }
 
@@ -248,7 +241,7 @@ export interface HierarchicalOptions {
 export function renderHierarchical(
   root: TraceNode,
   errors: readonly ErrorRecord[],
-  productions: readonly Production[],
+  annotations: readonly AnnotationRecord[],
   options: HierarchicalOptions,
 ): OutputUnit {
   const vocabulary = options.vocabulary;
@@ -258,11 +251,11 @@ export function renderHierarchical(
     if (list) list.push(e);
     else errorsAt.set(e.pathNode, [e]);
   }
-  const annotationsAt = new Map<PathNode | null, Production[]>();
-  for (const p of selectRetained(productions, options.retention, vocabulary)) {
-    const list = annotationsAt.get(p.pathNode);
-    if (list) list.push(p);
-    else annotationsAt.set(p.pathNode, [p]);
+  const annotationsAt = new Map<PathNode | null, AnnotationRecord[]>();
+  for (const a of selectRetained(annotations, options.retention, vocabulary)) {
+    const list = annotationsAt.get(a.pathNode);
+    if (list) list.push(a);
+    else annotationsAt.set(a.pathNode, [a]);
   }
 
   const toUnit = (node: TraceNode): OutputUnit | undefined => {
@@ -328,10 +321,10 @@ export function renderHierarchical(
 export function renderDetailed(
   root: TraceNode,
   errors: readonly ErrorRecord[],
-  productions: readonly Production[],
+  annotations: readonly AnnotationRecord[],
   retention?: RetentionPolicy,
 ): OutputUnit {
-  return renderHierarchical(root, errors, productions, {
+  return renderHierarchical(root, errors, annotations, {
     vocabulary: "2020-12",
     verbose: false,
     retention,
@@ -346,10 +339,10 @@ export function renderDetailed(
 export function renderVerbose(
   root: TraceNode,
   errors: readonly ErrorRecord[],
-  productions: readonly Production[],
+  annotations: readonly AnnotationRecord[],
   retention?: RetentionPolicy,
 ): OutputUnit {
-  return renderHierarchical(root, errors, productions, {
+  return renderHierarchical(root, errors, annotations, {
     vocabulary: "2020-12",
     verbose: true,
     retention,
@@ -365,10 +358,10 @@ export function renderVerbose(
 export function renderList(
   root: TraceNode,
   errors: readonly ErrorRecord[],
-  productions: readonly Production[],
+  annotations: readonly AnnotationRecord[],
   options: HierarchicalOptions,
 ): OutputUnit[] {
-  const nested = renderHierarchical(root, errors, productions, options);
+  const nested = renderHierarchical(root, errors, annotations, options);
   const flat: OutputUnit[] = [];
   const collect = (unit: OutputUnit): void => {
     const { details, ...rest } = unit;
@@ -453,7 +446,7 @@ export function renderTrace(
 /**
  * Basic output document (2020-12 output spec), structurally distinct from
  * OutputUnit's Detailed/Verbose/LIST shape: its errors/annotations are flat
- * arrays of full units (one per error/production record, each with its own
+ * arrays of full units (one per error/annotation record, each with its own
  * `keywordLocation`), not a details tree or a keyword-keyed record.
  */
 export interface BasicOutputDocument {
@@ -476,7 +469,7 @@ export function renderBasic(
   valid: boolean,
   rootSchemaRef: { baseUri: string; pointer: string },
   errors: readonly ErrorRecord[],
-  rootProductions: readonly Production[],
+  rootAnnotations: readonly AnnotationRecord[],
   retention: RetentionPolicy | undefined,
   vocabulary: LocationVocabulary,
 ): BasicOutputDocument {
@@ -486,7 +479,7 @@ export function renderBasic(
     instanceLocation: "",
   };
   if (valid) {
-    const anns = applyRetention(rootProductions, retention, vocabulary);
+    const anns = applyRetention(rootAnnotations, retention, vocabulary);
     if (anns.length > 0) doc.annotations = anns;
   } else {
     doc.errors = errors.map((e) => renderError(e, vocabulary));

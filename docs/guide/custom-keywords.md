@@ -8,9 +8,9 @@ extension uses.
 ## An assertion keyword
 
 A keyword behavior's `evaluate` receives the keyword's value, the current
-cursor, and a context for applying subschemas, emitting productions, and
-reporting failures. This one asserts the instance is a multiple of a
-fixed value.
+cursor, and a context for applying subschemas, recording annotations,
+communicating dependency data, and reporting failures. This one asserts the
+instance is a multiple of a fixed value.
 
 ```ts
 import assert from "node:assert";
@@ -47,13 +47,53 @@ assert.equal(engine.evaluate(uri, 8).valid, true);
 assert.equal(engine.evaluate(uri, 6).valid, false);
 ```
 
-## Producers, consumers, and the `consumes` contract
+## An annotation keyword
 
-A keyword emits a production with `ctx.produce`; another keyword reads
-productions with `ctx.visible`. A consumer must declare every behavior id
-it reads in its `analyze().consumes` — this lets the engine elide
-productions that nothing declared an interest in. Reading through
-`ctx.visible` without declaring it throws `UndeclaredConsumptionError`.
+`ctx.annotate()` records the keyword's value as an annotation at the current
+instance location. An annotation's value is always the keyword's own value,
+so there is nothing to pass.
+
+```ts
+import assert from "node:assert";
+import { createEngine, KeywordBehavior } from "@jse/core";
+
+const VOCAB = "https://example.com/vocab/hint";
+const DIALECT = "https://example.com/dialect/hint";
+
+const hint: KeywordBehavior = {
+  id: `${VOCAB}#hint`,
+  evaluate: (_value, _cursor, ctx) => {
+    ctx.annotate();
+    return true;
+  },
+};
+
+const engine = createEngine();
+engine.registerVocabulary(VOCAB, { hint });
+engine.registerDialect(DIALECT, [
+  "https://json-schema.org/draft/2020-12/vocab/core",
+  VOCAB,
+]);
+
+const uri = engine.registerSchema(
+  { hint: { render: "textarea" } },
+  "https://example.com/hint-schema",
+  DIALECT,
+);
+const result = engine.evaluate(uri, "x", { collectAnnotations: true });
+assert.equal(result.annotations?.[0]?.keyword, "hint");
+assert.deepEqual(result.annotations?.[0]?.annotation, { render: "textarea" });
+```
+
+## Dependency data: producers and consumers
+
+A keyword communicates computed data to other keywords with `ctx.produce`;
+another keyword reads it with `ctx.visible`. Dependency data never appears in
+output. A producer declares its own id in `analyze().produces` and a consumer
+declares every id it reads in `analyze().consumes` — the declarations let the
+engine elide data nothing reads. Producing without the declaration throws
+`UndeclaredProductionError`; reading without it throws
+`UndeclaredConsumptionError`.
 
 ```ts
 import assert from "node:assert";
@@ -65,6 +105,7 @@ const DIALECT = "https://example.com/dialect/seen";
 // Producer: records that it ran, with no assertion of its own.
 const mark: KeywordBehavior = {
   id: `${VOCAB}#mark`,
+  analyze: () => ({ produces: [`${VOCAB}#mark`] }),
   evaluate: (value, _cursor, ctx) => {
     ctx.produce(value);
     return true;
@@ -78,7 +119,7 @@ const requireMark: KeywordBehavior = {
   evaluate: (value, _cursor, ctx) => {
     const seen = ctx.visible([`${VOCAB}#mark`]);
     if (value === true && seen.length === 0) {
-      ctx.error("expected a sibling 'mark' production");
+      ctx.error("expected a sibling 'mark'");
       return false;
     }
     return true;
@@ -100,8 +141,8 @@ const uri = engine.registerSchema(
 assert.equal(engine.evaluate(uri, 1).valid, true);
 ```
 
-Omitting the declaration is a bug the engine catches rather than a silent
-empty read.
+Omitting a declaration is a bug the engine catches rather than a silent
+empty read or an invisible write.
 
 ```ts
 import assert from "node:assert";
@@ -109,6 +150,7 @@ import {
   createEngine,
   KeywordBehavior,
   UndeclaredConsumptionError,
+  UndeclaredProductionError,
 } from "@jse/core";
 
 const VOCAB = "https://example.com/vocab/undeclared";
@@ -116,6 +158,7 @@ const DIALECT = "https://example.com/dialect/undeclared";
 
 const mark: KeywordBehavior = {
   id: `${VOCAB}#mark`,
+  analyze: () => ({ produces: [`${VOCAB}#mark`] }),
   evaluate: (value, _cursor, ctx) => {
     ctx.produce(value);
     return true;
@@ -131,19 +174,35 @@ const sneaky: KeywordBehavior = {
   },
 };
 
+// Missing `analyze().produces` for the data it writes.
+const unmarked: KeywordBehavior = {
+  id: `${VOCAB}#unmarked`,
+  evaluate: (value, _cursor, ctx) => {
+    ctx.produce(value);
+    return true;
+  },
+};
+
 const engine = createEngine();
-engine.registerVocabulary(VOCAB, { mark, sneaky });
+engine.registerVocabulary(VOCAB, { mark, sneaky, unmarked });
 engine.registerDialect(DIALECT, [
   "https://json-schema.org/draft/2020-12/vocab/core",
   VOCAB,
 ]);
 
-const uri = engine.registerSchema(
+const reads = engine.registerSchema(
   { mark: "tag", sneaky: true },
-  "https://example.com/undeclared-schema",
+  "https://example.com/undeclared-read",
   DIALECT,
 );
-assert.throws(() => engine.evaluate(uri, 1), UndeclaredConsumptionError);
+assert.throws(() => engine.evaluate(reads, 1), UndeclaredConsumptionError);
+
+const writes = engine.registerSchema(
+  { unmarked: "tag" },
+  "https://example.com/undeclared-write",
+  DIALECT,
+);
+assert.throws(() => engine.evaluate(writes, 1), UndeclaredProductionError);
 ```
 
 ## Identifier syntax for custom dialects

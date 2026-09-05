@@ -20,7 +20,7 @@ export const VOCAB_UNEVALUATED =
   "https://json-schema.org/draft/2020-12/vocab/unevaluated";
 
 /**
- * EXEMPLAR (consumer class): reads visible productions (engine.ts
+ * EXEMPLAR (consumer class): reads visible dependency records (engine.ts
  * visibility rule), applies the subschema to properties nobody evaluated,
  * and produces like any other applicator.
  */
@@ -151,7 +151,7 @@ export const unevaluatedProperties: KeywordBehavior = {
       additionalProperties.id,
       unevaluatedProperties.id,
     ])) {
-      for (const name of p.value as string[]) seen.add(name);
+      for (const name of p.data as string[]) seen.add(name);
     }
     let ok = true;
     const matched: string[] = [];
@@ -293,12 +293,12 @@ export const unevaluatedItems: KeywordBehavior = {
       unevaluatedItems.id,
     ])) {
       if (p.behaviorId === contains.id) {
-        if (p.value === true) coveredPrefix = length;
-        else for (const i of p.value as number[]) coveredIdx.add(i);
-      } else if (p.value === true) {
+        if (p.data === true) coveredPrefix = length;
+        else for (const i of p.data as number[]) coveredIdx.add(i);
+      } else if (p.data === true) {
         coveredPrefix = length;
       } else if (p.behaviorId === prefixItems.id) {
-        coveredPrefix = Math.max(coveredPrefix, (p.value as number) + 1);
+        coveredPrefix = Math.max(coveredPrefix, (p.data as number) + 1);
       }
     }
     let ok = true;

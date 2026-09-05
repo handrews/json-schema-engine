@@ -82,12 +82,12 @@ remain one prototype. It is not assumed to be the only or preferred approach.
 
 ## Current behavior
 
-Core productions currently carry behavior, keyword, vocabulary, schema, input,
-and value identity. They conflate exact annotations with computed dependency
-information. Frames merge productions on schema success and discard them on
-failure, which approximates but does not fully implement IETF draft-03 keyword-
-level relevance. Annotation retention must not hide dependency information from
-keyword consumers.
+Core keeps exact annotations (`AnnotationRecord`: behavior, keyword,
+vocabulary, schema, input, and the keyword's own value) and computed
+dependency information (`DependencyRecord`) in separate stores. Frames merge
+records on schema success and discard them on failure, which approximates but
+does not fully implement IETF draft-03 keyword-level relevance. Annotation
+retention cannot reach dependency information.
 
 AJV compatibility keeps the evaluator pure and runs evaluate/mutate/re-evaluate
 passes. Defaults, removal, and `transform` traverse verbose application

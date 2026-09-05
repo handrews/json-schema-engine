@@ -78,8 +78,12 @@ which JSE does not produce
 
 ### JSE native
 
-- `packages/core/src/keywords/applicator.ts` and `unevaluated.ts`: current
-  computed productions that must be reclassified as dependency information.
+- `packages/core/src/keywords/applicator.ts` and `unevaluated.ts`: dependency
+  producers (`ctx.produce()`); `core.ts`'s `annotationOnly` and `format.ts`
+  are the annotation producers (`ctx.annotate()`).
+- `packages/core/test/records.test.ts` and
+  `packages/compiler/test/records-compiled.test.ts`: the two record kinds in
+  both tiers.
 - `packages/core/test/output.test.ts`: location vocabularies and output shapes.
 - `packages/core/test/error-params.test.ts`: structured keyword failure data.
 - `packages/core/test/channels.test.ts`: visibility, rollback, retention, and
