@@ -2,6 +2,12 @@
 
 **Recommendation:** not decided.
 
+**Release relationship:** off the release path
+([ADR 0001](../decisions/0001-first-release-scope.md)). The only pre-release
+obligation is that the reconciled record model carry the information listed
+in the
+[processing-boundary table](../use-case-matrix.md#information-required-at-processing-boundaries).
+
 ## Question
 
 What facility above core should fill defaults at locations that may not yet

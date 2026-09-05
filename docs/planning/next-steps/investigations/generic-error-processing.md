@@ -2,6 +2,12 @@
 
 **Recommendation:** not decided.
 
+**Release relationship:** off the release path
+([ADR 0001](../decisions/0001-first-release-scope.md)). The only pre-release
+obligation is that the reconciled record model carry the information listed
+in the
+[processing-boundary table](../use-case-matrix.md#information-required-at-processing-boundaries).
+
 ## Question and layering
 
 Which reusable transformations and grouping primitives should sit above core
@@ -46,7 +52,8 @@ vocabularies must not require brittle declaration merging.
 
 Compare stateless transforms, a trace-derived grouping tree, a configurable
 problem collector, and keyword-aware helpers above a neutral core. Prototype
-oaskit and AJV as separate consumers against both output-format families.
+oaskit and AJV as separate consumers against `basic`/`list` and
+`detailed`/`hierarchical` output.
 Measure successful flag-to-diagnostic escalation, relevance processing,
 combiner-heavy grouping, carried context, and source correlation.
 

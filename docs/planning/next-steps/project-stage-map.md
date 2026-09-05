@@ -1,9 +1,11 @@
 # High-level project stage map
 
-The near-term objective is a public JSE release that demonstrates the viability
-of the IETF draft-03 annotation, dependency, and relevance model. Correctness,
-explainability, and extensible output come before deep compiler optimization or
-AJV-specific expansion.
+The near-term objective is a public JSE release that demonstrates the IETF
+draft-03 annotation, dependency, and relevance model. Correctness,
+explainability, and extensible output come before deep compiler optimization
+or AJV-specific expansion. Stages 0–3 are the release path
+([ADR 0001](decisions/0001-first-release-scope.md)); the [roadmap](roadmap.md)
+gives the phase order within them.
 
 ## Stage 0: semantic baseline
 
@@ -16,65 +18,60 @@ AJV-specific expansion.
   mapping target-format terminology explicitly.
 - Build focused conformance fixtures before changing public formats.
 
-**Gate:** the interpreter can serve as a clear reference model for annotation,
-error, dependency, relevance, and short-circuit behavior.
+**Gate:** the interpreter is a clear reference model for annotation, error,
+dependency, relevance, and short-circuit behavior.
 
-## Stage 1: flexible output and generic processing foundations
+## Stage 1: output levels and controls
 
-- Define a format-independent semantic input to output rendering.
-- Support adding target formats without changing evaluator semantics.
-- Treat the IETF Flag/Basic/Detailed/Verbose family and machines-oriented
-  Flag/List/Hierarchical family as peer design inputs.
-- Prototype generic relevance-aware error processing and exact-value annotation
-  processing.
-- Use transform, content processing, and default filling as design probes; do
-  not require their full product APIs yet.
-- Decide whether historical computed annotations have a sufficiently clean,
-  output-only compatibility path.
-- Confirm that the semantic/rendering boundary can later support streamed units
+- Define a format-independent semantic record set as the input to rendering.
+- Render every format name (`flag`, `basic`, `detailed`, `verbose`, `list`,
+  `hierarchical`) at its supported levels from that record set; document each
+  name's source.
+- Make level, annotation selection, error detail, keyword identity detail, and
+  source positions independent controls; reject unsupported combinations with
+  typed errors.
+- Confirm that the record/renderer boundary can later support streamed units
   and monotonic relevance-transition events without requiring streaming in the
   first release.
 
-**Gate:** selected formats can be produced from the same semantics, generic
-processors do not depend on one format's field names, and extension of the
-format set has a viable TypeScript story.
+**Gate:** the same evaluation renders into every supported format and level;
+generic processors do not depend on one format's field names; adding a format
+needs no evaluator change.
 
 ## Stage 2: cross-tier correctness and API hardening
 
 - Bring the compiler and interpreted islands to semantic parity with the
   reference interpreter.
-- Establish standalone implications for the selected initial formats.
-- Resolve artifact registry-snapshot correctness.
+- Fix artifact registry visibility (E1).
 - Stabilize the minimal public API, extension-author contract, terminology,
   migration guidance, and conformance/benchmark evidence.
 - Perform only the compiler optimization needed to prove acceptable baseline
-  behavior and architectural feasibility.
+  behavior.
 
 **Gate:** tier choice and compilation boundaries cannot change observable
-semantics, and the initial release surface is documented and testable.
+semantics, and the release surface is documented and testable.
 
 ## Stage 3: first public release
 
-- Decide the initial package set. In particular, either fix release-blocking
-  `ajv-compat` defects or omit that package from the first release.
-- Run conformance, differential, fuzz, security/resource-bound, documentation,
-  package-consumer, and benchmark gates.
-- Complete naming/versioning/package metadata and owner-controlled publication.
+- Ship `@jse/core`, `@jse/compiler`, `@jse/formats`, and
+  `@jse/dialect-draft04` under the owner's chosen names.
+- Run conformance, differential, fuzz, security/resource-bound,
+  documentation, package-consumer, oaskit-smoke, and benchmark gates.
 - Publish evidence explaining how JSE implements IETF draft-03 rather than
   presenting performance alone.
 
-**Gate:** the shipped packages are solid within their documented scope. Future
-format evolution can be accommodated without breaking evaluator semantics.
+**Gate:** the shipped packages are solid within their documented scope.
 
-## Stage 4: generic application facilities and integrations
+## Stage 4: application facilities and integrations
 
-- Complete schema-driven input transformation and default-filling designs.
+- Release `@jse/ajv-compat` after adapting it to the record model and fixing
+  its open defects.
 - Complete generic error grouping and oaskit adoption.
+- Complete schema-driven input transformation and default-filling designs.
 - Add native OAS dialects and annotation consumers without exposing the larger
   private product strategy.
-- Harden or expand AJV compatibility after the generic boundaries are stable.
-- Add streaming output when its lifecycle, cancellation/backpressure, and tier-
-  parity contract is ready.
+- Add streaming output when its lifecycle, cancellation/backpressure, and
+  tier-parity contract is ready.
 
 Prototypes from Stages 1–2 may pull a small amount of this work earlier when
 needed to validate a foundational mechanism.

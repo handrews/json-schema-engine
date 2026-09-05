@@ -51,14 +51,16 @@ or milestone:
 
 - **The first public release.** M9a delivered publication mechanics: dist
   builds, export maps, and the offline tarball gate are in place under the
-  placeholder `@jse/*` names. Release is now intended as soon as the IETF
-  draft-03 semantic reconciliation, flexible-output foundation, initial
-  package/API scope, and release evidence are solid. In particular,
-  `@jse/ajv-compat` must either have its release-blocking defects fixed or be
-  omitted from the first package set. `private: true` + version `0.0.0` remain
-  the anti-accident latch; naming, versioning, registry publication, and
-  outreach remain owner-controlled. Sibling projects consume `npm pack`
-  tarballs meanwhile (CONTRIBUTING).
+  placeholder `@jse/*` names. The release ships `@jse/core`, `@jse/compiler`,
+  `@jse/formats`, and `@jse/dialect-draft04` once the IETF draft-03 semantic
+  reconciliation, the output-level/control foundation, cross-tier parity
+  including the registry-snapshot fix, and the release evidence are solid
+  ([ADR 0001](docs/planning/next-steps/decisions/0001-first-release-scope.md)).
+  `@jse/ajv-compat` ships in a follow-up release after adaptation to the new
+  record model and fixes for its open defects. `private: true` + version
+  `0.0.0` remain the anti-accident latch; naming, versioning, registry
+  publication, and outreach remain owner-controlled. Sibling projects consume
+  `npm pack` tarballs meanwhile (CONTRIBUTING).
 - **Bowtie submission.** The harness (all five dialects) runs locally
   and in CI with exact pins; the PR to Bowtie and the bowtie.report
   listing are made by the owner personally (no automated PRs, ever —

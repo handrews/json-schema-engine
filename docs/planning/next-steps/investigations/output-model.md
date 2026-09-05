@@ -1,6 +1,8 @@
 # Investigation: flexible output model
 
-**Recommendation:** not decided.
+**Recommendation:** not decided. The control model is fixed by
+[ADR 0003](../decisions/0003-output-levels-and-orthogonal-controls.md); the
+record/renderer boundary that implements it is this investigation's output.
 
 ## Question
 
@@ -14,25 +16,31 @@ formats and field vocabularies without repeatedly changing evaluator semantics.
 
 ## Evidence baseline
 
-Treat these as equally relevant target-format inputs:
+Six format names, selected by name, each fixing structure and field
+vocabulary:
 
-- IETF draft-03's
-  [Flag, Basic, Detailed, and Verbose formats](https://www.ietf.org/archive/id/draft-ietf-jsonschema-json-schema-03.html#section-13.2),
-  with `keywordLocation`, `absoluteKeywordLocation`, and `instanceLocation`;
-- the machines-oriented
-  [Flag, List, and Hierarchical proposal](https://github.com/json-schema-org/json-schema-spec/blob/4f56a9900674b27804f0ec32e3b7fdfa4efad695/specs/output/jsonschema-validation-output-machines.md),
-  with `evaluationPath`, `schemaLocation`, `instanceLocation`, `details`,
-  keyword-keyed errors/annotations, and dropped annotations;
+- `flag`, `basic`, `detailed`, `verbose` from
+  [IETF draft-03 §13](https://www.ietf.org/archive/id/draft-ietf-jsonschema-json-schema-03.html#section-13.2),
+  with `keywordLocation`, `absoluteKeywordLocation`, `instanceLocation`,
+  singular `error`/`annotation`, and nested `errors`/`annotations`;
+- `list`, `hierarchical` from the
+  [machines-oriented proposal](https://github.com/json-schema-org/json-schema-spec/blob/4f56a9900674b27804f0ec32e3b7fdfa4efad695/specs/output/jsonschema-validation-output-machines.md),
+  with `evaluationPath`, `schemaLocation`, `instanceLocation`, `details`, and
+  keyword-keyed errors/annotations;
 - JSE's current native and compatibility outputs and its actual consumers.
+
+`flag` is identical in both sources; the other names are unique across both.
+Documentation states each name's source and that output formats are under
+active debate in the IETF process; no "family" concept appears in the API.
 
 IETF draft-03 did not change its output formats, but a later draft still might.
 In particular, `instanceLocation` may become `inputLocation` in IETF draft-04.
 The plan must not predict that outcome, but it must make such evolution cheap.
 
-The machines-oriented proposal predates IETF draft-03 and illustrates computed
-applicator annotations. Its structural output ideas are independent of those
-historical annotation semantics. A format target must not silently select an
-annotation/dependency model.
+The machines-oriented proposal's examples show computed applicator
+annotations, which JSE does not produce
+([ADR 0002](../decisions/0002-drop-historical-computed-annotations.md)). Its
+structural ideas stand on their own.
 
 ## Preferred JSE concepts versus target fields
 
@@ -82,8 +90,10 @@ dependency information and does not fully model keyword-level relevance.
 - Plain cloneable data at public and worker boundaries.
 - Stable artifact registry visibility through interpreted islands.
 - Source decoration without hot-path cost.
-- Structural output choice independent of optional historical computed-
-  annotation compatibility.
+- An explicit relevance marker on every irrelevant unit rendered at the
+  verbose level.
+- Format choice independent of level, annotation selection, and detail
+  controls.
 
 ## Extensibility questions
 
@@ -157,27 +167,59 @@ prevent mixing that identifier with an unrelated string or unit identifier.
 Compare opaque wrappers, `unique symbol` brands, and session-scoped generic
 parameters while keeping the serialized event data plain and cloneable.
 
-## Historical compatibility dimension
+## Output levels and orthogonal controls
 
-If 2020-12/2019-09 computed annotations are supported, they are synthesized by
-an output-only compatibility facility from evaluation/dependency facts. They
-must never become canonical IETF draft-03 annotations or feed depending
-keywords. Because no new meta-schema distinguishes IETF draft-03, this behavior
-requires explicit runtime/output configuration.
+The controls below are independent
+([ADR 0003](../decisions/0003-output-levels-and-orthogonal-controls.md)).
+Option names are provisional; this investigation chooses final names and
+records migration from the current ones.
 
-The investigation must test structural and semantic choices independently:
+| Control                 | Values                                                                                                                                                    | Layer                                                                                                        | Today                                             |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------- |
+| Format name             | `flag`; `basic`, `detailed`, `verbose` (draft-03 §13); `list`, `hierarchical` (machines-oriented proposal)                                                | render                                                                                                       | `output` + `locations`                            |
+| Level                   | minimal (`flag` only); relevant (`basic`, `detailed`, `list`, `hierarchical`); verbose (`verbose`; `list`/`hierarchical` under verbose demand; the trace) | evaluation demand (verbose forbids short-circuit) + render                                                   | `verbose` boolean on `hierarchical` only; `trace` |
+| Annotation selection    | none; all; allow/deny by keyword and vocabulary; predicate                                                                                                | render semantics; may be pushed into evaluation as elision without touching dependency data (channel rule 5) | `collectAnnotations` + `retention`                |
+| Error detail            | message; + keyword + structured params                                                                                                                    | render                                                                                                       | `errorParams`, `list` only                        |
+| Keyword identity detail | name; + vocabulary URI                                                                                                                                    | render                                                                                                       | `vocabulary` on flat units only                   |
+| Source positions        | not collected; collected, not rendered; rendered                                                                                                          | loader (collect) + render (include)                                                                          | `positions` decorate; loader `getRange` (D17)     |
 
-- IETF structure with IETF draft-03 annotations;
-- machines-oriented structure with IETF draft-03 annotations;
-- any selected historical structure with optional computed annotations;
-- verbose historical dropped annotations, if that scope is accepted.
+Requirements:
+
+- The level of a request, not its format name, drives evaluation demand.
+  `flag` is minimal; `basic` and `detailed` are relevant by definition
+  (§13.4.2–13.4.3); `verbose` is verbose by definition (§13.4.4); `list` and
+  `hierarchical` exist at both the relevant and verbose levels. Which further
+  combinations exist is an output of this investigation.
+- Every combination of controls is supported in both tiers or rejected with a
+  typed error. Today `errorParams` and `trace` are silently ignored outside
+  `list` (`packages/core/src/index.ts:219-226`).
+- The engine derives an _evaluation demand_ from the controls once, at plan or
+  compile time: annotations needed (per selection), irrelevant records needed
+  (verbose level), all errors needed (any level above minimal), dependency
+  tracking needed (from the schema's consumers). The existing
+  `RecordPredicate`/`shouldRecord` elision (`packages/core/src/engine.ts`,
+  `output.ts`) is the seed of this mechanism.
+- Verbose-level `list` and `hierarchical` output carries an explicit per-unit
+  relevance marker; the machines proposal has none, and `droppedAnnotations`
+  covers only discarded annotations. Draft-03 §13.4.4 recommends `valid` per
+  node for the same purpose; the marker design must serve both.
+- `vocabulary`, `params`, and `source` are available on every format above
+  minimal. Today `vocabulary` is lost in the hierarchy's keyword-keyed maps
+  (`packages/core/src/output.ts`).
+- Position collection is a loader-level control (parse cost); position
+  rendering is a separate render-level control.
+- The third-party-format TypeScript extension story is post-release; the
+  first release ships a closed, typed option set over a record→renderer
+  boundary designed to open later without evaluator changes.
 
 ## Measurements and prototypes
 
 - Time, allocation, and size for flag, all-errors, exact annotations,
   dependency tracking, relevance, and full verbose evaluation records.
+- Cost of the verbose level (irrelevant records plus marker) versus the
+  relevant level for `list` and `hierarchical`.
 - Generated size/calling-convention cost for compiled candidates.
-- Conversion cost among normalized records and both format families.
+- Conversion cost among normalized records and every format name.
 - A small externally defined format to test the extension boundary.
 - A provisional-unit stream with a later relevance transition, reduced and
   compared with the equivalent finalized document; measure buffering and event
@@ -186,25 +228,26 @@ The investigation must test structural and semantic choices independently:
   runtime-option policy, and absent-target defaults.
 - TypeScript examples using built-in, registered, and dynamically selected
   formats.
-- Incremental cost of historical computed annotations in terse and verbose
-  outputs.
 
 ## Compatibility and migration
 
 Record changes to format names, field vocabularies, result overloads, artifact
-APIs, caching, oaskit, and AJV compatibility. Avoid labeling the IETF family as
-merely "2020-12" or the machines-oriented proposal as simply "modern."
+APIs, caching, oaskit, and AJV compatibility. Name formats by their format
+names, never as "2020-12" or "modern", and state each name's source. The
+compiled `basic()` accessor and the draft-03 location fields that oaskit reads
+are kept or migrated in coordination with oaskit.
 
 ## Exit criteria
 
 - IETF draft-03 semantics are separated from every target format.
-- Both format families map to stable JSE concepts.
+- Every format name maps to stable JSE concepts at each supported level.
+- Level, annotation selection, error detail, keyword identity, and
+  source-position controls are independent, and every combination is
+  supported or rejected with a typed error.
 - Adding a representative format does not change evaluator code or semantics.
 - Direct/derived representations and tier responsibilities are identified.
 - Measurements and credible TypeScript examples are available.
 - Error/transformation/default investigations review the proposal.
-- Historical computed annotations are either isolated as optional output
-  compatibility or dropped.
 - Future target-field renaming has a documented, bounded migration path.
 - The selected foundation does not require retaining all output in memory and
   has a credible, parity-testable route to post-release streaming.

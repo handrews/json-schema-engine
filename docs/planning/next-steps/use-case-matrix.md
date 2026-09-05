@@ -3,36 +3,39 @@
 `Required` means the investigation must support or explicitly reject the use
 case. `Evidence` means it supplies fixtures or constraints.
 
-| Consumer or use case                  | Output   | Generic errors | Annotation / transformation     | Defaults |
-| ------------------------------------- | -------- | -------------- | ------------------------------- | -------- |
-| IETF draft-03 exact annotations       | Required | —              | Required                        | Evidence |
-| Runtime keyword dependencies          | Required | Evidence       | Evidence                        | —        |
-| Relevance-aware terse output          | Required | Required       | Required                        | Required |
-| Irrelevant verbose diagnostics        | Required | Evidence       | Evidence                        | Evidence |
-| Extensible target output formats      | Required | Evidence       | Evidence                        | Evidence |
-| Incremental/streaming output consumer | Required | Evidence       | Evidence                        | Evidence |
-| Optional historical annotations       | Required | —              | Evidence                        | —        |
-| Cheapest boolean validation           | Required | —              | —                               | —        |
-| Complete machine-readable failures    | Required | Required       | —                               | —        |
-| Human error presentation              | Evidence | Required       | —                               | —        |
-| Applicator/branch grouping            | Required | Required       | —                               | —        |
-| AJV errors and `ajv-errors`           | Evidence | Required       | —                               | —        |
-| oaskit `SchemaViolation` grouping     | Required | Required       | —                               | —        |
-| SARIF/LSP source locations            | Required | Required       | —                               | —        |
-| Annotation collection for tooling     | Required | —              | Required                        | Evidence |
-| OAS annotation viewer                 | Required | —              | Required                        | —        |
-| `unevaluated*` channel consumers      | Evidence | —              | Required                        | —        |
-| Extension-keyword `transform`         | Required | —              | Required                        | —        |
-| Multi-pass `contentSchema`            | Required | Evidence       | Required                        | —        |
-| Runtime-option `coerceTypes`          | Required | Evidence       | Required, separate policy class | —        |
-| Runtime-option `removeAdditional`     | Required | —              | Required, separate policy class | —        |
-| Static and dynamic defaults           | Required | Evidence       | Evidence                        | Required |
-| Parent creation then nested defaults  | Required | —              | Evidence                        | Required |
-| Conflict/non-convergence diagnostics  | Evidence | Required       | Required                        | Required |
-| Compiled/interpreted parity           | Required | Evidence       | Required                        | Required |
-| Standalone artifacts                  | Required | Evidence       | Evidence                        | Evidence |
-| Full application-history diagnostics  | Required | Evidence       | Required                        | Evidence |
-| oaskit Overlay preprocessing          | —        | Evidence       | Evidence only                   | —        |
+| Consumer or use case                    | Output   | Generic errors | Annotation / transformation     | Defaults |
+| --------------------------------------- | -------- | -------------- | ------------------------------- | -------- |
+| IETF draft-03 exact annotations         | Required | —              | Required                        | Evidence |
+| Runtime keyword dependencies            | Required | Evidence       | Evidence                        | —        |
+| Relevance-aware terse output            | Required | Required       | Required                        | Required |
+| Irrelevant verbose diagnostics          | Required | Evidence       | Evidence                        | Evidence |
+| Verbose level for `list`/`hierarchical` | Required | Evidence       | Evidence                        | Evidence |
+| Annotation selection (allow/deny)       | Required | —              | Required                        | Evidence |
+| Keyword vocabulary identity in output   | Required | Evidence       | Required                        | —        |
+| Source positions: collect vs render     | Required | Required       | Evidence                        | —        |
+| Extensible target output formats        | Required | Evidence       | Evidence                        | Evidence |
+| Incremental/streaming output consumer   | Required | Evidence       | Evidence                        | Evidence |
+| Cheapest boolean validation             | Required | —              | —                               | —        |
+| Complete machine-readable failures      | Required | Required       | —                               | —        |
+| Human error presentation                | Evidence | Required       | —                               | —        |
+| Applicator/branch grouping              | Required | Required       | —                               | —        |
+| AJV errors and `ajv-errors`             | Evidence | Required       | —                               | —        |
+| oaskit `SchemaViolation` grouping       | Required | Required       | —                               | —        |
+| SARIF/LSP source locations              | Required | Required       | —                               | —        |
+| Annotation collection for tooling       | Required | —              | Required                        | Evidence |
+| OAS annotation viewer                   | Required | —              | Required                        | —        |
+| `unevaluated*` channel consumers        | Evidence | —              | Required                        | —        |
+| Extension-keyword `transform`           | Required | —              | Required                        | —        |
+| Multi-pass `contentSchema`              | Required | Evidence       | Required                        | —        |
+| Runtime-option `coerceTypes`            | Required | Evidence       | Required, separate policy class | —        |
+| Runtime-option `removeAdditional`       | Required | —              | Required, separate policy class | —        |
+| Static and dynamic defaults             | Required | Evidence       | Evidence                        | Required |
+| Parent creation then nested defaults    | Required | —              | Evidence                        | Required |
+| Conflict/non-convergence diagnostics    | Evidence | Required       | Required                        | Required |
+| Compiled/interpreted parity             | Required | Evidence       | Required                        | Required |
+| Standalone artifacts                    | Required | Evidence       | Evidence                        | Evidence |
+| Full application-history diagnostics    | Required | Evidence       | Required                        | Evidence |
+| oaskit Overlay preprocessing            | —        | Evidence       | Evidence only                   | —        |
 
 ## Information required at processing boundaries
 
@@ -52,6 +55,7 @@ case. `Evidence` means it supplies fixtures or constraints.
 | Successful annotation-free applications   | —        | Current compat dependency | Current compat dependency |
 | Keyword/schema results and ancestry       | Required | Required                  | Required                  |
 | Relevance/irrelevance and transition      | Required | Required                  | Required                  |
+| Relevance marker in verbose-level output  | Required | Evidence                  | Evidence                  |
 | Stable evaluation/unit lifecycle identity | Required | Evidence                  | Evidence                  |
 | Stable resource snapshot                  | Required | Required                  | Required                  |
 | Deterministic encounter/order data        | Required | Required                  | Required                  |
@@ -61,12 +65,14 @@ Successful annotation-free applications are needed by the current compat
 traversal of verbose output. They are not yet a requirement on the future
 native model; a focused application-record or plan API may be better.
 
-The output column covers two peer target families: IETF draft-03
-Flag/Basic/Detailed/Verbose and the machines-oriented
-Flag/List/Hierarchical proposal. Their structural choices must be evaluated
-independently of annotation semantics. The latter's examples include historical
-computed applicator annotations, which are optional compatibility rather than
-the IETF draft-03 default.
+The output column covers the six format names (`flag`, `basic`, `detailed`,
+`verbose` from IETF draft-03 §13; `list`, `hierarchical` from the
+machines-oriented proposal) at their supported levels
+([ADR 0003](decisions/0003-output-levels-and-orthogonal-controls.md)).
+Structural choices are evaluated independently of annotation semantics. The
+machines-oriented proposal's examples show computed applicator annotations,
+which JSE does not produce
+([ADR 0002](decisions/0002-drop-historical-computed-annotations.md)).
 
 ## Concrete consumers and fixtures
 
@@ -119,11 +125,14 @@ the IETF draft-03 default.
 - Directly failing dependency producers adjacent to `unevaluated*` consumers.
 - Relevance transitions at keyword and schema boundaries across every
   applicator class.
-- The same semantics rendered into both output-format families.
+- An accepting sub-evaluation under a rejecting schema object: absent from
+  relevant-level output, present and marked at the verbose level (the current
+  goldens case).
+- The same semantics rendered into every supported format at each level, with
+  the relevance marker at the verbose level.
 - A third-party format proving extension without evaluator changes.
 - A streamed unit that later becomes irrelevant, with explicit transition and
   the same final reduction as document output.
-- Optional 2020-12/2019-09 computed annotations that cannot affect validation.
 - Native grouping independent of AJV vocabulary.
 - Native transformation proposal ordering and conflicts.
 - Extension-keyword transformation and runtime-option policy on one input.

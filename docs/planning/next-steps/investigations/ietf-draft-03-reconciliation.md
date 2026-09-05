@@ -1,8 +1,8 @@
 # Investigation: IETF draft-03 semantic reconciliation
 
 **Requirement:** the IETF draft-03 model is the must-deliver behavior for the
-current dialect. Historical computed annotations are optional output
-compatibility and must not alter evaluation.
+current dialect. Historical computed annotations are not produced
+([ADR 0002](../decisions/0002-drop-historical-computed-annotations.md)).
 
 ## Evidence baseline
 
@@ -30,6 +30,10 @@ names and patterns in adjacent keywords, `items` reading the length of
 `prefixItems`, and `contains` reading `minContains` and `maxContains`. Runtime
 dependencies include evaluated names/indexes for `unevaluated*` and the `if`
 outcome used by `then` or `else`.
+
+The separation is realized as two record kinds with distinct types and
+distinct `KeywordContext` entry points. A dependency record cannot be passed
+where an annotation record is expected.
 
 ## Relevance model
 
@@ -81,43 +85,41 @@ The current model nevertheless conflates distinct semantics:
   `items`, `contains`, and `unevaluated*` produce computed values;
 - frames exist at schema-application boundaries, not necessarily at every
   keyword evaluation needed to determine relevance;
-- raw errors can survive from rejecting sub-evaluations of an accepting
-  applicator even though those errors are irrelevant in non-verbose output.
+- errors are one flat array that is never rolled back
+  (`packages/core/src/engine.ts`), so errors from rejecting sub-evaluations of
+  an accepting applicator reach `list` and `hierarchical` output. Probe
+  (2026-09-05): with `anyOf: [{"type":"string"}, {"type":"number","title":"num"}]`
+  and input `5`, the `/anyOf/0` error unit is rendered in a valid result. The
+  `locations: "2020-12"` path omits it only because it renders errors solely
+  when the run is invalid;
+- annotations from accepting sub-evaluations under a rejecting schema object
+  reach `list` output: `packages/core/test/goldens/list.json` keeps the
+  `/properties/item` annotations under an invalid root, which §13.4 excludes
+  from relevant-level output. The goldens are regenerated in Phase 1.
 
 The reconciliation must determine whether relevance is recorded explicitly or
 derived from a richer evaluation graph. It must not assume that current schema
-frames or the public trace carry enough information.
+frames or the public trace carry enough information. Candidates for the
+Phase 1 spike:
+
+- a relevance flag on each record, set by the owning keyword or schema
+  evaluation on transition, with irrelevant records dropped unless verbose
+  demand is present;
+- record buffers scoped per keyword evaluation, discarded or marked on
+  transition, with the trace as the verbose-level source.
 
 IETF draft-03 also recommends treating recognized-but-unsupported keywords as
 exact-value annotations. The investigation must define how that case differs
 from an unrecognized keyword and from a keyword in a required but unsupported
 vocabulary.
 
-## Historical computed-annotation compatibility
+## Historical computed annotations
 
-Draft 2020-12 and 2019-09 exposed computed applicator annotations. Supporting
-those values is optional and must be evaluated against its complexity.
-
-A plausible clean boundary is an output-only compatibility adapter that
-synthesizes historical annotations from dependency/evaluation facts, the
-schema, input, and trace as necessary. Requirements if this is pursued:
-
-- IETF draft-03 exact-value annotations remain the default and canonical
-  evaluator result;
-- synthetic annotations never enter or influence dependency processing;
-- output structure selection and historical annotation semantics are
-  independent configuration dimensions;
-- configuration cannot rely on dialect meta-schema identity because IETF
-  draft-03 has no new meta-schema;
-- the adapter specifies whether and how it reproduces historical dropped
-  annotations from failed or irrelevant evaluations;
-- interpreter, compiler, and standalone behavior agree;
-- users pay retention/trace cost only when requesting compatibility.
-
-Do not add historical computed annotations to the evaluator's canonical
-annotation stream merely because an output proposal's examples contain them.
-Drop the compatibility feature if it requires duplicating dependency semantics
-or contaminating the IETF draft-03 path.
+Not produced
+([ADR 0002](../decisions/0002-drop-historical-computed-annotations.md)).
+Applicator keywords produce dependency information only. The machines-oriented
+proposal's examples that show computed annotations are structural evidence
+only.
 
 ## TypeScript implications
 
@@ -141,14 +143,15 @@ union, but must ensure that:
   references, and conditionals.
 - `contains` with relevant and irrelevant matching/non-matching items.
 - Nested `unevaluated*` producers and consumers across references.
+- An accepting sub-evaluation under a rejecting schema object: absent from
+  relevant-level output, present and marked at the verbose level.
 - Relevant exact-value annotations and irrelevant annotations/errors in each
-  selected output format.
+  format at each supported level.
 - Unrecognized and recognized-but-unsupported keyword handling, including
   required-vocabulary failure.
 - Short-circuit decisions with annotations off/on, dependency consumers
-  absent/present, and verbose output off/on. Verbose demand itself prevents
-  short-circuiting unless the skipped evaluation can be represented faithfully.
-- Optional historical output with evaluation results unchanged.
+  absent/present, and verbose demand off/on. Short-circuiting is permitted
+  only when all three are absent (§12).
 - Streamed provisional units followed by ancestor-driven irrelevance,
   including final reduction to the same result as document output.
 
@@ -161,7 +164,5 @@ union, but must ensure that:
 - The relevance model can support a later streaming protocol without requiring
   evaluator semantics to be replaced.
 - Static and runtime dependency paths are separately specified.
-- Interpreter and minimal compiler parity are demonstrated before deep
-  optimization.
-- Historical computed annotations have either a bounded output-only design or
-  an explicit decision not to support them.
+- Interpreter semantics are fixed first; compiler parity follows in Phase 3
+  of the [roadmap](../roadmap.md), before any optimization.
