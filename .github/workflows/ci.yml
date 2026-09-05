@@ -1,7 +1,10 @@
 name: CI
 
 on:
+  # Branch pushes are checked through their pull request, which runs against the
+  # merge commit; running the push event there too would duplicate every check.
   push:
+    branches: [main]
   pull_request:
 
 jobs:
