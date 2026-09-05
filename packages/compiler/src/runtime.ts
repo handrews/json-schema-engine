@@ -79,10 +79,10 @@ export interface Runtime {
   /**
    * Coverage-harvesting trampoline (COMPILED-CONSUMERS.md phase B, §5): like
    * {@link frag} for an island applied IN-PLACE under a compiled consumer,
-   * but the island's surviving root-cursor consumed productions are folded
-   * into the parent's runtime coverage channel `ev`. `shouldRecord` already
-   * records consumed ids (the M5.5 invariant), so an island always reports the
-   * coverage a consumer would observe. A failed island's root productions are
+   * but the island's surviving root-cursor consumed dependency records are
+   * folded into the parent's runtime coverage channel `ev`. Consumed ids are
+   * always recorded (the M5.5 invariant), so an island always reports the
+   * coverage a consumer would observe. A failed island's root records are
    * empty; the caller's mark/truncate is the uniform backstop either way.
    */
   fragCov(
@@ -114,12 +114,10 @@ export interface Runtime {
   ): boolean;
   /**
    * Annotation-mode list trampoline: like {@link fragList} for errors, then
-   * harvests the island's surviving root productions as annotation units
-   * (retention lists applied, instance locations re-rooted under `ip`) onto
-   * `anns`. `ev` composes exactly as on {@link Runtime.fragList} — the
-   * recording predicate here already includes every consumed id, so the
-   * coverage harvest sees the same productions a consumer would. Present
-   * only on annotation-mode artifacts.
+   * harvests the island's surviving root annotation records as annotation
+   * units (retention lists applied, instance locations re-rooted under `ip`)
+   * onto `anns`. `ev` composes exactly as on {@link Runtime.fragList}.
+   * Present only on annotation-mode artifacts.
    */
   fragListAnn?(
     target: SchemaRef,
@@ -168,28 +166,18 @@ export function makeRuntime(
     }
     formats[name] = definition;
   }
-  // Flag-mode elision predicate. NOT `() => false`: consumed behavior ids
-  // must always record (M5.5 invariant) or unevaluated* inside fragments
-  // would see an empty channel.
-  const shouldRecord = makeRecordPredicate(
-    registry.consumedIds(),
-    false,
-    undefined,
-  );
+  // Flag-mode annotation elision: no annotation is ever rendered. Dependency
+  // records for consumed behavior ids still record (M5.5 invariant, enforced
+  // by the engine's produce()), so unevaluated* inside fragments sees its
+  // channel.
+  const shouldRecord = makeRecordPredicate(false, undefined);
   // Captured once: the behavior ids a consumer would observe, for fragCov's
   // coverage harvest (COMPILED-CONSUMERS.md §5).
   const consumedIds = registry.consumedIds();
-  // Annotation harvest predicates (built once): an island records consumed
-  // AND retainable productions so consumers inside it still see their
-  // channel; the lists-only pass then drops consumed-only survivors, leaving
-  // exactly what retention would keep. `keep` runs later in the wrapper.
+  // Annotation harvest predicate (built once): an island records exactly the
+  // annotations retention's lists keep. `keep` runs later in the wrapper.
   const retention = annotate?.retention;
-  const annRecord = annotate
-    ? makeRecordPredicate(registry.consumedIds(), true, retention)
-    : null;
-  const annLists = annotate
-    ? makeRecordPredicate(new Set(), true, retention)
-    : null;
+  const annRecord = annotate ? makeRecordPredicate(true, retention) : null;
   return {
     isObject,
     isInteger,
@@ -223,7 +211,7 @@ export function makeRuntime(
     },
     fragCov: (target, value, scope, depth, ev) => {
       // The SAME cursor object must reach harvestCoverage: it filters root
-      // productions by cursor identity (coverage.ts), so a second rootCursor()
+      // records by cursor identity (coverage.ts), so a second rootCursor()
       // would match nothing.
       const cursor = rootCursor(value);
       const options: FragmentOptions = {
@@ -234,7 +222,7 @@ export function makeRuntime(
         shouldRecord,
       };
       const result = evaluateFragment(registry, target, cursor, options);
-      ev.push(...harvestCoverage(result.productions, cursor, consumedIds));
+      ev.push(...harvestCoverage(result.dependencies, cursor, consumedIds));
       return result.valid;
     },
     fragList: (target, value, scope, depth, ep, ip, errs, ev) => {
@@ -259,7 +247,7 @@ export function makeRuntime(
         errs.push(unit);
       }
       if (ev !== undefined) {
-        ev.push(...harvestCoverage(result.productions, cursor, consumedIds));
+        ev.push(...harvestCoverage(result.dependencies, cursor, consumedIds));
       }
       return result.valid;
     },
@@ -294,18 +282,14 @@ export function makeRuntime(
               unit.instanceLocation = ip + unit.instanceLocation;
               errs.push(unit);
             }
-            // Drop consumed-only productions the lists would not retain; the
-            // island's own channel consumers already read them inside it.
-            for (const p of result.productions) {
-              if (!annLists!(p.behaviorId, p.keywordName, p.vocabularyUri))
-                continue;
-              const unit = renderAnnotation(p, "modern");
+            for (const a of result.annotations) {
+              const unit = renderAnnotation(a, "modern");
               unit.instanceLocation = ip + unit.instanceLocation;
               anns.push(unit);
             }
             if (ev !== undefined) {
               ev.push(
-                ...harvestCoverage(result.productions, cursor, consumedIds),
+                ...harvestCoverage(result.dependencies, cursor, consumedIds),
               );
             }
             return result.valid;

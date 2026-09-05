@@ -1,11 +1,11 @@
 // Reference produce evaluator (COMPILED-ANNOTATIONS.md §5 stage-1 gate).
 //
-// An INDEPENDENT interpreter of the produce recipes a keyword's lower()
-// emits (LowerProduceValue, core/src/lowering.ts). It runs the collected
-// LowerStmt list against a concrete instance and renders each keyword's
-// produce exactly as the accumulation-model TSDoc specifies, so the gate can
-// differentially check the recipes against the interpreter's own productions
-// before the serializer ever consumes them. Depends only on @jse/core (the
+// An INDEPENDENT interpreter of the annotate/produce statements a keyword's
+// lower() emits (LowerProduceValue, core/src/lowering.ts). It runs the
+// collected LowerStmt list against a concrete instance and renders each
+// keyword's record exactly as the accumulation-model TSDoc specifies, so the
+// gate can differentially check the recipes against the interpreter's own
+// records before the serializer ever consumes them. Depends only on @jse/core (the
 // LowerStmt vocabulary and the trampoline live there); it duck-types the
 // planner's unit as {@link OracleUnit}, so it never imports @jse/compiler —
 // the same one-way dependency discipline census.ts follows.
@@ -60,7 +60,7 @@ export interface OracleUnit {
   tracking?: boolean;
 }
 
-/** One keyword's rendered production. */
+/** One keyword's rendered record: an annotation's value or its dependency data. */
 export interface RecipeProduction {
   keyword: string;
   value: unknown;
@@ -88,10 +88,10 @@ const freshAccumulators = (): Accumulators => ({
 });
 
 /**
- * Reference-evaluates every produce recipe of `unit`'s schema object against
- * `instance`, returning the productions in execution (dialect) order — the
- * differential oracle for the compiler's produce IR. Boolean schema nodes
- * carry no keywords and produce nothing.
+ * Reference-evaluates every annotate/produce statement of `unit`'s schema
+ * object against `instance`, returning the records in execution (dialect)
+ * order — the differential oracle for the compiler's record IR. Boolean
+ * schema nodes carry no keywords and record nothing.
  */
 export function evaluateProduceRecipes(
   registry: SchemaRegistry,
@@ -213,6 +213,13 @@ class RecipeExecutor {
       case "apply":
         this.execApply(stmt.apply);
         return;
+      case "annotate":
+        // The annotation value is the keyword's own value (draft-03 §12.9).
+        this.out.push({
+          keyword: this.keyword,
+          value: (this.unitRef.node as Record<string, JsonValue>)[this.keyword],
+        });
+        return;
       case "produce": {
         const rendered = this.render(stmt.value);
         if (rendered.has) {
@@ -223,13 +230,9 @@ class RecipeExecutor {
     }
   }
 
-  /** Renders a produce recipe; `has: false` means no production ("nothing"). */
+  /** Renders a produce recipe; `has: false` means no record ("nothing"). */
   private render(v: LowerProduceValue): { has: boolean; value?: unknown } {
     switch (v.kind) {
-      case "const":
-        return { has: true, value: v.value };
-      case "expr":
-        return { has: true, value: this.evalExpr(v.expr) };
       case "collectedNames":
         // Possibly empty; the object-type guard is the lower()'s job.
         return { has: true, value: [...this.accum.names] };

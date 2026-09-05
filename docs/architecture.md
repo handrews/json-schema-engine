@@ -55,7 +55,7 @@ flowchart TD
     end
     RY -- "analyze() facts" --> PLAN
     ART -- "evaluateFragment\n(scope · path · depth · cursor)" --> INT
-    INT -- "valid · errors · productions" --> ART
+    INT -- "valid · errors · records" --> ART
     INS["instance"] --> INT
     INS --> ART
     ART --> OUT2["flag · flat errors/annotations ·\nBasic document"]
@@ -63,20 +63,24 @@ flowchart TD
 
 ## The channel
 
-Annotation flow is a frame-scoped production channel (DESIGN §4, normative;
-implemented once, in `engine.ts`). Each schema application pushes a frame;
-keywords produce into it; the frame merges into its parent on success and is
+Keyword output flows through a frame-scoped record channel (DESIGN §4,
+normative; implemented once, in `engine.ts`) carrying two record kinds:
+annotations, whose value is the keyword's own value and which are output, and
+dependency data, computed information one keyword communicates to another
+and never output. Each schema application pushes a frame; keywords annotate
+and produce into it; the frame merges into its parent on success and is
 discarded on failure. Consumers (`unevaluatedProperties`/`unevaluatedItems`)
-see the current frame filtered by cursor identity. Retention policy filters
-only the final result — never consumer visibility — and produce-time elision
-(D5) drops productions that are provably neither consumed nor retainable.
+see the current frame's dependency records filtered by cursor identity.
+Retention policy filters only annotations in the final result — never
+consumer visibility — and elision (D5) drops annotations that cannot be
+retained and dependency data that nothing consumes.
 
 The compiler specializes statically known evaluated coverage directly into
 consumer sweeps. Dynamic coverage uses a runtime channel with the same
 success-merge/failure-discard semantics (array marks and truncation); in-place
-islands return surviving root-cursor productions to that channel. A tracked
-consumer nested inside another tracked in-place region still islands rather
-than nesting compiled channel scopes.
+islands return surviving root-cursor dependency data to that channel. A
+tracked consumer nested inside another tracked in-place region still islands
+rather than nesting compiled channel scopes.
 
 ## Dynamic scope and islands
 
@@ -86,7 +90,7 @@ on dynamic state — plus any unit the planner cannot or chooses not to
 compile — becomes an _interpreted unit_: compiled code calls
 `evaluateFragment` with its constant dynamic-scope contribution, evaluation
 path prefix, consumed depth budget, and the instance cursor, and harvests
-`{valid, errors, productions}` back. The trampoline is one-way: interpreted
+`{valid, errors, annotations, dependencies}` back. The trampoline is one-way: interpreted
 code never re-enters compiled code. That invariant is what makes the channel
 analysis of compiled units tractable (an island can only feed its compiled
 _ancestors_, never siblings), and it is recorded as a revisit trigger in

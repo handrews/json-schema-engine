@@ -1,10 +1,10 @@
 // Compiled-tier port of the consumer keywords' channel-reading semantics
 // (COMPILED-CONSUMERS.md). The runtime coverage channel is a flat array of
-// RAW PRODUCTION VALUES — the same values `ctx.produce` yields — merged with
+// RAW DEPENDENCY DATA — the same values `ctx.produce` yields — merged with
 // mark/truncate at application boundaries by the serializer (phase B). These
 // helpers fold that channel exactly as the interpreter's `unevaluated*`
-// evaluate() folds visible productions, dispatching on VALUE SHAPE (the shape
-// is unambiguous, so one mixed names+indexes channel is sound):
+// evaluate() folds visible dependency records, dispatching on VALUE SHAPE
+// (the shape is unambiguous, so one mixed names+indexes channel is sound):
 //
 // - `string[]`  evaluated property names (properties/patternProperties/
 //               additionalProperties/unevaluatedProperties values); folds
@@ -18,7 +18,7 @@
 // Name folding ignores non-`string[]` entries; index folding ignores
 // `string[]` entries; `[]` is a no-op for both.
 
-import { Production } from "./engine.js";
+import { DependencyRecord } from "./engine.js";
 import { Cursor } from "./cursor.js";
 
 /**
@@ -66,21 +66,21 @@ export function foldIndexCoverage(
 }
 
 /**
- * Channel entries a fragment (interpreted island) contributes: the values of
- * consumed-producer productions recorded at the island's root cursor.
- * `evaluateFragment` returns root-frame surviving productions with cursor
+ * Channel entries a fragment (interpreted island) contributes: the data of
+ * consumed-producer dependency records at the island's root cursor.
+ * `evaluateFragment` returns root-frame surviving records with cursor
  * identity intact; filtering to the fragment's root `cursor` keeps coverage
  * per-instance-location, and filtering to `consumedIds` keeps only
- * producer keywords a consumer would observe. Values pass through untouched.
+ * producer keywords a consumer would observe. Data passes through untouched.
  */
 export function harvestCoverage(
-  productions: readonly Production[],
+  dependencies: readonly DependencyRecord[],
   cursor: Cursor,
   consumedIds: ReadonlySet<string>,
 ): unknown[] {
   const out: unknown[] = [];
-  for (const p of productions) {
-    if (p.cursor === cursor && consumedIds.has(p.behaviorId)) out.push(p.value);
+  for (const d of dependencies) {
+    if (d.cursor === cursor && consumedIds.has(d.behaviorId)) out.push(d.data);
   }
   return out;
 }

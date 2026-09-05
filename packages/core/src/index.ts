@@ -71,7 +71,7 @@ export type {
   KeywordBehavior,
   KeywordContext,
   StaticFacts,
-  ProductionView,
+  DependencyView,
   DialectOptions,
   IdentifierFacts,
   IdentifierExtractor,
@@ -97,18 +97,20 @@ export { UnresolvableRefError } from "./uri.js";
 export {
   InfiniteLoopError,
   UndeclaredConsumptionError,
+  UndeclaredProductionError,
   UnknownKeywordError,
   evaluateFragment,
   materializePath,
   runEvaluation,
 } from "./engine.js";
 export type {
+  AnnotationRecord,
+  DependencyRecord,
   ErrorRecord,
   EvalState,
   Frame,
   FragmentOptions,
   PathNode,
-  Production,
   RecordPredicate,
   TraceNode,
 } from "./engine.js";
@@ -574,7 +576,6 @@ export class Engine {
     const shouldRecord = structured
       ? null
       : makeRecordPredicate(
-          this.schemas.consumedIds(),
           options.collectAnnotations ?? false,
           options.retention,
         );
@@ -601,7 +602,7 @@ export class Engine {
     }
     if (valid && options.collectAnnotations) {
       result.annotations = applyRetention(
-        state.rootProductions,
+        state.rootAnnotations,
         options.retention,
         vocabulary,
       );
@@ -613,14 +614,14 @@ export class Engine {
               valid,
               this.schemas.rootRef(schemaUri),
               state.errors,
-              state.rootProductions,
+              state.rootAnnotations,
               options.retention,
               vocabulary,
             )
           : renderList(
               state.traceRoot!,
               state.errors,
-              state.allProductions ?? [],
+              state.allAnnotations ?? [],
               {
                 vocabulary,
                 verbose: options.verbose,
@@ -634,19 +635,19 @@ export class Engine {
             ? renderVerbose(
                 state.traceRoot!,
                 state.errors,
-                state.allProductions ?? [],
+                state.allAnnotations ?? [],
                 options.retention,
               )
             : renderDetailed(
                 state.traceRoot!,
                 state.errors,
-                state.allProductions ?? [],
+                state.allAnnotations ?? [],
                 options.retention,
               )
           : renderHierarchical(
               state.traceRoot!,
               state.errors,
-              state.allProductions ?? [],
+              state.allAnnotations ?? [],
               {
                 vocabulary,
                 verbose: options.verbose,

@@ -103,6 +103,7 @@ export const items2019: KeywordBehavior = {
             conditional: false,
             asserts: true,
           })),
+          produces: [id("items")],
           evaluatesIndexes: { kind: "prefix", count: value.length },
         }
       : {
@@ -110,6 +111,7 @@ export const items2019: KeywordBehavior = {
           applications: [
             { path: [], mode: "childSweep", conditional: false, asserts: true },
           ],
+          produces: [id("items")],
           evaluatesIndexes: { kind: "allFrom", start: 0 },
         },
   // Two forms, same as evaluate(): tuple (per-index, guarded by the array's
@@ -225,12 +227,15 @@ export const additionalItems: KeywordBehavior = {
   // never reach.
   analyze: (_value, context): StaticFacts => {
     const siblingItems = context?.schema.items;
-    if (!Array.isArray(siblingItems)) return SELF;
+    if (!Array.isArray(siblingItems)) {
+      return { ...SELF, produces: [id("additionalItems")] };
+    }
     return {
       ...SELF,
       applications: [
         { path: [], mode: "childSweep", conditional: false, asserts: true },
       ],
+      produces: [id("additionalItems")],
       evaluatesIndexes: { kind: "allFrom", start: siblingItems.length },
     };
   },
@@ -457,12 +462,12 @@ const unevaluatedItems2019: KeywordBehavior = {
       unevaluatedItems2019.id,
     ])) {
       if (p.behaviorId === contains.id) {
-        if (p.value === true) coveredPrefix = length;
-        else for (const i of p.value as number[]) coveredIdx.add(i);
-      } else if (p.value === true) {
+        if (p.data === true) coveredPrefix = length;
+        else for (const i of p.data as number[]) coveredIdx.add(i);
+      } else if (p.data === true) {
         coveredPrefix = length;
       } else if (p.behaviorId === items2019.id) {
-        coveredPrefix = Math.max(coveredPrefix, (p.value as number) + 1);
+        coveredPrefix = Math.max(coveredPrefix, (p.data as number) + 1);
       }
     }
     let ok = true;
@@ -609,7 +614,7 @@ const unevaluatedProperties2019: KeywordBehavior = {
       additionalProperties.id,
       unevaluatedProperties2019.id,
     ])) {
-      for (const name of p.value as string[]) seen.add(name);
+      for (const name of p.data as string[]) seen.add(name);
     }
     let ok = true;
     const matched: string[] = [];

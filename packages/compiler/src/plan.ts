@@ -197,7 +197,7 @@ export function buildPlan(
       for (const fmt of facts.formats ?? []) formats.add(fmt);
       present.push({ name: entry.name, facts });
     }
-    // Unknown keywords: annotation-only productions, elided in flag mode.
+    // Unknown keywords: annotations, elided in flag mode.
 
     // Consumer licensing (D9a): a consumer lowers only when its coverage
     // kind is statically known — from this object's own contributors plus,

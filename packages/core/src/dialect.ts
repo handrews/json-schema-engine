@@ -53,7 +53,7 @@ export interface SubschemaApplication {
   asserts: boolean;
   /**
    * The verdict feeds NEGATED (`not`): subschema success fails the keyword.
-   * Coverage analysis (D9a) skips inverted edges — their productions never
+   * Coverage analysis (D9a) skips inverted edges — their records never
    * survive into the parent on the parent-success path (success fails the
    * node; failure discards the frame).
    */
@@ -73,9 +73,13 @@ export interface StaticFacts {
    * base); drives transitive resource loading (D7)
    */
   references?: readonly string[];
-  /** behavior ids of productions this keyword can emit */
+  /**
+   * behavior ids of dependency records this keyword can emit — its own id;
+   * `produce()` refuses an undeclared producer (engine.ts
+   * UndeclaredProductionError). Annotation keywords declare nothing.
+   */
   produces?: readonly string[];
-  /** behavior ids of productions this keyword reads from the channel */
+  /** behavior ids of dependency records this keyword reads from the channel */
   consumes?: readonly string[];
   /**
    * regular-expression values this keyword compiles (e.g. `pattern`, the
@@ -113,10 +117,10 @@ export interface AnalyzeContext {
   readonly schema: Readonly<Record<string, JsonValue>>;
 }
 
-/** Minimal view of a channel production, for consumer keywords. */
-export interface ProductionView {
+/** Minimal view of a dependency record, for consumer keywords. */
+export interface DependencyView {
   behaviorId: string;
-  value: unknown;
+  data: unknown;
 }
 
 /**
@@ -149,10 +153,19 @@ export interface KeywordContext {
   applyResolved(target: SchemaRef): boolean;
   /** compile a `pattern`/`patternProperties` regex through the engine's regex engine and cache (see regex.ts) */
   compileRegex(pattern: string): CompiledRegex;
-  /** emit a production for this keyword at the current cursor */
-  produce(value: unknown): void;
-  /** productions visible at the current cursor from the listed behaviors */
-  visible(behaviorIds: readonly string[]): readonly ProductionView[];
+  /**
+   * record this keyword's value as an annotation at the current cursor —
+   * the annotation value is the keyword value (draft-03 §12.9), so there is
+   * nothing to pass
+   */
+  annotate(): void;
+  /**
+   * communicate computed dependency data to other keywords at the current
+   * cursor; never output. `analyze().produces` must list this keyword's id.
+   */
+  produce(data: unknown): void;
+  /** dependency records visible at the current cursor from the listed behaviors; `analyze().consumes` must list them */
+  visible(behaviorIds: readonly string[]): readonly DependencyView[];
   /** report an assertion failure for this keyword, with optional structured params (D13) */
   error(message: string, params?: ErrorParams): void;
 }
@@ -163,7 +176,7 @@ export interface KeywordBehavior {
   readonly id: string;
   /**
    * Evaluation phase within a schema object: phase 1 keywords (unevaluated*)
-   * run after all phase 0 keywords have merged their productions.
+   * run after all phase 0 keywords have merged their records.
    */
   readonly phase?: 0 | 1;
   /**
@@ -354,6 +367,6 @@ export class DialectRegistry {
   }
 }
 
-/** Behavior id for productions from keywords the dialect doesn't know. */
+/** Behavior id for annotations from keywords the dialect doesn't know. */
 export const unknownKeywordId = (name: string): string =>
   `urn:jse:keyword:unknown#${name}`;

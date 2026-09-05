@@ -63,16 +63,18 @@ vocabulary, not the fundamental internal terminology.
 
 ## Current behavior
 
-The interpreter maintains flat error records, frame-scoped productions, and an
-optional trace. `Engine.evaluate` projects these into flag, list, or
-hierarchical results and modern or 2020-12 location names. Verbose hierarchical
-output retains successful annotation-free applications, which the mutation
-adapter currently consumes. Compiled evaluation directly supports flag and
-list artifacts; hierarchical output is not a compiled artifact surface.
+The interpreter maintains flat error records, frame-scoped annotation and
+dependency records (separate stores; renderers accept annotation records
+only), and an optional trace. `Engine.evaluate` projects these into flag,
+list, or hierarchical results and modern or 2020-12 location names. Verbose
+hierarchical output retains successful annotation-free applications, which
+the mutation adapter currently consumes. Compiled evaluation directly
+supports flag and list artifacts; hierarchical output is not a compiled
+artifact surface.
 
-This model needs IETF draft-03 reconciliation before it can be the canonical
-input to flexible renderers. In particular, it conflates annotations and
-dependency information and does not fully model keyword-level relevance.
+This model needs the relevance step of the IETF draft-03 reconciliation
+before it can be the canonical input to flexible renderers: it does not yet
+model keyword-level relevance, and errors are never rolled back.
 
 ## Required guarantees
 

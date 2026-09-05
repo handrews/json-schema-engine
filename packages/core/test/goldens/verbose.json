@@ -4,7 +4,6 @@
   "absoluteKeywordLocation": "https://golden.example/schema#",
   "instanceLocation": "",
   "droppedAnnotations": {
-    "properties": ["item", "count"],
     "title": "root"
   },
   "details": [
@@ -20,7 +19,6 @@
           "absoluteKeywordLocation": "https://golden.example/schema#/$defs/named",
           "instanceLocation": "/item",
           "annotations": {
-            "properties": ["name"],
             "title": "a named thing"
           },
           "details": [

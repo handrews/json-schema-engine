@@ -226,7 +226,7 @@ const SWEEP: Record<string, DialectPin> = {
     groups: 383,
     skippedGroups: 0,
     instances: 1299,
-    annotationUnits: 719,
+    annotationUnits: 215,
   },
   "draft2019-09": {
     dir: "draft2019-09",
@@ -234,7 +234,7 @@ const SWEEP: Record<string, DialectPin> = {
     groups: 372,
     skippedGroups: 0,
     instances: 1259,
-    annotationUnits: 674,
+    annotationUnits: 197,
   },
   draft7: {
     dir: "draft7",
@@ -242,7 +242,7 @@ const SWEEP: Record<string, DialectPin> = {
     groups: 257,
     skippedGroups: 0,
     instances: 927,
-    annotationUnits: 311,
+    annotationUnits: 122,
   },
   draft6: {
     dir: "draft6",
@@ -250,7 +250,7 @@ const SWEEP: Record<string, DialectPin> = {
     groups: 232,
     skippedGroups: 0,
     instances: 839,
-    annotationUnits: 272,
+    annotationUnits: 83,
   },
   draft4: {
     dir: "draft4",
@@ -259,7 +259,7 @@ const SWEEP: Record<string, DialectPin> = {
     groups: 160,
     skippedGroups: 0,
     instances: 618,
-    annotationUnits: 223,
+    annotationUnits: 59,
   },
 };
 

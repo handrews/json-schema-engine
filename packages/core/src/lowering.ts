@@ -161,12 +161,17 @@ export type LowerStmt =
       readonly message: LowerMessage;
       readonly params?: LowerParams;
     }
-  /** emit this keyword's production (channel rule 2) */
+  /**
+   * record this keyword's value as an annotation (channel rule 2); the
+   * serializer emits the schema constant, so the node carries no payload
+   */
+  | { readonly kind: "annotate" }
+  /** emit this keyword's dependency data (channel rule 2) */
   | { readonly kind: "produce"; readonly value: LowerProduceValue }
   /**
    * Bind the folded coverage of the unit's runtime channel (consumer
    * keywords only). The serializer supplies the channel — the flat array of
-   * raw production values from consumed producers, merged with mark/truncate
+   * raw dependency data from consumed producers, merged with mark/truncate
    * at application boundaries — and folds it per `half`: "names" yields the
    * evaluated-name set (foldNameCoverage), "indexes" yields the coveredPrefix/
    * coveredIdx summary over the CURRENT instance array's length
@@ -213,7 +218,7 @@ export type LowerStmt =
       readonly target: LowerExpr;
       readonly binding: number;
       readonly countWhen: LowerExpr;
-      /** accumulate the counted indexes for a following produce (contains' annotation value) */
+      /** accumulate the counted indexes for a following produce (contains' dependency data) */
       readonly collectIndexes?: boolean;
       readonly min: number;
       readonly max: number;
@@ -283,19 +288,19 @@ export type LowerMessage = readonly (string | LowerExpr)[];
 export type LowerParams = Readonly<Record<string, LowerExpr>>;
 
 /**
- * A production value: the annotation a keyword's lowered body carries.
+ * A dependency-data recipe: what a keyword's lowered body communicates to
+ * consumer keywords.
  *
- * Runtime-collected recipes read the accumulation the keyword's statements
- * build against the instance. Within one keyword's lowered statement list,
- * each executed child-of-here application (an `apply` or `applyExpr` whose
- * cursor is `{kind:"child", of:{kind:"here"}, segment}`) contributes its
- * segment — string segments to a name accumulation, numeric segments to an
- * index accumulation — in execution order, deduplicated keeping the first
+ * Recipes read the accumulation the keyword's statements build against the
+ * instance. Within one keyword's lowered statement list, each executed
+ * child-of-here application (an `apply` or `applyExpr` whose cursor is
+ * `{kind:"child", of:{kind:"here"}, segment}`) contributes its segment —
+ * string segments to a name accumulation, numeric segments to an index
+ * accumulation — in execution order, deduplicated keeping the first
  * occurrence. Applications count when ATTEMPTED, regardless of the
  * subschema's verdict (the interpreter records the segment before applying).
  */
 export type LowerProduceValue =
-  | { readonly kind: "const"; readonly value: JsonValue }
   /**
    * The accumulated (deduped) name array, possibly empty. Object-shaped
    * producers emit an empty array for an object and nothing for a non-object,
@@ -318,8 +323,7 @@ export type LowerProduceValue =
   | {
       readonly kind: "collectedIndexes";
       readonly render: "largestOrTrue" | "appliedTrue" | "matchedOrAllTrue";
-    }
-  | { readonly kind: "expr"; readonly expr: LowerExpr };
+    };
 
 /**
  * Services available to one keyword's `lower()` (mirror of KeywordContext,

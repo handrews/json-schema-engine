@@ -1,6 +1,6 @@
 // evaluateFragment (M6.1): the compiled tier's trampoline into the
 // interpreter. Pre-seeded dynamic scope, evaluation-path prefix, and depth
-// budget; harvested productions with cursor identity intact.
+// budget; harvested records with cursor identity intact.
 
 import { describe, it, expect } from "vitest";
 import {
@@ -34,31 +34,34 @@ describe("evaluateFragment (M6.1 trampoline)", () => {
     });
     expect(bad.valid).toBe(false);
     // Records carry the schema object's path; renderers append the keyword
-    // segment (see Production/ErrorRecord in engine.ts).
+    // segment (see AnnotationRecord/ErrorRecord in engine.ts).
     expect(materializePath(bad.errors[0]!.pathNode)).toBe(
       "/properties/name/$ref",
     );
     expect(bad.errors[0]!.keywordName).toBe("minLength");
   });
 
-  it("harvests root-frame productions with cursor identity intact", () => {
+  it("harvests root-frame records with cursor identity intact", () => {
     const engine = createEngine();
     const uri = engine.registerSchema(
       { $defs: { obj: { properties: { a: true }, title: "T" } } },
-      "https://frag.example/productions",
+      "https://frag.example/records",
     );
     const target = engine.registry.resolveRef(`${uri}#/$defs/obj`, uri);
     const cursor = rootCursor({ a: 1 });
 
     const result = evaluateFragment(engine.registry, target, cursor, {});
     expect(result.valid).toBe(true);
-    const byKeyword = new Map(
-      result.productions.map((p) => [p.keywordName, p]),
+    const dependencies = new Map(
+      result.dependencies.map((d) => [d.keywordName, d]),
     );
-    expect(byKeyword.get("properties")?.value).toEqual(["a"]);
-    expect(byKeyword.get("title")?.value).toBe("T");
+    const annotations = new Map(
+      result.annotations.map((a) => [a.keywordName, a]),
+    );
+    expect(dependencies.get("properties")?.data).toEqual(["a"]);
+    expect(annotations.get("title")?.value).toBe("T");
     // Cursor identity is the channel/harvest key for the compiled caller.
-    expect(byKeyword.get("properties")?.cursor).toBe(cursor);
+    expect(dependencies.get("properties")?.cursor).toBe(cursor);
   });
 
   it("honors the elision predicate a flag-mode artifact would pass", () => {
@@ -72,7 +75,7 @@ describe("evaluateFragment (M6.1 trampoline)", () => {
       shouldRecord: () => false,
     });
     expect(result.valid).toBe(true);
-    expect(result.productions).toHaveLength(0);
+    expect(result.annotations).toHaveLength(0);
   });
 
   it("resolves $dynamicRef through the passed-in dynamic scope (D8)", () => {

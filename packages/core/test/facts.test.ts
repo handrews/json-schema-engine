@@ -169,13 +169,11 @@ describe("StaticFacts v2 exemplars (M6.1)", () => {
     expect(ui.evaluatesIndexes).toEqual({ kind: "all" });
   });
 
-  it("factories: structural produces nothing, annotationOnly its own id", () => {
+  it("factories: structural declares no producer id, annotationOnly no facts", () => {
     const s = facts(structural("urn:test#s"), "x") as { produces: string[] };
     expect(s.produces).toEqual([]);
-    const a = facts(annotationOnly("urn:test#a"), "x") as {
-      produces: string[];
-    };
-    expect(a.produces).toEqual(["urn:test#a"]);
+    // An annotation keyword communicates nothing to other keywords.
+    expect("analyze" in annotationOnly("urn:test#a")).toBe(false);
   });
 
   // M6.4: the trickiest new lowerings — pinned separately since a regression

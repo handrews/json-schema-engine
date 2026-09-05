@@ -52,12 +52,11 @@ describe("annotation collection", () => {
       "Identifier",
     ]);
     expect(annotationTuples(r)).toContainEqual(["/title", "", "User profile"]);
-    // properties itself annotates the matched names
-    expect(annotationTuples(r)).toContainEqual([
-      "/properties",
-      "",
-      ["id", "displayName"],
-    ]);
+    // properties communicates its matched names to unevaluatedProperties as
+    // dependency data, never as an annotation (draft-03 Appendix D).
+    expect((r.annotations ?? []).some((a) => a.keyword === "properties")).toBe(
+      false,
+    );
   });
 
   it("produces no annotations when the schema fails", () => {
