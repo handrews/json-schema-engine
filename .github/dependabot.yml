@@ -12,6 +12,13 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    ignore:
+      # TypeScript 7 replaces the in-process compiler API that typedoc and
+      # typescript-eslint depend on; both target TypeScript 7.1's stable API.
+      # Remove this entry once both declare TS 7 support, then adopt TS 7 as a
+      # deliberate change rather than a routine bump.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     groups:
       npm-all:
         applies-to: version-updates
