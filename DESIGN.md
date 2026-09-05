@@ -12,10 +12,13 @@ in the deferred register.
 **Semantic-target notice (2026-09-05):** D4-D6 and D9 document the current
 implemented architecture, which predates IETF draft-03's clarified separation
 of exact-value annotations, keyword dependency information, and output
-relevance. They are not decisions about the next target. Reconciliation and
-flexible-output work are being investigated in
-[docs/planning/next-steps](docs/planning/next-steps/README.md); this design
-contract will change only after those decisions are made.
+relevance. They are not decisions about the next target. The release-first
+plan in [docs/planning/next-steps](docs/planning/next-steps/README.md) and its
+[decision records](docs/planning/next-steps/decisions/README.md) (release
+scope, no historical computed annotations, output levels and orthogonal
+controls) govern the next semantic and output work; D4-D6 are superseded by
+the outcome of that plan's Phases 1 and 2, and this design contract is
+updated when those phases land.
 
 **How to use this document:** it is the contract for implementation sessions.
 A fresh session (any model) should be able to pick up one milestone from §6
