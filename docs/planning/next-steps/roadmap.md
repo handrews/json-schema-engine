@@ -25,7 +25,10 @@ Specify candidate format-independent evaluator records, renderer capabilities,
 direct/derived shapes, TypeScript extension surfaces, and tier responsibilities.
 Treat IETF Flag/Basic/Detailed/Verbose and machines-oriented
 Flag/List/Hierarchical as peers. Keep target structure/fields independent of
-the optional historical computed-annotation switch. Do not finalize the model.
+the optional historical computed-annotation switch. Confirm that the boundary
+does not preclude a later event stream with relevance transitions, but do not
+make streaming a first-release implementation requirement. Do not finalize the
+model.
 
 Gate: at least two credible evaluator/renderer boundaries have estimates; a
 representative external format and both standardization inputs can be mapped;
@@ -105,9 +108,11 @@ Potential work packages, subject to the earlier decisions:
 3. complete default filling;
 4. native OAS dialect and annotation adoption;
 5. AJV adapter hardening and extension work;
-6. measurement-justified nested consumers, island re-entry, membership
+6. streaming output with stable unit identity, relevance transitions,
+   cancellation/backpressure, and tier parity;
+7. measurement-justified nested consumers, island re-entry, membership
    thresholds, serializer restructuring, and broader standalone output;
-7. authoring/compiler guides and design/ADR history split.
+8. authoring/compiler guides and design/ADR history split.
 
 Each package must state compatibility, tests, benchmarks, completion criteria,
 and rollback/migration before implementation.

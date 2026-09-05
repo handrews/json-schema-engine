@@ -49,6 +49,15 @@ consumption. Non-verbose outputs omit irrelevant errors and annotations;
 verbose formats may expose them. This is evaluation semantics plus output
 policy, not merely renderer pruning.
 
+IETF draft-03 also permits annotations to be presented as a stream of events.
+Because a keyword evaluation begins relevant and can become irrelevant only
+after an ancestor result is known, emission does not necessarily finalize a
+unit's relevance. A future stream must therefore either buffer until relevance
+is final or expose stable evaluation/unit identity plus monotonic relevance-
+transition events. Rejection of the input voids annotations already emitted
+from that input. The consumer, rather than a finalized-document renderer, may
+need to apply these transitions.
+
 ## Current JSE fit and gaps
 
 The existing production/channel architecture already has useful ingredients:
@@ -120,6 +129,8 @@ union, but must ensure that:
   coincidence;
 - exact-value annotation typing remains extensible for custom vocabularies;
 - relevance metadata is available where a renderer or processor needs it;
+- streamed records and relevance transitions cannot be mismatched by
+  structurally interchangeable identifiers;
 - internal compiler representations need not become the public JSON shape;
 - all escaped data remains plain and cloneable.
 
@@ -138,6 +149,8 @@ union, but must ensure that:
   absent/present, and verbose output off/on. Verbose demand itself prevents
   short-circuiting unless the skipped evaluation can be represented faithfully.
 - Optional historical output with evaluation results unchanged.
+- Streamed provisional units followed by ancestor-driven irrelevance,
+  including final reduction to the same result as document output.
 
 ## Exit criteria
 
@@ -145,6 +158,8 @@ union, but must ensure that:
   annotation, dependency information, error, or no output.
 - Keyword- and schema-level relevance transitions have an executable model.
 - Non-verbose and verbose output requirements are testable.
+- The relevance model can support a later streaming protocol without requiring
+  evaluator semantics to be replaced.
 - Static and runtime dependency paths are separately specified.
 - Interpreter and minimal compiler parity are demonstrated before deep
   optimization.

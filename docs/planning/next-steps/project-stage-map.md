@@ -31,6 +31,9 @@ error, dependency, relevance, and short-circuit behavior.
   not require their full product APIs yet.
 - Decide whether historical computed annotations have a sufficiently clean,
   output-only compatibility path.
+- Confirm that the semantic/rendering boundary can later support streamed units
+  and monotonic relevance-transition events without requiring streaming in the
+  first release.
 
 **Gate:** selected formats can be produced from the same semantics, generic
 processors do not depend on one format's field names, and extension of the
@@ -70,6 +73,8 @@ format evolution can be accommodated without breaking evaluator semantics.
 - Add native OAS dialects and annotation consumers without exposing the larger
   private product strategy.
 - Harden or expand AJV compatibility after the generic boundaries are stable.
+- Add streaming output when its lifecycle, cancellation/backpressure, and tier-
+  parity contract is ready.
 
 Prototypes from Stages 1–2 may pull a small amount of this work earlier when
 needed to validate a foundational mechanism.

@@ -76,6 +76,8 @@ dependency information and does not fully model keyword-level relevance.
 - No exposure of dependency information as ordinary annotations.
 - A clear relationship among convenience results, processing records, and
   formatted output documents.
+- Equivalent semantics for finalized documents and any future streamed form,
+  including relevance changes discovered after initial emission.
 - Direct interpreter/compiler products versus derived representations.
 - Plain cloneable data at public and worker boundaries.
 - Stable artifact registry visibility through interpreted islands.
@@ -101,6 +103,30 @@ dependency information and does not fully model keyword-level relevance.
 These are session questions, not an instruction to implement a format registry
 or any other specific mechanism now.
 
+## Future streaming constraint
+
+IETF draft-03 permits annotations to be presented as a stream of events. This
+is not required for the first release, but the first output architecture must
+leave a credible path to it.
+
+Streaming is not just serialization of a finished list. A keyword's annotation
+or error can be emitted while its evaluation is relevant and become irrelevant
+after an ancestor keyword or schema result is known. Compare:
+
+- buffering a unit until its relevance is final;
+- emitting a provisional unit followed by an identity-addressed relevance
+  transition;
+- emitting evaluation lifecycle events from which a consumer derives units;
+- hybrid strategies that finalize cheap cases immediately.
+
+The investigation must identify stable unit/evaluation identity, ordering,
+nesting, terminal acceptance/rejection, consumer cancellation, backpressure,
+and error behavior. It must also say whether a stream carries canonical JSE
+events, target-format units, or both. Reducing a completed stream must produce
+the same configured result as non-streaming evaluation. Internal keyword-
+dependency data must not accidentally become application output merely because
+the evaluator exposes an event boundary.
+
 ## TypeScript implications
 
 The current `"flag" | "list" | "hierarchical"` option union and literal-value
@@ -117,6 +143,19 @@ need an extension story that does not force one of these failures:
 Compare generic format keys/descriptors, separately typed renderer calls,
 registered capability tokens, and less coupled result APIs. Preserve bundler-
 safe dynamic imports and do not expose compiler IR merely to retain typing.
+
+For streaming, compare a synchronous callback sink, `Iterable`/generator, and
+`AsyncIterable` without assuming they are interchangeable. JSE evaluation is
+synchronous today: a callback preserves that boundary, a generator introduces
+evaluation suspension, and true asynchronous backpressure could require a new
+execution boundary. Event and transition types need discriminants and stable
+typed identifiers so a consumer cannot accidentally apply a transition to the
+wrong record class.
+
+TypeScript is structurally typed, so `type EvaluationId = string` would not
+prevent mixing that identifier with an unrelated string or unit identifier.
+Compare opaque wrappers, `unique symbol` brands, and session-scoped generic
+parameters while keeping the serialized event data plain and cloneable.
 
 ## Historical compatibility dimension
 
@@ -140,6 +179,9 @@ The investigation must test structural and semantic choices independently:
 - Generated size/calling-convention cost for compiled candidates.
 - Conversion cost among normalized records and both format families.
 - A small externally defined format to test the extension boundary.
+- A provisional-unit stream with a later relevance transition, reduced and
+  compared with the equivalent finalized document; measure buffering and event
+  overhead without making streaming a first-release gate.
 - Consumer prototypes for error grouping, annotation-driven transformation,
   runtime-option policy, and absent-target defaults.
 - TypeScript examples using built-in, registered, and dynamically selected
@@ -164,3 +206,5 @@ merely "2020-12" or the machines-oriented proposal as simply "modern."
 - Historical computed annotations are either isolated as optional output
   compatibility or dropped.
 - Future target-field renaming has a documented, bounded migration path.
+- The selected foundation does not require retaining all output in memory and
+  has a credible, parity-testable route to post-release streaming.

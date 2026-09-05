@@ -67,6 +67,10 @@ longer planned. Oaskit has migrated, and remaining demand does not justify it.
 - Only relevant dependency information can be consumed. Non-verbose output
   omits irrelevant errors and annotations; verbose formats may expose them.
 - New output formats can be added without changing evaluator semantics.
+- The output foundation must not preclude later incremental streaming. A
+  streamed unit may be provisional until later keyword/schema results make it
+  irrelevant, so streaming consumers need stable identity and relevance-
+  transition semantics.
 - Historical computed annotations, if supported, are an output-only
   compatibility facility and never drive keyword dependencies.
 - Compiled artifacts have one registry-snapshot rule across compiled code and
