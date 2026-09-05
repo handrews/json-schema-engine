@@ -5,6 +5,12 @@ case. `Evidence` means it supplies fixtures or constraints.
 
 | Consumer or use case                 | Output   | Generic errors | Annotation / transformation     | Defaults |
 | ------------------------------------ | -------- | -------------- | ------------------------------- | -------- |
+| IETF draft-03 exact annotations      | Required | —              | Required                        | Evidence |
+| Runtime keyword dependencies         | Required | Evidence       | Evidence                        | —        |
+| Relevance-aware terse output         | Required | Required       | Required                        | Required |
+| Irrelevant verbose diagnostics       | Required | Evidence       | Evidence                        | Evidence |
+| Extensible target output formats     | Required | Evidence       | Evidence                        | Evidence |
+| Optional historical annotations      | Required | —              | Evidence                        | —        |
 | Cheapest boolean validation          | Required | —              | —                               | —        |
 | Complete machine-readable failures   | Required | Required       | —                               | —        |
 | Human error presentation             | Evidence | Required       | —                               | —        |
@@ -29,30 +35,43 @@ case. `Evidence` means it supplies fixtures or constraints.
 
 ## Information required at processing boundaries
 
-| Information or invariant                | Errors   | Transformation            | Defaults                  |
-| --------------------------------------- | -------- | ------------------------- | ------------------------- |
-| Application validity                    | Required | Required                  | Required                  |
-| Existing instance location              | Required | Required                  | Required                  |
-| Proposed absent instance location       | —        | Sometimes                 | Required                  |
-| Canonical schema/resource location      | Required | Required                  | Required                  |
-| Evaluation/applicator path              | Required | Required                  | Evidence                  |
-| Keyword and vocabulary identity         | Required | Required                  | Required                  |
-| Structured failure parameters           | Required | Evidence                  | Evidence                  |
-| Annotation value and multiplicity       | —        | Required                  | Evidence                  |
-| Successful annotation-free applications | —        | Current compat dependency | Current compat dependency |
-| Branch/frame success and rollback       | Required | Required                  | Required                  |
-| Stable resource snapshot                | Required | Required                  | Required                  |
-| Deterministic encounter/order data      | Required | Required                  | Required                  |
-| Source position                         | Required | Evidence                  | Evidence                  |
+| Information or invariant                 | Errors   | Transformation            | Defaults                  |
+| ---------------------------------------- | -------- | ------------------------- | ------------------------- |
+| Application validity                     | Required | Required                  | Required                  |
+| Existing input location                  | Required | Required                  | Required                  |
+| Proposed absent input location           | —        | Sometimes                 | Required                  |
+| Canonical schema/resource location       | Required | Required                  | Required                  |
+| Evaluation/applicator path               | Required | Required                  | Evidence                  |
+| Keyword and vocabulary identity          | Required | Required                  | Required                  |
+| Record kind: error/annotation/dependency | Required | Required                  | Required                  |
+| Exact annotation keyword value           | —        | Required                  | Required                  |
+| Static and runtime dependency data       | Evidence | Required                  | Evidence                  |
+| Structured failure parameters            | Required | Evidence                  | Evidence                  |
+| Annotation value and multiplicity        | —        | Required                  | Evidence                  |
+| Successful annotation-free applications  | —        | Current compat dependency | Current compat dependency |
+| Keyword/schema results and ancestry      | Required | Required                  | Required                  |
+| Relevance/irrelevance and transition     | Required | Required                  | Required                  |
+| Stable resource snapshot                 | Required | Required                  | Required                  |
+| Deterministic encounter/order data       | Required | Required                  | Required                  |
+| Source position                          | Required | Evidence                  | Evidence                  |
 
 Successful annotation-free applications are needed by the current compat
 traversal of verbose output. They are not yet a requirement on the future
 native model; a focused application-record or plan API may be better.
 
+The output column covers two peer target families: IETF draft-03
+Flag/Basic/Detailed/Verbose and the machines-oriented
+Flag/List/Hierarchical proposal. Their structural choices must be evaluated
+independently of annotation semantics. The latter's examples include historical
+computed applicator annotations, which are optional compatibility rather than
+the IETF draft-03 default.
+
 ## Concrete consumers and fixtures
 
 ### JSE native
 
+- `packages/core/src/keywords/applicator.ts` and `unevaluated.ts`: current
+  computed productions that must be reclassified as dependency information.
 - `packages/core/test/output.test.ts`: location vocabularies and output shapes.
 - `packages/core/test/error-params.test.ts`: structured keyword failure data.
 - `packages/core/test/channels.test.ts`: visibility, rollback, retention, and
@@ -60,6 +79,18 @@ native model; a focused application-record or plan API may be better.
 - `packages/compiler/test/list-annotations.test.ts`: annotation parity/order.
 - `packages/compiler/test/compiled-tracking.test.ts`: nested consumers,
   interpreted islands, and coverage export.
+
+### Specifications and design probes
+
+- [IETF draft-03 §12.2](https://www.ietf.org/archive/id/draft-ietf-jsonschema-json-schema-03.html#section-12.2):
+  relevance and irrelevance for annotations, errors, and dependency use.
+- [IETF draft-03 Appendix D](https://www.ietf.org/archive/id/draft-ietf-jsonschema-json-schema-03.html#appendix-D):
+  static and runtime keyword dependencies.
+- [Machines-oriented output proposal](https://github.com/json-schema-org/json-schema-spec/blob/4f56a9900674b27804f0ec32e3b7fdfa4efad695/specs/output/jsonschema-validation-output-machines.md):
+  list/hierarchical structures and field vocabulary.
+- [Transform gist](https://gist.github.com/handrews/f28fb370a1b1bfc5c2e3d763e797d0c4/c164535edb99ec332ed06e0983ca33d61c460d7f):
+  exact annotation instructions, full-trace reasoning, and schema/input
+  re-evaluation alternatives.
 
 ### AJV compatibility
 
@@ -79,13 +110,19 @@ native model; a focused application-record or plan API may be better.
   failures, and unresolved references.
 - `packages/core/src/diagnostics/runner.ts`: pointer-indexed diagnostics and
   source-range attachment.
-- `packages/ir/test/validator.ts`: validity, instance location, and human text.
+- `packages/ir/test/validator.ts`: validity, `instanceLocation`, and human text.
 
 ## Missing fixtures
 
+- Directly failing dependency producers adjacent to `unevaluated*` consumers.
+- Relevance transitions at keyword and schema boundaries across every
+  applicator class.
+- The same semantics rendered into both output-format families.
+- A third-party format proving extension without evaluator changes.
+- Optional 2020-12/2019-09 computed annotations that cannot affect validation.
 - Native grouping independent of AJV vocabulary.
 - Native transformation proposal ordering and conflicts.
-- Extension-keyword transformation and runtime-option policy on one instance.
+- Extension-keyword transformation and runtime-option policy on one input.
 - Multi-pass `contentSchema` decoding and validation.
 - Defaults for absent nested objects and arrays and across successful branches.
 - Immutable-result versus in-place transformation ergonomics.

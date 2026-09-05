@@ -10,9 +10,11 @@ exist, while keeping generic policy separate from AJV compatibility?
 ## Current behavior
 
 `default` is already an ordinary annotation producer when its schema location
-is evaluated successfully. That stream can describe defaults for existing
-applications, but a missing property or array element does not evaluate its
-child schema and therefore cannot produce a child annotation.
+is evaluated successfully and remains relevant. Its annotation value is
+exactly the keyword value, which already fits IETF draft-03. That stream can
+describe defaults for existing input locations, but a missing property or
+array element does not evaluate its child schema and therefore cannot produce a
+child annotation.
 
 AJV compatibility instead uses verbose application records plus schema lookup.
 It clones values, handles property and tuple/prefix defaults, may extend arrays,
@@ -27,13 +29,16 @@ defaults run after ordinary defaults under the relevant option.
 - Copying, identity, references, applicators, conditionals, and conflicts.
 - Dialect-specific schema positions and ignored siblings.
 - Ordering relative to schema-driven transformations and runtime-option policies.
+- Whether filling is permitted only after an accepted base evaluation and how
+  relevance affects defaults found through applicator branches.
 - Re-evaluation, pass bounds, convergence, partial failure, and diagnostics.
 - Immutable result versus in-place filling and compiled/standalone support.
 
 ## Alternatives and prototypes
 
 Compare a schema traversal, application-record processor, compiled default
-plan, and hybrid annotation/absent-target design. Prototype nested object
+plan, and hybrid exact-annotation/absent-target design. Any proposal for a
+missing location is facility-specific data, not an annotation. Prototype nested object
 creation, array extension, a reference, a conditional, conflicting successful
 applicators, and ordering with both transformation policy classes.
 
@@ -42,7 +47,7 @@ post-processing, and cloning/immutable-result cost.
 
 ## Exit criteria
 
-- Existing-location annotations and absent-location filling are distinguished.
+- Existing-location exact annotations and absent-location filling are distinguished.
 - Creation, order, conflict, pass, and failure policies have alternatives.
 - Generic and AJV behavior are separately described.
 - Tier parity requirements are testable.

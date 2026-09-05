@@ -9,6 +9,14 @@ prototype). Milestone status notes below are historical records kept for
 session continuity; a split into architecture/ADR/changelog documents is
 in the deferred register.
 
+**Semantic-target notice (2026-09-05):** D4-D6 and D9 document the current
+implemented architecture, which predates IETF draft-03's clarified separation
+of exact-value annotations, keyword dependency information, and output
+relevance. They are not decisions about the next target. Reconciliation and
+flexible-output work are being investigated in
+[docs/planning/next-steps](docs/planning/next-steps/README.md); this design
+contract will change only after those decisions are made.
+
 **How to use this document:** it is the contract for implementation sessions.
 A fresh session (any model) should be able to pick up one milestone from §6
 with only this file, the repo, and the referenced specs. Each milestone names
@@ -17,10 +25,14 @@ The **model-tier column is advisory routing**: "patterned" milestones follow
 exemplars and are suitable for Sonnet-class sessions; "judgment" milestones
 change interfaces or semantics and should go to Opus/Fable-class sessions.
 
-Normative references: [draft-ietf-jsonschema-json-schema-02](https://www.ietf.org/archive/id/draft-ietf-jsonschema-json-schema-02.html)
+Implemented-baseline references:
+[draft-ietf-jsonschema-json-schema-02](https://www.ietf.org/archive/id/draft-ietf-jsonschema-json-schema-02.html)
 (compatible with the 2020-12 metaschema), the 2020-12 spec pair, the
 [output spec](https://github.com/json-schema-org/json-schema-spec/blob/main/specs/output/jsonschema-validation-output-machines.md),
 and the [official test suite](https://github.com/json-schema-org/JSON-Schema-Test-Suite).
+The next semantic target is
+[IETF draft-03](https://www.ietf.org/archive/id/draft-ietf-jsonschema-json-schema-03.html),
+subject to the investigation above.
 
 ---
 
