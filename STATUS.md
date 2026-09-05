@@ -5,7 +5,15 @@ for later, and which quality gates run where. Prose elsewhere (README,
 DESIGN.md milestone notes, guide pages) defers to this page when they
 disagree — and a disagreement is a bug worth filing.
 
-Last updated: 2026-07-12 (post-M9a; M9b — publication + Bowtie submission — remains, owner-gated).
+Last updated: 2026-09-05 (implementation state remains post-M9a; the next
+semantic and release stages are now planned).
+
+The built annotation/output channel predates IETF draft-03's clarified
+separation of exact-value annotations, keyword dependency information, and
+output relevance. The table below describes current code, not the next semantic
+target. The required reconciliation, flexible-output investigation, and public
+release sequence are tracked in
+[docs/planning/next-steps](docs/planning/next-steps/README.md).
 
 ## Built and gated
 
@@ -41,13 +49,16 @@ Last updated: 2026-07-12 (post-M9a; M9b — publication + Bowtie submission — 
 These are staged, not overlooked. Each is gated on an explicit decision
 or milestone:
 
-- **The publication step itself.** As of M9a the packages are
-  publishable-but-not-published: dist builds, export maps, and the
-  offline tarball gate are in place under the placeholder `@jse/*`
-  names. `private: true` + version `0.0.0` remain as the deliberate
-  anti-accident latch; what's left is the owner's scope/name decision,
-  a version bump, flipping `private`, and `npm publish`. Sibling
-  projects consume `npm pack` tarballs meanwhile (CONTRIBUTING).
+- **The first public release.** M9a delivered publication mechanics: dist
+  builds, export maps, and the offline tarball gate are in place under the
+  placeholder `@jse/*` names. Release is now intended as soon as the IETF
+  draft-03 semantic reconciliation, flexible-output foundation, initial
+  package/API scope, and release evidence are solid. In particular,
+  `@jse/ajv-compat` must either have its release-blocking defects fixed or be
+  omitted from the first package set. `private: true` + version `0.0.0` remain
+  the anti-accident latch; naming, versioning, registry publication, and
+  outreach remain owner-controlled. Sibling projects consume `npm pack`
+  tarballs meanwhile (CONTRIBUTING).
 - **Bowtie submission.** The harness (all five dialects) runs locally
   and in CI with exact pins; the PR to Bowtie and the bowtie.report
   listing are made by the owner personally (no automated PRs, ever —

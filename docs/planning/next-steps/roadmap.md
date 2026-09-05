@@ -1,80 +1,124 @@
 # Investigation and implementation roadmap
 
-**Status:** initial sequencing. Implementation packages remain provisional
-until their decision gates pass.
+**Status:** revised for IETF draft-03 and a near-term public release.
+Implementation packages remain provisional until their decision gates pass.
+See the [high-level project stage map](project-stage-map.md) for the release and
+post-release shape; this document gives the investigation order within it.
 
-## Phase 0: reconcile and measure
+## Phase 0: IETF draft-03 reconciliation
 
-1. Keep the census current and assign owners.
-2. Reconcile consumer documentation with delivered compiler capabilities.
-3. Resolve or separately schedule artifact registry-snapshot correctness.
-4. Capture baseline time, allocation, result size, generated size, and island
-   frequency on existing corpora.
+1. Classify every current production as an exact-value annotation, static or
+   runtime dependency, error, or neither.
+2. Specify keyword- and schema-evaluation relevance transitions.
+3. Add direct-sibling, applicator, reference, conditional, and `unevaluated*`
+   conformance fixtures.
+4. Reconcile short-circuit and retention logic with separate annotation, error,
+   dependency, and verbose-output demand.
+5. Establish IETF draft-03 terminology and target-format mappings.
 
-Gate: no open item is unclassified, snapshot semantics are specified, and
-measurements are reproducible.
+Gate: the interpreter is a readable reference implementation of IETF draft-03
+semantics and no dependency information is exposed as an annotation.
 
-## Phase 1: initial output investigation
+## Phase 1: initial flexible-output investigation
 
-Specify candidate guarantees, direct/derived shapes, TypeScript surfaces, and
-tier responsibilities. Do not finalize the model.
+Specify candidate format-independent evaluator records, renderer capabilities,
+direct/derived shapes, TypeScript extension surfaces, and tier responsibilities.
+Treat IETF Flag/Basic/Detailed/Verbose and machines-oriented
+Flag/List/Hierarchical as peers. Keep target structure/fields independent of
+the optional historical computed-annotation switch. Confirm that the boundary
+does not preclude a later event stream with relevance transitions, but do not
+make streaming a first-release implementation requirement. Do not finalize the
+model.
 
-Gate: at least two credible alternatives have estimates and consumer
-prototypes; migration effects are explicit.
+Gate: at least two credible evaluator/renderer boundaries have estimates; a
+representative external format and both standardization inputs can be mapped;
+migration effects are explicit.
 
 ## Phase 2: generic errors
 
-Prototype native grouping with oaskit and AJV translation as separate
-consumers. Feed required parameters/context back to output work.
+Prototype relevance-aware native grouping with oaskit and AJV translation as
+separate consumers. Feed required parameters/context back to output work.
 
 Gate: oaskit's heuristics can be removed without putting AJV concepts in the
 generic API.
 
 ## Phase 3: annotations and transformation
 
-Prototype annotation processing, extension-keyword transformation,
-runtime-option policy execution, and `contentSchema`. Keep extension keywords
-and global options semantically distinct even where machinery is shared.
+Prototype exact-annotation processing, the transform gist's simple and
+post-transform cases, runtime-option policy execution, and `contentSchema`.
+Compare full-trace reasoning with re-evaluation and schema translation. Keep
+annotation instructions, computed transformation proposals, dependency
+information, and global options semantically distinct even where machinery is
+shared.
 
-Gate: order, rollback/persistence, conflicts, passes, and tier parity are
-demonstrated; output feedback is recorded.
+Gate: order, relevance, persistence, conflicts, passes, and the limits of trace
+reuse are demonstrated; output feedback is recorded. Full transformation
+product APIs need not ship in the first release.
 
 ## Phase 4: defaults
 
-Prototype existing-location annotation consumption and absent-target
+Prototype existing-location exact-annotation consumption and absent-target
 proposals/traversal. Test creation, references, applicators, conflicts, passes,
 and ordering with both transformation classes.
 
 Gate: supported fixtures are explained and unsupported AJV behavior is
 explicitly compatibility-only.
 
-## Phase 5: revisit output
+## Phase 5: revisit output and historical compatibility
 
 Re-evaluate Phase 1 with findings from errors, transformations, and defaults.
-Record an ADR only now.
+Prototype optional 2020-12/2019-09 computed annotations strictly as output
+compatibility, including any verbose/dropped scope. Drop that feature if it
+contaminates IETF draft-03 annotation or dependency semantics. Record an ADR
+only now.
 
-Gate: guarantees, names, TypeScript types, direct/derived outputs, costs, and
-migration are reviewed together.
+Gate: guarantees, JSE concepts, target fields, TypeScript extension types,
+direct/derived outputs, compatibility dimensions, costs, and migration are
+reviewed together.
 
-## Phase 6: implementation planning
+## Phase 6: minimal cross-tier implementation and hardening
 
-Potential packages, subject to decisions:
+Implement the semantic and output foundation in the interpreter and compiler,
+including interpreted islands and selected standalone output. Resolve artifact
+registry snapshots and stabilize only the public slice required for release.
+Run optimization prototypes only where needed to reject an infeasible design.
 
-1. core evaluator/output primitives and migration;
-2. compiler/runtime/standalone parity;
-3. generic errors and oaskit adoption;
-4. annotation/transformation modules with separate runtime-option policy;
-5. default filling;
-6. AJV adapter migration and correctness fixes;
-7. OAS dialect and annotation adoption;
-8. measurement-justified compiler optimizations;
-9. authoring/compiler guides and design/ADR history split.
+Gate: tier choice and compilation boundaries cannot affect annotation, error,
+dependency, relevance, or selected output semantics.
+
+## Phase 7: public release gate
+
+1. Decide initial packages and APIs.
+2. If `ajv-compat` ships, fix its release-blocking correctness defects first;
+   otherwise omit it explicitly.
+3. Complete conformance, differential, fuzz, resource/security, documentation,
+   package-consumer, formatting, and benchmark gates.
+4. Publish an evidence-based explanation of IETF draft-03 viability.
+5. Complete owner-controlled naming, versioning, registry, and outreach work.
+
+Gate: every shipped package is solid within a documented scope, and future
+output target evolution does not require evaluator semantic changes.
+
+## Phase 8: post-foundation facilities and optimization
+
+Potential work packages, subject to the earlier decisions:
+
+1. complete generic errors and oaskit adoption;
+2. complete annotation-driven transformation and separate runtime-option policy;
+3. complete default filling;
+4. native OAS dialect and annotation adoption;
+5. AJV adapter hardening and extension work;
+6. streaming output with stable unit identity, relevance transitions,
+   cancellation/backpressure, and tier parity;
+7. measurement-justified nested consumers, island re-entry, membership
+   thresholds, serializer restructuring, and broader standalone output;
+8. authoring/compiler guides and design/ADR history split.
 
 Each package must state compatibility, tests, benchmarks, completion criteria,
 and rollback/migration before implementation.
 
 ## Independent work
 
-The IDNA review, fuzz expansion, documentation restructuring, and tooling
-convergence need not block these investigations unless they share files or
-invalidate measurements.
+The IDNA review, broad fuzz expansion, documentation restructuring, and tooling
+convergence need not block the semantic investigations unless they share files
+or invalidate measurements. Release-critical subsets join the Phase 7 gate.
