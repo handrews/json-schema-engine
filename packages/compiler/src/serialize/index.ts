@@ -42,6 +42,106 @@ export type {
   EmitOutput,
 } from "./context.js";
 
+/** The root application call the footer wraps: static function or trampoline, per mode. */
+function rootCallChunk(
+  plan: CompilationPlan,
+  fnIndex: Map<string, number>,
+  tableIndex: Map<string, number>,
+  annMode: boolean,
+  output: EmitOutput,
+): CodeChunk {
+  const root = plan.units.get(plan.rootKey)!;
+  const ERRS = id("errs");
+  const ANNS = id("anns");
+  const rootStatic = root.kind === "static";
+  const rootFn = rootStatic ? unitFn(fnIndex.get(root.key)!) : null;
+  const rootSlot = rootStatic ? null : num(tableIndex.get(root.key)!);
+  const rootCall = annMode
+    ? rootStatic
+      ? js`${rootFn!}(${V}, 0, ${id("h_s0")}, "", "", ${ERRS}, ${ANNS})`
+      : js`${id("h_fragla")}(${T}[${rootSlot!}], ${V}, ${id("h_s0")}, 0, "", "", ${ERRS}, ${ANNS})`
+    : output === "list"
+      ? rootStatic
+        ? js`${rootFn!}(${V}, 0, ${id("h_s0")}, "", "", ${ERRS})`
+        : js`${id("h_fragl")}(${T}[${rootSlot!}], ${V}, ${id("h_s0")}, 0, "", "", ${ERRS})`
+      : rootStatic
+        ? js`${rootFn!}(${V}, 0, ${id("h_s0")})`
+        : js`${id("h_frag")}(${T}[${rootSlot!}], ${V}, ${id("h_s0")}, 0)`;
+  return rootCall;
+}
+
+/** Helper bindings, the depth bound, and the hoisted regex/format consts (D9f). */
+function prologueChunks(
+  plan: CompilationPlan,
+  mode: EmitMode,
+  annMode: boolean,
+  hasRegion: boolean,
+  output: EmitOutput,
+): CodeChunk[] {
+  // Prologue hoists (D9f): helper bindings, the depth bound, and one const
+  // per regex source — property/table lookups move out of the hot path.
+  // Standalone mode: the module preamble (standalone.ts) already defines the
+  // h_-named helpers; only the regex consts are emitted here, built through
+  // the preamble's u-flag-with-fallback constructor.
+  const prologue: CodeChunk[] = [];
+  if (mode === "runtime") {
+    prologue.push(
+      js`const { isObject: h_obj, isInteger: h_int, jsonEqual: h_eq, canonicalKey: h_ck, codePointLength: h_cpl, escapeSegment: h_esc, isMultipleOf: h_mof, hasDuplicateItems: h_dup, firstDuplicatePair: h_fdp, frag: h_frag, fragList: h_fragl, tooDeep: h_deep } = ${R};`,
+      js`const h_maxd = ${R}.maxDepth;`,
+      // Shared empty dynamic scope: units append-by-copy, never mutate.
+      js`const h_s0 = [];`,
+      js`const h_hop = Object.prototype.hasOwnProperty;`,
+    );
+    if (annMode) prologue.push(js`const h_fragla = ${R}.fragListAnn;`);
+    // Region emission (phase B) helpers: the two channel folds, plus the
+    // coverage-harvesting island trampoline in flag mode (list islands go
+    // through the list trampolines' trailing-`ev` overloads instead). Only
+    // bound when a tracked/region unit exists, so consumer-free artifacts
+    // keep their prologue unchanged.
+    if (hasRegion) {
+      prologue.push(
+        output === "flag"
+          ? js`const h_covN = ${R}.foldNameCoverage, h_covI = ${R}.foldIndexCoverage, h_fragc = ${R}.fragCov;`
+          : js`const h_covN = ${R}.foldNameCoverage, h_covI = ${R}.foldIndexCoverage;`,
+      );
+    }
+  }
+  plan.patterns.forEach((source, i) => {
+    prologue.push(
+      mode === "runtime"
+        ? js`const ${regexConst(i)} = ${R}.re[${str(source)}];`
+        : js`const ${regexConst(i)} = ${id("h_rx")}(${str(source)});`,
+    );
+  });
+  // One format-definition lookup per used name (runtime mode only). Standalone
+  // never reaches a format-bearing plan — emitStandalone rejects plan.formats
+  // (a format predicate like IDNA cannot be duplicated into a zero-import
+  // module), so plan.formats is empty here in that mode.
+  plan.formats.forEach((name, i) => {
+    prologue.push(js`const ${formatConst(i)} = ${R}.formats[${str(name)}];`);
+  });
+  return prologue;
+}
+
+/** The artifact's entry function, per output and mode. */
+function footerChunk(
+  mode: EmitMode,
+  annMode: boolean,
+  output: EmitOutput,
+  rootCall: CodeChunk,
+): CodeChunk {
+  const ERRS = id("errs");
+  const ANNS = id("anns");
+  const footer = annMode
+    ? js`\nreturn function evaluateList(${V}) { const ${ERRS} = []; const ${ANNS} = []; const ok = ${rootCall}; return { valid: ok, errors: ${ERRS}, annotations: ${ANNS} }; };\n`
+    : output === "list"
+      ? js`\nreturn function evaluateList(${V}) { const ${ERRS} = []; const ok = ${rootCall}; return { valid: ok, errors: ${ERRS} }; };\n`
+      : mode === "runtime"
+        ? js`\nreturn function validate(${V}) { return ${rootCall}; };\n`
+        : js`\nexport default function validate(${V}) { return ${rootCall}; };\n`;
+  return footer;
+}
+
 /** Serializes one compilation plan into artifact source (flag mode). */
 export function serializePlan(
   plan: CompilationPlan,
@@ -158,74 +258,9 @@ export function serializePlan(
     )
     .map((r) => r.chunk);
 
-  const root = plan.units.get(plan.rootKey)!;
-  const ERRS = id("errs");
-  const ANNS = id("anns");
-  const rootStatic = root.kind === "static";
-  const rootFn = rootStatic ? unitFn(fnIndex.get(root.key)!) : null;
-  const rootSlot = rootStatic ? null : num(tableIndex.get(root.key)!);
-  const rootCall = annMode
-    ? rootStatic
-      ? js`${rootFn!}(${V}, 0, ${id("h_s0")}, "", "", ${ERRS}, ${ANNS})`
-      : js`${id("h_fragla")}(${T}[${rootSlot!}], ${V}, ${id("h_s0")}, 0, "", "", ${ERRS}, ${ANNS})`
-    : output === "list"
-      ? rootStatic
-        ? js`${rootFn!}(${V}, 0, ${id("h_s0")}, "", "", ${ERRS})`
-        : js`${id("h_fragl")}(${T}[${rootSlot!}], ${V}, ${id("h_s0")}, 0, "", "", ${ERRS})`
-      : rootStatic
-        ? js`${rootFn!}(${V}, 0, ${id("h_s0")})`
-        : js`${id("h_frag")}(${T}[${rootSlot!}], ${V}, ${id("h_s0")}, 0)`;
-
-  // Prologue hoists (D9f): helper bindings, the depth bound, and one const
-  // per regex source — property/table lookups move out of the hot path.
-  // Standalone mode: the module preamble (standalone.ts) already defines the
-  // h_-named helpers; only the regex consts are emitted here, built through
-  // the preamble's u-flag-with-fallback constructor.
-  const prologue: CodeChunk[] = [];
-  if (mode === "runtime") {
-    prologue.push(
-      js`const { isObject: h_obj, isInteger: h_int, jsonEqual: h_eq, canonicalKey: h_ck, codePointLength: h_cpl, escapeSegment: h_esc, isMultipleOf: h_mof, hasDuplicateItems: h_dup, firstDuplicatePair: h_fdp, frag: h_frag, fragList: h_fragl, tooDeep: h_deep } = ${R};`,
-      js`const h_maxd = ${R}.maxDepth;`,
-      // Shared empty dynamic scope: units append-by-copy, never mutate.
-      js`const h_s0 = [];`,
-      js`const h_hop = Object.prototype.hasOwnProperty;`,
-    );
-    if (annMode) prologue.push(js`const h_fragla = ${R}.fragListAnn;`);
-    // Region emission (phase B) helpers: the two channel folds, plus the
-    // coverage-harvesting island trampoline in flag mode (list islands go
-    // through the list trampolines' trailing-`ev` overloads instead). Only
-    // bound when a tracked/region unit exists, so consumer-free artifacts
-    // keep their prologue unchanged.
-    if (hasRegion) {
-      prologue.push(
-        output === "flag"
-          ? js`const h_covN = ${R}.foldNameCoverage, h_covI = ${R}.foldIndexCoverage, h_fragc = ${R}.fragCov;`
-          : js`const h_covN = ${R}.foldNameCoverage, h_covI = ${R}.foldIndexCoverage;`,
-      );
-    }
-  }
-  plan.patterns.forEach((source, i) => {
-    prologue.push(
-      mode === "runtime"
-        ? js`const ${regexConst(i)} = ${R}.re[${str(source)}];`
-        : js`const ${regexConst(i)} = ${id("h_rx")}(${str(source)});`,
-    );
-  });
-  // One format-definition lookup per used name (runtime mode only). Standalone
-  // never reaches a format-bearing plan — emitStandalone rejects plan.formats
-  // (a format predicate like IDNA cannot be duplicated into a zero-import
-  // module), so plan.formats is empty here in that mode.
-  plan.formats.forEach((name, i) => {
-    prologue.push(js`const ${formatConst(i)} = ${R}.formats[${str(name)}];`);
-  });
-
-  const footer = annMode
-    ? js`\nreturn function evaluateList(${V}) { const ${ERRS} = []; const ${ANNS} = []; const ok = ${rootCall}; return { valid: ok, errors: ${ERRS}, annotations: ${ANNS} }; };\n`
-    : output === "list"
-      ? js`\nreturn function evaluateList(${V}) { const ${ERRS} = []; const ok = ${rootCall}; return { valid: ok, errors: ${ERRS} }; };\n`
-      : mode === "runtime"
-        ? js`\nreturn function validate(${V}) { return ${rootCall}; };\n`
-        : js`\nexport default function validate(${V}) { return ${rootCall}; };\n`;
+  const rootCall = rootCallChunk(plan, fnIndex, tableIndex, annMode, output);
+  const prologue = prologueChunks(plan, mode, annMode, hasRegion, output);
+  const footer = footerChunk(mode, annMode, output, rootCall);
   return frag(
     raw(mode === "runtime" ? '"use strict";\n' : ""),
     join("\n", prologue),
