@@ -40,13 +40,13 @@ import {
   renderAnnotations,
   renderBasic,
   renderDetailed,
-  renderError,
   renderHierarchical,
   renderList,
   renderTrace,
   renderVerbose,
   TraceUnit,
 } from "./output.js";
+import { renderError } from "./records.js";
 import {
   DIALECT_2020_12,
   registerStandardDialects,
@@ -139,11 +139,8 @@ export type {
   SubschemaApplication,
 } from "./dialect.js";
 export { lowerIR } from "./lowering.js";
-export {
-  makeRecordPredicate,
-  renderAnnotation,
-  renderError,
-} from "./output.js";
+export { makeRecordPredicate } from "./output.js";
+export { renderAnnotation, renderError } from "./records.js";
 export type {
   LowerApply,
   LowerCursor,

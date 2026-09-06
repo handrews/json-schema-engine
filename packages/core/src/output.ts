@@ -17,6 +17,12 @@ import {
   materializePath,
 } from "./engine.js";
 import { SourceLocation } from "./loader.js";
+import {
+  type LocationRef,
+  evaluationPathOf,
+  renderAnnotation,
+  schemaLocationOf,
+} from "./records.js";
 
 /** One rendered assertion failure, native field names. */
 export interface ErrorUnit {
@@ -66,57 +72,6 @@ export interface AnnotationSelection {
   excludeVocabularies?: readonly string[];
   /** arbitrary predicate over the rendered unit, AND-ed after the lists */
   keep?: (unit: AnnotationUnit) => boolean;
-}
-
-interface LocationRef {
-  baseUri: string;
-  pointer: string;
-}
-
-const keywordSuffix = (name: string | null): string =>
-  name === null ? "" : "/" + escapeSegment(name);
-
-const evaluationPathOf = (
-  pathNode: PathNode | null,
-  keywordName: string | null,
-): string => materializePath(pathNode) + keywordSuffix(keywordName);
-
-const schemaLocationOf = (
-  ref: LocationRef,
-  keywordName: string | null,
-): string => `${ref.baseUri}#${ref.pointer}${keywordSuffix(keywordName)}`;
-
-/** Renders one error record into its native unit. */
-export function renderError(
-  record: ErrorRecord,
-  includeParams = false,
-): ErrorUnit {
-  const unit: ErrorUnit = {
-    evaluationPath: evaluationPathOf(record.pathNode, record.keywordName),
-    schemaLocation: schemaLocationOf(record.schemaRef, record.keywordName),
-    inputLocation: instancePointer(record.cursor),
-    error: record.message,
-  };
-  if (includeParams) {
-    if (record.keywordName !== null) unit.keyword = record.keywordName;
-    if (record.vocabularyUri !== null) unit.vocabulary = record.vocabularyUri;
-    unit.params = record.params ?? {};
-  }
-  return unit;
-}
-
-/** Renders one annotation record into its native unit. */
-export function renderAnnotation(record: AnnotationRecord): AnnotationUnit {
-  return {
-    keyword: record.keywordName,
-    ...(record.vocabularyUri === null
-      ? {}
-      : { vocabulary: record.vocabularyUri }),
-    evaluationPath: evaluationPathOf(record.pathNode, record.keywordName),
-    schemaLocation: schemaLocationOf(record.schemaRef, record.keywordName),
-    inputLocation: instancePointer(record.cursor),
-    annotation: record.value,
-  };
 }
 
 // Selection applies to annotation records only (§4 rule 5); dependency
