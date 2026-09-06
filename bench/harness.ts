@@ -17,8 +17,25 @@
 // - Compiled list+annotations output must also deep-equal the interpreter's
 //   Result.annotations (order included), not just agree on verdict —
 //   COMPILED-ANNOTATIONS.md's stage-3 bar.
+// - Every output format is timed on both tiers, split by verdict partition
+//   (valid/invalid render different costs — annotations vs. errors plus
+//   dropped-record retention). Three formats (flag, list+annotations,
+//   basic) compile; the rest are interpreter-only. Every compiled row's
+//   document must deep-equal the interpreter's for the same instance
+//   before timing runs — the same oracle discipline as list+annotations,
+//   generalized to the whole format table.
+// - tinybench's `iterations`/`warmupIterations` floors are pinned low
+//   (5/2): left at their defaults (64/16), a slow task would run for
+//   seconds regardless of BENCH_BUDGET.
+// - BENCH_FILTER=<regex> restricts which task names are timed (oracles
+//   still run against every corpus); use it to iterate on one corpus or
+//   partition without paying for the rest.
+// - To compare a change: run on main, copy bench/results/results.json
+//   aside, run again on the branch, then
+//   `npm run bench:compare -- before.json after.json`.
 //
-// Run: npm run bench:harness   (BENCH_BUDGET=<ms per task>, default 250)
+// Run: npm run bench:harness
+//   (BENCH_BUDGET=<ms per task>, default 250; BENCH_FILTER=<regex>, default all)
 
 import { Bench } from "tinybench";
 import { deepStrictEqual } from "node:assert";
@@ -33,10 +50,17 @@ import {
 } from "@hyperjump/json-schema/draft-2020-12";
 import "@hyperjump/json-schema/draft-07";
 
-import { createEngine, type Engine, type JsonValue } from "@jse/core";
+import {
+  createEngine,
+  type Engine,
+  type EvaluateOptions,
+  type JsonValue,
+  type Result,
+} from "@jse/core";
 import {
   compileValidator,
   compileList,
+  type CompiledArtifact,
   type CompiledListArtifact,
 } from "@jse/compiler";
 import { Ajv as CompatAjv, Ajv2020 as CompatAjv2020 } from "@jse/ajv-compat";
@@ -127,6 +151,82 @@ function generatePayloads(count: number): GeneratedInstance[] {
   return out;
 }
 
+// Wide-but-shallow record corpora: 150 typed properties applied through
+// `items` to a large array, sharing this shape so records-uniform and
+// records-sparse differ only in which fields each record actually
+// carries. Hyperjump registers by `$id`, so each corpus needs its own —
+// hence a function, not a shared literal.
+function fieldType(p: number): "string" | "integer" | "boolean" {
+  if (p % 3 === 0) return "string";
+  if (p % 3 === 1) return "integer";
+  return "boolean";
+}
+
+function fieldValue(p: number): JsonValue {
+  const type = fieldType(p);
+  if (type === "string") return `v${String(p)}`;
+  if (type === "integer") return p;
+  return p % 2 === 0;
+}
+
+function recordsSchema(id: string): JsonValue {
+  const properties: Record<string, JsonValue> = {};
+  for (let p = 0; p < 150; p++) {
+    const property: Record<string, JsonValue> = { type: fieldType(p) };
+    if (p % 4 === 0) property.title = `Field ${String(p)}`;
+    properties[`f${String(p)}`] = property;
+  }
+  return {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    $id: id,
+    type: "array",
+    items: {
+      type: "object",
+      properties,
+      required: ["f0"],
+    },
+  };
+}
+
+function coreRecord(): Record<string, JsonValue> {
+  const record: Record<string, JsonValue> = {};
+  for (let p = 0; p < 8; p++) record[`f${String(p)}`] = fieldValue(p);
+  return record;
+}
+
+// Distinct field indices in [low, high], in selection order, so records
+// differ in both field set and insertion order — the shape variety that
+// defeats monomorphic property access.
+function pickDistinct(
+  rand: () => number,
+  count: number,
+  low: number,
+  high: number,
+): number[] {
+  const chosen = new Set<number>();
+  while (chosen.size < count) {
+    chosen.add(low + Math.floor(rand() * (high - low + 1)));
+  }
+  return [...chosen];
+}
+
+// Records-corpus instances: 2000 records, valid and a tail-invalid variant
+// (the last record's f1 becomes a string) so flag mode still walks the
+// whole array before failing. Evaluation never mutates instances, so the
+// invalid array shares every other record with the valid one.
+function recordsInstances(
+  build: (i: number) => Record<string, JsonValue>,
+): GeneratedInstance[] {
+  const records = Array.from({ length: 2000 }, (_, i) => build(i));
+  const invalidRecords = records.slice();
+  const last = invalidRecords.length - 1;
+  invalidRecords[last] = { ...invalidRecords[last]!, f1: "not-an-integer" };
+  return [
+    { value: records, valid: true },
+    { value: invalidRecords, valid: false },
+  ];
+}
+
 // --- Corpora -----------------------------------------------------------
 
 const oasSchema = readJson("oas-3.1-schema.json");
@@ -153,6 +253,25 @@ const migrationInvalid: JsonValue = {
   roles: [],
 };
 
+// Many applications with modest annotations is the shape where
+// per-application trace and annotation-unit allocation shows up; the
+// sparse variant's differing record shapes exercise property access that
+// is monomorphic (one hidden class) in the uniform variant.
+const recordsUniformUri = "https://bench.example/records-uniform";
+const recordsUniformSchema = recordsSchema(recordsUniformUri);
+const recordsUniformInstances = recordsInstances(() => coreRecord());
+
+const recordsSparseUri = "https://bench.example/records-sparse";
+const recordsSparseSchema = recordsSchema(recordsSparseUri);
+const sparseRand = mulberry32(0x5eed5);
+const recordsSparseInstances = recordsInstances((i) => {
+  const record = coreRecord();
+  for (const p of pickDistinct(sparseRand, i % 4, 8, 149)) {
+    record[`f${String(p)}`] = fieldValue(p);
+  }
+  return record;
+});
+
 interface Corpus {
   name: string;
   schema: JsonValue;
@@ -161,6 +280,8 @@ interface Corpus {
   instances: GeneratedInstance[];
   /** Subject exclusion with the recorded reason (surfaced in results). */
   ajvExcluded?: string;
+  /** Generated in-harness rather than vendored from `bench/corpora/`. */
+  generated?: true;
 }
 
 const corpora: Corpus[] = [
@@ -194,6 +315,22 @@ const corpora: Corpus[] = [
       { value: migrationInvalid, valid: false },
     ],
   },
+  {
+    name: "records-uniform",
+    schema: recordsUniformSchema,
+    uri: recordsUniformUri,
+    dialectHint: "2020-12",
+    instances: recordsUniformInstances,
+    generated: true,
+  },
+  {
+    name: "records-sparse",
+    schema: recordsSparseSchema,
+    uri: recordsSparseUri,
+    dialectHint: "2020-12",
+    instances: recordsSparseInstances,
+    generated: true,
+  },
 ];
 
 // --- Subjects ------------------------------------------------------------
@@ -211,14 +348,16 @@ const freshEngine = (corpus: Corpus): { engine: Engine; uri: string } => {
   return { engine, uri };
 };
 
-interface CorpusSubjects {
+interface CorpusContext {
   subjects: Subject[];
   engine: Engine;
   uri: string;
+  flag: CompiledArtifact;
+  list: CompiledListArtifact;
   listAnn: CompiledListArtifact;
 }
 
-async function subjectsFor(corpus: Corpus): Promise<CorpusSubjects> {
+async function subjectsFor(corpus: Corpus): Promise<CorpusContext> {
   const { engine, uri } = freshEngine(corpus);
   const flag = compileValidator(engine, uri);
   const list = compileList(engine, uri, { errorParams: false });
@@ -277,23 +416,189 @@ async function subjectsFor(corpus: Corpus): Promise<CorpusSubjects> {
       verdict: (x) => compatValidate(x),
     });
   }
-  return { subjects, engine, uri, listAnn };
+  return { subjects, engine, uri, flag, list, listAnn };
 }
+
+// --- Output formats --------------------------------------------------------
+
+// One tier's view of an output format. `run` is timed as-is (no wrapper
+// allocation on the hot path); `probe` is what the oracle compares.
+interface FormatSide {
+  run: (x: JsonValue) => unknown;
+  probe: (x: JsonValue) => { valid: boolean; document: unknown };
+}
+
+interface FormatEntry {
+  /** Task subject: "jse interpreter <format>" / "jse compiled <format>". */
+  format: string;
+  interpreter: (ctx: CorpusContext) => FormatSide;
+  /**
+   * Absent until the compiled tier renders the format. Presence alone
+   * adds the document-equality oracle and the timed task.
+   */
+  compiled?: (ctx: CorpusContext) => FormatSide;
+}
+
+const interpreted =
+  (
+    options: EvaluateOptions,
+    document: (r: Result) => unknown = (r) => r.outputDocument,
+  ) =>
+  ({ engine, uri }: CorpusContext): FormatSide => ({
+    run: (x) => engine.evaluate(uri, x, options),
+    probe: (x) => {
+      const r = engine.evaluate(uri, x, options);
+      return { valid: r.valid, document: document(r) };
+    },
+  });
+
+// `annotations: true` throughout: the full document is what a consumer of
+// a structured format asks for, and on invalid instances annotations are
+// not rendered anyway. No errorParams/positions — these rows isolate
+// rendering cost and match the artifacts' `errorParams: false`.
+const FORMATS: FormatEntry[] = [
+  // Reference rows: every partition carries the whole cost ladder
+  // (flag → flat list → basic → documents) on the same instances.
+  {
+    format: "flag",
+    interpreter: interpreted({}, (r) => ({ valid: r.valid })),
+    compiled: ({ flag }) => ({
+      run: (x) => flag.validate(x),
+      probe: (x) => {
+        const valid = flag.validate(x);
+        return { valid, document: { valid } };
+      },
+    }),
+  },
+  // The flat surface. On the interpreter this call also renders the list
+  // document: it cannot produce the flat units without it.
+  {
+    format: "list+annotations",
+    interpreter: interpreted({ output: "list", annotations: true }, (r) => ({
+      errors: r.errors ?? [],
+      annotations: r.annotations,
+    })),
+    compiled: ({ listAnn }) => ({
+      run: (x) => listAnn.evaluateList(x),
+      probe: (x) => {
+        const r = listAnn.evaluateList(x);
+        return {
+          valid: r.valid,
+          document: {
+            errors: r.valid ? [] : r.errors,
+            annotations: r.annotations,
+          },
+        };
+      },
+    }),
+  },
+  {
+    format: "basic",
+    interpreter: interpreted({ output: "basic", annotations: true }),
+    compiled: ({ listAnn }) => ({
+      run: (x) => listAnn.basic(x),
+      probe: (x) => {
+        const d = listAnn.basic(x);
+        return { valid: d.valid, document: d };
+      },
+    }),
+  },
+  {
+    format: "list+verbose",
+    interpreter: interpreted({
+      output: "list",
+      verbose: true,
+      annotations: true,
+    }),
+  },
+  // The ajv-compat escalation path (list evaluation with the trace kept).
+  {
+    format: "list+trace",
+    interpreter: interpreted(
+      { output: "list", annotations: true, trace: true },
+      (r) => ({ document: r.outputDocument, trace: r.trace }),
+    ),
+  },
+  {
+    format: "hierarchical",
+    interpreter: interpreted({ output: "hierarchical", annotations: true }),
+  },
+  {
+    format: "detailed",
+    interpreter: interpreted({ output: "detailed", annotations: true }),
+  },
+  {
+    format: "verbose",
+    interpreter: interpreted({ output: "verbose", annotations: true }),
+  },
+];
 
 // --- Oracle, then timing ---------------------------------------------------
 
-const bench = new Bench({ time: BUDGET_MS });
+// tinybench also treats `iterations` (64) and `warmupIterations` (16) as
+// floors, so a 30 ms/eval records task would run ~2 s regardless of the
+// budget. Pin them low enough that BENCH_BUDGET governs; keep a small
+// sample floor so the slowest interpreter tasks still yield a mean.
+const MIN_SAMPLES = 5;
+const bench = new Bench({
+  time: BUDGET_MS,
+  iterations: MIN_SAMPLES,
+  warmupIterations: 2,
+});
+// BENCH_FILTER=<regex> times only matching task names; oracles always run.
+const FILTER =
+  process.env.BENCH_FILTER === undefined
+    ? null
+    : new RegExp(process.env.BENCH_FILTER);
+
+type Partition = "hot" | "compile+first" | "valid" | "invalid";
+
+interface TaskMeta {
+  corpus: string;
+  partition: Partition;
+  subject: string;
+}
+
+const taskMeta = new Map<string, TaskMeta>();
+
+function addTask(
+  corpus: string,
+  partition: Partition,
+  subject: string,
+  fn: () => unknown,
+): void {
+  const task = `${corpus} | ${partition} | ${subject}`;
+  if (FILTER !== null && !FILTER.test(task)) return;
+  taskMeta.set(task, { corpus, partition, subject });
+  bench.add(task, () => {
+    fn();
+  });
+}
+
+const roundRobin = (
+  xs: readonly JsonValue[],
+  run: (x: JsonValue) => unknown,
+): (() => void) => {
+  let i = 0;
+  return () => {
+    run(xs[i++ % xs.length]!);
+  };
+};
+
 let oracleFailures = 0;
+const fail = (msg: string): void => {
+  oracleFailures++;
+  console.error(`ORACLE FAIL: ${msg}`);
+};
 
 for (const corpus of corpora) {
-  const { subjects, engine, uri, listAnn } = await subjectsFor(corpus);
-  for (const subject of subjects) {
+  const ctx = await subjectsFor(corpus);
+  for (const subject of ctx.subjects) {
     corpus.instances.forEach((instance, i) => {
       const got = subject.verdict(instance.value);
       if (got !== instance.valid) {
-        oracleFailures++;
-        console.error(
-          `ORACLE FAIL: ${corpus.name}#${String(i)}: ${subject.name} said ` +
+        fail(
+          `${corpus.name}#${String(i)}: ${subject.name} said ` +
             `${String(got)}, expected ${String(instance.valid)}`,
         );
       }
@@ -304,51 +609,114 @@ for (const corpus of corpora) {
   // reproduce the interpreter's Result.annotations exactly, order included
   // (COMPILED-ANNOTATIONS.md §5 "Bench" / stage 3).
   corpus.instances.forEach((instance, i) => {
-    const compiledAnnotations = listAnn.evaluateList(
+    const compiledAnnotations = ctx.listAnn.evaluateList(
       instance.value,
     ).annotations;
-    const interpreterAnnotations = engine.evaluate(uri, instance.value, {
-      output: "list",
-      annotations: true,
-    }).annotations;
+    const interpreterAnnotations = ctx.engine.evaluate(
+      ctx.uri,
+      instance.value,
+      { output: "list", annotations: true },
+    ).annotations;
     try {
       deepStrictEqual(compiledAnnotations, interpreterAnnotations);
     } catch (e) {
-      oracleFailures++;
-      console.error(
-        `ORACLE FAIL: ${corpus.name}#${String(i)}: compiled annotations ` +
-          `diverge from the interpreter — ${(e as Error).message}`,
+      fail(
+        `${corpus.name}#${String(i)}: compiled annotations diverge from ` +
+          `the interpreter — ${(e as Error).message}`,
       );
     }
   });
 
-  // Hot-path throughput: precompiled subjects, instances round-robin.
-  for (const subject of subjects) {
-    let i = 0;
-    bench.add(`${corpus.name} | hot | ${subject.name}`, () => {
-      subject.verdict(corpus.instances[i++ % corpus.instances.length]!.value);
+  // Every format row must agree with the expected verdict, and a compiled
+  // renderer must reproduce the interpreter's document exactly.
+  for (const entry of FORMATS) {
+    const interp = entry.interpreter(ctx);
+    const comp = entry.compiled?.(ctx);
+    corpus.instances.forEach((instance, i) => {
+      const expected = interp.probe(instance.value);
+      if (expected.valid !== instance.valid) {
+        fail(
+          `${corpus.name}#${String(i)}: jse interpreter ${entry.format} ` +
+            `said ${String(expected.valid)}, expected ${String(instance.valid)}`,
+        );
+      }
+      if (comp === undefined) return;
+      const got = comp.probe(instance.value);
+      if (got.valid !== instance.valid) {
+        fail(
+          `${corpus.name}#${String(i)}: jse compiled ${entry.format} said ` +
+            `${String(got.valid)}, expected ${String(instance.valid)}`,
+        );
+      }
+      try {
+        deepStrictEqual(got.document, expected.document);
+      } catch (e) {
+        // A structured document can be megabytes; keep the report readable.
+        fail(
+          `${corpus.name}#${String(i)}: compiled ${entry.format} document ` +
+            `diverges from the interpreter — ${(e as Error).message.slice(0, 400)}`,
+        );
+      }
     });
+  }
+
+  // Hot-path throughput: precompiled subjects, instances round-robin.
+  const values = corpus.instances.map((instance) => instance.value);
+  for (const subject of ctx.subjects) {
+    addTask(
+      corpus.name,
+      "hot",
+      subject.name,
+      roundRobin(values, subject.verdict),
+    );
+  }
+
+  // Format rows run per verdict partition: annotation rendering (valid) and
+  // error rendering plus dropped-record retention (invalid) cost
+  // differently, and a mixed average hides whichever one a change targets.
+  const partitions: [Partition, JsonValue[]][] = [
+    ["valid", corpus.instances.filter((x) => x.valid).map((x) => x.value)],
+    ["invalid", corpus.instances.filter((x) => !x.valid).map((x) => x.value)],
+  ];
+  for (const [partition, partitionValues] of partitions) {
+    for (const entry of FORMATS) {
+      addTask(
+        corpus.name,
+        partition,
+        `jse interpreter ${entry.format}`,
+        roundRobin(partitionValues, entry.interpreter(ctx).run),
+      );
+      const comp = entry.compiled?.(ctx);
+      if (comp !== undefined) {
+        addTask(
+          corpus.name,
+          partition,
+          `jse compiled ${entry.format}`,
+          roundRobin(partitionValues, comp.run),
+        );
+      }
+    }
   }
 
   // Compile + first validation (fresh everything per iteration). Hyperjump
   // is excluded — see the methodology note at the top.
   const first = corpus.instances[0]!.value;
-  bench.add(`${corpus.name} | compile+first | jse compiled flag`, () => {
+  addTask(corpus.name, "compile+first", "jse compiled flag", () => {
     const { engine, uri } = freshEngine(corpus);
     compileValidator(engine, uri).validate(first);
   });
-  bench.add(`${corpus.name} | compile+first | jse interpreter`, () => {
+  addTask(corpus.name, "compile+first", "jse interpreter", () => {
     const { engine, uri } = freshEngine(corpus);
     engine.evaluate(uri, first);
   });
   if (corpus.dialectHint === "2020-12") {
     if (corpus.ajvExcluded === undefined) {
-      bench.add(`${corpus.name} | compile+first | ajv (2020)`, () => {
+      addTask(corpus.name, "compile+first", "ajv (2020)", () => {
         new Ajv2020(AJV_OPTIONS).compile(corpus.schema as never)(first);
       });
     }
   } else {
-    bench.add(`${corpus.name} | compile+first | ajv (draft-07)`, () => {
+    addTask(corpus.name, "compile+first", "ajv (draft-07)", () => {
       new Ajv(AJV_OPTIONS).compile(corpus.schema as never)(first);
     });
   }
@@ -371,10 +739,15 @@ const rows = bench.tasks.map((t) => {
     console.error(`task aborted: ${t.name}`);
     process.exitCode = 1;
   }
+  const meta = taskMeta.get(t.name)!;
   return {
     task: t.name,
+    corpus: meta.corpus,
+    partition: meta.partition,
+    subject: meta.subject,
     opsPerSec: latencyMs !== null ? Math.round(1000 / latencyMs) : null,
     meanNs: latencyMs !== null ? Math.round(latencyMs * 1e6) : null,
+    samples: "latency" in r ? r.latency.samplesCount : 0,
   };
 });
 console.table(rows);
@@ -385,6 +758,12 @@ const payload = {
   generatedAt: new Date().toISOString(),
   node: process.version,
   budgetMs: BUDGET_MS,
+  minSamples: MIN_SAMPLES,
+  corpora: corpora.map((c) => ({
+    name: c.name,
+    instances: c.instances.length,
+    generated: c.generated === true,
+  })),
   exclusions: corpora
     .filter((c) => c.ajvExcluded !== undefined)
     .map((c) => ({
