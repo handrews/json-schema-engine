@@ -239,7 +239,8 @@ async function subjectsFor(corpus: Corpus): Promise<CorpusSubjects> {
     },
     {
       name: "jse interpreter list+annotations",
-      verdict: (x) => engine.evaluate(uri, x, { output: "list" }).valid,
+      verdict: (x) =>
+        engine.evaluate(uri, x, { output: "list", annotations: true }).valid,
     },
   ];
 
