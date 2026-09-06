@@ -862,10 +862,12 @@ far enough to evaluate their runtime benefit against generated-code size,
 calling-convention overhead, planner/serializer complexity, and maintenance
 risk;
 DESIGN →
-ARCHITECTURE/ADR/CHANGELOG split; serialize.ts split (UnitContext mixes
-plan lookup, statement emission, message/params rendering, guard CSE,
-and inlining — separate unit orchestration from statement emission
-before the file grows again); fuzz corpus expansion (mutators currently
+ARCHITECTURE/ADR/CHANGELOG split; serialize.ts split (DELIVERED
+2026-09-06: `packages/compiler/src/serialize/` — `context.ts` holds the
+per-unit emission state, and `unit`, `keywords`, `statements`, `apply`,
+`expressions`, `messages`, `guards`, `spans`, `names` are functions over
+it; emitted source byte-identical, pinned by the codegen goldens); fuzz
+corpus expansion (mutators currently
 seed from the draft2020-12 suite only — add legacy-dialect and
 format-bearing seeds).
 The ajv-compat hardening items (trace-based error adapter,

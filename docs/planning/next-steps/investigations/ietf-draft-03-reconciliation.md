@@ -123,7 +123,7 @@ The compiled tier reproduces the interpreter's relevant error list
 byte-for-byte (`differential.ts`, FUZZ_LIST): `anyOf`/`oneOf` runs, `not`,
 `if`'s condition, and `contains`' probe loop take an `errs` mark before
 their applies and truncate on the accept path (`errMark` in
-`packages/compiler/src/serialize.ts`); `if`'s condition truncates
+`packages/compiler/src/serialize/`); `if`'s condition truncates
 unconditionally. Channel producers in list mode gate their push on a
 per-keyword verdict (`kwOk`), since the unit-level `ok` may already be false
 from an earlier sibling. Coverage harvests and channel gates key on

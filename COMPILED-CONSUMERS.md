@@ -227,7 +227,7 @@ the compiled calling convention:
 
 4. **Short-circuit re-licensing.** Today the serializer may emit
    `anyOf` short-circuits because the planner interprets every node
-   whose channel could be observed (serialize.ts header). Once
+   whose channel could be observed (serialize/index.ts header). Once
    consumer regions compile, flag-mode emission inside those regions
    must run every branch (rule 6) — a per-region emission mode, and
    the licensing proof in DESIGN §7 needs rewriting. This is the exact
