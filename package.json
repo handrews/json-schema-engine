@@ -11,6 +11,7 @@
   "scripts": {
     "bench": "tsx --conditions=jse-source spike/bench.ts",
     "bench:harness": "tsx --conditions=jse-source bench/harness.ts",
+    "bench:compare": "tsx bench/compare.ts",
     "build": "tsc -b tsconfig.build.json",
     "fuzz": "tsx --conditions=jse-source scripts/fuzz.ts",
     "test": "vitest run",

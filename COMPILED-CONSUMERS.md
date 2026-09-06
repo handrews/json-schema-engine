@@ -45,8 +45,10 @@ divergences. Stage-3 measured outcomes: the §1.1 compiled-list column
 recovers from 31–44k ops/s to **1.7–3.1M** (static-coverage,
 dynamic-properties, dynamic-items cases), and the OAS 3.1 corpus goes
 from ~1.9k to **17.9k ops/s compiled list / 16.5k list+annotations**
-(~9×; ~11× over interpreted annotation collection), with the harness's
-annotations-equality oracle passing throughout.
+(~9×; ~11× over interpreted annotation collection — measured against an
+interpreter comparand that rendered no annotations; STATUS.md carries
+the current ratio), with the harness's annotations-equality oracle
+passing throughout.
 
 ## 1. What the fallback costs today — measurements
 

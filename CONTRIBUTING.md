@@ -66,6 +66,7 @@ works locally but fails `npm ci` on Linux CI with
 | `npm run pack:check`    | Publication gate: offline tarball install + smoke    |
 | `npm run bowtie`        | Bowtie conformance, exact per-dialect pins           |
 | `npm run bench:harness` | Report-only corpora bench vs ajv/hyperjump           |
+| `npm run bench:compare` | Ratio table between two harness results files        |
 
 CI runs check-types, lint, format:check, test, and docs:api on every push.
 

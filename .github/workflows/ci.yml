@@ -61,7 +61,7 @@ jobs:
           node-version: 24
 
       - run: npm ci
-      - run: BENCH_BUDGET=50 npm run bench:harness | tee bench-table.txt
+      - run: set -o pipefail; BENCH_BUDGET=50 npm run bench:harness | tee bench-table.txt
 
       - uses: actions/upload-artifact@v7
         with:
