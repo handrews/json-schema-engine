@@ -482,8 +482,12 @@ function buildDraft03Tree(
       nested.push(kwUnit);
     }
     // Applications not attributable to a keyword entry (a custom keyword
-    // applying with no segment of its own) stay under the application node.
-    for (const stray of childrenOf.values()) nested.push(...stray.map(build));
+    // applying with no segment of its own) stay under the application node,
+    // appended one by one: a stray list holds one entry per application, and
+    // an argument spread over it has a native-stack ceiling.
+    for (const stray of childrenOf.values()) {
+      for (const child of stray) nested.push(build(child));
+    }
     attachNested(unit, nested);
     return unit;
   };
