@@ -174,11 +174,43 @@ const segmentsBelow = (child: RenderNode, parentPath: string): string[] => {
   return rest === "" ? [] : rest.slice(1).split("/").map(unescapeSegment);
 };
 
+// The first of those segments, the applying keyword, without building the
+// list: the draft-03 walk asks this once per child application.
+const firstSegmentBelow = (
+  child: RenderNode,
+  parentPath: string,
+): string | null => {
+  const path = child.evaluationPath;
+  if (path.length === parentPath.length) return null;
+  const end = path.indexOf("/", parentPath.length + 1);
+  return unescapeSegment(
+    path.slice(parentPath.length + 1, end === -1 ? undefined : end),
+  );
+};
+
 // Documents project unit fields into fresh objects and never embed a unit:
 // the flat units are decorated (`positions`) after every document is built,
-// and their `errorParams` fields belong to the flat surface only.
-const pick = <T>(indexes: readonly number[], units: readonly T[]): T[] =>
-  indexes.map((i) => units[i]!);
+// and their `errorParams` fields belong to the flat surface only. Most
+// nodes carry no records, so an empty pick allocates nothing.
+const NO_UNITS: readonly never[] = [];
+const pick = <T>(
+  indexes: readonly number[],
+  units: readonly T[],
+): readonly T[] =>
+  indexes.length === 0 ? NO_UNITS : indexes.map((i) => units[i]!);
+
+// Relevant records followed by dropped ones; a node's records are uniformly
+// one or the other, so the concatenation is reached only by a custom
+// keyword sharing its parent's node.
+const withDropped = <T>(
+  relevant: readonly T[],
+  dropped: readonly T[],
+): readonly T[] =>
+  relevant.length === 0
+    ? dropped
+    : dropped.length === 0
+      ? relevant
+      : [...relevant, ...dropped];
 
 /**
  * Output unit of the machines-oriented proposal (`list`, `hierarchical`):
@@ -379,21 +411,19 @@ function buildDraft03Tree(
       absoluteKeywordLocation,
       instanceLocation,
     };
-    // A node's records are uniformly relevant or irrelevant, so appending
-    // the dropped list keeps encounter order within every node.
     const errs =
       level === "verbose"
-        ? [
-            ...pick(node.errors, input.errors),
-            ...pick(node.droppedErrors, input.droppedErrors),
-          ]
+        ? withDropped(
+            pick(node.errors, input.errors),
+            pick(node.droppedErrors, input.droppedErrors),
+          )
         : pick(node.errors, input.errors);
     const anns =
       level === "verbose"
-        ? [
-            ...pick(node.annotations, input.annotations),
-            ...pick(node.droppedAnnotations, input.droppedAnnotations),
-          ]
+        ? withDropped(
+            pick(node.annotations, input.annotations),
+            pick(node.droppedAnnotations, input.droppedAnnotations),
+          )
         : pick(node.annotations, input.annotations);
     // A boolean `false` schema's error belongs to the application itself.
     const own = errs.filter((e) => e.evaluationPath === keywordLocation);
@@ -403,7 +433,7 @@ function buildDraft03Tree(
     // parent names the applying keyword.
     const childrenOf = new Map<string | null, RenderNode[]>();
     for (const child of node.children) {
-      const key = segmentsBelow(child, keywordLocation)[0] ?? null;
+      const key = firstSegmentBelow(child, keywordLocation);
       const list = childrenOf.get(key);
       if (list) list.push(child);
       else childrenOf.set(key, [child]);
