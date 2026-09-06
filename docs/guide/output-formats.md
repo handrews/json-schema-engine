@@ -231,6 +231,39 @@ assert.equal(disallowed.instanceLocation, "/disallowedProp");
 assert.equal(typeof disallowed.error, "string");
 ```
 
+Every keyword evaluation is a node, and every schema application is a
+node. For most applicators the two are distinguishable by
+`keywordLocation` alone: the `properties` keyword node is `/properties`,
+and the application it performs is `/properties/item`. A by-reference
+applicator (`$ref`, `$dynamicRef`, `$recursiveRef`) adds no segment of its
+own, so it produces two nodes with the same `keywordLocation` that differ
+in `absoluteKeywordLocation`: the keyword node, whose absolute location
+ends in the keyword, and beneath it the application of the referenced
+schema, whose absolute location is that schema's canonical location
+(§13.3.2). In `detailed`, condensation removes the keyword node whenever it
+has no result of its own, which is why the draft's own example shows a
+single `/items/$ref` node carrying the target's location. How by-reference
+applicators appear in both structures is being re-examined for future
+drafts.
+
+```json
+{
+  "valid": true,
+  "keywordLocation": "/properties/item/$ref",
+  "absoluteKeywordLocation": "https://example.com/schema#/properties/item/$ref",
+  "instanceLocation": "/item",
+  "annotations": [
+    {
+      "valid": true,
+      "keywordLocation": "/properties/item/$ref",
+      "absoluteKeywordLocation": "https://example.com/schema#/$defs/named",
+      "instanceLocation": "/item",
+      "annotations": []
+    }
+  ]
+}
+```
+
 ## List
 
 A root unit with `valid` and `details`, the flat list of units that report
