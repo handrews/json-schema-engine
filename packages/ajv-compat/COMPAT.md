@@ -199,6 +199,18 @@ stabilizes, the compiled flag artifact determines the final verdict.
   registry/dialect-aware discovery fixes are recorded in DESIGN.md.
 - `strictNumbers` (validation-time NaN/Infinity rejection) is not
   enforced; JSON-parsed data cannot contain them.
+- Dependency data comes only from an accepting producer (IETF draft-03
+  Appendix D): when `properties`, `items`, or another producer rejects, a
+  same-object `unevaluatedProperties`/`unevaluatedItems` applies to those
+  locations too and reports errors AJV does not (its evaluated-set tracking
+  counts rejected evaluations). Pinned in the golden set:
+  `unevaluatedProperties.json#33`, "Unevaluated on 2nd/3rd level is invalid"
+  (a `properties` rejecting through a cyclic `$ref`).
+- `contains: false` with `minContains: 0`: AJV reports the boolean-`false`
+  probe error although `contains` accepts. Core makes that error irrelevant
+  (draft-03 §12.2) and omits it from `Result.errors`, so the adapter cannot
+  reproduce the quirk; the follow-up release can re-derive it from the
+  verbose `droppedErrors` field.
 - Error list ORDER and branch error sets under `allErrors` can differ in
   combiner-heavy schemas (evaluation-strategy artifacts). The official
   draft2020-12 suite differential pins the exact divergent cases as a

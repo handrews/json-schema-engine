@@ -155,12 +155,18 @@ describe("hierarchical output (M5 exemplar)", () => {
     expect(verbose.outputDocument.details![0]!.valid).toBe(true);
   });
 
-  it("reports droppedAnnotations on failed units", () => {
-    const r = run({ name: 3 });
-    const nameUnit = r.outputDocument.details!.find(
+  it("reports droppedAnnotations on failed units in verbose output only", () => {
+    const verbose = run({ name: 3 }, true);
+    const nameUnit = verbose.outputDocument.details!.find(
       (d) => d.instanceLocation === "/name",
     )!;
     expect(nameUnit.droppedAnnotations!.title).toBe("the name");
+    // Relevant level: an irrelevant annotation is omitted (draft-03 §13.4).
+    const terse = run({ name: 3 });
+    const terseUnit = terse.outputDocument.details!.find(
+      (d) => d.instanceLocation === "/name",
+    )!;
+    expect(terseUnit.droppedAnnotations).toBeUndefined();
   });
 });
 

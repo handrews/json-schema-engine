@@ -150,9 +150,23 @@ instanceLocation, data}`: computed information for other keywords, never
 5. The annotation result of an evaluation is the root frame's surviving
    annotation records filtered by the retention policy (D5). Retention never
    affects rule 4. `$comment` is structural and never annotates.
-6. Consequence to preserve: `anyOf`/`oneOf` branches cannot short-circuit when
-   any channel consumer or retained annotation is in scope; the compiler may
-   short-circuit exactly when `StaticFacts` proves nothing consumes (D9b).
+6. Relevance (draft-03 §12.2): a keyword that accepts makes the errors of
+   its rejecting sub-evaluations irrelevant — the engine drops them from the
+   error list when the keyword returns (kept aside only when tracing, for
+   verbose output). Rule 3 is the same transition for a rejecting schema
+   object's accepting sub-evaluations. A keyword that reports an error must
+   reject (`KeywordContractError` otherwise). Dependency data is produced
+   only by an accepting keyword (Appendix D); `contains` reports its matched
+   positions, every other producer reports nothing when it rejects. `if`
+   produces its subschema's outcome and always accepts; `then`/`else` consume
+   it through `ctx.visible(ids, "adjacent")` (a same-scope dependency, §12.3)
+   and report their own subschema's verdict.
+7. Short-circuiting (draft-03 §12) is permitted only when no annotation
+   could be produced, no dependency communication could be affected, and no
+   verbose output is requested. The interpreter never short-circuits; the
+   compiler short-circuits `anyOf`/`oneOf` exactly in verdict-only regions
+   (flag output, nothing consumes per `StaticFacts`, no retainable
+   annotation — D9b), and list output runs every branch.
 
 ## 5. Carry-over findings that must not be relearned
 
@@ -274,16 +288,17 @@ never consume from a compiled sibling. Revisit trigger: compiling static
 subtrees inside islands would break this proof and requires a second
 harvest direction.
 
-**Short-circuit licensing (rule 6, sharpened).** The interpreter never
-short-circuits and never discards errors — failed branches of a successful
-`anyOf` keep their errors. Compiled code may short-circuit `anyOf` (first
-success) / `oneOf` (fail at second success — never stop-at-first) only in
-verdict-only regions: flag output, no reachable channel consumer, no
-retainable annotation under the artifact's policy (a `keep` predicate
-blocks annotation elision but not error short-circuiting). List-mode
-artifacts run all branches so the error multiset matches the interpreter
-exactly. The lowering IR's `combine` is eager by definition; short-circuit
-is a licensed serializer optimization, never an IR semantic.
+**Short-circuit licensing (rule 7, sharpened).** The interpreter never
+short-circuits; it runs every branch and then drops the errors of a
+successful `anyOf`'s failed branches as irrelevant (rule 6). Compiled code
+may short-circuit `anyOf` (first success) / `oneOf` (fail at second
+success — never stop-at-first) only in verdict-only regions: flag output,
+no reachable channel consumer, no retainable annotation under the
+artifact's policy (a `keep` predicate blocks annotation elision but not
+error short-circuiting). List-mode artifacts run all branches and apply the
+same relevance truncation (`errMark`), so the error list matches the
+interpreter exactly. The lowering IR's `combine` is eager by definition;
+short-circuit is a licensed serializer optimization, never an IR semantic.
 
 **Compiled-output scope (amended 2026-07-10, annotation collection
 delivered).** Compiled artifacts serve flag, flat error lists
@@ -306,7 +321,8 @@ contributing through the coverage trampolines. LIST plans track every
 consumer (never static-licensed — static coverage models only the
 parent-success path, the M6.6 finding; channel truncation reproduces
 drop-on-failure by construction), composing the coverage channel with
-the error and annotation channels (errs never truncates).
+the error and annotation channels (errs truncates only on keyword
+acceptance, rule 6, never per branch).
 Modern-vocabulary LIST documents and all hierarchical/verbose documents
 are trace-shaped (renderList flattens renderHierarchical over the
 trace) and stay on the interpreter. D9e is realized in list emission:

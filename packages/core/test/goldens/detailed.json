@@ -3,27 +3,7 @@
   "keywordLocation": "",
   "absoluteKeywordLocation": "https://golden.example/schema#",
   "instanceLocation": "",
-  "droppedAnnotations": {
-    "title": "root"
-  },
   "details": [
-    {
-      "valid": true,
-      "keywordLocation": "/properties/item",
-      "absoluteKeywordLocation": "https://golden.example/schema#/properties/item",
-      "instanceLocation": "/item",
-      "details": [
-        {
-          "valid": true,
-          "keywordLocation": "/properties/item/$ref",
-          "absoluteKeywordLocation": "https://golden.example/schema#/$defs/named",
-          "instanceLocation": "/item",
-          "annotations": {
-            "title": "a named thing"
-          }
-        }
-      ]
-    },
     {
       "valid": false,
       "keywordLocation": "/properties/count",

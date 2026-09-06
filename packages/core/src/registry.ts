@@ -70,6 +70,11 @@ export class SchemaRegistry {
   // "someone might read this" side (D5/M5.5).
   private producedBehaviorIds = new Set<string>();
   private consumedBehaviorIds = new Set<string>();
+  // Consumed ids whose producer declares evaluated coverage (D9a facts): the
+  // only dependency data the coverage channel's shape-dispatching folds
+  // understand (coverage.ts).
+  private coverageProducerIds = new Set<string>();
+  private coverageConsumedIds = new Set<string>();
   private documentDialects = new Map<string, string>(); // resource URI -> dialect URI
   private resourceLocations = new Map<string, DocumentLocation>();
   // Retrieval URI -> declared $id base, when they differ: the document must
@@ -185,7 +190,19 @@ export class SchemaRegistry {
       const facts = behavior?.analyze?.(value, { schema: node });
       if (!facts) continue;
       for (const p of facts.produces ?? []) this.producedBehaviorIds.add(p);
-      for (const c of facts.consumes ?? []) this.consumedBehaviorIds.add(c);
+      for (const c of facts.consumes ?? []) {
+        this.consumedBehaviorIds.add(c);
+        if (this.coverageProducerIds.has(c)) this.coverageConsumedIds.add(c);
+      }
+      if (
+        facts.evaluatesNames !== undefined ||
+        facts.evaluatesIndexes !== undefined
+      ) {
+        this.coverageProducerIds.add(behavior!.id);
+        if (this.consumedBehaviorIds.has(behavior!.id)) {
+          this.coverageConsumedIds.add(behavior!.id);
+        }
+      }
       if (this.onRegex) {
         const keywordLocation = `${baseUri}#${pointer}/${escapeSegment(name)}`;
         for (const rx of facts.regexes ?? []) this.onRegex(rx, keywordLocation);
@@ -276,6 +293,11 @@ export class SchemaRegistry {
   /** Behavior ids some registered keyword declares it consumes. */
   consumedIds(): ReadonlySet<string> {
     return this.consumedBehaviorIds;
+  }
+
+  /** The consumed subset of {@link consumedIds} whose producer declares evaluated coverage: what the coverage channel carries. */
+  coverageIds(): ReadonlySet<string> {
+    return this.coverageConsumedIds;
   }
 
   private canonical(resourceUri: string): string {

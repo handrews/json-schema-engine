@@ -120,6 +120,8 @@ function compareProductions(
   return null;
 }
 
+const IF_ID = "https://json-schema.org/draft/2020-12/vocab/applicator#if";
+
 /**
  * Merges one schema application's annotation and dependency records into the
  * oracle's order — dialect keyword order, which is also the interpreter's
@@ -143,6 +145,9 @@ function mergeOwn(
     });
   }
   for (const d of dependencies) {
+    // `if` communicates its outcome to then/else; the compiled tier realizes
+    // that dependency structurally (the hoisted condition), so no recipe.
+    if (d.behaviorId === IF_ID) continue;
     merged.push({
       at: position.get(d.keywordName)!,
       keyword: d.keywordName,
@@ -599,7 +604,9 @@ interface SweepPin {
 const SWEEP: Record<string, SweepPin> = {
   "draft2020-12": {
     dir: "draft2020-12",
-    pairs: 2110,
+    // 2113: a rejecting `items` communicates no coverage (Appendix D), so
+    // unevaluatedItems.json#6 applies its subschema to three more positions.
+    pairs: 2113,
     productions: 750,
     skippedTracked: 40,
   },

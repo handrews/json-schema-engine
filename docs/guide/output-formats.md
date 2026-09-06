@@ -121,9 +121,13 @@ assert.equal(doc.errors?.[0]?.keywordLocation, "/properties/n/type");
 ## Hierarchical
 
 `hierarchical` builds a nested `OutputUnit` tree in `Result.outputDocument`,
-following the evaluation's applicator structure. Units that contribute
-nothing — valid, no annotations, no failing descendants — are pruned by
-default; pass `verbose: true` to keep them.
+following the evaluation's applicator structure. By default only relevant
+records appear (IETF draft-03 §12.2): an error from a rejecting subschema
+under a keyword that accepted anyway, such as the losing branch of a
+passing `anyOf`, and an annotation under a rejecting ancestor are omitted,
+and units left with nothing to report are pruned. Pass `verbose: true` to
+keep every unit and see the irrelevant records under `droppedErrors` and
+`droppedAnnotations`.
 
 ```ts
 import assert from "node:assert";
@@ -134,23 +138,45 @@ const uri = engine.registerSchema(
   {
     title: "root",
     properties: { name: { title: "the name", type: "string" } },
+    anyOf: [{ required: ["name"] }, { required: ["id"] }],
   },
   "https://example.com/tree",
 );
 
-const result = engine.evaluate(uri, { name: 3 }, { output: "hierarchical" });
-const root = result.outputDocument;
-assert.equal(root.valid, false);
-
-const nameUnit = root.details?.find((d) => d.instanceLocation === "/name");
+const terse = engine.evaluate(uri, { name: 3 }, { output: "hierarchical" });
+assert.equal(terse.valid, false);
+const nameUnit = terse.outputDocument.details?.find(
+  (d) => d.instanceLocation === "/name",
+);
 assert.equal(nameUnit?.evaluationPath, "/properties/name");
 assert.ok(nameUnit?.errors?.type.includes("string"));
-// The failed unit's annotations are dropped, not reported, per the spec.
-assert.equal(nameUnit?.droppedAnnotations?.title, "the name");
+// The passing anyOf makes its losing branch irrelevant: no unit for it.
+assert.equal(
+  terse.outputDocument.details?.some((d) => d.evaluationPath === "/anyOf/1"),
+  false,
+);
+
+const verbose = engine.evaluate(
+  uri,
+  { name: 3 },
+  { output: "hierarchical", verbose: true },
+);
+const branch = verbose.outputDocument.details?.find(
+  (d) => d.evaluationPath === "/anyOf/1",
+);
+assert.equal(branch?.valid, false);
+assert.ok(branch?.droppedErrors?.required);
+const verboseName = verbose.outputDocument.details?.find(
+  (d) => d.instanceLocation === "/name",
+);
+// The failed unit's own annotation is irrelevant too.
+assert.equal(verboseName?.droppedAnnotations?.title, "the name");
 ```
 
 Under `locations: "2020-12"`, the same tree shape is called Detailed
-(pruned, the default) or Verbose (with `verbose: true`).
+(relevant records only, the default) or Verbose (with `verbose: true`); the
+Verbose document keeps every unit with its errors under `errors` and its
+annotations placed by the unit's own validity.
 
 ```ts
 import assert from "node:assert";
