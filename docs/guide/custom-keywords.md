@@ -80,7 +80,10 @@ const uri = engine.registerSchema(
   "https://example.com/hint-schema",
   DIALECT,
 );
-const result = engine.evaluate(uri, "x", { collectAnnotations: true });
+const result = engine.evaluate(uri, "x", {
+  output: "basic",
+  annotations: true,
+});
 assert.equal(result.annotations?.[0]?.keyword, "hint");
 assert.deepEqual(result.annotations?.[0]?.annotation, { render: "textarea" });
 ```

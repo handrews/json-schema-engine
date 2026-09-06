@@ -21,7 +21,7 @@ import {
   type Engine,
   type ErrorUnit,
   type JsonValue,
-  type RetentionPolicy,
+  type AnnotationSelection,
 } from "@jse/core";
 import {
   compileList,
@@ -72,13 +72,12 @@ function interpOutcome(
   engine: Engine,
   uri: string,
   data: JsonValue,
-  retention?: RetentionPolicy,
+  retention?: AnnotationSelection,
 ): Outcome {
   try {
     const r = engine.evaluate(uri, data, {
       output: "list",
-      collectAnnotations: true,
-      ...(retention === undefined ? {} : { retention }),
+      annotations: retention ?? true,
     });
     return {
       threw: null,
@@ -297,7 +296,7 @@ async function sweepDialect(pin: DialectPin): Promise<{
           group.schema,
           `https://ann-suite.example/${pin.dir}/${file}/${String(gi)}`,
         );
-        artifact = compileList(engine, uri, { collectAnnotations: true });
+        artifact = compileList(engine, uri, { annotations: true });
       } catch {
         skippedGroups++;
         continue;
@@ -379,7 +378,7 @@ describe("Leg 2 — compiled basic() ≡ interpreter Basic document (draft2020-1
             group.schema,
             `https://ann-basic.example/${file}/${String(gi)}`,
           );
-          artifact = compileList(engine, uri, { collectAnnotations: true });
+          artifact = compileList(engine, uri, { annotations: true });
         } catch {
           continue; // same deterministic skips Leg 1 pins via skippedGroups
         }
@@ -389,9 +388,8 @@ describe("Leg 2 — compiled basic() ≡ interpreter Basic document (draft2020-1
           let cDoc: unknown;
           try {
             iDoc = engine.evaluate(uri, test.data, {
-              output: "list",
-              locations: "2020-12",
-              collectAnnotations: true,
+              output: "basic",
+              annotations: true,
             }).outputDocument;
           } catch (err) {
             iDoc = (err as Error).constructor.name;
@@ -425,7 +423,7 @@ const APPLICATOR_VOCAB =
 
 interface RetentionCase {
   name: string;
-  retention?: RetentionPolicy;
+  retention?: AnnotationSelection;
 }
 
 const RETENTIONS: RetentionCase[] = [
@@ -454,14 +452,14 @@ const RETENTIONS: RetentionCase[] = [
     },
   },
   {
-    name: "keep predicate on instanceLocation",
-    retention: { keep: (u) => u.instanceLocation === "" },
+    name: "keep predicate on inputLocation",
+    retention: { keep: (u) => u.inputLocation === "" },
   },
   {
     name: "keep combined with lists",
     retention: {
       keywords: ["title", "properties", "x-vendor"],
-      keep: (u) => u.instanceLocation !== "",
+      keep: (u) => u.inputLocation !== "",
     },
   },
 ];
@@ -590,8 +588,7 @@ describe("Leg 3 — retention matrix, compiled ≡ interpreter on both surfaces"
       );
       for (const r of RETENTIONS) {
         const artifact = compileList(engine, uri, {
-          collectAnnotations: true,
-          retention: r.retention,
+          annotations: r.retention ?? true,
         });
         for (const instance of c.instances) {
           const ctx = `${c.name} / ${r.name} / ${JSON.stringify(instance)}`;
@@ -605,10 +602,8 @@ describe("Leg 3 — retention matrix, compiled ≡ interpreter on both surfaces"
             expect(compiled.annotations, ctx).toStrictEqual(interp.annotations);
           }
           const iDoc = engine.evaluate(uri, instance, {
-            output: "list",
-            locations: "2020-12",
-            collectAnnotations: true,
-            ...(r.retention === undefined ? {} : { retention: r.retention }),
+            output: "basic",
+            annotations: r.retention ?? true,
           }).outputDocument;
           expect(artifact.basic(instance), ctx).toStrictEqual(iDoc);
         }
@@ -622,10 +617,9 @@ describe("Leg 3 — retention matrix, compiled ≡ interpreter on both surfaces"
       { title: "t", description: "d" },
       "https://ann-retention.example/elision",
     );
-    const full = compileList(engine, uri, { collectAnnotations: true });
+    const full = compileList(engine, uri, { annotations: true });
     const pruned = compileList(engine, uri, {
-      collectAnnotations: true,
-      retention: { keywords: ["title"] },
+      annotations: { keywords: ["title"] },
     });
     // Control first: the probe string (the excluded keyword's evaluation-path
     // suffix in its push) IS how an emitted produce shows up, so its absence
@@ -654,7 +648,7 @@ describe("Leg 4 — planted corruptions are reported by the comparison", () => {
     },
     "https://ann-suite.example/planted",
   );
-  const artifact = compileList(engine, uri, { collectAnnotations: true });
+  const artifact = compileList(engine, uri, { annotations: true });
   const instance: JsonValue = { a: 1, b: 2 };
   const interp = interpOutcome(engine, uri, instance);
 
@@ -717,8 +711,9 @@ describe("Leg 4 — planted corruptions are reported by the comparison", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Leg 5 — plan identity. compileList with and without collectAnnotations is
-// driven by the same buildPlan(engine, uri, { output: "list" }); a silent
+// Leg 5 — plan identity. compileList with and without the `annotations`
+// option is driven by the same buildPlan(engine, uri, { output: "list" });
+// a silent
 // classification flip between the two would evade every differential above
 // (interpreted fallback is always correct), so the unit-kind census must be
 // identical.
@@ -732,7 +727,7 @@ function unitCensus(plan: CompilationPlan): Record<string, string> {
 
 function expectSamePlanShape(engine: Engine, uri: string): void {
   const plain = compileList(engine, uri);
-  const annotated = compileList(engine, uri, { collectAnnotations: true });
+  const annotated = compileList(engine, uri, { annotations: true });
   expect(unitCensus(annotated.plan)).toStrictEqual(unitCensus(plain.plan));
   expect(annotated.plan.targets.map((t) => t.key)).toStrictEqual(
     plain.plan.targets.map((t) => t.key),
@@ -740,7 +735,7 @@ function expectSamePlanShape(engine: Engine, uri: string): void {
   expect(annotated.plan.rootKey).toBe(plain.plan.rootKey);
 }
 
-describe("Leg 5 — collectAnnotations does not change plan classification", () => {
+describe("Leg 5 — the annotations option does not change plan classification", () => {
   it("consumer-bearing schema plans identically", () => {
     const engine = createEngine();
     const uri = engine.registerSchema(
@@ -754,7 +749,7 @@ describe("Leg 5 — collectAnnotations does not change plan classification", () 
     expectSamePlanShape(engine, uri);
     // The consumer must actually exercise runtime coverage tracking (list
     // plans never static-license, plan.ts), or this assert proves nothing.
-    const annotated = compileList(engine, uri, { collectAnnotations: true });
+    const annotated = compileList(engine, uri, { annotations: true });
     const root = annotated.plan.units.get(annotated.plan.rootKey)!;
     expect(root.kind).toBe("static");
     expect(root.tracking).toBe(true);

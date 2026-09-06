@@ -142,7 +142,7 @@ const annUnit = (
   vocabulary: "https://json-schema.org/draft/2020-12/vocab/meta-data",
   evaluationPath: "/title",
   schemaLocation: "https://s.example#/title",
-  instanceLocation: "",
+  inputLocation: "",
   annotation,
   ...extra,
 });
@@ -163,8 +163,8 @@ describe("runAnnotationsSide sensitivity", () => {
   });
 
   it("different annotation ORDER → disagreement", () => {
-    const u1 = annUnit("A", { instanceLocation: "/a" });
-    const u2 = annUnit("B", { instanceLocation: "/b" });
+    const u1 = annUnit("A", { inputLocation: "/a" });
+    const u2 = annUnit("B", { inputLocation: "/b" });
     const a = runAnnotationsSide(() => listAnn(true, [], [u1, u2]))(null);
     const b = runAnnotationsSide(() => listAnn(true, [], [u2, u1]))(null);
     expect(outcomesAgree(a, b)).toBe(false);
@@ -173,11 +173,7 @@ describe("runAnnotationsSide sensitivity", () => {
 
   it("a missing annotation unit → disagreement", () => {
     const a = runAnnotationsSide(() =>
-      listAnn(
-        true,
-        [],
-        [annUnit("A"), annUnit("B", { instanceLocation: "/b" })],
-      ),
+      listAnn(true, [], [annUnit("A"), annUnit("B", { inputLocation: "/b" })]),
     )(null);
     const b = runAnnotationsSide(() => listAnn(true, [], [annUnit("A")]))(null);
     expect(outcomesAgree(a, b)).toBe(false);

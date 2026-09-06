@@ -31,8 +31,8 @@ five dialects, pinned by the recipe gate
 `evaluateProduceRecipes` reference evaluator; its first honest run
 caught and fixed a real gap — `unevaluatedProperties` with
 statically-total coverage must still produce the empty names
-annotation). Stage 2: `compileList(engine, uri, { collectAnnotations,
-retention })` emits interpreter-exact annotations — mark/truncate at
+annotation). Stage 2: `compileList(engine, uri, { annotations })` emits
+interpreter-exact annotations — mark/truncate at
 every application boundary, hoisted marks for the two `applyExpr`
 shapes, unknown-keyword constant pushes, static retention-list elision
 at serialize time with `keep` at the wrapper, and `fragListAnn` island
@@ -205,7 +205,7 @@ fragment failure uniformly — no new discard logic.
 
 ### 3.5 Public API
 
-`compileList(engine, uri, { collectAnnotations: true, retention })`
+`compileList(engine, uri, { annotations: true })`
 returning `{ valid, errors, annotations? }` with `annotations` present
 only when valid (matching `Engine.evaluate`, index.ts:577), and the
 Basic adapter gaining its `annotations` array on success — closing the
@@ -236,7 +236,7 @@ Per the repo's testing discipline, the mechanism is only half the work:
 
 - **Full-suite differential**: every dialect directory, compiled
   annotation artifact vs `Engine.evaluate(..., { output: "list",
-collectAnnotations: true })` — unit-by-unit equality _including
+annotations: true })` — unit-by-unit equality _including
   order_, plus the Basic document's annotation side. The channels tests
   are the order oracle.
 - **Retention matrix**: allow/deny lists and `keep` predicates on/off,

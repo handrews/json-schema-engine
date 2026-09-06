@@ -98,8 +98,7 @@ describe("compiled list output ≡ interpreter (full local suite)", () => {
     // compiled artifacts do not collect (DESIGN §7 scope line).
     for (const instance of [{ name: "x" }, "nope"] as JsonValue[]) {
       const expected = engine.evaluate(uri, instance, {
-        output: "list",
-        locations: "2020-12",
+        output: "basic",
       }).outputDocument;
       expect(artifact.basic(instance)).toEqual(expected);
     }

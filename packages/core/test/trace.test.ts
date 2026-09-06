@@ -89,7 +89,7 @@ describe("trace option", () => {
     );
     const viaRef = findBySegments(r.trace, ["$ref"])!;
     expect(viaRef.schemaLocation).toBe("https://trace.example/schema#/$defs/x");
-    expect(viaRef.instanceLocation).toBe("/a");
+    expect(viaRef.inputLocation).toBe("/a");
     expect(viaRef.valid).toBe(false);
     const unit = r.errors![viaRef.errorIndexes[0]!]!;
     expect(unit.evaluationPath).toBe("/properties/a/$ref/type");
@@ -102,7 +102,7 @@ describe("trace option", () => {
     const r = run({ propertyNames: { pattern: "^a" } }, { b: 1 });
     const app = findBySegments(r.trace, ["propertyNames"])!;
     expect(app.valid).toBe(false);
-    expect(app.instanceLocation).toBe("/b");
+    expect(app.inputLocation).toBe("/b");
     expect(r.errors![app.errorIndexes[0]!]!.keyword).toBe("pattern");
   });
 
@@ -113,7 +113,7 @@ describe("trace option", () => {
     expect(app.errorIndexes.length).toBe(1);
     const unit = r.errors![app.errorIndexes[0]!]!;
     expect(unit.keyword).toBe(undefined);
-    expect(unit.instanceLocation).toBe("/a");
+    expect(unit.inputLocation).toBe("/a");
   });
 
   it("decodes escaped path segments", () => {

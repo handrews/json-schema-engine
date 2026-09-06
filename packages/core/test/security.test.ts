@@ -179,7 +179,7 @@ describe("prototype pollution safety (D20)", () => {
     ) as JsonValue;
     engine.evaluate(uri, instance, {
       output: "list",
-      collectAnnotations: true,
+      annotations: true,
     });
     const clean = {} as Record<string, unknown>;
     expect("polluted" in clean).toBe(false);

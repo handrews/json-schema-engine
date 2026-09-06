@@ -64,6 +64,11 @@ Gate: one fixture renders the same evaluation into every format at each
 supported level; goldens exist per format × level; adding a renderer required
 no evaluator change.
 
+Status: delivered 2026-09-05 (backlog E2, E9, S4). The record model gained
+per-keyword verdicts on the trace for the draft-03 trees; the renderers
+consume one record set. Compiled `list`/`hierarchical`/`detailed`/`verbose`
+artifacts are Phase 3 work.
+
 ## Phase 3: cross-tier parity and E1
 
 Compiled flag and list artifacts over the new records; relevance in compiled

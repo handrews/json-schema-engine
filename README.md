@@ -67,7 +67,7 @@ assert.equal(engine.evaluate(uri, { name: "Ada" }).valid, true);
 const result = engine.evaluate(uri, {}, { output: "list" });
 assert.equal(result.valid, false);
 assert.equal(result.errors?.[0]?.evaluationPath, "/required");
-assert.equal(result.errors?.[0]?.instanceLocation, "");
+assert.equal(result.errors?.[0]?.inputLocation, "");
 ```
 
 ## Collect annotations
@@ -90,13 +90,13 @@ const result = engine.evaluate(
   uri,
   { name: "Ada" },
   {
-    collectAnnotations: true,
-    retention: { keywords: ["title", "deprecated"] },
+    output: "basic",
+    annotations: { keywords: ["title", "deprecated"] },
   },
 );
 
 const titles = result.annotations?.filter((a) => a.keyword === "title");
-assert.deepEqual(titles?.map((t) => t.instanceLocation).sort(), ["", "/name"]);
+assert.deepEqual(titles?.map((t) => t.inputLocation).sort(), ["", "/name"]);
 ```
 
 ## Documentation

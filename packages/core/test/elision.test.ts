@@ -1,8 +1,10 @@
 // M5.5 (D5): produce-time elision. The differential leg is the milestone's
-// done-signal — flag mode (elision active) and hierarchical mode (tracing,
-// no elision) must agree on every official case in every dialect, proving
-// the "MUST NOT break channels" requirement over real unevaluated*/contains
-// interplay rather than hand-picked cases.
+// done-signal — flag and hierarchical output must agree on every official
+// case in every dialect, proving the "MUST NOT break channels" requirement
+// over real unevaluated*/contains interplay rather than hand-picked cases.
+// Elision by selection (ADR 0003) applies at every output level: an
+// undeclared read of a production the schema never declared as consumed
+// still throws under hierarchical, not only under flag.
 
 import { readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -87,7 +89,7 @@ describe("produce-time elision (white box)", () => {
       { title: "T", type: "object", properties: { a: { title: "A" } } },
       "https://elide.example/plain",
     );
-    const predicate = makeRecordPredicate(false, undefined);
+    const predicate = makeRecordPredicate(false);
     const { valid, state } = runEvaluation(
       registry,
       "https://elide.example/plain",
@@ -106,7 +108,7 @@ describe("produce-time elision (white box)", () => {
       { properties: { a: true }, unevaluatedProperties: false },
       "https://elide.example/consumer",
     );
-    const predicate = makeRecordPredicate(false, undefined);
+    const predicate = makeRecordPredicate(false);
     const { valid, state } = runEvaluation(
       registry,
       "https://elide.example/consumer",
@@ -133,8 +135,8 @@ describe("produce-time elision (white box)", () => {
       uri,
       {},
       {
-        collectAnnotations: true,
-        retention: { keywords: ["title"] },
+        output: "basic",
+        annotations: { keywords: ["title"] },
       },
     );
     expect(allowed.annotations!.map((a) => a.keyword)).toEqual(["title"]);
@@ -142,8 +144,8 @@ describe("produce-time elision (white box)", () => {
       uri,
       {},
       {
-        collectAnnotations: true,
-        retention: { excludeKeywords: ["title"] },
+        output: "basic",
+        annotations: { excludeKeywords: ["title"] },
       },
     );
     expect(denied.annotations!.some((a) => a.keyword === "title")).toBe(false);
@@ -162,7 +164,8 @@ describe("produce-time elision (white box)", () => {
       "https://elide.example/deny-all",
     );
     const options = {
-      retention: {
+      output: "basic" as const,
+      annotations: {
         excludeKeywords: ["properties", "unevaluatedProperties", "title"],
         excludeVocabularies: [
           "https://json-schema.org/draft/2020-12/vocab/applicator",
@@ -199,9 +202,10 @@ describe("produce-time elision (white box)", () => {
       "urn:jse:test:dialect:undeclared",
     );
     expect(() => engine.evaluate(uri, 1)).toThrow(UndeclaredConsumptionError);
-    // With tracing (no elision) the same read is permitted.
-    expect(engine.evaluate(uri, 1, { output: "hierarchical" }).valid).toBe(
-      true,
+    // Elision by selection runs at every output level, so the same
+    // undeclared read still throws under hierarchical.
+    expect(() => engine.evaluate(uri, 1, { output: "hierarchical" })).toThrow(
+      UndeclaredConsumptionError,
     );
   });
 });

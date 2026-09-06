@@ -17,6 +17,7 @@ const mapPositions = (value: JsonValue): StaticFacts =>
 /** Identifier/reserved keywords: no evaluation behavior, no annotation. */
 export const structural = (id: string): KeywordBehavior => ({
   id,
+  structural: true,
   analyze: () => ({ produces: [] }),
   evaluate: () => true,
   lower: () => {
@@ -141,6 +142,7 @@ export const $recursiveAnchor: KeywordBehavior = structural(
 /** `$defs`: a map of named subschemas, reachable only by reference. */
 export const $defs: KeywordBehavior = {
   id: `${VOCAB_CORE}#$defs`,
+  structural: true,
   analyze: mapPositions,
   evaluate: () => true,
   lower: () => {

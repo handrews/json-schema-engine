@@ -83,7 +83,7 @@ export function runListSide(
  * canonicalized by {@link runListSide}, so the compared signature covers the
  * verdict, every error unit (as list mode already encodes them), AND every
  * annotation unit — keyword, vocabulary, evaluationPath, schemaLocation,
- * instanceLocation, and the annotation value — in ORDER. Because
+ * inputLocation, and the annotation value — in ORDER. Because
  * `JSON.stringify` drops `undefined`-valued keys, the presence vs absence of
  * the `annotations` key itself is part of the signature (present-but-empty
  * `[]` and absent encode differently). One encoding path: the annotation leg

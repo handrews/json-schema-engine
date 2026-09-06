@@ -126,14 +126,6 @@ which JSE does not produce
 
 ## Missing fixtures
 
-- Directly failing dependency producers adjacent to `unevaluated*` consumers.
-- Relevance transitions at keyword and schema boundaries across every
-  applicator class.
-- An accepting sub-evaluation under a rejecting schema object: absent from
-  relevant-level output, present and marked at the verbose level (the current
-  goldens case).
-- The same semantics rendered into every supported format at each level, with
-  the relevance marker at the verbose level.
 - A third-party format proving extension without evaluator changes.
 - A streamed unit that later becomes irrelevant, with explicit transition and
   the same final reduction as document output.

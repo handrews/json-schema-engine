@@ -293,7 +293,7 @@ export function runMutationFixpoint(
       const doc = engine.evaluate(uri, root.value, {
         output: "hierarchical",
         verbose: true,
-      }).outputDocument as OutputUnit;
+      }).outputDocument;
       // Two combiner scopes, pinned by ajv-mutation.json (M8.6c cases):
       // - defaults NEVER apply inside anyOf/oneOf branches, passing or not
       //   (AJV ignores them there — its strict mode even refuses them);
@@ -309,7 +309,7 @@ export function runMutationFixpoint(
         if (isMuted) muted.add(u);
         const kids = u.details ?? [];
         const edgeOf = (d: OutputUnit): string | undefined =>
-          segments(d.evaluationPath!.slice(u.evaluationPath!.length))[0];
+          segments(d.evaluationPath.slice(u.evaluationPath.length))[0];
         const anyBranchValid = new Map<string, boolean>();
         for (const d of kids) {
           const e = edgeOf(d);
@@ -401,7 +401,7 @@ const applyDefaults = (
   const fillable = (v: JsonValue | undefined): boolean =>
     v === undefined || (mode === "empty" && (v === null || v === ""));
   for (const unit of units) {
-    const node = resolveSchema(unit.schemaLocation!);
+    const node = resolveSchema(unit.schemaLocation);
     if (!isPlainObject(node)) continue;
     const instance = getAt(root, unit.instanceLocation);
     if (isPlainObject(node.properties) && isPlainObject(instance)) {
@@ -494,7 +494,7 @@ const applyTransform = (
     // Root guard (AJV's `parentData !== undefined`): a top-level value has
     // no holder to write back through, so transform never touches it.
     if (unit.instanceLocation === "") continue;
-    const node = resolveSchema(unit.schemaLocation!);
+    const node = resolveSchema(unit.schemaLocation);
     if (!isPlainObject(node) || !Array.isArray(node.transform)) continue;
     const current = getAt(root, unit.instanceLocation);
     if (typeof current !== "string") continue;
@@ -543,7 +543,7 @@ const applyDynamicDefaults = (
   const fillable = (v: JsonValue | undefined): boolean =>
     v === undefined || (empty && (v === null || v === ""));
   for (const unit of units) {
-    const node = resolveSchema(unit.schemaLocation!);
+    const node = resolveSchema(unit.schemaLocation);
     if (!isPlainObject(node) || !isPlainObject(node.dynamicDefaults)) continue;
     const instance = getAt(root, unit.instanceLocation);
     if (!isPlainObject(instance)) continue;
@@ -579,7 +579,7 @@ const applyRemoval = (
     // carries property keywords (a bare {type:"object"} removes nothing —
     // fixture-pinned).
     for (const unit of units) {
-      const node = resolveSchema(unit.schemaLocation!);
+      const node = resolveSchema(unit.schemaLocation);
       if (!isPlainObject(node)) continue;
       const instance = getAt(root, unit.instanceLocation);
       if (!isPlainObject(instance)) continue;
@@ -609,7 +609,7 @@ const applyRemoval = (
   // (each one's instanceLocation IS the offending property). true removes
   // only where the subschema is literally `false`.
   for (const unit of units) {
-    if (unit.valid || unit.schemaLocation === undefined) continue;
+    if (unit.valid) continue;
     if (lastSegment(unit.schemaLocation) !== "additionalProperties") continue;
     if (mode === true && resolveSchema(unit.schemaLocation) !== false) continue;
     if (getAt(root, unit.instanceLocation) === undefined) continue;
@@ -628,15 +628,15 @@ const applyCoercions = (
   const done = new Set<string>();
   for (const unit of errors) {
     if (unit.keyword !== "type") continue;
-    if (done.has(unit.instanceLocation)) continue;
+    if (done.has(unit.inputLocation)) continue;
     const expected = unit.params?.expected as string | string[] | undefined;
     if (expected === undefined) continue;
-    const value = getAt(root, unit.instanceLocation);
+    const value = getAt(root, unit.inputLocation);
     if (value === undefined) continue;
     const coerced = coerceValue(expected, value, arrayMode);
     if (coerced === null) continue;
-    done.add(unit.instanceLocation);
-    setAt(root, unit.instanceLocation, coerced.value);
+    done.add(unit.inputLocation);
+    setAt(root, unit.inputLocation, coerced.value);
     changed = true;
   }
   return changed;

@@ -111,14 +111,14 @@ function factoryFor(baseUri: string): DifferentialFactory {
           const artifact = compileList(engine, uri, {
             ...COMPILE_OPTS,
             errorParams: true,
-            collectAnnotations: true,
+            annotations: true,
           });
           return {
             interpret: runAnnotationsSide((x) => {
               const r = engine.evaluate(uri, x, {
                 output: "list",
                 errorParams: true,
-                collectAnnotations: true,
+                annotations: true,
               });
               const base = { valid: r.valid, errors: r.errors ?? [] };
               // Key presence is part of the contract: only spread the

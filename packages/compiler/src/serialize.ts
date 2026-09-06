@@ -15,7 +15,7 @@ import {
   type LowerStmt,
   type LoweringContext,
   type RecordPredicate,
-  type RetentionPolicy,
+  type AnnotationSelection,
   type SchemaRegistry,
   makeRecordPredicate,
 } from "@jse/core";
@@ -46,14 +46,14 @@ class SerializeError extends Error {}
 
 /**
  * Annotation-mode options threaded through serialization. Its presence (with
- * `output === "list"`) turns on annotation collection; `retention`'s
+ * `output === "list"`) turns on annotation collection; the selection's
  * allow/deny lists are applied statically at annotate sites (the compiled
  * analogue of annotation elision — the same {@link makeRecordPredicate}
  * decision the interpreter's renderer makes). The `keep` predicate runs at
  * runtime in the artifact wrapper, never here.
  */
 export interface AnnotateOptions {
-  retention?: RetentionPolicy;
+  selection?: boolean | AnnotationSelection;
 }
 
 /** First `produce` node in a keyword's lowered statement list (searched into blocks). */
@@ -165,10 +165,10 @@ export function serializePlan(
   // fail-open, no-short-circuit discipline, adding a flat `anns` channel with
   // mark/truncate at every application boundary (channel rule 3).
   const annMode = annotate !== undefined && output === "list";
-  // Static retention: the annotate/unknown-keyword allow/deny decision, applied
+  // Static selection: the annotate/unknown-keyword allow/deny decision, applied
   // at emit time so ruled-out annotations never emit. `keep` is deferred.
   const annKeep: RecordPredicate | null = annMode
-    ? makeRecordPredicate(true, annotate.retention)
+    ? makeRecordPredicate(annotate.selection ?? true)
     : null;
   // List mode disables inlining and boolean-literal folding: shared units
   // carry the evaluation-path/instance-pointer parameters, and a `false`
@@ -379,7 +379,7 @@ function serializeUnit(
     const falseParams = listParams ? js`, params: {}` : js``;
     const chunk =
       output === "list" && !node
-        ? js`function ${fn}${listSig} { ${id("errs")}.push({ evaluationPath: ${id("ep")}, schemaLocation: ${str(unit.ref.baseUri + "#" + unit.ref.pointer)}, instanceLocation: ${id("ip")}, error: "schema is false"${falseParams} }); return false; }`
+        ? js`function ${fn}${listSig} { ${id("errs")}.push({ evaluationPath: ${id("ep")}, schemaLocation: ${str(unit.ref.baseUri + "#" + unit.ref.pointer)}, inputLocation: ${id("ip")}, error: "schema is false"${falseParams} }); return false; }`
         : js`function ${fn}() { return ${raw(String(node))}; }`;
     return {
       key: unit.key,
@@ -596,15 +596,19 @@ class UnitContext {
   ): CodeChunk {
     const suffix = withKeyword ? "/" + escapeSegment(this.currentKeyword) : "";
     const sloc = this.unit.ref.baseUri + "#" + this.unit.ref.pointer + suffix;
+    const vocab =
+      this.currentVocab !== null
+        ? js`vocabulary: ${str(this.currentVocab)}, `
+        : js``;
     const extra = this.listParams
       ? withKeyword
-        ? js`, keyword: ${str(this.currentKeyword)}, params: ${params ?? js`{}`}`
+        ? js`, keyword: ${str(this.currentKeyword)}, ${vocab}params: ${params ?? js`{}`}`
         : js`, params: ${params ?? js`{}`}`
       : js``;
     const fail = this.kwOk
       ? js`ok = false; ${this.kwOk} = false;`
       : js`ok = false;`;
-    return js`${fail} ${id("errs")}.push({ evaluationPath: ${id("ep")} + ${str(suffix)}, schemaLocation: ${str(sloc)}, instanceLocation: ${id("ip")}, error: ${msg}${extra} });`;
+    return js`${fail} ${id("errs")}.push({ evaluationPath: ${id("ep")} + ${str(suffix)}, schemaLocation: ${str(sloc)}, inputLocation: ${id("ip")}, error: ${msg}${extra} });`;
   }
 
   /** The CSE'd object-test variable for this unit's own value. */
@@ -664,7 +668,7 @@ class UnitContext {
         const sloc =
           this.unit.ref.baseUri + "#" + this.unit.ref.pointer + suffix;
         out.push(
-          js`${id("anns")}.push({ keyword: ${str(name)}, evaluationPath: ${id("ep")} + ${str(suffix)}, schemaLocation: ${str(sloc)}, instanceLocation: ${id("ip")}, annotation: ${json(node[name]!)} });`,
+          js`${id("anns")}.push({ keyword: ${str(name)}, evaluationPath: ${id("ep")} + ${str(suffix)}, schemaLocation: ${str(sloc)}, inputLocation: ${id("ip")}, annotation: ${json(node[name]!)} });`,
         );
       }
     }
@@ -1128,7 +1132,7 @@ class UnitContext {
   /**
    * The annotation-unit object literal for the current keyword: constant
    * keyword/vocabulary/schemaLocation, runtime evaluationPath (`ep` suffix)
-   * and instanceLocation (`ip`), key order matching core's renderAnnotation.
+   * and inputLocation (`ip`), key order matching core's renderAnnotation.
    * `vocabulary` is omitted when null (unknown keywords only).
    */
   private annUnit(valueExpr: CodeChunk): CodeChunk {
@@ -1138,7 +1142,7 @@ class UnitContext {
       this.currentVocab !== null
         ? js`vocabulary: ${str(this.currentVocab)}, `
         : js``;
-    return js`{ keyword: ${str(this.currentKeyword)}, ${vocab}evaluationPath: ${id("ep")} + ${str(suffix)}, schemaLocation: ${str(sloc)}, instanceLocation: ${id("ip")}, annotation: ${valueExpr} }`;
+    return js`{ keyword: ${str(this.currentKeyword)}, ${vocab}evaluationPath: ${id("ep")} + ${str(suffix)}, schemaLocation: ${str(sloc)}, inputLocation: ${id("ip")}, annotation: ${valueExpr} }`;
   }
 
   /**

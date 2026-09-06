@@ -92,7 +92,7 @@ describe("unknown-format postures (M7)", () => {
     );
     const result = engine.evaluate(uri, "anything", {
       output: "list",
-      collectAnnotations: true,
+      annotations: true,
     });
     expect(result.valid).toBe(true);
     expect(
@@ -124,7 +124,8 @@ describe("unknown-format postures (M7)", () => {
       "https://fa.example/annotate",
     );
     const result = engine.evaluate(uri, "not-an-ip", {
-      collectAnnotations: true,
+      output: "basic",
+      annotations: true,
     });
     expect(result.valid).toBe(true);
     expect(

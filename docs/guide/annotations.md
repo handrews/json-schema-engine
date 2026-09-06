@@ -12,6 +12,14 @@ annotation work can be elided.
 Annotations are reported only for valid results. On failure, a failed
 subschema's annotations are dropped, per the specification.
 
+The `annotations` option controls collection: `true` collects every
+annotation, or pass a selection object with allow lists (`keywords`,
+`vocabularies`), deny lists (`excludeKeywords`, `excludeVocabularies`), and a
+`keep` predicate. The selection is independent of the output format and
+level — it applies the same way under `basic`, `list`, `hierarchical`, or
+any other non-`flag` format. `basic` is the cheapest format for collecting
+annotations: it builds no evaluation trace.
+
 ## Collect everything
 
 ```ts
@@ -33,12 +41,12 @@ const uri = engine.registerSchema(
 const result = engine.evaluate(
   uri,
   { retries: 3 },
-  { collectAnnotations: true },
+  { output: "basic", annotations: true },
 );
 assert.equal(result.valid, true);
 
 const byKeyword = new Map(
-  result.annotations?.map((a) => [`${a.keyword}@${a.instanceLocation}`, a]),
+  result.annotations?.map((a) => [`${a.keyword}@${a.inputLocation}`, a]),
 );
 assert.equal(byKeyword.get("title@")?.annotation, "Config");
 assert.equal(byKeyword.get("title@/retries")?.annotation, "Retry count");
@@ -48,13 +56,13 @@ assert.equal(byKeyword.get("x-internal@")?.annotation, true);
 ```
 
 Each annotation unit carries the same three locations as an error unit
-(`evaluationPath`, `schemaLocation`, `instanceLocation`) plus the keyword
-name, its vocabulary URI (when known), and the annotation value.
+(`evaluationPath`, `schemaLocation`, `inputLocation`) plus the keyword name,
+its vocabulary URI (when known), and the annotation value.
 
 ## Allow lists
 
-`retention.keywords` and `retention.vocabularies` select what to keep. The
-two lists are OR-ed.
+The selection's `keywords` and `vocabularies` fields select what to keep.
+The two lists are OR-ed.
 
 ```ts
 import assert from "node:assert";
@@ -67,8 +75,8 @@ const uri = engine.registerSchema(
 );
 
 const result = engine.evaluate(uri, 5, {
-  collectAnnotations: true,
-  retention: { keywords: ["title", "default"] },
+  output: "basic",
+  annotations: { keywords: ["title", "default"] },
 });
 assert.deepEqual(result.annotations?.map((a) => a.keyword).sort(), [
   "default",
@@ -78,7 +86,7 @@ assert.deepEqual(result.annotations?.map((a) => a.keyword).sort(), [
 
 ## Deny lists
 
-`retention.excludeKeywords` and `retention.excludeVocabularies` subtract
+The selection's `excludeKeywords` and `excludeVocabularies` fields subtract
 after the allow lists. Use a deny list alone to keep everything except
 specific keywords or vocabularies.
 
@@ -93,8 +101,8 @@ const uri = engine.registerSchema(
 );
 
 const result = engine.evaluate(uri, 1, {
-  collectAnnotations: true,
-  retention: { excludeKeywords: ["description"] },
+  output: "basic",
+  annotations: { excludeKeywords: ["description"] },
 });
 assert.deepEqual(
   result.annotations?.map((a) => a.keyword),
@@ -104,7 +112,7 @@ assert.deepEqual(
 
 ## Predicate
 
-`retention.keep` runs last, on the rendered unit.
+The selection's `keep` runs last, on the rendered unit.
 
 ```ts
 import assert from "node:assert";
@@ -120,10 +128,10 @@ const result = engine.evaluate(
   uri,
   { a: 1 },
   {
-    collectAnnotations: true,
-    retention: {
+    output: "basic",
+    annotations: {
       keywords: ["title"],
-      keep: (unit) => unit.instanceLocation === "",
+      keep: (unit) => unit.inputLocation === "",
     },
   },
 );
@@ -131,11 +139,11 @@ assert.equal(result.annotations?.length, 1);
 assert.equal(result.annotations?.[0]?.annotation, "root");
 ```
 
-## Retention never affects validation
+## Selection never affects validation
 
 Keywords that read other keywords' dependency data (`unevaluatedProperties`,
-`unevaluatedItems`) see it regardless of any retention policy: dependency
-data is not annotation output. Retention controls only what the caller
+`unevaluatedItems`) see it regardless of any annotation selection: dependency
+data is not annotation output. Selection controls only what the caller
 receives. See [Custom keywords and vocabularies](custom-keywords.md) for the
 underlying mechanism.
 
@@ -149,7 +157,7 @@ const uri = engine.registerSchema(
   "https://example.com/unevaluated",
 );
 
-const options = { collectAnnotations: true, retention: { keywords: [] } };
+const options = { output: "basic" as const, annotations: { keywords: [] } };
 assert.equal(engine.evaluate(uri, { a: 1 }, options).valid, true);
 assert.equal(engine.evaluate(uri, { a: 1, b: 2 }, options).valid, false);
 ```
