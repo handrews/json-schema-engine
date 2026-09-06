@@ -426,7 +426,7 @@ function mapUnit(
       edge === "unevaluatedItems"
     ) {
       const arrayPath = parent(unit.inputLocation);
-      const key = `${unit.evaluationPath} ${arrayPath}`;
+      const key = `${unit.evaluationPath}\u0000${arrayPath}`;
       if (coalesced.has(key)) return [];
       coalesced.add(key);
       let limit = Number(last(unit.inputLocation));
