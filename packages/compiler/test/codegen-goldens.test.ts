@@ -14,11 +14,7 @@ import { fileURLToPath } from "node:url";
 import { createEngine, type Engine, type JsonValue } from "@jse/core";
 import { compileList, compileValidator } from "@jse/compiler";
 
-const DIR = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "goldens",
-  "codegen",
-);
+const DIR = join(dirname(fileURLToPath(import.meta.url)), "goldens", "codegen");
 
 const CASES = [
   "user",

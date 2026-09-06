@@ -24,7 +24,10 @@ export default defineConfig(
       "docs/",
       "coverage/",
       "**/.snippets/",
+      "**/.cache/",
       "**/dist/",
+      // Emitted-code fixtures: generated JS pinned byte-for-byte, not source.
+      "packages/compiler/test/goldens/codegen/",
     ],
   },
   js.configs.recommended,
