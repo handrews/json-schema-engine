@@ -52,12 +52,13 @@ export default defineConfig(
   },
   prettier,
   {
-    // Codegen safety fence (D20/M6): the IR serializer assembles emitted code
-    // exclusively through emit.ts's js`` tag and typed wrappers. A raw
-    // (untagged) template literal here would be a hand-assembly bypass, so it
-    // is forbidden — unit keys and messages that legitimately use template
-    // literals live in plan.ts/runtime.ts, outside this fence.
-    files: ["packages/compiler/src/serialize.ts"],
+    // Codegen safety fence (D20/M6): the IR serializer (every module under
+    // serialize/) assembles emitted code exclusively through emit.ts's js``
+    // tag and typed wrappers. A raw (untagged) template literal there would
+    // be a hand-assembly bypass, so it is forbidden — unit keys and messages
+    // that legitimately use template literals live in plan.ts/runtime.ts,
+    // outside this fence.
+    files: ["packages/compiler/src/serialize/**/*.ts"],
     rules: {
       "no-restricted-syntax": [
         "error",

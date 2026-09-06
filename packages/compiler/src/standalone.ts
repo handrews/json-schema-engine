@@ -18,7 +18,7 @@
 
 import type { Engine } from "@jse/core";
 import { buildPlan } from "./plan.js";
-import { serializePlan } from "./serialize.js";
+import { serializePlan } from "./serialize/index.js";
 
 /** Thrown when a plan needs the interpreter at runtime (islands/fallbacks). */
 export class StandaloneUnsupportedError extends Error {}
