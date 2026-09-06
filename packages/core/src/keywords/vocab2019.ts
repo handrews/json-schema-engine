@@ -30,6 +30,7 @@ import {
   oneOf,
   not,
   ifKeyword,
+  conditionalBranch,
   dependentSchemas,
   properties,
   patternProperties,
@@ -196,7 +197,9 @@ export const items2019: KeywordBehavior = {
         if (!ctx.apply(["items", i], childCursor(cursor, i, cursor.value[i]!)))
           ok = false;
       }
-      if (n > 0) ctx.produce(n === cursor.value.length ? true : n - 1);
+      // Dependency data only from an accepting keyword (Appendix D; see
+      // applicator.ts properties) — the same rule for every producer here.
+      if (n > 0 && ok) ctx.produce(n === cursor.value.length ? true : n - 1);
       return ok;
     }
     let ok = true;
@@ -206,7 +209,7 @@ export const items2019: KeywordBehavior = {
       if (!ctx.apply(["items"], childCursor(cursor, i, cursor.value[i]!)))
         ok = false;
     }
-    if (applied) ctx.produce(true);
+    if (applied && ok) ctx.produce(true);
     return ok;
   },
 };
@@ -293,9 +296,9 @@ export const additionalItems: KeywordBehavior = {
       )
         ok = false;
     }
-    // Boolean annotation: additionalItems has no index-range shape of its
-    // own, only whether it applied to any element.
-    if (applied) ctx.produce(true);
+    // Boolean data: additionalItems has no index-range shape of its own,
+    // only whether it applied to any element.
+    if (applied && ok) ctx.produce(true);
     return ok;
   },
 };
@@ -306,22 +309,8 @@ const applicator2019Vocabulary: Record<string, KeywordBehavior> = {
   oneOf,
   not,
   if: ifKeyword,
-  then: {
-    id: id("then"),
-    analyze: (): StaticFacts => SELF,
-    evaluate: () => true,
-    lower: () => {
-      /* if owns the application of this sibling */
-    },
-  },
-  else: {
-    id: id("else"),
-    analyze: (): StaticFacts => SELF,
-    evaluate: () => true,
-    lower: () => {
-      /* if owns the application of this sibling */
-    },
-  },
+  then: conditionalBranch(id("then"), "then", true),
+  else: conditionalBranch(id("else"), "else", false),
   dependentSchemas,
   properties,
   patternProperties,
@@ -483,7 +472,7 @@ const unevaluatedItems2019: KeywordBehavior = {
       )
         ok = false;
     }
-    if (applied) ctx.produce(true);
+    if (applied && ok) ctx.produce(true);
     return ok;
   },
 };
@@ -629,7 +618,7 @@ const unevaluatedProperties2019: KeywordBehavior = {
       )
         ok = false;
     }
-    ctx.produce(matched);
+    if (ok) ctx.produce(matched);
     return ok;
   },
 };

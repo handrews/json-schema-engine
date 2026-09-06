@@ -31,6 +31,7 @@ import {
   AnnotationUnit,
   BasicOutputDocument,
   ErrorUnit,
+  EvaluationRecords,
   LocationVocabulary,
   OutputUnit,
   RetentionPolicy,
@@ -96,6 +97,7 @@ export type { RegexEngine, CompiledRegex } from "./regex.js";
 export { UnresolvableRefError } from "./uri.js";
 export {
   InfiniteLoopError,
+  KeywordContractError,
   UndeclaredConsumptionError,
   UndeclaredProductionError,
   UnknownKeywordError,
@@ -160,6 +162,8 @@ export type {
   AnnotationUnit,
   BasicOutputDocument,
   ErrorUnit,
+  EvaluationRecords,
+  IrrelevantRendering,
   LocationVocabulary,
   OutputUnit,
   RetentionPolicy,
@@ -204,8 +208,10 @@ export interface EvaluateOptions {
   /** location field names; default "modern" = evaluationPath/schemaLocation */
   locations?: LocationVocabulary;
   /**
-   * Hierarchical only: keep valid, annotation-free units instead of pruning
-   * them (the old Verbose format is verbose + locations "2020-12").
+   * List and hierarchical: keep every unit and render irrelevant records
+   * (draft-03 §12.2) instead of omitting them — under modern locations as
+   * `droppedErrors`/`droppedAnnotations`, under `locations: "2020-12"` as
+   * the Verbose document.
    */
   verbose?: boolean;
   collectAnnotations?: boolean;
@@ -607,6 +613,16 @@ export class Engine {
         vocabulary,
       );
     }
+    // The structured renderers see relevance explicitly: `errors` is already
+    // the relevant list, and a valid run's root survivors are the relevant
+    // annotations (an invalid run has none — draft-03 §12.2).
+    const records = (): EvaluationRecords => ({
+      errors: state.errors,
+      droppedErrors: state.droppedErrors ?? [],
+      annotations: state.allAnnotations ?? [],
+      relevant: new Set(valid ? state.rootAnnotations : []),
+    });
+    const irrelevant = options.verbose ? "mark" : "omit";
     if (outputKind === "list") {
       result.outputDocument =
         vocabulary === "2020-12"
@@ -618,42 +634,22 @@ export class Engine {
               options.retention,
               vocabulary,
             )
-          : renderList(
-              state.traceRoot!,
-              state.errors,
-              state.allAnnotations ?? [],
-              {
-                vocabulary,
-                verbose: options.verbose,
-                retention: options.retention,
-              },
-            );
+          : renderList(state.traceRoot!, records(), {
+              vocabulary,
+              irrelevant,
+              retention: options.retention,
+            });
     } else if (outputKind === "hierarchical") {
       result.outputDocument =
         vocabulary === "2020-12"
           ? options.verbose
-            ? renderVerbose(
-                state.traceRoot!,
-                state.errors,
-                state.allAnnotations ?? [],
-                options.retention,
-              )
-            : renderDetailed(
-                state.traceRoot!,
-                state.errors,
-                state.allAnnotations ?? [],
-                options.retention,
-              )
-          : renderHierarchical(
-              state.traceRoot!,
-              state.errors,
-              state.allAnnotations ?? [],
-              {
-                vocabulary,
-                verbose: options.verbose,
-                retention: options.retention,
-              },
-            );
+            ? renderVerbose(state.traceRoot!, records(), options.retention)
+            : renderDetailed(state.traceRoot!, records(), options.retention)
+          : renderHierarchical(state.traceRoot!, records(), {
+              vocabulary,
+              irrelevant,
+              retention: options.retention,
+            });
     }
     if (options.positions) {
       this.decorate(result.errors);

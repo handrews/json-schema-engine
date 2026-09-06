@@ -28,6 +28,7 @@ import {
   oneOf,
   not,
   ifKeyword,
+  conditionalBranch,
   properties,
   patternProperties,
   propertyNames,
@@ -266,22 +267,8 @@ const applicator07Vocabulary: Record<string, KeywordBehavior> = {
   oneOf,
   not,
   if: ifKeyword,
-  then: {
-    id: id07("then"),
-    analyze: (): StaticFacts => SELF,
-    evaluate: () => true,
-    lower: () => {
-      /* if owns the application of this sibling */
-    },
-  },
-  else: {
-    id: id07("else"),
-    analyze: (): StaticFacts => SELF,
-    evaluate: () => true,
-    lower: () => {
-      /* if owns the application of this sibling */
-    },
-  },
+  then: conditionalBranch(id07("then"), "then", true),
+  else: conditionalBranch(id07("else"), "else", false),
   dependencies,
   properties,
   patternProperties,

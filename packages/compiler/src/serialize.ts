@@ -157,9 +157,10 @@ export function serializePlan(
       "standalone emission does not support runtime coverage tracking (phase B)",
     );
   }
-  // The behavior ids a consumer observes: a region producer pushes its raw
-  // dependency data onto the channel only when its id is consumed (rule 5).
-  const consumedIds = registry.consumedIds();
+  // The coverage producers a consumer observes: a region producer pushes its
+  // raw dependency data onto the channel only when a consumer reads it and
+  // the data is coverage-shaped (rule 5; SchemaRegistry.coverageIds).
+  const coverageIds = registry.coverageIds();
   // Annotation collection is a list-mode variant: it reuses the list plan and
   // fail-open, no-short-circuit discipline, adding a flat `anns` channel with
   // mark/truncate at every application boundary (channel rule 3).
@@ -205,7 +206,7 @@ export function serializePlan(
         listParams,
         annMode,
         annKeep,
-        consumedIds,
+        coverageIds,
         false,
       ),
     );
@@ -225,7 +226,7 @@ export function serializePlan(
           listParams,
           annMode,
           annKeep,
-          consumedIds,
+          coverageIds,
           true,
         ),
       );
@@ -336,7 +337,7 @@ function serializeUnit(
   listParams: boolean,
   annMode: boolean,
   annKeep: RecordPredicate | null,
-  consumedIds: ReadonlySet<string>,
+  coverageIds: ReadonlySet<string>,
   /** emitting the channel-threaded region variant of an inRegion unit */
   regionVariant: boolean,
 ): {
@@ -419,7 +420,7 @@ function serializeUnit(
     annMode,
     annKeep,
     regionMode,
-    consumedIds,
+    coverageIds,
   );
   const unitStmts = ctx.unitBody();
   // Depth guard (D20 combined budget) only where a chain can grow: a
@@ -492,6 +493,10 @@ class UnitContext {
   private annKwKept = false;
   private covKwKept = false;
   private annKw: KeywordAnn | null = null;
+  // List-mode channel producers gate their push on the keyword's OWN verdict
+  // (Appendix D: dependency data only from an accepting keyword); the unit's
+  // `ok` cannot serve, since list mode continues past a failed sibling.
+  private kwOk: CodeChunk | null = null;
   // Object-guard CSE: one `const gN = (typeof x === "object" && …)` per
   // unit value, prepended by the body builder when used. Inlined `here`-
   // cursor children share the parent's guard (same value, same variable).
@@ -530,7 +535,7 @@ class UnitContext {
     /** region emission: thread the runtime coverage channel `ev` (phase B) */
     private regionMode = false,
     /** behavior ids a consumer observes (region channel-push gate, rule 5) */
-    private consumedIds: ReadonlySet<string> = new Set(),
+    private coverageIds: ReadonlySet<string> = new Set(),
   ) {}
 
   /**
@@ -596,7 +601,10 @@ class UnitContext {
         ? js`, keyword: ${str(this.currentKeyword)}, params: ${params ?? js`{}`}`
         : js`, params: ${params ?? js`{}`}`
       : js``;
-    return js`ok = false; ${id("errs")}.push({ evaluationPath: ${id("ep")} + ${str(suffix)}, schemaLocation: ${str(sloc)}, instanceLocation: ${id("ip")}, error: ${msg}${extra} });`;
+    const fail = this.kwOk
+      ? js`ok = false; ${this.kwOk} = false;`
+      : js`ok = false;`;
+    return js`${fail} ${id("errs")}.push({ evaluationPath: ${id("ep")} + ${str(suffix)}, schemaLocation: ${str(sloc)}, instanceLocation: ${id("ip")}, error: ${msg}${extra} });`;
   }
 
   /** The CSE'd object-test variable for this unit's own value. */
@@ -673,6 +681,7 @@ class UnitContext {
     this.annKw = null;
     this.annKwKept = false;
     this.covKwKept = false;
+    this.kwOk = null;
     if (!this.annMode && !this.regionMode) return [];
     this.annKwKept =
       this.annMode &&
@@ -681,29 +690,36 @@ class UnitContext {
         this.annKeep("", this.currentKeyword, this.currentVocab));
     const value = findProduce(stmts);
     if (!value) return [];
-    // Region channel-push gate (rule 5): only a CONSUMED producer feeds the
-    // channel. Retention never affects it — dependency data is not output.
+    // Region channel-push gate (rule 5): only a coverage producer some
+    // consumer reads feeds the channel. Retention never affects it —
+    // dependency data is not output.
     this.covKwKept =
-      this.regionMode && this.consumedIds.has(this.currentBehaviorId);
+      this.regionMode && this.coverageIds.has(this.currentBehaviorId);
     if (!this.covKwKept) return [];
+    const decls: CodeChunk[] = [];
+    if (this.output === "list") {
+      const k = id("k" + String(this.counters.temp++));
+      this.kwOk = k;
+      decls.push(js`let ${k} = true;`);
+    }
     if (value.kind === "collectedNames") {
       const n = id("n" + String(this.counters.temp++));
       this.annKw = { produceKind: "collectedNames", names: n };
-      return [js`const ${n} = new Set();`];
-    }
-    if (value.render === "largestOrTrue") {
+      decls.push(js`const ${n} = new Set();`);
+    } else if (value.render === "largestOrTrue") {
       const m = id("n" + String(this.counters.temp++));
       this.annKw = { produceKind: "largestOrTrue", max: m };
-      return [js`let ${m} = -1;`];
-    }
-    if (value.render === "appliedTrue") {
+      decls.push(js`let ${m} = -1;`);
+    } else if (value.render === "appliedTrue") {
       const a = id("n" + String(this.counters.temp++));
       this.annKw = { produceKind: "appliedTrue", applied: a };
-      return [js`let ${a} = false;`];
+      decls.push(js`let ${a} = false;`);
+    } else {
+      const t = id("n" + String(this.counters.temp++));
+      this.annKw = { produceKind: "matchedOrAllTrue", matched: t };
+      decls.push(js`const ${t} = [];`);
     }
-    const t = id("n" + String(this.counters.temp++));
-    this.annKw = { produceKind: "matchedOrAllTrue", matched: t };
-    return [js`const ${t} = [];`];
+    return decls;
   }
 
   /** Run one keyword's lower() against a fresh LoweringContext, return its stmts. */
@@ -729,9 +745,9 @@ class UnitContext {
   /**
    * The channel spans active at an application boundary: `anns` in annotation
    * mode, `ev` in region emission, both when composed, none otherwise. errs
-   * is deliberately NEVER a span — list output keeps a failed application's
-   * errors while its annotations/coverage are discarded; that asymmetry IS
-   * the interpreter's drop-on-failure semantics.
+   * is not one of them: a failed application keeps its errors (they become
+   * irrelevant only when an enclosing KEYWORD accepts, draft-03 §12.2), so
+   * error truncation is keyword-scoped — see errMark() — not per branch.
    */
   private channelSpans(includeEv = true): { chan: CodeChunk; m: CodeChunk }[] {
     const spans: { chan: CodeChunk; m: CodeChunk }[] = [];
@@ -762,6 +778,18 @@ class UnitContext {
   }
 
   /**
+   * Error relevance (draft-03 §12.2) in list mode: a keyword that accepts
+   * makes the errors its sub-evaluations pushed irrelevant. Callers take the
+   * mark before the keyword's applies and truncate on the accept path;
+   * every branch's errors land in the shared `errs` between the two.
+   */
+  private errMark(): CodeChunk | null {
+    return this.output === "list"
+      ? id("m" + String(this.counters.temp++))
+      : null;
+  }
+
+  /**
    * One grouped-fold branch: run `call`, apply `hit` on success, truncate the
    * active channel spans on failure (a failed branch's records and
    * coverage discard; a passing branch's merge — channel rule 3 per branch).
@@ -789,8 +817,10 @@ class UnitContext {
       if (anyRun.length === 0) return;
       if (this.output === "list") {
         // Every branch runs (§7: list artifacts never short-circuit), each
-        // marking/truncating its channel spans (branchSpan).
+        // marking/truncating its channel spans (branchSpan). An accepting
+        // run drops every branch's errors (errMark).
         const a = counterVar(this.counters.tally++);
+        const em = this.errMark()!;
         const runs = anyRun.map((call) =>
           this.branchSpan(call, js`${a} = true;`),
         );
@@ -800,7 +830,7 @@ class UnitContext {
           this.paramsChunk(params),
         );
         out.push(
-          js`let ${a} = false; ${join(" ", runs)} if (!${a}) { ${onFail} }`,
+          js`let ${a} = false; const ${em} = ${id("errs")}.length; ${join(" ", runs)} if (${a}) { ${id("errs")}.length = ${em}; } else { ${onFail} }`,
         );
       } else if (this.regionMode) {
         // Every branch runs (no short-circuit — a later branch's success
@@ -843,7 +873,10 @@ class UnitContext {
           true,
           this.paramsChunk(params, c, p),
         );
-        out.push(js`${decl} ${join(" ", incs)} if (${c} !== 1) { ${onFail} }`);
+        const em = this.errMark()!;
+        out.push(
+          js`${decl} const ${em} = ${id("errs")}.length; ${join(" ", incs)} if (${c} === 1) { ${id("errs")}.length = ${em}; } else { ${onFail} }`,
+        );
       } else if (this.regionMode) {
         // Run every branch with a per-branch mark/truncate (rule 2): a passing
         // branch's coverage merges, a failing branch's truncates. On a non-unit
@@ -894,17 +927,26 @@ class UnitContext {
         // the branch reads the verdict. Any other applyExpr position throws in
         // annotation mode (expr()), so no silent annotation loss.
         if (
-          (this.annMode || this.regionMode) &&
+          (this.annMode || this.regionMode || this.output === "list") &&
           stmt.cond.kind === "applyExpr"
         ) {
           // `if`'s condition is in-place: hoist the call so its channel spans
           // mark/truncate on the condition verdict (a passing condition's
           // coverage merges, a failing one's — with the else taken — truncates;
-          // rule 4). ann marks `anns`, region marks `ev`, composed both.
+          // rule 4). ann marks `anns`, region marks `ev`, composed both. The
+          // condition's errors are always irrelevant (`if` accepts regardless
+          // of its subschema), so list mode truncates them unconditionally.
           const spans = this.channelSpans();
           const t = id("m" + String(this.counters.temp++));
+          const em = this.errMark();
           const call = this.applyCall(stmt.cond.apply);
-          const head = js`${this.spanDecls(spans)} const ${t} = ${call}; if (!${t}) { ${this.spanResets(spans)} }`;
+          const errDecl = em ? js`const ${em} = ${id("errs")}.length; ` : js``;
+          const errReset = em ? js` ${id("errs")}.length = ${em};` : js``;
+          const resets =
+            spans.length > 0
+              ? js` if (!${t}) { ${this.spanResets(spans)} }`
+              : js``;
+          const head = js`${this.spanDecls(spans)} ${errDecl}const ${t} = ${call};${errReset}${resets}`;
           const thenBody = join(
             "\n",
             stmt.then.map((s) => this.statement(s)),
@@ -970,10 +1012,14 @@ class UnitContext {
         ]!;
         return js`${id("anns")}.push(${this.annUnit(json(value))});`;
       }
-      case "produce":
+      case "produce": {
         // Region mode pushes a consumed producer's dependency data onto the
-        // channel (rule 5); dependency data is never an annotation unit.
-        return this.covKwKept ? this.produceChannel(stmt.value) : js``;
+        // channel (rule 5); dependency data is never an annotation unit. In
+        // list mode the push waits on the keyword's own verdict (kwOk).
+        if (!this.covKwKept) return js``;
+        const push = this.produceChannel(stmt.value);
+        return this.kwOk ? js`if (${this.kwOk}) { ${push} }` : push;
+      }
       case "coverageFold": {
         // Bind the channel fold a following coverageCovers reads (rule 6). Only
         // a tracked unit's consumer emits this, and only in region mode.
@@ -1013,6 +1059,14 @@ class UnitContext {
                 this.paramsChunk(stmt.outOfRangeParams, c),
               )
             : js`return false;`;
+        // List mode: an accepting contains drops every probe's errors, a
+        // rejecting one keeps them (§12.2) — one mark around the whole loop,
+        // never per probe.
+        const em = this.errMark();
+        const errDecl = em ? js`const ${em} = ${id("errs")}.length; ` : js``;
+        const check = em
+          ? js`if (${outOfRange}) { ${onFail} } else { ${id("errs")}.length = ${em}; }`
+          : js`if (${outOfRange}) { ${onFail} }`;
         // contains' probe IS a bare applyExpr (the only shape besides `if`'s
         // condition): mark/truncate each probe so a matching item's
         // annotations merge and a failing item's discard. collectIndexes feeds
@@ -1024,8 +1078,8 @@ class UnitContext {
             this.annKw?.matched && stmt.collectIndexes
               ? js` ${this.annKw.matched}.push(${b});`
               : js``;
-          const loop = js`let ${c} = 0; for (let ${b} = 0; ${b} < ${this.expr(stmt.target)}.length; ${b}++) { const ${m} = ${id("anns")}.length; if (${probe}) { ${c}++;${pushIdx} } else ${id("anns")}.length = ${m}; }`;
-          return js`${loop} if (${outOfRange}) { ${onFail} }`;
+          const loop = js`${errDecl}let ${c} = 0; for (let ${b} = 0; ${b} < ${this.expr(stmt.target)}.length; ${b}++) { const ${m} = ${id("anns")}.length; if (${probe}) { ${c}++;${pushIdx} } else ${id("anns")}.length = ${m}; }`;
+          return js`${loop} ${check}`;
         }
         if (this.regionMode && stmt.countWhen.kind === "applyExpr") {
           // The probe is a CHILD-cursor apply (a plain call that never receives
@@ -1037,11 +1091,11 @@ class UnitContext {
             this.annKw?.matched && stmt.collectIndexes
               ? js` ${this.annKw.matched}.push(${b});`
               : js``;
-          const loop = js`let ${c} = 0; for (let ${b} = 0; ${b} < ${this.expr(stmt.target)}.length; ${b}++) { if (${probe}) { ${c}++;${pushIdx} } }`;
-          return js`${loop} if (${outOfRange}) { ${onFail} }`;
+          const loop = js`${errDecl}let ${c} = 0; for (let ${b} = 0; ${b} < ${this.expr(stmt.target)}.length; ${b}++) { if (${probe}) { ${c}++;${pushIdx} } }`;
+          return js`${loop} ${check}`;
         }
-        const loop = js`let ${c} = 0; for (let ${b} = 0; ${b} < ${this.expr(stmt.target)}.length; ${b}++) { if (${this.expr(stmt.countWhen)}) ${c}++; }`;
-        return js`${loop} if (${outOfRange}) { ${onFail} }`;
+        const loop = js`${errDecl}let ${c} = 0; for (let ${b} = 0; ${b} < ${this.expr(stmt.target)}.length; ${b}++) { if (${this.expr(stmt.countWhen)}) ${c}++; }`;
+        return js`${loop} ${check}`;
       }
     }
   }
@@ -1138,28 +1192,33 @@ class UnitContext {
           // Record the attempted segment (before the verdict) for the
           // keyword's produce accumulator, then mark the channel spans so a
           // failing application's annotations (annMode) and coverage (region
-          // emission) truncate — but errs never does, and list mode CONTINUES
-          // on failure (ok = false, no return): the unit's remaining keywords,
-          // including a consumer sweep that now covers less, still run.
+          // emission) truncate — its errors stay (the keyword rejects), and
+          // list mode CONTINUES on failure (ok = false, no return): the
+          // unit's remaining keywords, including a consumer sweep that now
+          // covers less, still run.
           const rec = this.annRecordSegment(apply.cursor);
           const pre = rec ? js`${rec} ` : js``;
+          const fail = this.kwOk
+            ? js`ok = false; ${this.kwOk} = false;`
+            : js`ok = false;`;
           const spans = this.channelSpans(evSpan);
-          if (spans.length === 0) return js`${pre}if (!${call}) ok = false;`;
-          return js`${pre}${this.spanDecls(spans)} if (!${call}) { ok = false; ${this.spanResets(spans)} }`;
+          if (spans.length === 0) return js`${pre}if (!${call}) { ${fail} }`;
+          return js`${pre}${this.spanDecls(spans)} if (!${call}) { ${fail} ${this.spanResets(spans)} }`;
         }
         case "negate": {
-          // A failing negated subschema's spans truncate; a PASSING one's
-          // annotations and coverage STAY (the interpreter merges any passing
-          // application into the unit frame, and same-unit consumers see it)
-          // while the unit records the not-error.
+          // A failing negated subschema's spans truncate, and so do its
+          // errors (`not` accepts, §12.2); a PASSING one's annotations and
+          // coverage STAY (the interpreter merges any passing application
+          // into the unit frame, and same-unit consumers see it) while the
+          // unit records the not-error.
           const spans = this.channelSpans(evSpan);
+          const em = this.errMark()!;
           const err = this.pushError(
             this.message(apply.message ?? ["must not match the subschema"]),
             true,
             this.paramsChunk(apply.params),
           );
-          if (spans.length === 0) return js`if (${call}) { ${err} }`;
-          return js`${this.spanDecls(spans)} if (${call}) { ${err} } else { ${this.spanResets(spans)} }`;
+          return js`${this.spanDecls(spans)} const ${em} = ${id("errs")}.length; if (${call}) { ${err} } else { ${id("errs")}.length = ${em}; ${this.spanResets(spans)} }`;
         }
         default:
           break; // grouped folds handled by keywordStatements; discard by applyExpr

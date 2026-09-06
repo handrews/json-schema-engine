@@ -67,20 +67,22 @@ export function foldIndexCoverage(
 
 /**
  * Channel entries a fragment (interpreted island) contributes: the data of
- * consumed-producer dependency records at the island's root cursor.
+ * coverage-producer dependency records at the island's root cursor.
  * `evaluateFragment` returns root-frame surviving records with cursor
  * identity intact; filtering to the fragment's root `cursor` keeps coverage
- * per-instance-location, and filtering to `consumedIds` keeps only
- * producer keywords a consumer would observe. Data passes through untouched.
+ * per-instance-location, and filtering to `coverageIds`
+ * (SchemaRegistry.coverageIds) keeps only the producers whose data the
+ * shape-dispatching folds above understand — other dependency data (an
+ * `if` outcome, say) never reaches the channel. Data passes through untouched.
  */
 export function harvestCoverage(
   dependencies: readonly DependencyRecord[],
   cursor: Cursor,
-  consumedIds: ReadonlySet<string>,
+  coverageIds: ReadonlySet<string>,
 ): unknown[] {
   const out: unknown[] = [];
   for (const d of dependencies) {
-    if (d.cursor === cursor && consumedIds.has(d.behaviorId)) out.push(d.data);
+    if (d.cursor === cursor && coverageIds.has(d.behaviorId)) out.push(d.data);
   }
   return out;
 }

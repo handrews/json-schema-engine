@@ -12,7 +12,11 @@
 //  4. visibility = the current frame's dependency records filtered by
 //     cursor identity;
 //  5. the annotation result is the root frame's annotation records filtered
-//     by retention; retention never affects rule 4.
+//     by retention; retention never affects rule 4;
+//  6. relevance (draft-03 §12.2): a keyword that accepts makes the errors of
+//     its rejecting sub-evaluations irrelevant — evaluateKeyword drops them
+//     (kept aside only when tracing, for verbose output); rule 3 is the same
+//     transition for a rejecting schema object's accepting sub-evaluations.
 
 import { JsonValue, isObject, escapeSegment } from "./json.js";
 import { resolveUri, splitFragment } from "./uri.js";
@@ -43,6 +47,8 @@ export class UnknownKeywordError extends Error {}
 export class UndeclaredConsumptionError extends Error {}
 /** Thrown when a keyword produces dependency data without declaring its own id via `analyze().produces`. */
 export class UndeclaredProductionError extends Error {}
+/** Thrown when a keyword reports an error through `ctx.error()` yet accepts the input. */
+export class KeywordContractError extends Error {}
 
 /**
  * Annotation elision (D5/M5.5): when set, an annotation record is recorded
@@ -138,7 +144,11 @@ export interface TraceNode {
 /** Mutable state for one evaluation run: frames, errors, dynamic scope, and tracing. */
 export class EvalState {
   frames: Frame[] = [{ annotations: [], dependencies: [] }];
+  /** Relevant errors, in encounter order (rule 6). */
   errors: ErrorRecord[] = [];
+  // Errors made irrelevant by an accepting ancestor keyword (rule 6), kept
+  // only when tracing so verbose output can show them.
+  droppedErrors: ErrorRecord[] | null = null;
   // Dynamic scope (D8): resources entered by schema application, outermost
   // first. Duplicates are fine — resolution takes the first (outermost) hit.
   dynamicScope: string[] = [];
@@ -164,12 +174,19 @@ export class EvalState {
     if (tracing) {
       this.allAnnotations = [];
       this.allDependencies = [];
+      this.droppedErrors = [];
     }
   }
 
   /** True when tracing is active for this run. */
   get tracing(): boolean {
     return this.allAnnotations !== null;
+  }
+
+  /** Removes the errors pushed since `mark`: rejecting sub-evaluations of a keyword that accepted (rule 6). */
+  dropErrorsFrom(mark: number): void {
+    const dropped = this.errors.splice(mark);
+    this.droppedErrors?.push(...dropped);
   }
 
   /** Opens a trace node for a schema application and links it under the current one. */
@@ -238,6 +255,9 @@ export class EvalState {
 }
 
 class KeywordContextImpl implements KeywordContext {
+  /** Set once this keyword reports an error of its own (the contract check in evaluateKeyword). */
+  reported = false;
+
   constructor(
     private state: EvalState,
     private schemaRef: SchemaRef,
@@ -371,7 +391,10 @@ class KeywordContextImpl implements KeywordContext {
     this.state.allDependencies?.push(dependency);
   }
 
-  visible(behaviorIds: readonly string[]): readonly DependencyView[] {
+  visible(
+    behaviorIds: readonly string[],
+    scope: "all" | "adjacent" = "all",
+  ): readonly DependencyView[] {
     // Under elision, reading an id nobody declared via StaticFacts.consumes
     // means the records may already be gone — fail loud, not wrong.
     if (this.state.shouldRecord !== null) {
@@ -384,12 +407,18 @@ class KeywordContextImpl implements KeywordContext {
         }
       }
     }
+    // Every keyword of one schema application shares its pathNode, so
+    // identity picks out the adjacent keywords' records.
     return this.state.frame.dependencies.filter(
-      (d) => d.cursor === this.cursor && behaviorIds.includes(d.behaviorId),
+      (d) =>
+        d.cursor === this.cursor &&
+        behaviorIds.includes(d.behaviorId) &&
+        (scope === "all" || d.pathNode === this.pathNode),
     );
   }
 
   error(message: string, params?: ErrorParams): void {
+    this.reported = true;
     this.state.errors.push({
       keywordName: this.entry.name,
       schemaRef: this.schemaRef,
@@ -537,7 +566,19 @@ function evaluateKeyword(
     cursor,
     pathNode,
   );
-  return entry.behavior.evaluate(value, cursor, ctx);
+  const mark = state.errors.length;
+  const ok = entry.behavior.evaluate(value, cursor, ctx);
+  if (ok) {
+    // Rule 6 keys on the keyword's verdict, so a keyword that reports and
+    // still accepts would have its own error silently dropped — fail loud.
+    if (ctx.reported) {
+      throw new KeywordContractError(
+        `'${entry.behavior.id}' reported an error but accepted the input`,
+      );
+    }
+    if (state.errors.length > mark) state.dropErrorsFrom(mark);
+  }
+  return ok;
 }
 
 /** Evaluates an instance against a registered root schema, returning validity and final state. */

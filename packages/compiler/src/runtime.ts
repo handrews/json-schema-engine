@@ -171,9 +171,9 @@ export function makeRuntime(
   // by the engine's produce()), so unevaluated* inside fragments sees its
   // channel.
   const shouldRecord = makeRecordPredicate(false, undefined);
-  // Captured once: the behavior ids a consumer would observe, for fragCov's
-  // coverage harvest (COMPILED-CONSUMERS.md §5).
-  const consumedIds = registry.consumedIds();
+  // Captured once: the coverage producers a consumer would observe, for the
+  // coverage harvests (COMPILED-CONSUMERS.md §5).
+  const coverageIds = registry.coverageIds();
   // Annotation harvest predicate (built once): an island records exactly the
   // annotations retention's lists keep. `keep` runs later in the wrapper.
   const retention = annotate?.retention;
@@ -222,7 +222,7 @@ export function makeRuntime(
         shouldRecord,
       };
       const result = evaluateFragment(registry, target, cursor, options);
-      ev.push(...harvestCoverage(result.dependencies, cursor, consumedIds));
+      ev.push(...harvestCoverage(result.dependencies, cursor, coverageIds));
       return result.valid;
     },
     fragList: (target, value, scope, depth, ep, ip, errs, ev) => {
@@ -247,7 +247,7 @@ export function makeRuntime(
         errs.push(unit);
       }
       if (ev !== undefined) {
-        ev.push(...harvestCoverage(result.dependencies, cursor, consumedIds));
+        ev.push(...harvestCoverage(result.dependencies, cursor, coverageIds));
       }
       return result.valid;
     },
@@ -289,7 +289,7 @@ export function makeRuntime(
             }
             if (ev !== undefined) {
               ev.push(
-                ...harvestCoverage(result.dependencies, cursor, consumedIds),
+                ...harvestCoverage(result.dependencies, cursor, coverageIds),
               );
             }
             return result.valid;

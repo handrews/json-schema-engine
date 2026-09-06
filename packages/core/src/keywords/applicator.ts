@@ -35,7 +35,6 @@ const arrayPositions = (value: JsonValue, conditional = false): StaticFacts =>
         })),
       }
     : {};
-const selfPosition = (): StaticFacts => SELF;
 const selfApplication = (
   mode: SubschemaApplication["mode"],
   conditional: boolean,
@@ -182,14 +181,17 @@ export const not: KeywordBehavior = {
 };
 
 /**
- * `if`: drives `then`/`else`, which are inert on their own — their own
- * behaviors exist only so the registration walk identifies `$id`/`$anchor`
- * inside them.
+ * `if`: applies its subschema and communicates the outcome to `then`/`else`
+ * as dependency data (draft-03 Appendix D); the keyword itself always
+ * accepts, so a rejecting condition's errors are irrelevant (§12.2). The
+ * compiled form realizes the dependency structurally — the hoisted condition
+ * selects the sibling apply — so `then`/`else` lower nothing and the planner
+ * edges for both branches are declared here.
  */
 export const ifKeyword: KeywordBehavior = {
   id: id("if"),
-  // `if` owns the application of its inert siblings (`then`/`else` behaviors
-  // only mark walk positions) — the sibling-context exemplar for analyze().
+  // The sibling-context exemplar for analyze(): the branch edges depend on
+  // which siblings are present.
   analyze: (_value, context) => {
     const applications: SubschemaApplication[] = [
       { path: [], mode: "inPlace", conditional: false, asserts: false },
@@ -205,7 +207,7 @@ export const ifKeyword: KeywordBehavior = {
         });
       }
     }
-    return { ...SELF, applications };
+    return { ...SELF, produces: [id("if")], applications };
   },
   lower: (_value, lctx) => {
     const hasThen = Object.hasOwn(lctx.schema, "then");
@@ -247,14 +249,43 @@ export const ifKeyword: KeywordBehavior = {
     );
   },
   evaluate: (_value, cursor, ctx) => {
-    const condition = ctx.apply(["if"], cursor);
-    if (condition && Object.hasOwn(ctx.schema, "then"))
-      return ctx.apply(["then"], cursor);
-    if (!condition && Object.hasOwn(ctx.schema, "else"))
-      return ctx.apply(["else"], cursor);
+    ctx.produce(ctx.apply(["if"], cursor));
     return true;
   },
 };
+
+/**
+ * `then` / `else`: consume `if`'s outcome; the selected branch applies its
+ * subschema and reports that verdict as its own, the other is inert. Without
+ * a sibling `if` there is no outcome and the keyword accepts.
+ */
+export const conditionalBranch = (
+  branchId: string,
+  name: "then" | "else",
+  when: boolean,
+): KeywordBehavior => ({
+  id: branchId,
+  analyze: () => ({ ...SELF, consumes: [id("if")] }),
+  lower: () => {
+    /* if's lowering applies this sibling on the hoisted outcome */
+  },
+  evaluate: (_value, cursor, ctx) => {
+    const outcome = ctx.visible([id("if")], "adjacent");
+    if (outcome.length === 0 || outcome[0]!.data !== when) return true;
+    return ctx.apply([name], cursor);
+  },
+});
+
+export const thenKeyword: KeywordBehavior = conditionalBranch(
+  id("then"),
+  "then",
+  true,
+);
+export const elseKeyword: KeywordBehavior = conditionalBranch(
+  id("else"),
+  "else",
+  false,
+);
 
 /** `dependentSchemas`: applies a named subschema when the property is present. */
 export const dependentSchemas: KeywordBehavior = {
@@ -369,7 +400,9 @@ export const properties: KeywordBehavior = {
           ok = false;
       }
     }
-    ctx.produce(matched);
+    // Dependency data comes only from an accepting keyword (draft-03
+    // Appendix D): a rejecting producer communicates nothing.
+    if (ok) ctx.produce(matched);
     return ok;
   },
 };
@@ -456,7 +489,7 @@ export const patternProperties: KeywordBehavior = {
         }
       }
     }
-    ctx.produce([...matched]);
+    if (ok) ctx.produce([...matched]);
     return ok;
   },
 };
@@ -551,7 +584,7 @@ export const additionalProperties: KeywordBehavior = {
       )
         ok = false;
     }
-    ctx.produce(matched);
+    if (ok) ctx.produce(matched);
     return ok;
   },
 };
@@ -623,8 +656,9 @@ export const prefixItems: KeywordBehavior = {
       )
         ok = false;
     }
-    // Annotation: largest applied index, or true when it covered the array.
-    if (n > 0) ctx.produce(n === cursor.value.length ? true : n - 1);
+    // Dependency data: largest applied index, or true when it covered the
+    // array — only from an accepting keyword (Appendix D; see properties).
+    if (n > 0 && ok) ctx.produce(n === cursor.value.length ? true : n - 1);
     return ok;
   },
 };
@@ -692,7 +726,7 @@ export const items: KeywordBehavior = {
       if (!ctx.apply(["items"], childCursor(cursor, i, cursor.value[i]!)))
         ok = false;
     }
-    if (applied) ctx.produce(true);
+    if (applied && ok) ctx.produce(true);
     return ok;
   },
 };
@@ -848,22 +882,8 @@ export const applicatorVocabulary: Record<string, KeywordBehavior> = {
   oneOf,
   not,
   if: ifKeyword,
-  then: {
-    id: id("then"),
-    analyze: selfPosition,
-    evaluate: () => true,
-    lower: () => {
-      /* if owns the application of this sibling */
-    },
-  },
-  else: {
-    id: id("else"),
-    analyze: selfPosition,
-    evaluate: () => true,
-    lower: () => {
-      /* if owns the application of this sibling */
-    },
-  },
+  then: thenKeyword,
+  else: elseKeyword,
   dependentSchemas,
   properties,
   patternProperties,

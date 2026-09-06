@@ -49,9 +49,16 @@ irrelevance:
 - an irrelevant evaluation never becomes relevant again.
 
 Dependency information is usable only from producers relevant at the time of
-consumption. Non-verbose outputs omit irrelevant errors and annotations;
-verbose formats may expose them. This is evaluation semantics plus output
-policy, not merely renderer pruning.
+consumption, and is produced only by an accepting keyword (Appendix D table
+7): `contains` reports the positions it matched, every other producer
+reports nothing when it rejects. Table 5 row 4 of the draft (a rejecting
+`prefixItems` reporting validated prefix length 1) contradicts that rule and
+is treated as a draft erratum: JSE applies `unevaluatedItems` to both
+positions in that example. `if` produces its subschema's outcome and always
+accepts; `then`/`else` consume it as a same-scope dependency (§12.3) and
+report their own subschema's verdict. Non-verbose outputs omit irrelevant
+errors and annotations; verbose formats may expose them. This is evaluation
+semantics plus output policy, not merely renderer pruning.
 
 IETF draft-03 also permits annotations to be presented as a stream of events.
 Because a keyword evaluation begins relevant and can become irrelevant only
@@ -81,37 +88,24 @@ The existing production/channel architecture already has useful ingredients:
   `ctx.visible()`; renderers accept annotation records only; a producer that
   does not declare `produces` throws `UndeclaredProductionError`.
 
-Remaining gaps:
+Relevance (S2) is implemented as one generic rule in the engine: a keyword
+evaluation marks the error list before it runs and, when it accepts, the
+errors pushed meanwhile (its rejecting sub-evaluations') are removed — kept
+aside only when tracing, for verbose output. No keyword needs relevance
+code of its own because every keyword that reports an error rejects
+(`KeywordContractError` enforces it). Frames already realize the
+rejecting-schema rule for annotations and dependency data; a valid run's
+root-frame annotations are the relevant ones, and an invalid run has none.
+Errors at one trace node are uniformly relevant or irrelevant (relevance
+depends only on the ancestor keyword chain, and every application has its
+own path node), so verbose rendering can attach dropped errors per unit.
+The fixtures live in `packages/core/test/relevance.test.ts` and
+`packages/compiler/test/relevance-compiled.test.ts`.
 
-- frames exist at schema-application boundaries, not necessarily at every
-  keyword evaluation needed to determine relevance;
-- errors are one flat array that is never rolled back
-  (`packages/core/src/engine.ts`), so errors from rejecting sub-evaluations of
-  an accepting applicator reach `list` and `hierarchical` output. Probe
-  (2026-09-05): with `anyOf: [{"type":"string"}, {"type":"number","title":"num"}]`
-  and input `5`, the `/anyOf/0` error unit is rendered in a valid result. The
-  `locations: "2020-12"` path omits it only because it renders errors solely
-  when the run is invalid;
-- annotations from accepting sub-evaluations under a rejecting schema object
-  reach `list` output: `packages/core/test/goldens/list.json` keeps the
-  `/properties/item` `title` annotation under an invalid root, which §13.4
-  excludes from relevant-level output.
-
-The reconciliation must determine whether relevance is recorded explicitly or
-derived from a richer evaluation graph. It must not assume that current schema
-frames or the public trace carry enough information. Candidates for the
-Phase 1 spike:
-
-- a relevance flag on each record, set by the owning keyword or schema
-  evaluation on transition, with irrelevant records dropped unless verbose
-  demand is present;
-- record buffers scoped per keyword evaluation, discarded or marked on
-  transition, with the trace as the verbose-level source.
-
-IETF draft-03 also recommends treating recognized-but-unsupported keywords as
-exact-value annotations. The investigation must define how that case differs
-from an unrecognized keyword and from a keyword in a required but unsupported
-vocabulary.
+Recognized-but-unsupported keywords (§12.5) have no runtime category in
+JSE: every keyword of an assembled dialect is supported, a required but
+unregistered vocabulary is refused at assembly, and an optional one's
+keywords take the unknown-keyword path (exact-value annotations).
 
 ## Historical computed annotations
 
@@ -121,37 +115,28 @@ Applicator keywords produce dependency information only. The machines-oriented
 proposal's examples that show computed annotations are structural evidence
 only.
 
-## Compiler impact estimate
+## Compiled list-mode relevance
 
-Inputs for the relevance step (S2/S3) in the compiled tier, from the
-2026-09-05 census after the record split:
+The compiled tier reproduces the interpreter's relevant error list
+byte-for-byte (`differential.ts`, FUZZ_LIST): `anyOf`/`oneOf` runs, `not`,
+`if`'s condition, and `contains`' probe loop take an `errs` mark before
+their applies and truncate on the accept path (`errMark` in
+`packages/compiler/src/serialize.ts`); `if`'s condition truncates
+unconditionally. Channel producers in list mode gate their push on a
+per-keyword verdict (`kwOk`), since the unit-level `ok` may already be false
+from an earlier sibling. Coverage harvests and channel gates key on
+`SchemaRegistry.coverageIds()` (consumed producers that declare evaluated
+coverage) so `if`'s boolean outcome never reaches the shape-dispatching
+folds. The compiled `if` lowering realizes the `then`/`else` dependency
+structurally, so the produce-oracle gate skips `if`'s record.
 
-- Compiled list-mode errors are one flat `errs` array that is deliberately
-  never a span (`packages/compiler/src/serialize.ts`, `channelSpans` and
-  `pushError`); spans with mark/truncate exist only for the annotation list
-  and the coverage channel (`branchSpan`). The reverse irrelevance case
-  (annotations under a rejecting schema object) is therefore already handled
-  for compiled annotations; error relevance needs error spans at every
-  `pushError` site plus branch bookkeeping.
-- Rules to reproduce in compiled list mode: an accepting `anyOf`/`oneOf`
-  drops the errors of its rejecting branches; `if`'s subschema errors are
-  always irrelevant (the keyword accepts); an accepting `contains` drops
-  non-matching items' errors while a rejecting one keeps them; `not` never
-  surfaces sub-errors.
-- Order must match the interpreter byte-for-byte (`differential.ts` compares
-  whole results), so the interpreter defines it: remove irrelevant units,
-  keep encounter order. Splicing a branch's span out of `errs` reproduces
-  that.
-- Unaffected: plan-census pins, the produce oracle, standalone emission
-  (flag-only), Bowtie (validity only).
-- Consequences to plan for: `Result.trace`'s positional `errorIndexes`
-  correlation (`renderTrace`) must be recomputed when `Result.errors` omits
-  units; ajv-compat's `makeSurvives` filter (`packages/ajv-compat/src/errors.ts`)
-  becomes partly redundant, and its oracle fixture `anyOf-pass-sibling-fail`
-  proves the current leak.
-- Estimate: interpreter error scoping is the semantic work; the compiler side
-  is span plumbing at the `pushError` sites in the largest file in the repo,
-  gated by `list-output.test.ts` and the FUZZ_LIST leg.
+Effects recorded elsewhere: the produce-recipes sweep counts three more
+compared pairs (a rejecting `items` no longer hides positions from
+`unevaluatedItems`); ajv-compat's error-parity golden set gains
+`unevaluatedProperties.json#33` at two nesting levels and `COMPAT.md`
+records the `contains: false` + `minContains: 0` quirk core no longer
+exposes; ajv-compat's own `makeSurvives`/`needsTrace` re-filtering is now
+partly redundant (backlog A7).
 
 ## TypeScript implications
 

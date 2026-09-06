@@ -192,7 +192,16 @@ export function buildPlan(
         unit.cause = "unlowerable";
         return unit;
       }
-      if ((facts.consumes?.length ?? 0) > 0) consumerPresent = true;
+      // A coverage consumer (unevaluated*) declares `consumes` AND an
+      // evaluated-coverage fact; a keyword consuming other dependency data
+      // (then/else reading if's outcome) needs no channel.
+      if (
+        (facts.consumes?.length ?? 0) > 0 &&
+        (facts.evaluatesNames !== undefined ||
+          facts.evaluatesIndexes !== undefined)
+      ) {
+        consumerPresent = true;
+      }
       for (const rx of facts.regexes ?? []) patterns.add(rx);
       for (const fmt of facts.formats ?? []) formats.add(fmt);
       present.push({ name: entry.name, facts });

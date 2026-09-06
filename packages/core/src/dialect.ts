@@ -164,8 +164,19 @@ export interface KeywordContext {
    * cursor; never output. `analyze().produces` must list this keyword's id.
    */
   produce(data: unknown): void;
-  /** dependency records visible at the current cursor from the listed behaviors; `analyze().consumes` must list them */
-  visible(behaviorIds: readonly string[]): readonly DependencyView[];
+  /**
+   * dependency records visible at the current cursor from the listed
+   * behaviors; `analyze().consumes` must list them. Draft-03 §12.3 allows a
+   * dependency on the same dynamic scope or on successful subscopes: `"all"`
+   * (default) sees both — this schema object's keywords plus records merged
+   * from successful in-place sub-applications, what `unevaluated*` needs;
+   * `"adjacent"` sees only this schema object's own keywords, what `then`
+   * and `else` need from `if`.
+   */
+  visible(
+    behaviorIds: readonly string[],
+    scope?: "all" | "adjacent",
+  ): readonly DependencyView[];
   /** report an assertion failure for this keyword, with optional structured params (D13) */
   error(message: string, params?: ErrorParams): void;
 }
@@ -185,6 +196,12 @@ export interface KeywordBehavior {
    * no sibling facts ignore it.
    */
   analyze?(value: JsonValue, context?: AnalyzeContext): StaticFacts;
+  /**
+   * Evaluates the keyword at `cursor`. A keyword that reports an error
+   * through `ctx.error()` must return `false`: the engine drops the errors
+   * of an accepting keyword's sub-evaluations (draft-03 §12.2) and throws
+   * `KeywordContractError` when the keyword itself reported one.
+   */
   evaluate(value: JsonValue, cursor: Cursor, ctx: KeywordContext): boolean;
   /**
    * Optional compiler lowering (D1/D9): describe this keyword's compiled

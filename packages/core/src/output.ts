@@ -218,45 +218,86 @@ export interface OutputUnit {
   absoluteKeywordLocation?: string;
   errors?: Record<string, string>;
   annotations?: Record<string, unknown>;
+  /** irrelevant errors (draft-03 §12.2), present only when `irrelevant: "mark"` */
+  droppedErrors?: Record<string, string>;
   droppedAnnotations?: Record<string, unknown>;
   details?: OutputUnit[];
 }
 
+/**
+ * The records of one evaluation, split by draft-03 §12.2 relevance, as the
+ * structured renderers consume them.
+ */
+export interface EvaluationRecords {
+  /** relevant errors, encounter order (`Result.errors` renders these) */
+  errors: readonly ErrorRecord[];
+  /** errors of rejecting sub-evaluations under an accepting keyword (tracing only) */
+  droppedErrors: readonly ErrorRecord[];
+  /** every annotation recorded (tracing), relevant or not */
+  annotations: readonly AnnotationRecord[];
+  /** the relevant subset of `annotations`: root-frame survivors of a valid run */
+  relevant: ReadonlySet<AnnotationRecord>;
+}
+
+/**
+ * How a structured renderer treats irrelevant records: "omit" drops them and
+ * prunes the units left empty (the relevant level); "mark" keeps every unit
+ * and renders them under `droppedErrors`/`droppedAnnotations`; "merge" keeps
+ * every unit with irrelevant errors under `errors` and annotations placed by
+ * unit validity (the 2020-12 Verbose document).
+ */
+export type IrrelevantRendering = "omit" | "mark" | "merge";
+
 /** Options for {@link renderHierarchical}. */
 export interface HierarchicalOptions {
   vocabulary: LocationVocabulary;
-  /** keep valid, annotation-free units instead of pruning them */
-  verbose?: boolean;
+  irrelevant: IrrelevantRendering;
   retention?: RetentionPolicy;
+}
+
+function groupByPath<T extends { pathNode: PathNode | null }>(
+  records: readonly T[],
+): Map<PathNode | null, T[]> {
+  const at = new Map<PathNode | null, T[]>();
+  for (const r of records) {
+    const list = at.get(r.pathNode);
+    if (list) list.push(r);
+    else at.set(r.pathNode, [r]);
+  }
+  return at;
+}
+
+function errorsByKeyword(errs: readonly ErrorRecord[]): Record<string, string> {
+  const byKeyword: Record<string, string> = {};
+  for (const e of errs) {
+    // A keyword may report several errors (required's missing names); the
+    // unit field is one message per keyword, so join them.
+    const key = e.keywordName ?? "";
+    byKeyword[key] =
+      byKeyword[key] === undefined
+        ? e.message
+        : `${byKeyword[key]}; ${e.message}`;
+  }
+  return byKeyword;
 }
 
 /**
  * HIERARCHICAL structure over the evaluation trace. Units carry errors and
- * (retention-filtered) annotations keyed by keyword name; on failed units
- * annotations appear as droppedAnnotations, matching the frame-discard
- * semantics (§4 rule 3). Without `verbose`, units contributing nothing —
- * valid, no annotations, no details — are pruned; the root unit always
- * remains.
+ * (retention-filtered) annotations keyed by keyword name. Irrelevant records
+ * render per {@link IrrelevantRendering}; the root unit always remains.
  */
 export function renderHierarchical(
   root: TraceNode,
-  errors: readonly ErrorRecord[],
-  annotations: readonly AnnotationRecord[],
+  records: EvaluationRecords,
   options: HierarchicalOptions,
 ): OutputUnit {
-  const vocabulary = options.vocabulary;
-  const errorsAt = new Map<PathNode | null, ErrorRecord[]>();
-  for (const e of errors) {
-    const list = errorsAt.get(e.pathNode);
-    if (list) list.push(e);
-    else errorsAt.set(e.pathNode, [e]);
-  }
-  const annotationsAt = new Map<PathNode | null, AnnotationRecord[]>();
-  for (const a of selectRetained(annotations, options.retention, vocabulary)) {
-    const list = annotationsAt.get(a.pathNode);
-    if (list) list.push(a);
-    else annotationsAt.set(a.pathNode, [a]);
-  }
+  const { vocabulary, irrelevant } = options;
+  const errorsAt = groupByPath(records.errors);
+  const droppedAt =
+    irrelevant === "omit" ? null : groupByPath(records.droppedErrors);
+  const annotationsAt = groupByPath(
+    selectRetained(records.annotations, options.retention, vocabulary),
+  );
 
   const toUnit = (node: TraceNode): OutputUnit | undefined => {
     const details = node.children
@@ -269,34 +310,40 @@ export function renderHierarchical(
       instanceLocation: instancePointer(node.cursor),
     };
 
-    const errs = errorsAt.get(node.pathNode);
-    if (errs && errs.length > 0) {
-      const byKeyword: Record<string, string> = {};
-      for (const e of errs) {
-        // A keyword may report several errors (required's missing names);
-        // the unit field is one message per keyword, so join them.
-        const key = e.keywordName ?? "";
-        byKeyword[key] =
-          byKeyword[key] === undefined
-            ? e.message
-            : `${byKeyword[key]}; ${e.message}`;
-      }
-      unit.errors = byKeyword;
+    const errs = errorsAt.get(node.pathNode) ?? [];
+    const dropped = droppedAt?.get(node.pathNode) ?? [];
+    // A unit's errors are uniformly relevant or irrelevant (relevance
+    // depends only on the ancestor keyword chain), so merging is a concat.
+    const merged = irrelevant === "merge" ? [...errs, ...dropped] : errs;
+    if (merged.length > 0) unit.errors = errorsByKeyword(merged);
+    if (irrelevant === "mark" && dropped.length > 0) {
+      unit.droppedErrors = errorsByKeyword(dropped);
     }
 
-    const anns = annotationsAt.get(node.pathNode);
-    if (anns && anns.length > 0) {
-      const byKeyword: Record<string, unknown> = {};
-      for (const a of anns) byKeyword[a.keywordName] = a.value;
-      if (node.valid) unit.annotations = byKeyword;
-      else unit.droppedAnnotations = byKeyword;
+    const kept: Record<string, unknown> = {};
+    const droppedAnns: Record<string, unknown> = {};
+    let keptAny = false;
+    let droppedAny = false;
+    for (const a of annotationsAt.get(node.pathNode) ?? []) {
+      const relevant =
+        irrelevant === "merge" ? node.valid : records.relevant.has(a);
+      if (relevant) {
+        kept[a.keywordName] = a.value;
+        keptAny = true;
+      } else if (irrelevant !== "omit") {
+        droppedAnns[a.keywordName] = a.value;
+        droppedAny = true;
+      }
     }
+    if (keptAny) unit.annotations = kept;
+    if (droppedAny) unit.droppedAnnotations = droppedAnns;
 
     if (details.length > 0) unit.details = details;
 
+    // Relevant level (§13.4): a unit carrying nothing relevant is omitted.
     if (
-      !options.verbose &&
-      node.valid &&
+      irrelevant === "omit" &&
+      unit.errors === undefined &&
       unit.annotations === undefined &&
       unit.details === undefined
     ) {
@@ -320,31 +367,29 @@ export function renderHierarchical(
  */
 export function renderDetailed(
   root: TraceNode,
-  errors: readonly ErrorRecord[],
-  annotations: readonly AnnotationRecord[],
+  records: EvaluationRecords,
   retention?: RetentionPolicy,
 ): OutputUnit {
-  return renderHierarchical(root, errors, annotations, {
+  return renderHierarchical(root, records, {
     vocabulary: "2020-12",
-    verbose: false,
+    irrelevant: "omit",
     retention,
   });
 }
 
 /**
  * Verbose output (2020-12 output spec): the identical tree shape as
- * HIERARCHICAL under the "2020-12" location vocabulary, with verbose pruning
- * off (D6).
+ * HIERARCHICAL under the "2020-12" location vocabulary, every unit kept and
+ * irrelevant records merged in (D6).
  */
 export function renderVerbose(
   root: TraceNode,
-  errors: readonly ErrorRecord[],
-  annotations: readonly AnnotationRecord[],
+  records: EvaluationRecords,
   retention?: RetentionPolicy,
 ): OutputUnit {
-  return renderHierarchical(root, errors, annotations, {
+  return renderHierarchical(root, records, {
     vocabulary: "2020-12",
-    verbose: true,
+    irrelevant: "merge",
     retention,
   });
 }
@@ -352,16 +397,14 @@ export function renderVerbose(
 /**
  * LIST structure over the evaluation trace (current output spec): the same
  * per-application units as HIERARCHICAL, flattened instead of nested — no
- * `details`. Pruning matches HIERARCHICAL's non-verbose rule (contribution-
- * free valid units drop).
+ * `details`. Irrelevant records render per the same option.
  */
 export function renderList(
   root: TraceNode,
-  errors: readonly ErrorRecord[],
-  annotations: readonly AnnotationRecord[],
+  records: EvaluationRecords,
   options: HierarchicalOptions,
 ): OutputUnit[] {
-  const nested = renderHierarchical(root, errors, annotations, options);
+  const nested = renderHierarchical(root, records, options);
   const flat: OutputUnit[] = [];
   const collect = (unit: OutputUnit): void => {
     const { details, ...rest } = unit;
@@ -394,9 +437,10 @@ export interface TraceUnit {
   readonly instanceLocation: string;
   readonly valid: boolean;
   /**
-   * Indices into `Result.errors` (same run) of the errors raised directly at
-   * this application. Populated only when the evaluation failed —
-   * `Result.errors` does not exist for a valid result.
+   * Indices into `Result.errors` (same run) of the relevant errors raised
+   * directly at this application; a rejecting application under an
+   * accepting keyword has none (draft-03 §12.2). Populated only when the
+   * evaluation failed — `Result.errors` does not exist for a valid result.
    */
   readonly errorIndexes: readonly number[];
   /** Nested applications, in evaluation order. */

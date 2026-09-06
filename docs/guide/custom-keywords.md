@@ -89,11 +89,21 @@ assert.deepEqual(result.annotations?.[0]?.annotation, { render: "textarea" });
 
 A keyword communicates computed data to other keywords with `ctx.produce`;
 another keyword reads it with `ctx.visible`. Dependency data never appears in
-output. A producer declares its own id in `analyze().produces` and a consumer
-declares every id it reads in `analyze().consumes` — the declarations let the
-engine elide data nothing reads. Producing without the declaration throws
+output, and a keyword produces it only when it accepts. A producer declares
+its own id in `analyze().produces` and a consumer declares every id it reads
+in `analyze().consumes` — the declarations let the engine elide data nothing
+reads. Producing without the declaration throws
 `UndeclaredProductionError`; reading without it throws
-`UndeclaredConsumptionError`.
+`UndeclaredConsumptionError`. The built-in exemplar is `if`, which produces
+its subschema's outcome, and `then`/`else`, which read it with
+`ctx.visible(ids, "adjacent")` — a same-schema-object dependency, unlike
+`unevaluatedProperties`, which also sees data merged from successful
+in-place sub-applications.
+
+A keyword that reports an error through `ctx.error` must reject: the engine
+drops the errors of an accepting keyword's sub-evaluations (draft-03 §12.2)
+and throws `KeywordContractError` if the keyword itself reported one and
+then returned `true`.
 
 ```ts
 import assert from "node:assert";

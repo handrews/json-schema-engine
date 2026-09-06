@@ -3,27 +3,7 @@
   "evaluationPath": "",
   "schemaLocation": "https://golden.example/schema#",
   "instanceLocation": "",
-  "droppedAnnotations": {
-    "title": "root"
-  },
   "details": [
-    {
-      "valid": true,
-      "evaluationPath": "/properties/item",
-      "schemaLocation": "https://golden.example/schema#/properties/item",
-      "instanceLocation": "/item",
-      "details": [
-        {
-          "valid": true,
-          "evaluationPath": "/properties/item/$ref",
-          "schemaLocation": "https://golden.example/schema#/$defs/named",
-          "instanceLocation": "/item",
-          "annotations": {
-            "title": "a named thing"
-          }
-        }
-      ]
-    },
     {
       "valid": false,
       "evaluationPath": "/properties/count",

@@ -3,13 +3,13 @@
 // five output documents. Fixtures are the regression contract — reviewed by
 // hand against the spec text before being committed. Applicator keywords
 // (`properties`) never appear: they produce dependency data, not annotations
-// (ADR 0002, draft-03 Appendix D). `/item` validates and keeps its `title`
-// annotation even though the root ultimately fails (its own `count`
-// branch), while the root's own annotations are dropped (§4 rule 3: a
-// frame's records merge to the parent only on success, and the root
-// application itself is the failing one here). Draft-03 §12.2 makes `/item`'s
-// annotation irrelevant under a rejecting root; the relevance model that
-// removes it from non-verbose output is the next reconciliation step.
+// (ADR 0002, draft-03 Appendix D). The root rejects (its `count` branch),
+// which makes every accepting sub-evaluation irrelevant (draft-03 §12.2):
+// `/item` validates, but its `title` annotation and the root's own are
+// absent from the relevant-level documents (hierarchical, list, Basic,
+// Detailed), and the `/item` unit is pruned with them (§13.4). Only the
+// 2020-12 Verbose document keeps every unit, showing `/item`'s annotation
+// and the root's under droppedAnnotations by unit validity.
 
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";

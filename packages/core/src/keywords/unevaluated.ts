@@ -166,7 +166,9 @@ export const unevaluatedProperties: KeywordBehavior = {
       )
         ok = false;
     }
-    ctx.produce(matched);
+    // Dependency data only from an accepting keyword (Appendix D; see
+    // applicator.ts properties).
+    if (ok) ctx.produce(matched);
     return ok;
   },
 };
@@ -315,7 +317,7 @@ export const unevaluatedItems: KeywordBehavior = {
         ok = false;
       }
     }
-    if (applied) ctx.produce(true);
+    if (applied && ok) ctx.produce(true);
     return ok;
   },
 };
