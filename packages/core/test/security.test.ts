@@ -196,3 +196,46 @@ describe("prototype pollution safety (D20)", () => {
     expect(engine.evaluate(uri, { hasOwnProperty: 1 }).valid).toBe(true);
   });
 });
+
+describe("wide instances are bounded by memory, not argument count (E13)", () => {
+  // An argument spread puts every element on the native stack, so merging
+  // channel records by `push(...array)` overflows near 120k elements and
+  // surfaces as MaxDepthExceededError on a flat instance. Both instances
+  // here sit well past that ceiling.
+  it("collects 165k annotation units from one evaluation", () => {
+    const properties: Record<string, JsonValue> = {};
+    const record: Record<string, JsonValue> = {};
+    for (let p = 0; p < 150; p++) {
+      properties[`p${String(p)}`] = {
+        type: "string",
+        title: `Property ${String(p)}`,
+      };
+      record[`p${String(p)}`] = "x";
+    }
+    const engine = createEngine();
+    const uri = engine.registerSchema(
+      { type: "array", items: { type: "object", properties } },
+      "https://sec.example/wide-annotations",
+    );
+    const instance: JsonValue = Array.from({ length: 1100 }, () => record);
+    const r = engine.evaluate(uri, instance, {
+      output: "basic",
+      annotations: true,
+    });
+    expect(r.valid).toBe(true);
+    expect(r.annotations).toHaveLength(150 * 1100);
+  }, 5000);
+
+  it("retains 160k dropped errors at the verbose level", () => {
+    const engine = createEngine();
+    const uri = engine.registerSchema(
+      { anyOf: [{ items: { type: "string" } }, true] },
+      "https://sec.example/wide-dropped",
+    );
+    const instance = Array.from({ length: 160_000 }, (_, i) => i);
+    const r = engine.evaluate(uri, instance, { output: "list", verbose: true });
+    expect(r.valid).toBe(true);
+    expect(r.errors).toBeUndefined();
+    expect(r.droppedErrors).toHaveLength(160_000);
+  }, 5000);
+});

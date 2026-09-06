@@ -125,6 +125,13 @@ export interface ErrorRecord {
   params?: ErrorParams;
 }
 
+// Appends with a loop: an argument spread puts every element on the native
+// stack, so `dst.push(...src)` throws past ~120k elements — a ceiling a wide
+// instance reaches long before maxDepth does.
+function appendAll<T>(dst: T[], src: readonly T[]): void {
+  for (const x of src) dst.push(x);
+}
+
 /** One channel frame: the records of an in-flight schema application. */
 export interface Frame {
   annotations: AnnotationRecord[];
@@ -199,7 +206,7 @@ export class EvalState {
   /** Removes the errors pushed since `mark`: rejecting sub-evaluations of a keyword that accepted (rule 6). */
   dropErrorsFrom(mark: number): void {
     const dropped = this.errors.splice(mark);
-    this.droppedErrors?.push(...dropped);
+    if (this.droppedErrors !== null) appendAll(this.droppedErrors, dropped);
   }
 
   /** Opens a trace node for a schema application and links it under the current one. */
@@ -558,8 +565,9 @@ function applySchemaAtDepth(
   } finally {
     const frame = state.frames.pop()!;
     if (valid) {
-      state.frame.annotations.push(...frame.annotations);
-      state.frame.dependencies.push(...frame.dependencies);
+      const parent = state.frame;
+      appendAll(parent.annotations, frame.annotations);
+      appendAll(parent.dependencies, frame.dependencies);
     }
     if (traceNode) state.traceExit(traceNode, valid);
     state.dynamicScope.pop();

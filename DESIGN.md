@@ -898,7 +898,10 @@ megamorphic; records-sparse puts compiled flag and AJV at interpreter
 speed while conservative emission's `hasOwnProperty` probe stays ~10×
 faster); E13 — loop-append instead of `push(...array)` in evaluation
 merges (V8's argument limit near 120k elements surfaces as a relabelled
-`MaxDepthExceededError`).
+`MaxDepthExceededError`) — DELIVERED 2026-09-06 (`appendAll` loops in
+engine.ts frame merges and dropped-error retention, a loop in the draft-03
+tree builder; regression packages/core/test/security.test.ts: 165k
+annotation units, 160k dropped errors).
 
 Cross-repository command, package, TypeScript, and package-manager alignment is tracked by the
 canonical public [oaskit tooling-convergence plan](https://github.com/handrews/oaskit/blob/main/docs/tooling-convergence.md).
