@@ -37,6 +37,7 @@ jobs:
       - run: FUZZ_DIALECT=draft7 FUZZ_LIST=1 FUZZ_BUDGET=3000 npm run fuzz
       - run: FUZZ_DIALECT=draft6 FUZZ_LIST=1 FUZZ_BUDGET=3000 npm run fuzz
       - run: FUZZ_DIALECT=draft2019-09 FUZZ_LIST=1 FUZZ_BUDGET=3000 npm run fuzz
+      - run: FUZZ_DIALECT=draft4 FUZZ_LIST=1 FUZZ_BUDGET=3000 npm run fuzz
       - run: npx tsx packages/ajv-compat/test/oracle/capture.ts
       - run: npx tsx packages/ajv-compat/test/oracle/capture-companions.ts
       - run: npx tsx packages/ajv-compat/test/oracle/capture-mutation.ts

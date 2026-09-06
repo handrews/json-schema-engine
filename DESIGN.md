@@ -748,18 +748,14 @@ both output modes (COMPILED-CONSUMERS.md stages 1–3 complete) —
 Runtime format-table
 lowering DELIVERED 2026-07-10 (assertion-mode census pins deep-equal
 plain plans; official format-assertion suite compiled) — list-mode
-standalone, D9d thresholds, island re-entry, **artifact registry-snapshot
-semantics across interpreter trampolines** (OPEN correctness defect,
-2026-07-11): the documented contract is that later schema registrations
-do not change an existing compiled artifact, but an interpreted island
-currently closes over the live `SchemaRegistry`, so a reference unresolved
-at plan time can become resolvable after compilation. Freeze the registry
-view used by every island/fallback so compilation boundaries cannot affect
-user-visible reference resolution; gate with a regression that compiles an
-unresolved-ref island, registers its target afterward, and verifies that the
-existing artifact still throws `UnresolvableRefError` while a newly compiled
-artifact sees the target. Standalone already has the required closed-world
-behavior. Do not document the current hybrid behavior as supported),
+standalone, D9d thresholds, island re-entry, artifact registry-snapshot
+semantics across interpreter trampolines (DELIVERED 2026-09-06, E1: every
+artifact binds to `SchemaRegistry.snapshot()` — a read-only view over a
+`DialectRegistry.snapshot()`, shared copy-on-write until the source
+registers again — so a reference unresolved at compile time stays
+unresolved for that artifact and re-registered resources or dialects never
+reach it; regression `packages/compiler/test/registry-snapshot.test.ts`;
+standalone was already closed-world),
 code.source mapping,
 idna.ts second-'--' owner review (above). Added at M10 (2026-07-08):
 draft-04 `lower()` sweep for the package-defined keywords — DELIVERED

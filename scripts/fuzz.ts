@@ -20,8 +20,9 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createEngine, type JsonValue } from "@jse/core";
+import { createEngine, type Engine, type JsonValue } from "@jse/core";
 import { compileList, compileValidator } from "@jse/compiler";
+import { DIALECT_DRAFT_04, registerDraft04 } from "@jse/dialect-draft04";
 import {
   Prng,
   deriveSeed,
@@ -62,7 +63,10 @@ const ANNOTATIONS_MODE = process.env.FUZZ_ANNOTATIONS === "1";
 
 // FUZZ_DIALECT seeds the corpus from another dialect's suite directory
 // (M6.6: legacy dialects compile natively, so they need fuzz pressure too).
-const DIALECTS: Record<string, { dir: string; uri?: string }> = {
+const DIALECTS: Record<
+  string,
+  { dir: string; uri?: string; setup?: (engine: Engine) => void }
+> = {
   "draft2020-12": { dir: "draft2020-12" },
   "draft2019-09": {
     dir: "draft2019-09",
@@ -70,6 +74,8 @@ const DIALECTS: Record<string, { dir: string; uri?: string }> = {
   },
   draft7: { dir: "draft7", uri: "http://json-schema.org/draft-07/schema" },
   draft6: { dir: "draft6", uri: "http://json-schema.org/draft-06/schema" },
+  // The dialect package registers its keywords through the public surface.
+  draft4: { dir: "draft4", uri: DIALECT_DRAFT_04, setup: registerDraft04 },
 };
 const DIALECT_NAME = process.env.FUZZ_DIALECT ?? "draft2020-12";
 const DIALECT = DIALECTS[DIALECT_NAME];
@@ -80,6 +86,8 @@ if (DIALECT === undefined) {
 }
 const ENGINE_OPTS =
   DIALECT.uri === undefined ? {} : { defaultDialect: DIALECT.uri };
+// Hoisted so the factory closure sees the narrowed dialect entry.
+const DIALECT_SETUP = DIALECT.setup;
 
 const SUITE_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -106,6 +114,7 @@ function factoryFor(baseUri: string): DifferentialFactory {
     prepare(schema) {
       try {
         const engine = createEngine(ENGINE_OPTS);
+        DIALECT_SETUP?.(engine);
         const uri = engine.registerSchema(schema, baseUri);
         if (ANNOTATIONS_MODE) {
           const artifact = compileList(engine, uri, {

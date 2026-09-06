@@ -99,8 +99,10 @@ export interface CompiledArtifact {
 
 /**
  * Compile a registered schema into a flag-mode validator. The artifact
- * binds to the engine's registry and pattern cache at compile time; schemas
- * registered later are not visible to it.
+ * binds to a snapshot of the engine's schema and dialect registries taken at
+ * compile time, plus the engine's pattern cache: schemas registered,
+ * re-registered, or given a new dialect later are invisible to it, and a
+ * reference unresolved at compile time stays unresolved for it (E1).
  */
 export function compileValidator(
   engine: Engine,
@@ -108,16 +110,20 @@ export function compileValidator(
   options: CompileOptions = {},
 ): CompiledArtifact {
   const plan = buildPlan(engine, schemaUri);
+  // Compilation is synchronous, so the plan (built from the live registry)
+  // and this snapshot see one state; the artifact's islands never see a
+  // later registration.
+  const registry = engine.registry.snapshot();
   const source = serializePlan(
     plan,
-    engine.registry,
+    registry,
     "runtime",
     options.conservative
       ? { inline: false, plainData: false }
       : { inline: true, plainData: true },
   );
   const runtime = makeRuntime(
-    engine.registry,
+    registry,
     engine.patternCache,
     plan.patterns,
     options.maxDepth ?? DEFAULT_MAX_DEPTH,
@@ -143,7 +149,8 @@ export function compileValidator(
  * interpreter-exact error units — the same elements
  * `Engine.evaluate(uri, x, { output: "list" }).errors` yields, in the same
  * order (list artifacts never short-circuit; every branch runs, DESIGN §7).
- * Error-unit objects materialize only on failure paths.
+ * Error-unit objects materialize only on failure paths. Binds to registry
+ * snapshots exactly like {@link compileValidator}.
  */
 export function compileList(
   engine: Engine,
@@ -154,9 +161,10 @@ export function compileList(
   const collect = selection !== false;
   const errorParams = options.errorParams ?? false;
   const plan = buildPlan(engine, schemaUri, { output: "list" });
+  const registry = engine.registry.snapshot();
   const source = serializePlan(
     plan,
-    engine.registry,
+    registry,
     "runtime",
     options.conservative
       ? { inline: false, plainData: false }
@@ -166,7 +174,7 @@ export function compileList(
     collect ? { selection } : undefined,
   );
   const runtime = makeRuntime(
-    engine.registry,
+    registry,
     engine.patternCache,
     plan.patterns,
     options.maxDepth ?? DEFAULT_MAX_DEPTH,
@@ -176,7 +184,7 @@ export function compileList(
     plan.formats,
   );
   const targets = plan.targets.map((t) => t.ref);
-  const root = engine.registry.rootRef(schemaUri);
+  const root = registry.rootRef(schemaUri);
   const rootLocation = `${root.baseUri}#${root.pointer}`;
   const keep = typeof selection === "object" ? selection.keep : undefined;
 

@@ -79,6 +79,13 @@ Standalone emission stays flag-only (E3 is post-release).
 Gate: tier choice and compilation boundaries cannot change annotation, error,
 dependency, relevance, or rendered output; the E1 regression passes.
 
+Status: delivered 2026-09-06 (backlog E1). Artifacts bind to copy-on-write
+snapshots of both registries; the suite-scale parity legs cover the Basic
+document on every dialect with and without annotations, error params
+combined with annotations, a selection sweep, and draft-04 fuzzing. The
+compiled tier's output scope stays `flag`, the flat surface, and `basic`;
+structured documents are interpreter-only (E3 post-release).
+
 ## Phase 4: release gate (P1–P4), in this order
 
 1. Owner naming and version policy.
