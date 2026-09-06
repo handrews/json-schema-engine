@@ -40,6 +40,20 @@ deterministically inside the harness (seeded, no third-party data).
   float-modulo check fails valid two-decimal amounts that jse's
   decimal-safe scaling accepts (a documented COMPAT.md divergence). The
   corpus measures throughput, not that divergence.
+- **Record shapes decide the compiled tier's speed on wide schemas.** On
+  `records-uniform` (one record shape) compiled flag mode validates 2000
+  records in ~0.04 ms; on `records-sparse` (optional fields in varying
+  order) the same artifact takes ~23 ms, level with AJV and the
+  interpreter, because the plain-data presence probe
+  (`obj[key] !== undefined`, one per schema property per record) goes
+  megamorphic once record shapes differ. Conservative emission's
+  `hasOwnProperty` probe measures ~2 ms on the same input (ad hoc; not a
+  harness subject) and Hyperjump, which iterates instance keys, ~7 ms.
+  Backlog E12.
+- **tinybench's iteration floors are pinned** (5 samples, 2 warmup): the
+  defaults (64 and 16) would run every records task for seconds regardless
+  of `BENCH_BUDGET`, since one evaluation there costs 20–50 ms.
+  Sub-millisecond tasks are governed by the time budget either way.
 
 ## What each corpus measures
 

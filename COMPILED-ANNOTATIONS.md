@@ -47,7 +47,9 @@ list+annotations subject with an annotations deep-equality oracle
 before timing — compiled collection measures ~29× (api-payload) and
 ~35× (migration) over interpreted collection, and interpreter-parity
 on oas-document, whose root-level consumer trampolines the whole plan
-(the COMPILED-CONSUMERS.md case). One recorded pre-existing caveat
+(the COMPILED-CONSUMERS.md case). (The interpreter comparand in that
+measurement rendered no annotations; STATUS.md carries the current
+ratios.) One recorded pre-existing caveat
 remains — dialects with `allowUnknownKeywords: false` throw in the
 interpreter but are silently ignored by every compiled tier,
 annotation mode included.

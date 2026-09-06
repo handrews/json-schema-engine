@@ -722,14 +722,24 @@ Five local commits, every gate green per commit:
   (bench/harness.ts) over vendored, license-documented corpora
   (bench/corpora/README.md): OAS 3.1 meta-schema × hand-authored
   OpenAPI document, generated API payloads, draft-07 migration schema
-  (native / ajv-compat / real AJV). Verdict oracle before timing.
-  Recorded findings from real inputs: AJV rejects the valid OpenAPI
-  document (known 2020-12 `$dynamicRef`/`unevaluatedProperties`
+  (native / ajv-compat / real AJV), and two generated records corpora
+  (150-property schema × 2000 records: one record shape, and optional
+  fields in varying order). Verdict oracle before timing; every output
+  format has an interpreter row per verdict partition and, where the
+  compiled tier renders it (flag, flat list, basic), a compiled row
+  oracled by document equality — a compiled subject for a new format is
+  one table entry. `npm run bench:compare` joins two results files by
+  task. Recorded findings from real inputs: AJV rejects the valid
+  OpenAPI document (known 2020-12 `$dynamicRef`/`unevaluatedProperties`
   non-compliance; excluded from that corpus with the reason in the
-  results JSON) and refuses the OAS schema without `strict: false`;
-  the OAS corpus runs at interpreter speed in both jse tiers (dynamic-
-  heavy plan). No thresholds — the spike bench stays the enforced
-  gate; CI uploads results as an artifact.
+  results JSON) and refuses the OAS schema without `strict: false`; the
+  OAS corpus runs compiled under consumer tracking, with only genuine
+  `$dynamicRef` islands interpreted; on records-sparse the compiled tier
+  and AJV both fall to interpreter speed because the presence probe
+  `obj[key] !== undefined` goes megamorphic over differing record shapes
+  (conservative emission's `hasOwnProperty` probe does not; E12). No
+  thresholds — the spike bench stays the enforced gate; CI uploads
+  results as an artifact and fails on an oracle failure.
 - **M9b (open, owner-gated):** final npm scope/name decision, version
   bump, `private` flip, `npm publish`; Bowtie PR + bowtie.report
   listing (owner submits personally). The predicted first-CI-run tweaks
@@ -881,7 +891,14 @@ rebasing, anchor indexing, and reference collection that would fatten
 the public signature); seed `scripts/fuzz.ts` mutation legs from the
 mutation-property corpus (the vitest leg covers it today); stabilize
 `TraceUnit`/`trace`/`walkSchema` out of `@alpha` at the M9 publication
-pass — DELIVERED 2026-07-10 (M9a stabilization).
+pass — DELIVERED 2026-07-10 (M9a stabilization). Added 2026-09-06 from
+the bench-harness format work: E12 — presence probe for wide `properties`
+over polymorphic records (the plain-data `obj[key] !== undefined` goes
+megamorphic; records-sparse puts compiled flag and AJV at interpreter
+speed while conservative emission's `hasOwnProperty` probe stays ~10×
+faster); E13 — loop-append instead of `push(...array)` in evaluation
+merges (V8's argument limit near 120k elements surfaces as a relabelled
+`MaxDepthExceededError`).
 
 Cross-repository command, package, TypeScript, and package-manager alignment is tracked by the
 canonical public [oaskit tooling-convergence plan](https://github.com/handrews/oaskit/blob/main/docs/tooling-convergence.md).

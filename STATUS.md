@@ -51,7 +51,7 @@ release sequence are tracked in
 | Line/branch coverage (compiler + ajv-compat sources)                             | Per-PR CI step + local                   | `npm run coverage` (report + json-summary); thresholds only on ajv-compat's lifecycle surface (index.ts, mutate.ts) — compiler files are report-only, their gates being the suite/differential/fuzz/census stack.                                                                                                                                  |
 | Publication artifacts (dist builds + offline tarball install + smoke)            | Per-PR CI + local                        | `npm run pack:check`: packs the five publishable packages, installs the tarballs into a throwaway consumer with `npm install --offline` (any registry contact fails), runs a runtime smoke per package, and type-checks a consumer against the published d.ts graph.                                                                               |
 | Bowtie conformance (all five dialects through the IO-protocol harness)           | Per-PR CI job + local                    | `npm run bowtie`: builds `localhost/jse-bowtie`, smokes it, pins EXACT per-dialect counts (1299/1259/927/839/618) with zero failures/errors/skips. Image never pushed; public bowtie.report listing requires the owner's submission (M9b).                                                                                                         |
-| Bench harness (real-world corpora vs ajv + hyperjump)                            | Report-only: CI artifact + local         | `npm run bench:harness` over vendored corpora (bench/corpora/README.md); verdict oracle before timing; no thresholds — the spike bench gate stays enforced locally.                                                                                                                                                                                |
+| Bench harness (real-world corpora vs ajv + hyperjump)                            | Report-only: CI artifact + local         | `npm run bench:harness` over vendored and generated corpora (bench/corpora/README.md); every output format timed per verdict partition on both tiers, compiled rows oracled by document equality; verdict oracle before timing; no thresholds — the spike bench gate stays enforced locally; `npm run bench:compare` joins two results files.      |
 
 ## Deliberately not done yet
 
@@ -88,16 +88,23 @@ or milestone:
 - **List-mode / all-errors** output is slower than AJV **by design**: it
   never short-circuits and reproduces the interpreter's error units
   exactly (order included). Choose flag mode for hot paths.
-- Compiled **annotation collection** runs ~29–35× faster than
+- Compiled **annotation collection** runs ~40–55× faster than
   interpreted collection on the payload/migration harness corpora and
   ~11× on the consumer-rooted OAS 3.1 corpus (report-only,
-  2026-07-10).
+  2026-09-06).
 - **Consumer tracking** (2026-07-10) puts dynamic-coverage
   `unevaluated*` shapes at AJV-class speed (0.4–0.7× AJV, spec-correct
   where AJV short-circuits `anyOf` incorrectly under a consumer) and
   lifts the OAS 3.1 corpus from interpreter-parity to ~40k ops/s flag /
   ~18k list (~19×/~9×, flag ~13× ahead of Hyperjump); only genuine
   `$dynamicRef` islands stay interpreted there.
+- **Polymorphic record shapes** (2026-09-06): over a wide `properties`
+  schema, records whose field sets differ put compiled flag mode and
+  AJV alike at interpreter speed (`records-sparse` harness corpus:
+  ~44 ops/s for 2000 records, against ~27k ops/s for records of one
+  shape), because the plain-data presence probe goes megamorphic;
+  conservative emission's `hasOwnProperty` probe stays ~10× faster
+  there (backlog E12).
 - ajv-compat is a **migration adapter for a documented subset**, not a
   full AJV clone; divergences are enumerated in COMPAT.md and enforced
   by fixture tests and a suite-differential golden set.
