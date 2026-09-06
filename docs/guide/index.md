@@ -7,10 +7,11 @@ pages is executed by CI; examples are guaranteed to work as shown.
 
 - [Validation](validation.md) — register schemas, evaluate instances, read
   error output.
-- [Annotations](annotations.md) — collect annotations, control retention
+- [Annotations](annotations.md) — collect annotations, control selection
   with allow and deny lists.
-- [Output formats](output-formats.md) — flag, list, and hierarchical
-  structures; current and 2020-12 field names; Basic/Detailed/Verbose.
+- [Output formats](output-formats.md) — `flag`, `basic`, `detailed`,
+  `verbose` (IETF draft-03) and `list`, `hierarchical` (machines-oriented
+  proposal); output levels and controls.
 - [Dialects](dialects.md) — draft 2020-12, 2019-09, draft-07, draft-06;
   `$schema` and default-dialect selection.
 - [Loaders and remote references](loaders.md) — resolve `$ref` across

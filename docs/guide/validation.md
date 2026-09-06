@@ -38,7 +38,7 @@ evaluation work.
 Request `output: "list"` for one unit per error. Each unit carries three
 locations: `evaluationPath` (the dynamic path through the schema, including
 `$ref` traversals), `schemaLocation` (the canonical URI of the failing
-keyword), and `instanceLocation` (a JSON Pointer into the instance).
+keyword), and `inputLocation` (a JSON Pointer into the input).
 
 ```ts
 import assert from "node:assert";
@@ -62,14 +62,15 @@ assert.equal(
   unit?.schemaLocation,
   "https://example.com/named#/$defs/name/minLength",
 );
-assert.equal(unit?.instanceLocation, "/name");
+assert.equal(unit?.inputLocation, "/name");
 ```
 
-## 2020-12 field names
+## The Basic output document
 
-The default field names follow the current output specification. Pass
-`locations: "2020-12"` for the older `keywordLocation` /
-`absoluteKeywordLocation` names.
+`output: "basic"` also renders `Result.outputDocument` as the Basic document
+(IETF draft-03 §13.4.2), whose units use the draft's `keywordLocation` /
+`absoluteKeywordLocation` / `instanceLocation` field names. The flat units
+keep `evaluationPath` / `schemaLocation` / `inputLocation`.
 
 ```ts
 import assert from "node:assert";
@@ -81,12 +82,9 @@ const uri = engine.registerSchema(
   "https://example.com/num",
 );
 
-const result = engine.evaluate(uri, "x", {
-  output: "list",
-  locations: "2020-12",
-});
-assert.equal(result.errors?.[0]?.keywordLocation, "/type");
-assert.equal(result.errors?.[0]?.evaluationPath, undefined);
+const result = engine.evaluate(uri, "x", { output: "basic" });
+assert.equal(result.outputDocument?.errors?.[0]?.keywordLocation, "/type");
+assert.equal(result.errors?.[0]?.evaluationPath, "/type");
 ```
 
 ## Validate against an older draft

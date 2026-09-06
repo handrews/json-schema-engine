@@ -73,7 +73,7 @@ const PASSING = { n: 1 } as JsonValue;
 function buildAnn() {
   const engine = createEngine();
   const uri = engine.registerSchema(ANN_SCHEMA, "https://planted.example/ann");
-  const annArtifact = compileList(engine, uri, { collectAnnotations: true });
+  const annArtifact = compileList(engine, uri, { annotations: true });
   const corruptedAnn = (x: JsonValue) => {
     const r = annArtifact.evaluateList(x);
     if (!r.valid || r.annotations === undefined) return r;
@@ -93,7 +93,7 @@ describe("planted annotation divergence: only the annotations comparison sees it
     const interpret = runAnnotationsSide((x) => {
       const r = engine.evaluate(uri, x, {
         output: "list",
-        collectAnnotations: true,
+        annotations: true,
       });
       return r.annotations === undefined
         ? { valid: r.valid, errors: r.errors ?? [] }

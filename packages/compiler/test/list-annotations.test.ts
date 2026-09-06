@@ -2,13 +2,16 @@
 // artifact's annotation surface is interpreter-exact. Each case compiles a
 // schema and compares evaluateList(x).annotations (and the Basic document's
 // annotation side) against Engine.evaluate(..., { output: "list",
-// collectAnnotations: true, retention }) — same units, same ORDER, same
-// presence/absence of the annotations key. Order and presence are the whole
-// contract (channel rule 3 falls out of mark/truncate), so equality is strict
-// and deep.
+// annotations }) — same units, same ORDER, same presence/absence of the
+// annotations key. Order and presence are the whole contract (channel rule 3
+// falls out of mark/truncate), so equality is strict and deep.
 
 import { describe, it, expect } from "vitest";
-import { createEngine, type JsonValue, type RetentionPolicy } from "@jse/core";
+import {
+  createEngine,
+  type AnnotationSelection,
+  type JsonValue,
+} from "@jse/core";
 import { compileList } from "@jse/compiler";
 
 let counter = 0;
@@ -18,19 +21,16 @@ const freshUri = (): string => `https://ann.example/s${String(counter++)}`;
 function expectMatch(
   schema: JsonValue,
   instance: JsonValue,
-  retention?: RetentionPolicy,
+  selection?: AnnotationSelection,
 ): { valid: boolean; annotations?: readonly unknown[] } {
   const engine = createEngine();
   const uri = engine.registerSchema(schema, freshUri());
-  const artifact = compileList(engine, uri, {
-    collectAnnotations: true,
-    retention,
-  });
+  const annotations = selection ?? true;
+  const artifact = compileList(engine, uri, { annotations });
   const compiled = artifact.evaluateList(instance);
   const interpreted = engine.evaluate(uri, instance, {
     output: "list",
-    collectAnnotations: true,
-    retention,
+    annotations,
   });
 
   expect(compiled.valid).toBe(interpreted.valid);
@@ -129,14 +129,14 @@ describe("compiled annotations vs interpreter", () => {
     };
     const engine = createEngine();
     const uri = engine.registerSchema(schema, "https://ann.example/dyn-root");
-    const artifact = compileList(engine, uri, { collectAnnotations: true });
+    const artifact = compileList(engine, uri, { annotations: true });
     // The island must actually be interpreted (a trampoline target exists).
     expect(artifact.plan.targets.length).toBeGreaterThan(0);
     const instance = { child: {} };
     const compiled = artifact.evaluateList(instance);
     const interpreted = engine.evaluate(uri, instance, {
       output: "list",
-      collectAnnotations: true,
+      annotations: true,
     });
     expect(compiled.valid).toBe(interpreted.valid);
     expect(compiled.annotations).toStrictEqual(interpreted.annotations);
@@ -145,7 +145,7 @@ describe("compiled annotations vs interpreter", () => {
       (compiled.annotations ?? []).some(
         (u) =>
           (u as { annotation: unknown }).annotation === "node-title" &&
-          (u as { instanceLocation: string }).instanceLocation === "/child",
+          (u as { inputLocation: string }).inputLocation === "/child",
       ),
     ).toBe(true);
   });
@@ -185,16 +185,15 @@ describe("compiled annotations vs interpreter", () => {
     const engine = createEngine();
     const schema = { title: "root", properties: { a: { title: "a" } } };
     const uri = engine.registerSchema(schema, freshUri());
-    const artifact = compileList(engine, uri, { collectAnnotations: true });
+    const artifact = compileList(engine, uri, { annotations: true });
 
     const cValid = artifact.basic({ a: 1 });
     const iValid = engine.evaluate(
       uri,
       { a: 1 },
       {
-        output: "list",
-        locations: "2020-12",
-        collectAnnotations: true,
+        output: "basic",
+        annotations: true,
       },
     ).outputDocument;
     expect(cValid).toStrictEqual(iValid);

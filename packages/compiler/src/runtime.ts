@@ -25,7 +25,7 @@ import {
   type FormatTable,
   type FragmentOptions,
   type JsonValue,
-  type RetentionPolicy,
+  type AnnotationSelection,
   type SchemaRef,
   type SchemaRegistry,
   type RegexCache,
@@ -139,7 +139,7 @@ export function makeRuntime(
   patterns: readonly string[],
   maxDepth: number,
   listParams = false,
-  annotate?: { retention?: RetentionPolicy },
+  annotate?: { selection?: boolean | AnnotationSelection },
   formatTable?: FormatTable,
   usedFormats: readonly string[] = [],
 ): Runtime {
@@ -170,14 +170,15 @@ export function makeRuntime(
   // records for consumed behavior ids still record (M5.5 invariant, enforced
   // by the engine's produce()), so unevaluated* inside fragments sees its
   // channel.
-  const shouldRecord = makeRecordPredicate(false, undefined);
+  const shouldRecord = makeRecordPredicate(false);
   // Captured once: the coverage producers a consumer would observe, for the
   // coverage harvests (COMPILED-CONSUMERS.md §5).
   const coverageIds = registry.coverageIds();
   // Annotation harvest predicate (built once): an island records exactly the
-  // annotations retention's lists keep. `keep` runs later in the wrapper.
-  const retention = annotate?.retention;
-  const annRecord = annotate ? makeRecordPredicate(true, retention) : null;
+  // annotations the selection's lists keep. `keep` runs later in the wrapper.
+  const annRecord = annotate
+    ? makeRecordPredicate(annotate.selection ?? true)
+    : null;
   return {
     isObject,
     isInteger,
@@ -242,8 +243,8 @@ export function makeRuntime(
       };
       const result = evaluateFragment(registry, target, cursor, options);
       for (const record of result.errors) {
-        const unit = renderError(record, "modern", listParams);
-        unit.instanceLocation = ip + unit.instanceLocation;
+        const unit = renderError(record, listParams);
+        unit.inputLocation = ip + unit.inputLocation;
         errs.push(unit);
       }
       if (ev !== undefined) {
@@ -278,13 +279,13 @@ export function makeRuntime(
             };
             const result = evaluateFragment(registry, target, cursor, options);
             for (const record of result.errors) {
-              const unit = renderError(record, "modern", listParams);
-              unit.instanceLocation = ip + unit.instanceLocation;
+              const unit = renderError(record, listParams);
+              unit.inputLocation = ip + unit.inputLocation;
               errs.push(unit);
             }
             for (const a of result.annotations) {
-              const unit = renderAnnotation(a, "modern");
-              unit.instanceLocation = ip + unit.instanceLocation;
+              const unit = renderAnnotation(a);
+              unit.inputLocation = ip + unit.inputLocation;
               anns.push(unit);
             }
             if (ev !== undefined) {

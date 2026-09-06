@@ -253,6 +253,7 @@ const core07Vocabulary: Record<string, KeywordBehavior> = {
   // evaluates them directly.
   definitions: {
     id: `${VOCAB_CORE_07}#definitions`,
+    structural: true,
     analyze: mapPositions,
     evaluate: () => true,
     lower: () => {
@@ -301,6 +302,7 @@ const core06Vocabulary: Record<string, KeywordBehavior> = {
   $schema: structural(`${VOCAB_CORE_06}#$schema`),
   definitions: {
     id: `${VOCAB_CORE_06}#definitions`,
+    structural: true,
     analyze: mapPositions,
     evaluate: () => true,
     lower: () => {

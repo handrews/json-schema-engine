@@ -62,7 +62,7 @@ const TRACE_TRIGGERS = new Set([
 /** True when mapping `units` needs the evaluation trace for context. */
 export const needsTrace = (units: readonly ErrorUnit[]): boolean =>
   units.some((u) => {
-    const segs = segments(u.evaluationPath!);
+    const segs = segments(u.evaluationPath);
     if (segs.some((s) => TRACE_TRIGGERS.has(s))) return true;
     // Boolean-false units need the tail position classified; when the
     // root-anchored walk can't (unknown keyword in the path), only the
@@ -357,10 +357,10 @@ export function mapErrors(
       if (options.messages)
         e.message = message(e.keyword, e.params) ?? unit.error;
       if (options.verbose) {
-        const value = options.resolveSchema(unit.schemaLocation!);
-        const parentLoc = unit.schemaLocation!.slice(
+        const value = options.resolveSchema(unit.schemaLocation);
+        const parentLoc = unit.schemaLocation.slice(
           0,
-          unit.schemaLocation!.lastIndexOf("/"),
+          unit.schemaLocation.lastIndexOf("/"),
         );
         e.schema = value;
         e.parentSchema = options.resolveSchema(parentLoc);
@@ -390,7 +390,7 @@ function mapUnit(
 ): AjvErrorObject[] {
   const sp = (loc: string): string =>
     renderSchemaPath(loc, options.rootBaseUri);
-  const evalSegs = segments(unit.evaluationPath!);
+  const evalSegs = segments(unit.evaluationPath);
   const node = traceIndex?.nodeOf[index];
 
   // Boolean-false schema units (no keyword): the schema POSITION decides
@@ -414,9 +414,9 @@ function mapUnit(
       return [
         {
           keyword: edge,
-          instancePath: parent(unit.instanceLocation),
-          schemaPath: sp(unit.schemaLocation!),
-          params: { [param]: last(unit.instanceLocation) },
+          instancePath: parent(unit.inputLocation),
+          schemaPath: sp(unit.schemaLocation),
+          params: { [param]: last(unit.inputLocation) },
         },
       ];
     }
@@ -425,25 +425,25 @@ function mapUnit(
       edge === "additionalItems" ||
       edge === "unevaluatedItems"
     ) {
-      const arrayPath = parent(unit.instanceLocation);
-      const key = `${unit.evaluationPath!} ${arrayPath}`;
+      const arrayPath = parent(unit.inputLocation);
+      const key = `${unit.evaluationPath} ${arrayPath}`;
       if (coalesced.has(key)) return [];
       coalesced.add(key);
-      let limit = Number(last(unit.instanceLocation));
+      let limit = Number(last(unit.inputLocation));
       for (const other of all) {
         if (
           other.keyword === undefined &&
           other.evaluationPath === unit.evaluationPath &&
-          parent(other.instanceLocation) === arrayPath
+          parent(other.inputLocation) === arrayPath
         ) {
-          limit = Math.min(limit, Number(last(other.instanceLocation)));
+          limit = Math.min(limit, Number(last(other.inputLocation)));
         }
       }
       return [
         {
           keyword: edge,
           instancePath: arrayPath,
-          schemaPath: sp(unit.schemaLocation!),
+          schemaPath: sp(unit.schemaLocation),
           params: { limit },
         },
       ];
@@ -451,8 +451,8 @@ function mapUnit(
     return [
       {
         keyword: "false schema",
-        instancePath: unit.instanceLocation,
-        schemaPath: sp(unit.schemaLocation!) + "/false schema",
+        instancePath: unit.inputLocation,
+        schemaPath: sp(unit.schemaLocation) + "/false schema",
         params: {},
       },
     ];
@@ -461,8 +461,8 @@ function mapUnit(
   const params = (unit.params ?? {}) as Record<string, JsonValue>;
   const base: AjvErrorObject = {
     keyword: unit.keyword,
-    instancePath: unit.instanceLocation,
-    schemaPath: sp(unit.schemaLocation!),
+    instancePath: unit.inputLocation,
+    schemaPath: sp(unit.schemaLocation),
     params: {},
   };
 
@@ -535,9 +535,9 @@ function mapUnit(
     case "dependencies": {
       // depsCount/deps derive from the keyword's own schema value — the
       // adapter owns the schema, so no engine-side duplication (D13).
-      const kwLoc = unit.schemaLocation!.slice(
+      const kwLoc = unit.schemaLocation.slice(
         0,
-        unit.schemaLocation!.lastIndexOf("/"),
+        unit.schemaLocation.lastIndexOf("/"),
       );
       const map = options.resolveSchema(`${kwLoc}/${unit.keyword}`) as
         Record<string, JsonValue> | undefined;
@@ -562,9 +562,9 @@ function mapUnit(
     // path and appends a container error naming the offending property.
     for (let n = node; n !== undefined; n = traceIndex.parentOf.get(n)) {
       if (n.segments[0] !== "propertyNames") continue;
-      const name = last(unit.instanceLocation);
+      const name = last(unit.inputLocation);
       const container = traceIndex.parentOf.get(n)!;
-      base.instancePath = container.instanceLocation;
+      base.instancePath = container.inputLocation;
       base.propertyName = name;
       return [
         base,
@@ -597,7 +597,7 @@ function mapUnit(
         base,
         {
           keyword: "if",
-          instancePath: container.instanceLocation,
+          instancePath: container.inputLocation,
           schemaPath: sp(ifLocation),
           params: { failingKeyword: edge },
         },

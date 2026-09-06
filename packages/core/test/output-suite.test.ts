@@ -59,15 +59,15 @@ for (const { draft, defaultDialect } of DRAFTS) {
               `${info.description}: ${info.reason}`,
           );
         },
-        // Basic is the 2020-12-named flat document (contract's "classic
-        // Basic document" for locations: "2020-12"); rendered via the
-        // engine's public "list" + "2020-12" combination (index.ts wiring).
+        // Basic is IETF draft-03's flat document (contract's "classic Basic
+        // document"); the official cases assert on annotations too, so the
+        // document must collect every one of them.
         renderDocument: (schema, retrievalUri, data) => {
           const engine = createEngine({ defaultDialect });
           const uri = engine.registerSchema(schema, retrievalUri);
           const result = engine.evaluate(uri, data, {
-            output: "list",
-            locations: "2020-12",
+            output: "basic",
+            annotations: true,
           });
           return result.outputDocument as unknown as JsonValue;
         },

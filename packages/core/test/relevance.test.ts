@@ -1,16 +1,20 @@
 // IETF draft-03 §12.2 relevance: a keyword that accepts makes its rejecting
 // sub-evaluations irrelevant; a schema object that rejects makes its
-// accepting sub-evaluations irrelevant. Non-verbose output omits irrelevant
-// errors, annotations, and the units that end up empty (§13.4); modern
-// verbose output marks them (`droppedErrors`/`droppedAnnotations`); the
-// 2020-12 Verbose document is unchanged. Appendix D: dependency data comes
-// only from an accepting producer.
+// accepting sub-evaluations irrelevant. Relevant-level output omits
+// irrelevant errors, annotations, and the units that end up empty (§13.4);
+// the verbose level of `list`/`hierarchical` marks them
+// (`droppedErrors`/`droppedAnnotations`); the draft-03 `verbose` document
+// includes them with `valid` per node as the marker (§13.4.4). Appendix D:
+// dependency data comes only from an accepting producer.
 
 import { describe, it, expect } from "vitest";
 import {
   createEngine,
+  type BasicOutputDocument,
+  type DetailedOutputUnit,
   type EvaluateOptions,
   type JsonValue,
+  type ListOutputDocument,
   type OutputUnit,
   type Result,
 } from "@jse/core";
@@ -36,21 +40,14 @@ function run(
 }
 
 const LIST: EvaluateOptions = { output: "list" };
-const BASIC: EvaluateOptions = { output: "list", locations: "2020-12" };
+const BASIC: EvaluateOptions = { output: "basic" };
 const HIER: EvaluateOptions = { output: "hierarchical" };
 const VERBOSE: EvaluateOptions = { output: "hierarchical", verbose: true };
-const DETAILED: EvaluateOptions = {
-  output: "hierarchical",
-  locations: "2020-12",
-};
-const VERBOSE_2020: EvaluateOptions = {
-  output: "hierarchical",
-  locations: "2020-12",
-  verbose: true,
-};
+const DETAILED: EvaluateOptions = { output: "detailed" };
+const VERBOSE_D03: EvaluateOptions = { output: "verbose" };
 
 const errorTuples = (r: Result) =>
-  (r.errors ?? []).map((e) => [e.evaluationPath, e.instanceLocation]);
+  (r.errors ?? []).map((e) => [e.evaluationPath, e.inputLocation]);
 
 function flatten(unit: OutputUnit): OutputUnit[] {
   const out: OutputUnit[] = [];
@@ -62,8 +59,27 @@ function flatten(unit: OutputUnit): OutputUnit[] {
   return out;
 }
 
+const listUnits = (r: Result): OutputUnit[] =>
+  (r.outputDocument as ListOutputDocument).details;
+
 const unitAt = (units: OutputUnit[], path: string): OutputUnit | undefined =>
-  units.find((u) => (u.evaluationPath ?? u.keywordLocation) === path);
+  units.find((u) => u.evaluationPath === path);
+
+// Draft-03 trees: pre-order over `errors`/`annotations`.
+function nodes(unit: DetailedOutputUnit): DetailedOutputUnit[] {
+  const out: DetailedOutputUnit[] = [];
+  const walk = (u: DetailedOutputUnit): void => {
+    out.push(u);
+    (u.errors ?? u.annotations)?.forEach(walk);
+  };
+  walk(unit);
+  return out;
+}
+
+const nodesAt = (
+  all: DetailedOutputUnit[],
+  path: string,
+): DetailedOutputUnit[] => all.filter((n) => n.keywordLocation === path);
 
 describe("errors under an accepting keyword are irrelevant", () => {
   const cases: {
@@ -71,9 +87,9 @@ describe("errors under an accepting keyword are irrelevant", () => {
     schema: JsonValue;
     instance: JsonValue;
     valid: boolean;
-    /** relevant errors as [evaluationPath, instanceLocation], in order */
+    /** relevant errors as [evaluationPath, inputLocation], in order */
     errors: [string, string][];
-    /** units carrying droppedErrors in modern verbose output: path -> keyword keys */
+    /** rejecting applications under an accepting keyword: path -> keyword keys of their dropped errors */
     dropped: Record<string, string[]>;
   }[] = [
     {
@@ -208,30 +224,23 @@ describe("errors under an accepting keyword are irrelevant", () => {
 
   for (const c of cases) {
     describe(c.name, () => {
-      it("keeps only relevant errors in Result.errors and Basic", () => {
+      it("keeps only relevant errors in Result.errors and basic", () => {
         const list = run(c.schema, c.name, c.instance, LIST);
         expect(list.valid).toBe(c.valid);
         expect(errorTuples(list)).toEqual(c.errors);
-        const basic = run(c.schema, c.name, c.instance, BASIC);
-        const basicErrors = (
-          basic.outputDocument as { errors?: { keywordLocation: string }[] }
-        ).errors;
-        expect((basicErrors ?? []).map((e) => e.keywordLocation)).toEqual(
+        const basic = run(c.schema, c.name, c.instance, BASIC)
+          .outputDocument as BasicOutputDocument;
+        expect((basic.errors ?? []).map((e) => e.keywordLocation)).toEqual(
           c.errors.map(([path]) => path),
         );
       });
 
-      it("prunes irrelevant units from non-verbose list, hierarchical, and Detailed", () => {
-        const list = run(c.schema, c.name, c.instance, LIST)
-          .outputDocument as OutputUnit[];
+      it("prunes irrelevant units from list and hierarchical", () => {
+        const list = listUnits(run(c.schema, c.name, c.instance, LIST));
         const hier = flatten(
           run(c.schema, c.name, c.instance, HIER).outputDocument as OutputUnit,
         );
-        const detailed = flatten(
-          run(c.schema, c.name, c.instance, DETAILED)
-            .outputDocument as OutputUnit,
-        );
-        for (const units of [list, hier, detailed]) {
+        for (const units of [list, hier]) {
           for (const path of Object.keys(c.dropped)) {
             expect(unitAt(units, path)).toBeUndefined();
           }
@@ -250,11 +259,29 @@ describe("errors under an accepting keyword are irrelevant", () => {
         }
       });
 
-      it("marks irrelevant errors in modern verbose output", () => {
+      it("prunes irrelevant nodes from detailed", () => {
+        const all = nodes(
+          run(c.schema, c.name, c.instance, DETAILED)
+            .outputDocument as DetailedOutputUnit,
+        );
+        for (const path of Object.keys(c.dropped)) {
+          expect(nodesAt(all, path)).toEqual([]);
+        }
+        for (const [path] of c.errors) {
+          const node = nodesAt(all, path).find((n) => n.error !== undefined);
+          expect(node, `node at ${path}`).toBeDefined();
+        }
+        for (const n of all) expect(n.valid).toBe(c.valid);
+      });
+
+      it("marks irrelevant errors at the verbose level of list and hierarchical", () => {
         const verboseList: EvaluateOptions = { ...VERBOSE, output: "list" };
         for (const options of [VERBOSE, verboseList]) {
-          const doc = run(c.schema, c.name, c.instance, options).outputDocument;
-          const units = Array.isArray(doc) ? doc : flatten(doc as OutputUnit);
+          const r = run(c.schema, c.name, c.instance, options);
+          const units =
+            options.output === "list"
+              ? listUnits(r)
+              : flatten(r.outputDocument as OutputUnit);
           for (const [path, keys] of Object.entries(c.dropped)) {
             const unit = unitAt(units, path);
             expect(unit, `verbose unit at ${path}`).toBeDefined();
@@ -265,16 +292,27 @@ describe("errors under an accepting keyword are irrelevant", () => {
         }
       });
 
-      it("leaves the 2020-12 Verbose document with every error under errors", () => {
-        const units = flatten(
-          run(c.schema, c.name, c.instance, VERBOSE_2020)
-            .outputDocument as OutputUnit,
+      it("includes every result in the draft-03 verbose document, marked by valid", () => {
+        const all = nodes(
+          run(c.schema, c.name, c.instance, VERBOSE_D03)
+            .outputDocument as DetailedOutputUnit,
         );
         for (const [path, keys] of Object.entries(c.dropped)) {
-          const unit = unitAt(units, path);
-          expect(unit, `Verbose unit at ${path}`).toBeDefined();
-          expect(Object.keys(unit!.errors ?? {})).toEqual(keys);
-          expect(unit!.droppedErrors).toBeUndefined();
+          const rejected = nodesAt(all, path).find((n) => !n.valid);
+          expect(rejected, `rejecting application at ${path}`).toBeDefined();
+          const subtree = nodes(rejected!);
+          for (const key of keys) {
+            const leaf =
+              key === ""
+                ? rejected
+                : subtree.find((n) => n.keywordLocation === `${path}/${key}`);
+            expect(leaf?.error, `error at ${path}/${key}`).toBeDefined();
+          }
+        }
+        for (const [path] of c.errors) {
+          expect(nodesAt(all, path).some((n) => n.error !== undefined)).toBe(
+            true,
+          );
         }
       });
     });
@@ -309,16 +347,13 @@ describe("if, then, and else are separate keyword evaluations", () => {
     const schema: JsonValue = { if: { type: "string", title: "str" } };
     const yes = run(schema, "if-alone-yes", "x", {
       ...LIST,
-      collectAnnotations: true,
+      annotations: true,
     });
     expect(yes.valid).toBe(true);
     expect(
       yes.annotations!.map((a) => [a.evaluationPath, a.annotation]),
     ).toEqual([["/if/title", "str"]]);
-    const no = run(schema, "if-alone-no", 5, {
-      ...LIST,
-      collectAnnotations: true,
-    });
+    const no = run(schema, "if-alone-no", 5, { ...LIST, annotations: true });
     expect(no.valid).toBe(true);
     expect(no.annotations).toEqual([]);
   });
@@ -370,28 +405,31 @@ describe("annotations under a rejecting ancestor are irrelevant", () => {
   };
   const instance: JsonValue = { item: 1, count: "x" };
 
-  it("are absent from Result.annotations and non-verbose documents", () => {
+  it("are absent from Result.annotations and relevant-level documents", () => {
     const list = run(schema, "reverse", instance, {
       ...LIST,
-      collectAnnotations: true,
+      annotations: true,
     });
     expect(list.valid).toBe(false);
     expect(list.annotations).toBeUndefined();
-    const units = list.outputDocument as OutputUnit[];
+    const units = listUnits(list);
     expect(unitAt(units, "/properties/item")).toBeUndefined();
     expect(unitAt(units, "/properties/count")!.errors).toEqual({
       type: expect.any(String) as string,
     });
     for (const u of units) expect(u.droppedAnnotations).toBeUndefined();
-    const detailed = flatten(
-      run(schema, "reverse", instance, DETAILED).outputDocument as OutputUnit,
+    const detailed = nodes(
+      run(schema, "reverse", instance, { ...DETAILED, annotations: true })
+        .outputDocument as DetailedOutputUnit,
     );
-    expect(unitAt(detailed, "/properties/item")).toBeUndefined();
+    expect(nodesAt(detailed, "/properties/item")).toEqual([]);
+    for (const n of detailed) expect(n.annotation).toBeUndefined();
   });
 
-  it("appear as droppedAnnotations at the valid unit in modern verbose output", () => {
+  it("appear as droppedAnnotations at the valid unit at the verbose level", () => {
     const units = flatten(
-      run(schema, "reverse", instance, VERBOSE).outputDocument as OutputUnit,
+      run(schema, "reverse", instance, { ...VERBOSE, annotations: true })
+        .outputDocument as OutputUnit,
     );
     const item = unitAt(units, "/properties/item")!;
     expect(item.valid).toBe(true);
@@ -399,25 +437,36 @@ describe("annotations under a rejecting ancestor are irrelevant", () => {
     expect(item.droppedAnnotations).toEqual({ title: "T" });
   });
 
-  it("stay under annotations in the 2020-12 Verbose document", () => {
-    const units = flatten(
-      run(schema, "reverse", instance, VERBOSE_2020)
-        .outputDocument as OutputUnit,
+  it("stay as valid annotation nodes under the rejecting root in the draft-03 verbose document", () => {
+    const all = nodes(
+      run(schema, "reverse", instance, { ...VERBOSE_D03, annotations: true })
+        .outputDocument as DetailedOutputUnit,
     );
-    const item = unitAt(units, "/properties/item")!;
-    expect(item.annotations).toEqual({ title: "T" });
-    expect(item.droppedAnnotations).toBeUndefined();
+    expect(all[0]!.valid).toBe(false);
+    const item = nodesAt(all, "/properties/item")[0]!;
+    expect(item.valid).toBe(true);
+    expect(item.annotations).toEqual([
+      {
+        valid: true,
+        keywordLocation: "/properties/item/title",
+        absoluteKeywordLocation:
+          "https://relevance.example/reverse#/properties/item/title",
+        instanceLocation: "/item",
+        annotation: "T",
+      },
+    ]);
   });
 
   it("an accepted branch's annotations under a rejecting object are dropped", () => {
     const s: JsonValue = { anyOf: [{ title: "t" }], type: "string" };
     const units = flatten(
-      run(s, "branch-ann", 5, VERBOSE).outputDocument as OutputUnit,
+      run(s, "branch-ann", 5, { ...VERBOSE, annotations: true })
+        .outputDocument as OutputUnit,
     );
     const branch = unitAt(units, "/anyOf/0")!;
     expect(branch.valid).toBe(true);
     expect(branch.droppedAnnotations).toEqual({ title: "t" });
-    const list = run(s, "branch-ann", 5, LIST).outputDocument as OutputUnit[];
+    const list = listUnits(run(s, "branch-ann", 5, LIST));
     expect(unitAt(list, "/anyOf/0")).toBeUndefined();
   });
 });
@@ -529,10 +578,10 @@ describe("verdicts do not depend on output mode or annotation settings", () => {
     HIER,
     VERBOSE,
     DETAILED,
-    VERBOSE_2020,
-    { ...LIST, collectAnnotations: true },
-    { ...LIST, collectAnnotations: true, retention: { keywords: [] } },
-    { collectAnnotations: true, retention: { keywords: ["title"] } },
+    VERBOSE_D03,
+    { ...LIST, annotations: true },
+    { ...LIST, annotations: { keywords: [] } },
+    { output: "basic", annotations: { keywords: ["title"] } },
   ];
   for (const [name, schema, instance] of fixtures) {
     it(name, () => {

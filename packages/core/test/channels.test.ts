@@ -13,7 +13,7 @@ function run(
   const engine = createEngine();
   const uri = engine.registerSchema(schema, "https://channels.example/schema");
   return engine.evaluate(uri, instance, {
-    collectAnnotations: true,
+    annotations: true,
     output: "list",
     ...options,
   });
@@ -22,7 +22,7 @@ function run(
 const annotationTuples = (r: Result) =>
   (r.annotations ?? []).map((a) => [
     a.evaluationPath,
-    a.instanceLocation,
+    a.inputLocation,
     a.annotation,
   ]);
 
@@ -119,7 +119,7 @@ describe("retention policy (DESIGN.md D5)", () => {
   it("filters by keyword allow-list without changing validation", () => {
     const all = run(profileSchema, instance);
     const only = run(profileSchema, instance, {
-      retention: { keywords: ["readOnly"] },
+      annotations: { keywords: ["readOnly"] },
     });
     expect(only.valid).toBe(all.valid);
     expect(only.annotations!.length).toBe(1);
@@ -129,7 +129,7 @@ describe("retention policy (DESIGN.md D5)", () => {
 
   it("filters by vocabulary URI", () => {
     const r = run(profileSchema, instance, {
-      retention: {
+      annotations: {
         vocabularies: ["https://json-schema.org/draft/2020-12/vocab/meta-data"],
       },
     });
@@ -143,13 +143,11 @@ describe("retention policy (DESIGN.md D5)", () => {
 
   it("filters by arbitrary predicate (evaluation-path prefix)", () => {
     const r = run(profileSchema, instance, {
-      retention: {
-        keep: (u) => u.evaluationPath!.startsWith("/properties/id/"),
+      annotations: {
+        keep: (u) => u.evaluationPath.startsWith("/properties/id/"),
       },
     });
-    expect(r.annotations!.every((a) => a.instanceLocation === "/id")).toBe(
-      true,
-    );
+    expect(r.annotations!.every((a) => a.inputLocation === "/id")).toBe(true);
     expect(r.annotations!.length).toBeGreaterThan(0);
   });
 
@@ -160,11 +158,11 @@ describe("retention policy (DESIGN.md D5)", () => {
     };
     // Retain nothing: the channel still feeds unevaluatedProperties, which
     // must still see x as evaluated. This is the "transient" retention story.
-    const r = run(schema, { x: 1 }, { retention: { keywords: [] } });
+    const r = run(schema, { x: 1 }, { annotations: { keywords: [] } });
     expect(r.valid).toBe(true);
     expect(r.annotations).toEqual([]);
     expect(
-      run(schema, { x: 1, y: 2 }, { retention: { keywords: [] } }).valid,
+      run(schema, { x: 1, y: 2 }, { annotations: { keywords: [] } }).valid,
     ).toBe(false);
   });
 });

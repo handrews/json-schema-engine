@@ -59,7 +59,7 @@ function run(options?: EvaluateOptions): Result {
   const engine = createEngine();
   const uri = engine.registerSchema(schema, "https://records.example/mixed");
   return engine.evaluate(uri, instance, {
-    collectAnnotations: true,
+    annotations: true,
     output: "list",
     ...options,
   });
@@ -71,7 +71,7 @@ describe("annotation output carries keyword values only", () => {
     expect(r.valid).toBe(true);
     const units = (r.annotations ?? []).map((a) => [
       a.keyword,
-      a.instanceLocation,
+      a.inputLocation,
       a.annotation,
     ]);
     expect(units).toEqual(
@@ -100,7 +100,7 @@ describe("annotation output carries keyword values only", () => {
   });
 
   it("selecting only an applicator keyword retains nothing", () => {
-    const r = run({ retention: { keywords: ["properties"] } });
+    const r = run({ annotations: { keywords: ["properties"] } });
     expect(r.valid).toBe(true);
     expect(r.annotations).toEqual([]);
   });
@@ -211,7 +211,7 @@ describe("custom producers and consumers", () => {
     );
     expect(engine.evaluate(uri, 1).valid).toBe(true);
     expect(
-      engine.evaluate(uri, 1, { output: "list", collectAnnotations: true })
+      engine.evaluate(uri, 1, { output: "list", annotations: true })
         .annotations,
     ).toEqual([]);
     expect(engine.evaluate(uri, 1, { output: "hierarchical" }).valid).toBe(
@@ -231,7 +231,7 @@ describe("custom producers and consumers", () => {
       uri,
       1,
       false,
-      makeRecordPredicate(false, undefined),
+      makeRecordPredicate(false),
     );
     expect(state.rootDependencies).toEqual([]);
     const traced = runEvaluation(engine.registry, uri, 1, true);

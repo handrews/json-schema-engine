@@ -192,7 +192,7 @@ describe("differential: fold equals the interpreter consumer's skip set", () => 
     const result = engine.evaluate(consumerUri, instance, { output: "list" });
     expect(result.valid).toBe(false);
     const appliedTo = new Set(
-      result.errors!.map((e) => e.instanceLocation.slice(1)),
+      result.errors!.map((e) => e.inputLocation.slice(1)),
     );
     const skipped = new Set(
       Object.keys(instance).filter((k) => !appliedTo.has(k)),

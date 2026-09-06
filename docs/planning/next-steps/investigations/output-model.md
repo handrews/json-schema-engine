@@ -1,8 +1,15 @@
 # Investigation: flexible output model
 
-**Recommendation:** not decided. The control model is fixed by
+**Recommendation:** decided 2026-09-05 (E2). The control model is fixed by
 [ADR 0003](../decisions/0003-output-levels-and-orthogonal-controls.md); the
-record/renderer boundary that implements it is this investigation's output.
+record/renderer boundary is one evaluation record set — relevant errors,
+dropped errors, every recorded annotation with its relevant subset, and the
+trace carrying per-keyword verdicts — consumed by one renderer per format
+name (`packages/core/src/output.ts`). JSE extension data lives on the flat
+`Result.errors`/`Result.annotations` surface with native field names
+(`evaluationPath`, `schemaLocation`, `inputLocation`); every document has
+exactly its source's structure. The extensibility and streaming questions
+below stay open for the post-release stream.
 
 ## Question
 
@@ -63,18 +70,16 @@ vocabulary, not the fundamental internal terminology.
 
 ## Current behavior
 
-The interpreter maintains flat error records, frame-scoped annotation and
-dependency records (separate stores; renderers accept annotation records
-only), and an optional trace. `Engine.evaluate` projects these into flag,
-list, or hierarchical results and modern or 2020-12 location names. Verbose
-hierarchical output retains successful annotation-free applications, which
-the mutation adapter currently consumes. Compiled evaluation directly
-supports flag and list artifacts; hierarchical output is not a compiled
-artifact surface.
-
-This model needs the relevance step of the IETF draft-03 reconciliation
-before it can be the canonical input to flexible renderers: it does not yet
-model keyword-level relevance, and errors are never rolled back.
+The interpreter maintains relevant and dropped error records, frame-scoped
+annotation and dependency records (separate stores; renderers accept
+annotation records only), and, for every format above `basic`, a trace of
+schema applications with each keyword's verdict. `Engine.evaluate` derives
+the evaluation demand from the options once, then renders the flat surface
+and the requested document. The verbose level of `hierarchical` retains
+successful annotation-free applications, which the mutation adapter
+consumes. Compiled evaluation directly supports flag and flat list
+artifacts plus the Basic document; the structured documents are not yet a
+compiled artifact surface (Phase 3).
 
 ## Required guarantees
 
@@ -176,14 +181,14 @@ The controls below are independent
 Option names are provisional; this investigation chooses final names and
 records migration from the current ones.
 
-| Control                 | Values                                                                                                                                                    | Layer                                                                                                        | Today                                             |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------- |
-| Format name             | `flag`; `basic`, `detailed`, `verbose` (draft-03 §13); `list`, `hierarchical` (machines-oriented proposal)                                                | render                                                                                                       | `output` + `locations`                            |
-| Level                   | minimal (`flag` only); relevant (`basic`, `detailed`, `list`, `hierarchical`); verbose (`verbose`; `list`/`hierarchical` under verbose demand; the trace) | evaluation demand (verbose forbids short-circuit) + render                                                   | `verbose` boolean on `hierarchical` only; `trace` |
-| Annotation selection    | none; all; allow/deny by keyword and vocabulary; predicate                                                                                                | render semantics; may be pushed into evaluation as elision without touching dependency data (channel rule 5) | `collectAnnotations` + `retention`                |
-| Error detail            | message; + keyword + structured params                                                                                                                    | render                                                                                                       | `errorParams`, `list` only                        |
-| Keyword identity detail | name; + vocabulary URI                                                                                                                                    | render                                                                                                       | `vocabulary` on flat units only                   |
-| Source positions        | not collected; collected, not rendered; rendered                                                                                                          | loader (collect) + render (include)                                                                          | `positions` decorate; loader `getRange` (D17)     |
+| Control                 | Values                                                                                                                                                    | Layer                                                                                                        | Option                                                          |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
+| Format name             | `flag`; `basic`, `detailed`, `verbose` (draft-03 §13); `list`, `hierarchical` (machines-oriented proposal)                                                | render                                                                                                       | `output`                                                        |
+| Level                   | minimal (`flag` only); relevant (`basic`, `detailed`, `list`, `hierarchical`); verbose (`verbose`; `list`/`hierarchical` under verbose demand; the trace) | evaluation demand (verbose forbids short-circuit) + render                                                   | derived from `output`; `verbose: true` on `list`/`hierarchical` |
+| Annotation selection    | none; all; allow/deny by keyword and vocabulary; predicate                                                                                                | render semantics; pushed into evaluation as elision at every level without touching dependency data (rule 5) | `annotations: false \| true \| selection`                       |
+| Error detail            | message; + keyword + vocabulary + structured params                                                                                                       | render (flat surface)                                                                                        | `errorParams`, every non-flag format                            |
+| Keyword identity detail | name; + vocabulary URI                                                                                                                                    | render (flat surface)                                                                                        | always on annotation units; with `errorParams` on error units   |
+| Source positions        | not collected; collected, not rendered; rendered                                                                                                          | loader (collect) + render (include)                                                                          | loader `getRange` (D17); `positions` on every non-flag format   |
 
 Requirements:
 
@@ -193,21 +198,19 @@ Requirements:
   `hierarchical` exist at both the relevant and verbose levels. Which further
   combinations exist is an output of this investigation.
 - Every combination of controls is supported in both tiers or rejected with a
-  typed error. Today `errorParams` and `trace` are silently ignored outside
-  `list` (`packages/core/src/index.ts:219-226`).
-- The engine derives an _evaluation demand_ from the controls once, at plan or
-  compile time: annotations needed (per selection), irrelevant records needed
-  (verbose level), all errors needed (any level above minimal), dependency
-  tracking needed (from the schema's consumers). The existing
-  `RecordPredicate`/`shouldRecord` elision (`packages/core/src/engine.ts`,
-  `output.ts`) is the seed of this mechanism.
+  typed error (`OutputOptionsError`).
+- The engine derives an _evaluation demand_ from the controls once:
+  annotations needed (per selection, through the `RecordPredicate` elision),
+  irrelevant records needed (verbose level), the trace needed (every format
+  above `basic`, or `trace: true`), dependency tracking needed (from the
+  schema's consumers).
 - Verbose-level `list` and `hierarchical` output carries an explicit per-unit
   relevance marker; the machines proposal has none, and `droppedAnnotations`
   covers only discarded annotations. Draft-03 §13.4.4 recommends `valid` per
   node for the same purpose; the marker design must serve both.
 - `vocabulary`, `params`, and `source` are available on every format above
-  minimal. Today `vocabulary` is lost in the hierarchy's keyword-keyed maps
-  (`packages/core/src/output.ts`).
+  minimal through the flat surface; documents stay exactly their source's
+  structure.
 - Position collection is a loader-level control (parse cost); position
   rendering is a separate render-level control.
 - The third-party-format TypeScript extension story is post-release; the

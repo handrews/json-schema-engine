@@ -12,7 +12,7 @@
 //  4. visibility = the current frame's dependency records filtered by
 //     cursor identity;
 //  5. the annotation result is the root frame's annotation records filtered
-//     by retention; retention never affects rule 4;
+//     by the annotation selection; selection never affects rule 4;
 //  6. relevance (draft-03 §12.2): a keyword that accepts makes the errors of
 //     its rejecting sub-evaluations irrelevant — evaluateKeyword drops them
 //     (kept aside only when tracing, for verbose output); rule 3 is the same
@@ -53,8 +53,9 @@ export class KeywordContractError extends Error {}
 /**
  * Annotation elision (D5/M5.5): when set, an annotation record is recorded
  * only if this returns true, and dependency records are recorded only for
- * behavior ids some registered keyword consumes. Never set while tracing
- * (verbose output needs every annotation).
+ * behavior ids some registered keyword consumes. Applies at every output
+ * level: a deselected keyword's annotation is never rendered, relevant or
+ * not.
  */
 export type RecordPredicate = (
   behaviorId: string,
@@ -115,6 +116,8 @@ export interface DependencyRecord {
 export interface ErrorRecord {
   /** `null` when the schema itself failed (boolean `false`). */
   keywordName: string | null;
+  /** `null` when the schema itself failed (boolean `false`). */
+  vocabularyUri: string | null;
   schemaRef: SchemaRef;
   pathNode: PathNode | null;
   cursor: Cursor;
@@ -128,16 +131,26 @@ export interface Frame {
   dependencies: DependencyRecord[];
 }
 
+/** One keyword evaluation within a traced schema application. */
+export interface KeywordTrace {
+  name: string;
+  valid: boolean;
+}
+
 /**
- * One schema application, recorded only when tracing (M5 structured
- * outputs): hierarchical/verbose renderers need application boundaries and
- * per-branch validity, which the flat error list cannot reconstruct.
+ * One schema application, recorded only when tracing (structured outputs):
+ * the structured renderers need application boundaries, per-branch
+ * validity, and each keyword's verdict in evaluation order (draft-03 Verbose
+ * renders one node per keyword), which the flat error list cannot
+ * reconstruct.
  */
 export interface TraceNode {
   schemaRef: SchemaRef;
   pathNode: PathNode | null;
   cursor: Cursor;
   valid: boolean;
+  /** keyword evaluations of this application, in order (structural keywords excluded) */
+  keywords: KeywordTrace[];
   children: TraceNode[];
 }
 
@@ -200,6 +213,7 @@ export class EvalState {
       pathNode,
       cursor,
       valid: true,
+      keywords: [],
       children: [],
     };
     const parent = this.traceStack[this.traceStack.length - 1];
@@ -213,6 +227,11 @@ export class EvalState {
   traceExit(node: TraceNode, valid: boolean): void {
     node.valid = valid;
     this.traceStack.pop();
+  }
+
+  /** Records one keyword evaluation's verdict on the current trace node. */
+  traceKeyword(name: string, valid: boolean): void {
+    this.traceStack[this.traceStack.length - 1]?.keywords.push({ name, valid });
   }
 
   /** The innermost open frame. */
@@ -421,6 +440,7 @@ class KeywordContextImpl implements KeywordContext {
     this.reported = true;
     this.state.errors.push({
       keywordName: this.entry.name,
+      vocabularyUri: this.entry.vocabularyUri,
       schemaRef: this.schemaRef,
       pathNode: this.pathNode,
       cursor: this.cursor,
@@ -467,6 +487,7 @@ function applySchemaAtDepth(
     if (!node) {
       state.errors.push({
         keywordName: null,
+        vocabularyUri: null,
         schemaRef,
         pathNode,
         cursor,
@@ -518,6 +539,7 @@ function applySchemaAtDepth(
       // Unknown keywords are collected as annotations: the keyword's value is
       // the annotation value (spec SHOULD).
       const behaviorId = unknownKeywordId(name);
+      if (state.tracing) state.traceKeyword(name, true);
       if (state.shouldRecord && !state.shouldRecord(behaviorId, name, null))
         continue;
       const annotation: AnnotationRecord = {
@@ -578,6 +600,11 @@ function evaluateKeyword(
     }
     if (state.errors.length > mark) state.dropErrorsFrom(mark);
   }
+  // Identifier and reserved-location keywords evaluate to nothing and appear
+  // in no output unit (draft-03 §12.6, §12.10).
+  if (state.tracing && entry.behavior.structural !== true) {
+    state.traceKeyword(entry.name, ok);
+  }
   return ok;
 }
 
@@ -594,7 +621,7 @@ export function runEvaluation(
   const state = new EvalState(
     registry,
     tracing,
-    tracing ? null : shouldRecord,
+    shouldRecord,
     regexCache,
     maxDepth,
   );

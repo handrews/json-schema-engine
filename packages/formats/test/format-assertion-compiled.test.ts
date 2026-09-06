@@ -5,7 +5,7 @@
 //    in plan.formats; an unknown format under assertFormats stays static and
 //    produce-only (mirrors packages/compiler/test/format-assertion.test.ts
 //    Leg 2, scoped to this package's own FORMATS_2020_12 table);
-//  - annotations: compileList({ collectAnnotations: true }) on a valid
+//  - annotations: compileList({ annotations: true }) on a valid
 //    instance matches the interpreter's format-name annotation exactly;
 //  - the official optional/format-assertion suite through the compiled tier
 //    (flag + list), compared to the interpreter with an exact count and zero
@@ -76,17 +76,17 @@ describe("Leg 1 — format-bearing schemas stay static", () => {
 // ---------------------------------------------------------------------------
 
 describe("Leg 2 — compiled annotations match the interpreter", () => {
-  it("collectAnnotations on a valid instance yields the format-name annotation", () => {
+  it("the annotations option on a valid instance yields the format-name annotation", () => {
     const engine = createEngine({ formats: FORMATS_2020_12 });
     const uri = engine.registerSchema(
       { format: "ipv4" },
       "https://fa.formats-compile/annotate",
     );
-    const list = compileList(engine, uri, { collectAnnotations: true });
+    const list = compileList(engine, uri, { annotations: true });
     const compiled = list.evaluateList("not-an-ip");
     const interpreted = engine.evaluate(uri, "not-an-ip", {
       output: "list",
-      collectAnnotations: true,
+      annotations: true,
     });
     expect(compiled.valid).toBe(interpreted.valid);
     expect(compiled.annotations).toStrictEqual(interpreted.annotations);

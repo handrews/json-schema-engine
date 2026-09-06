@@ -191,6 +191,12 @@ export interface KeywordBehavior {
    */
   readonly phase?: 0 | 1;
   /**
+   * An identifier or reserved-location keyword (`$id`, `$defs`, `$comment`,
+   * ...): it evaluates to nothing and appears in no output unit (IETF
+   * draft-03 §12.6, §12.10), so a trace records no keyword entry for it.
+   */
+  readonly structural?: boolean;
+  /**
    * Static facts; also drives the registration walk's descent. The context
    * (sibling access) is supplied by every caller; implementations that need
    * no sibling facts ignore it.

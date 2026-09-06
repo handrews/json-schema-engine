@@ -99,7 +99,7 @@ describe("source-position prefix table (D17)", () => {
     const unit = r.errors!.find((e) => e.error.includes("'x'"))!;
     expect(unit.schemaLocation).toBe(`${B}#/required`);
     // schemaLocation = resourceUri + "#" + ptr; document pointer = prefix + ptr
-    const [resourceUri, ptr] = unit.schemaLocation!.split("#");
+    const [resourceUri, ptr] = unit.schemaLocation.split("#");
     const loc = engine.documentLocation(resourceUri!)!;
     expect(loc.documentUri).toBe(A);
     expect(loc.pointer + ptr!).toBe("/$defs/inner/required");
@@ -153,7 +153,7 @@ describe("source positions (D17: getRange, locate, unit decoration)", () => {
       ),
     ).toBe('"required"');
 
-    expect(engine.locate(unit.schemaLocation!)).toEqual(source);
+    expect(engine.locate(unit.schemaLocation)).toEqual(source);
   });
 
   it("locate degrades to pointer-only when the loader reports no positions", () => {

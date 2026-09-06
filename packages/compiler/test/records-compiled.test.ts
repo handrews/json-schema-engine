@@ -39,10 +39,10 @@ describe("compiled annotation output", () => {
     const uri = engine.registerSchema(schema, "https://records.example/c");
     const interpreted = engine.evaluate(uri, instance, {
       output: "list",
-      collectAnnotations: true,
+      annotations: true,
     });
     const compiled = compileList(engine, uri, {
-      collectAnnotations: true,
+      annotations: true,
     }).evaluateList(instance);
     expect(compiled.valid).toBe(true);
     expect(compiled.annotations).toEqual(interpreted.annotations);
@@ -55,8 +55,7 @@ describe("compiled annotation output", () => {
     const engine = createEngine();
     const uri = engine.registerSchema(schema, "https://records.example/r");
     const compiled = compileList(engine, uri, {
-      collectAnnotations: true,
-      retention: { keywords: ["properties"] },
+      annotations: { keywords: ["properties"] },
     }).evaluateList(instance);
     expect(compiled.valid).toBe(true);
     expect(compiled.annotations).toEqual([]);

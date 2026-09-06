@@ -224,7 +224,7 @@ async function subjectsFor(corpus: Corpus): Promise<CorpusSubjects> {
   const list = compileList(engine, uri, { errorParams: false });
   const listAnn = compileList(engine, uri, {
     errorParams: false,
-    collectAnnotations: true,
+    annotations: true,
   });
   const subjects: Subject[] = [
     { name: "jse compiled flag", verdict: (x) => flag.validate(x) },
@@ -308,7 +308,7 @@ for (const corpus of corpora) {
     ).annotations;
     const interpreterAnnotations = engine.evaluate(uri, instance.value, {
       output: "list",
-      collectAnnotations: true,
+      annotations: true,
     }).annotations;
     try {
       deepStrictEqual(compiledAnnotations, interpreterAnnotations);

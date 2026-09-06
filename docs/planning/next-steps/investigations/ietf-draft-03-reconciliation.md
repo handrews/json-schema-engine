@@ -99,7 +99,9 @@ root-frame annotations are the relevant ones, and an invalid run has none.
 Errors at one trace node are uniformly relevant or irrelevant (relevance
 depends only on the ancestor keyword chain, and every application has its
 own path node), so verbose rendering can attach dropped errors per unit.
-The fixtures live in `packages/core/test/relevance.test.ts` and
+The trace also records each keyword's verdict in evaluation order, which is
+what the draft-03 `detailed`/`verbose` documents render one node from. The
+fixtures live in `packages/core/test/relevance.test.ts` and
 `packages/compiler/test/relevance-compiled.test.ts`.
 
 Recognized-but-unsupported keywords (§12.5) have no runtime category in

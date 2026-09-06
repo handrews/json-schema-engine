@@ -6,11 +6,13 @@
 
 import {
   DEFAULT_MAX_DEPTH,
+  type AnnotationSelection,
   type AnnotationUnit,
+  type BasicAnnotationUnit,
+  type BasicOutputDocument,
   type Engine,
   type ErrorUnit,
   type JsonValue,
-  type RetentionPolicy,
 } from "@jse/core";
 import { buildPlan, type CompilationPlan } from "./plan.js";
 import { serializePlan } from "./serialize.js";
@@ -45,22 +47,20 @@ export interface CompileOptions {
 /** Options for {@link compileList}. */
 export interface ListCompileOptions extends CompileOptions {
   /**
-   * Include `keyword` + structured `params` on each error unit, matching
-   * `Engine.evaluate(uri, x, { output: "list", errorParams: true })` (D13).
+   * Include `keyword`, `vocabulary`, and structured `params` on each error
+   * unit, matching the interpreter's `errorParams` option on `list` output
+   * (D13).
    */
   errorParams?: boolean;
   /**
-   * Collect annotations, matching the interpreter's list output under
-   * `collectAnnotations: true`: `evaluateList` gains an `annotations` array on
-   * valid instances and `basic()` gains the Basic document's annotation side.
+   * Which annotations to collect, matching the interpreter's `annotations`
+   * option: `true` or a selection makes `evaluateList` return an
+   * `annotations` array on valid instances and `basic()` render the Basic
+   * document's annotation side. A selection's allow/deny lists are
+   * specialized into the artifact at compile time; its `keep` predicate runs
+   * at evaluation.
    */
-  collectAnnotations?: boolean;
-  /**
-   * Retention policy for collected annotations (D5). Allow/deny lists are
-   * specialized into the artifact at compile time; the `keep` predicate runs
-   * at evaluation. Ignored unless `collectAnnotations` is set.
-   */
-  retention?: RetentionPolicy;
+  annotations?: boolean | AnnotationSelection;
 }
 
 /** A compiled list-mode result: interpreter-exact flat error units, plus annotations when collected. */
@@ -68,9 +68,9 @@ export interface CompiledListResult {
   valid: boolean;
   errors: ErrorUnit[];
   /**
-   * Present on valid instances when compiled with `collectAnnotations`
-   * (absent on invalid ones, matching `Engine.evaluate`'s valid-only
-   * annotation contract); always absent otherwise.
+   * Present on valid instances when compiled with `annotations` (absent on
+   * invalid ones, matching `Engine.evaluate`'s valid-only annotation
+   * contract); always absent otherwise.
    */
   annotations?: AnnotationUnit[];
 }
@@ -80,25 +80,12 @@ export interface CompiledListArtifact {
   /** evaluate with full error collection ({@link CompiledListResult}) */
   evaluateList(instance: JsonValue): CompiledListResult;
   /**
-   * The same result renamed to the 2020-12 Basic document field names. On
-   * invalid instances it carries the flat `errors` array; on valid instances
-   * compiled with `collectAnnotations`, the `annotations` array (2020-12
-   * field names, `keep`-filtered), present only when non-empty — matching the
-   * interpreter's `renderBasic`.
+   * The same result as the Basic document (IETF draft-03 §13.4.2), matching
+   * `Engine.evaluate(uri, x, { output: "basic" }).outputDocument`: the flat
+   * `errors` array on invalid instances; on valid instances compiled with
+   * `annotations`, the selected annotations, present only when non-empty.
    */
-  basic(instance: JsonValue): {
-    valid: boolean;
-    keywordLocation: string;
-    absoluteKeywordLocation: string;
-    instanceLocation: string;
-    errors?: {
-      keywordLocation: string;
-      absoluteKeywordLocation: string;
-      instanceLocation: string;
-      error: string;
-    }[];
-    annotations?: AnnotationUnit[];
-  };
+  basic(instance: JsonValue): BasicOutputDocument;
   plan: CompilationPlan;
   source: string;
 }
@@ -163,9 +150,9 @@ export function compileList(
   schemaUri: string,
   options: ListCompileOptions = {},
 ): CompiledListArtifact {
-  const collect = options.collectAnnotations ?? false;
+  const selection = options.annotations ?? false;
+  const collect = selection !== false;
   const errorParams = options.errorParams ?? false;
-  const retention = collect ? options.retention : undefined;
   const plan = buildPlan(engine, schemaUri, { output: "list" });
   const source = serializePlan(
     plan,
@@ -176,7 +163,7 @@ export function compileList(
       : { inline: true, plainData: true },
     "list",
     errorParams,
-    collect ? { retention } : undefined,
+    collect ? { selection } : undefined,
   );
   const runtime = makeRuntime(
     engine.registry,
@@ -184,14 +171,14 @@ export function compileList(
     plan.patterns,
     options.maxDepth ?? DEFAULT_MAX_DEPTH,
     errorParams,
-    collect ? { retention } : undefined,
+    collect ? { selection } : undefined,
     engine.formats,
     plan.formats,
   );
   const targets = plan.targets.map((t) => t.ref);
   const root = engine.registry.rootRef(schemaUri);
   const rootLocation = `${root.baseUri}#${root.pointer}`;
-  const keep = retention?.keep;
+  const keep = typeof selection === "object" ? selection.keep : undefined;
 
   if (!collect) {
     const evaluateList = instantiateList<ErrorUnit>(source, runtime, targets);
@@ -199,20 +186,13 @@ export function compileList(
       evaluateList,
       basic: (instance) => {
         const { valid, errors } = evaluateList(instance);
-        const doc: ReturnType<CompiledListArtifact["basic"]> = {
+        const doc: BasicOutputDocument = {
           valid,
           keywordLocation: "",
           absoluteKeywordLocation: rootLocation,
           instanceLocation: "",
         };
-        if (!valid) {
-          doc.errors = errors.map((e) => ({
-            keywordLocation: e.evaluationPath!,
-            absoluteKeywordLocation: e.schemaLocation!,
-            instanceLocation: e.instanceLocation,
-            error: e.error,
-          }));
-        }
+        if (!valid) doc.errors = errors.map(toBasicError);
         return doc;
       },
       plan,
@@ -221,11 +201,10 @@ export function compileList(
   }
 
   // The emitted evaluator returns the raw (static-list-filtered) annotation
-  // array; the wrapper applies `keep` and the valid-only presence rule,
-  // matching `Engine.evaluate`'s Result.annotations. `basic()` re-projects to
-  // the 2020-12 field names and applies `keep` over those (renderBasic's
-  // vocabulary is "2020-12"), so a keep predicate sees the shape it will in
-  // each surface.
+  // array; the wrapper applies `keep` (over the native unit, as the
+  // interpreter does) and the valid-only presence rule, matching
+  // `Engine.evaluate`'s Result.annotations; `basic()` then re-projects the
+  // survivors to the Basic document's field names.
   const rawEval = instantiateListAnn<ErrorUnit>(source, runtime, targets);
   return {
     evaluateList: (instance): CompiledListResult => {
@@ -236,24 +215,18 @@ export function compileList(
     },
     basic: (instance) => {
       const r = rawEval(instance);
-      const doc: ReturnType<CompiledListArtifact["basic"]> = {
+      const doc: BasicOutputDocument = {
         valid: r.valid,
         keywordLocation: "",
         absoluteKeywordLocation: rootLocation,
         instanceLocation: "",
       };
       if (!r.valid) {
-        doc.errors = r.errors.map((e) => ({
-          keywordLocation: e.evaluationPath!,
-          absoluteKeywordLocation: e.schemaLocation!,
-          instanceLocation: e.instanceLocation,
-          error: e.error,
-        }));
+        doc.errors = r.errors.map(toBasicError);
         return doc;
       }
-      let mapped = r.annotations.map(annToBasic);
-      if (keep) mapped = mapped.filter(keep);
-      if (mapped.length > 0) doc.annotations = mapped;
+      const anns = keep ? r.annotations.filter(keep) : r.annotations;
+      if (anns.length > 0) doc.annotations = anns.map(toBasicAnnotation);
       return doc;
     },
     plan,
@@ -261,18 +234,20 @@ export function compileList(
   };
 }
 
-/**
- * Re-project a modern-shaped annotation unit to the 2020-12 Basic field names,
- * key order matching `renderAnnotation(_, "2020-12")` (keyword, vocabulary?,
- * keywordLocation, absoluteKeywordLocation, instanceLocation, annotation).
- */
-function annToBasic(u: AnnotationUnit): AnnotationUnit {
-  return {
-    keyword: u.keyword,
-    ...(u.vocabulary !== undefined ? { vocabulary: u.vocabulary } : {}),
-    keywordLocation: u.evaluationPath,
-    absoluteKeywordLocation: u.schemaLocation,
-    instanceLocation: u.instanceLocation,
-    annotation: u.annotation,
-  };
-}
+// Re-projections of native units to the Basic document's field names, key
+// order matching core's renderBasic.
+const toBasicError = (
+  e: ErrorUnit,
+): NonNullable<BasicOutputDocument["errors"]>[number] => ({
+  keywordLocation: e.evaluationPath,
+  absoluteKeywordLocation: e.schemaLocation,
+  instanceLocation: e.inputLocation,
+  error: e.error,
+});
+
+const toBasicAnnotation = (u: AnnotationUnit): BasicAnnotationUnit => ({
+  keywordLocation: u.evaluationPath,
+  absoluteKeywordLocation: u.schemaLocation,
+  instanceLocation: u.inputLocation,
+  annotation: u.annotation,
+});
