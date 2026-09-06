@@ -64,6 +64,8 @@ use the engine's own field names: `evaluationPath`, `schemaLocation`,
 `inputLocation`, and `error` or `keyword`/`vocabulary`/`annotation`. The
 controls `errorParams`, `positions`, and `trace` apply to this surface on any
 non-flag format; `outputDocument` always has exactly its source's structure.
+Compiled artifacts (`@jse/compiler`) render `flag`, this flat surface, and
+the `basic` document; the other documents are rendered by the interpreter.
 
 | Concept          | Flat surface            | IETF draft-03 documents           | Machines-oriented documents         |
 | ---------------- | ----------------------- | --------------------------------- | ----------------------------------- |

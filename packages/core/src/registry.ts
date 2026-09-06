@@ -10,7 +10,7 @@
 import { JsonValue, isObject, escapeSegment, unescapeSegment } from "./json.js";
 import { resolveUri, splitFragment, UnresolvableRefError } from "./uri.js";
 import { SchemaRef } from "./ref.js";
-import { Dialect, DialectRegistry } from "./dialect.js";
+import { Dialect, DialectRegistry, ReadOnlyRegistryError } from "./dialect.js";
 import { SourceRange } from "./loader.js";
 
 /**
@@ -93,12 +93,67 @@ export class SchemaRegistry {
    * its trusted metaschemas) to enforce `rejectUnsafeRegex`.
    */
   onRegex?: (pattern: string, location: string) => void;
+  // Snapshots share the indexes above copy-on-write: the source copies them
+  // before its first registration after a snapshot, so a view stays frozen
+  // at no cost until the source changes.
+  private shared = false;
+  private readOnly = false;
 
   constructor(
     private dialectRegistry: DialectRegistry,
     private defaultDialectUri: string,
     private maxDepth: number = DEFAULT_MAX_DEPTH,
   ) {}
+
+  /**
+   * A read-only view of the registry's current contents, over a view of the
+   * dialect registry. Later registrations on this registry are invisible to
+   * the view, and registering into the view throws
+   * {@link ReadOnlyRegistryError}. A compiled artifact binds to one so that
+   * a compilation boundary cannot change reference resolution (E1).
+   */
+  snapshot(): SchemaRegistry {
+    const view = new SchemaRegistry(
+      this.dialectRegistry.snapshot(),
+      this.defaultDialectUri,
+      this.maxDepth,
+    );
+    view.documents = this.documents;
+    view.anchors = this.anchors;
+    view.dynamicAnchors = this.dynamicAnchors;
+    view.recursiveRoots = this.recursiveRoots;
+    view.producedBehaviorIds = this.producedBehaviorIds;
+    view.consumedBehaviorIds = this.consumedBehaviorIds;
+    view.coverageProducerIds = this.coverageProducerIds;
+    view.coverageConsumedIds = this.coverageConsumedIds;
+    view.documentDialects = this.documentDialects;
+    view.resourceLocations = this.resourceLocations;
+    view.aliases = this.aliases;
+    view.documentRanges = this.documentRanges;
+    view.readOnly = true;
+    this.shared = true;
+    return view;
+  }
+
+  private mutable(): void {
+    if (this.readOnly) {
+      throw new ReadOnlyRegistryError("a registry snapshot is read-only");
+    }
+    if (!this.shared) return;
+    this.documents = new Map(this.documents);
+    this.anchors = new Map(this.anchors);
+    this.dynamicAnchors = new Map(this.dynamicAnchors);
+    this.recursiveRoots = new Set(this.recursiveRoots);
+    this.producedBehaviorIds = new Set(this.producedBehaviorIds);
+    this.consumedBehaviorIds = new Set(this.consumedBehaviorIds);
+    this.coverageProducerIds = new Set(this.coverageProducerIds);
+    this.coverageConsumedIds = new Set(this.coverageConsumedIds);
+    this.documentDialects = new Map(this.documentDialects);
+    this.resourceLocations = new Map(this.resourceLocations);
+    this.aliases = new Map(this.aliases);
+    this.documentRanges = new Map(this.documentRanges);
+    this.shared = false;
+  }
 
   /**
    * Register a schema document. The dialect comes from `$schema` when present
@@ -111,6 +166,7 @@ export class SchemaRegistry {
     dialectUri?: string,
     getRange?: (pointer: string) => SourceRange | undefined,
   ): string {
+    this.mutable();
     // Dialect URIs are compared fragment-free: "…/draft-07/schema#" (the
     // canonical in-the-wild $schema spelling) names the same dialect.
     let effectiveDialect = splitFragment(

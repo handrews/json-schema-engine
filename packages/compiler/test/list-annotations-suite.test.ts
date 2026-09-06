@@ -72,12 +72,13 @@ function interpOutcome(
   engine: Engine,
   uri: string,
   data: JsonValue,
-  retention?: AnnotationSelection,
+  selection: boolean | AnnotationSelection = true,
 ): Outcome {
   try {
     const r = engine.evaluate(uri, data, {
       output: "list",
-      annotations: retention ?? true,
+      annotations: selection,
+      errorParams: true,
     });
     return {
       threw: null,
@@ -145,11 +146,13 @@ function deepEqual(a: unknown, b: unknown): boolean {
  * First mismatch between the interpreter's outcome and the compiled one, or
  * null when they agree. Checks, in order: throw parity, verdict, error
  * parity on failure, the valid-only annotations-presence contract, then
- * order-strict unit-by-unit annotation equality.
+ * order-strict unit-by-unit annotation equality. With `annotationsExpected`
+ * false (annotations deselected) both sides must omit the key.
  */
 function annotationDivergence(
   interp: Outcome,
   compiled: Outcome,
+  annotationsExpected = true,
 ): string | null {
   if (interp.threw !== null || compiled.threw !== null) {
     return interp.threw === compiled.threw
@@ -163,13 +166,14 @@ function annotationDivergence(
   if (!deepEqual(compiled.errors, interp.errors)) {
     return `errors differ: interpreter=${JSON.stringify(interp.errors)} compiled=${JSON.stringify(compiled.errors)}`;
   }
-  if (!interp.valid) {
-    // Both sides must omit annotations on invalid instances.
+  if (!interp.valid || !annotationsExpected) {
+    // Both sides must omit annotations on invalid instances, and everywhere
+    // when annotations are deselected.
     if (compiled.annotations !== undefined) {
-      return "compiled annotations present on an invalid instance";
+      return "compiled annotations present but not expected";
     }
     if (interp.annotations !== undefined) {
-      return "interpreter annotations present on an invalid instance";
+      return "interpreter annotations present but not expected";
     }
     return null;
   }
@@ -198,12 +202,13 @@ function annotationDivergence(
 }
 
 // ---------------------------------------------------------------------------
-// Leg 1 — full-suite differential, five dialects. Enumeration mirrors
-// produce-recipes.test.ts's Leg B: every .json in the dialect directory
-// (non-recursive, so optional/ stays out), remotes loader, per-dialect
-// default dialect, draft-04 via its dialect package. Load/compile failures
-// (remote misses, D19 non-schema) are skipped AND pinned, so a silent skip
-// growth fails as loudly as a divergence.
+// Leg 1 — full-suite differential, five dialects, both surfaces: the flat
+// list result with error params and annotations, and the Basic document.
+// Enumeration mirrors produce-recipes.test.ts's Leg B: every .json in the
+// dialect directory (non-recursive, so optional/ stays out), remotes loader,
+// per-dialect default dialect, draft-04 via its dialect package.
+// Load/compile failures (remote misses, D19 non-schema) are skipped AND
+// pinned, so a silent skip growth fails as loudly as a divergence.
 // ---------------------------------------------------------------------------
 
 interface DialectPin {
@@ -262,7 +267,10 @@ const SWEEP: Record<string, DialectPin> = {
   },
 };
 
-async function sweepDialect(pin: DialectPin): Promise<{
+async function sweepDialect(
+  pin: DialectPin,
+  selection: boolean | AnnotationSelection = true,
+): Promise<{
   groups: number;
   skippedGroups: number;
   instances: number;
@@ -296,7 +304,10 @@ async function sweepDialect(pin: DialectPin): Promise<{
           group.schema,
           `https://ann-suite.example/${pin.dir}/${file}/${String(gi)}`,
         );
-        artifact = compileList(engine, uri, { annotations: true });
+        artifact = compileList(engine, uri, {
+          annotations: selection,
+          errorParams: true,
+        });
       } catch {
         skippedGroups++;
         continue;
@@ -304,12 +315,13 @@ async function sweepDialect(pin: DialectPin): Promise<{
       groups++;
       for (const test of group.tests) {
         instances++;
-        const interp = interpOutcome(engine, uri, test.data);
+        const label = `${pin.dir}/${file}#${String(gi)} "${test.description}"`;
+        const interp = interpOutcome(engine, uri, test.data, selection);
         const compiled = compiledOutcome(
           (x) => artifact.evaluateList(x),
           test.data,
         );
-        const d = annotationDivergence(interp, compiled);
+        const d = annotationDivergence(interp, compiled, selection !== false);
         if (d !== null) {
           throw new Error(
             `${pin.dir}/${file}#${String(gi)} "${group.description}" / ` +
@@ -319,13 +331,29 @@ async function sweepDialect(pin: DialectPin): Promise<{
         // The helper is the reporter; toStrictEqual is the independent
         // order-strict check on the same arrays (belt and braces — either
         // one failing fails the case).
-        if (interp.threw === null && interp.valid) {
-          expect(
-            compiled.annotations,
-            `${pin.dir}/${file}#${String(gi)} "${test.description}"`,
-          ).toStrictEqual(interp.annotations);
+        if (interp.threw === null && interp.valid && selection !== false) {
+          expect(compiled.annotations, label).toStrictEqual(interp.annotations);
           annotationUnits += interp.annotations?.length ?? 0;
         }
+        // The Basic document, valid and invalid alike, with throw parity
+        // folded into the comparison the way list-output.test.ts folds it.
+        let iDoc: unknown;
+        let cDoc: unknown;
+        try {
+          iDoc = engine.evaluate(uri, test.data, {
+            output: "basic",
+            annotations: selection,
+            errorParams: true,
+          }).outputDocument;
+        } catch (err) {
+          iDoc = (err as Error).constructor.name;
+        }
+        try {
+          cDoc = artifact.basic(test.data);
+        } catch (err) {
+          cDoc = (err as Error).constructor.name;
+        }
+        expect(cDoc, label).toStrictEqual(iDoc);
       }
     }
   }
@@ -346,68 +374,23 @@ describe("Leg 1 — compiled annotations ≡ interpreter over every dialect suit
 });
 
 // ---------------------------------------------------------------------------
-// Leg 2 — Basic document side, full draft2020-12 sweep. basic() must equal
-// the interpreter's BasicOutputDocument wholesale (field names, annotation
-// presence-only-when-non-empty, error side), with throw parity folded into
-// the same comparison the way list-output.test.ts folds it.
+// Leg 2 — annotations deselected, five dialects: the plain compileList
+// artifact's flat result and Basic document (valid instances included, so
+// the annotation-free document side is covered) still equal the
+// interpreter's, with the same skips as Leg 1.
 // ---------------------------------------------------------------------------
 
-const LEG2_INSTANCES = 1299;
-
-describe("Leg 2 — compiled basic() ≡ interpreter Basic document (draft2020-12)", () => {
-  it("matches on every case and the pinned count", async () => {
-    const pin = SWEEP["draft2020-12"]!;
-    const suiteDir = join(SUITE_ROOT, "tests", pin.dir);
-    const files = readdirSync(suiteDir)
-      .filter((f) => f.endsWith(".json"))
-      .sort();
-    let instances = 0;
-    for (const file of files) {
-      const fileGroups = JSON.parse(
-        readFileSync(join(suiteDir, file), "utf8"),
-      ) as SuiteGroup[];
-      for (let gi = 0; gi < fileGroups.length; gi++) {
-        const group = fileGroups[gi]!;
-        const engine = createEngine({
-          loaders: [suiteRemotesLoader(REMOTES)],
-        });
-        let uri: string;
-        let artifact: ReturnType<typeof compileList>;
-        try {
-          uri = await engine.loadSchema(
-            group.schema,
-            `https://ann-basic.example/${file}/${String(gi)}`,
-          );
-          artifact = compileList(engine, uri, { annotations: true });
-        } catch {
-          continue; // same deterministic skips Leg 1 pins via skippedGroups
-        }
-        for (const test of group.tests) {
-          instances++;
-          let iDoc: unknown;
-          let cDoc: unknown;
-          try {
-            iDoc = engine.evaluate(uri, test.data, {
-              output: "basic",
-              annotations: true,
-            }).outputDocument;
-          } catch (err) {
-            iDoc = (err as Error).constructor.name;
-          }
-          try {
-            cDoc = artifact.basic(test.data);
-          } catch (err) {
-            cDoc = (err as Error).constructor.name;
-          }
-          expect(
-            cDoc,
-            `${file}#${String(gi)} "${test.description}"`,
-          ).toStrictEqual(iDoc);
-        }
-      }
-    }
-    expect(instances, "Basic-side compared instances").toBe(LEG2_INSTANCES);
-  });
+describe("Leg 2 — compiled ≡ interpreter with annotations deselected, every dialect", () => {
+  for (const [name, pin] of Object.entries(SWEEP)) {
+    it(`${name} agrees on both surfaces`, async () => {
+      expect(await sweepDialect(pin, false), `${name} sweep totals`).toEqual({
+        groups: pin.groups,
+        skippedGroups: pin.skippedGroups,
+        instances: pin.instances,
+        annotationUnits: 0,
+      });
+    });
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -589,6 +572,7 @@ describe("Leg 3 — retention matrix, compiled ≡ interpreter on both surfaces"
       for (const r of RETENTIONS) {
         const artifact = compileList(engine, uri, {
           annotations: r.retention ?? true,
+          errorParams: true,
         });
         for (const instance of c.instances) {
           const ctx = `${c.name} / ${r.name} / ${JSON.stringify(instance)}`;
@@ -765,5 +749,31 @@ describe("Leg 5 — the annotations option does not change plan classification",
       "https://spec.openapis.org/oas/3.1/schema/2025-09-15",
     );
     expectSamePlanShape(engine, uri);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Leg 6 — one selection over the whole draft2020-12 suite: a vocabulary
+// allow-list, a keyword deny-list, and a keep predicate together, on both
+// surfaces (Leg 3 covers every mechanism on curated schemas only).
+// ---------------------------------------------------------------------------
+
+const SUITE_SELECTION: AnnotationSelection = {
+  vocabularies: [META_DATA_VOCAB],
+  excludeKeywords: ["description"],
+  keep: (u) => u.inputLocation === "",
+};
+// Transcribed from a local run (deterministic — two runs agree).
+const LEG6_ANNOTATION_UNITS = 16;
+
+describe("Leg 6 — a combined selection over the draft2020-12 suite", () => {
+  it("agrees on every case and matches the pinned unit count", async () => {
+    const pin = SWEEP["draft2020-12"]!;
+    expect(await sweepDialect(pin, SUITE_SELECTION)).toEqual({
+      groups: pin.groups,
+      skippedGroups: pin.skippedGroups,
+      instances: pin.instances,
+      annotationUnits: LEG6_ANNOTATION_UNITS,
+    });
   });
 });

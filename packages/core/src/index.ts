@@ -80,6 +80,7 @@ export type {
 } from "./dialect.js";
 export {
   DialectRegistry,
+  ReadOnlyRegistryError,
   UnknownDialectError,
   UnknownVocabularyError,
   identifiers2020,
@@ -493,7 +494,8 @@ export class Engine {
   /**
    * The engine's schema registry — the compiler tier's read surface (M6):
    * resolved refs, per-resource dialects, identifier indexes. Mutations go
-   * through the Engine methods, not the registry.
+   * through the Engine methods, not the registry; `snapshot()` yields the
+   * read-only view a compiled artifact binds to.
    */
   get registry(): SchemaRegistry {
     return this.schemas;

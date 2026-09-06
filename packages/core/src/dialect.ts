@@ -315,6 +315,8 @@ export interface DialectOptions {
 export class UnknownDialectError extends Error {}
 /** Thrown when a `$vocabulary` URI is required but not registered. */
 export class UnknownVocabularyError extends Error {}
+/** Thrown when a registry snapshot (a read-only view) is asked to register. */
+export class ReadOnlyRegistryError extends Error {}
 
 /** Registry of vocabularies and the dialects assembled from them. */
 export class DialectRegistry {
@@ -323,12 +325,42 @@ export class DialectRegistry {
     Readonly<Record<string, KeywordBehavior>>
   >();
   private dialects = new Map<string, Dialect>();
+  // Snapshots share these maps copy-on-write: the source copies them before
+  // its first registration after a snapshot, so views stay frozen for free.
+  private shared = false;
+  private readOnly = false;
+
+  /**
+   * A read-only view of the current registrations. Later registrations on
+   * this registry are invisible to the view, and registering into the view
+   * throws {@link ReadOnlyRegistryError}. A compiled artifact binds to one
+   * so that a compilation boundary cannot change dialect lookups.
+   */
+  snapshot(): DialectRegistry {
+    const view = new DialectRegistry();
+    view.vocabularies = this.vocabularies;
+    view.dialects = this.dialects;
+    view.readOnly = true;
+    this.shared = true;
+    return view;
+  }
+
+  private mutable(): void {
+    if (this.readOnly) {
+      throw new ReadOnlyRegistryError("a registry snapshot is read-only");
+    }
+    if (!this.shared) return;
+    this.vocabularies = new Map(this.vocabularies);
+    this.dialects = new Map(this.dialects);
+    this.shared = false;
+  }
 
   /** Registers a vocabulary's keyword behaviors under its URI. */
   registerVocabulary(
     uri: string,
     keywords: Readonly<Record<string, KeywordBehavior>>,
   ): void {
+    this.mutable();
     this.vocabularies.set(uri, keywords);
   }
 
@@ -341,6 +373,7 @@ export class DialectRegistry {
     vocabularyUris: readonly string[],
     options: DialectOptions = {},
   ): void {
+    this.mutable();
     const keywords = new Map<string, DialectKeyword>();
     for (const vocabularyUri of vocabularyUris) {
       const vocab = this.vocabularies.get(vocabularyUri);
