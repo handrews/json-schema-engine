@@ -6,9 +6,9 @@
 
 import {
   DEFAULT_MAX_DEPTH,
+  renderBasic,
   type AnnotationSelection,
   type AnnotationUnit,
-  type BasicAnnotationUnit,
   type BasicOutputDocument,
   type Engine,
   type ErrorUnit,
@@ -194,14 +194,7 @@ export function compileList(
       evaluateList,
       basic: (instance) => {
         const { valid, errors } = evaluateList(instance);
-        const doc: BasicOutputDocument = {
-          valid,
-          keywordLocation: "",
-          absoluteKeywordLocation: rootLocation,
-          instanceLocation: "",
-        };
-        if (!valid) doc.errors = errors.map(toBasicError);
-        return doc;
+        return renderBasic(valid, rootLocation, errors, []);
       },
       plan,
       source,
@@ -211,51 +204,22 @@ export function compileList(
   // The emitted evaluator returns the raw (static-list-filtered) annotation
   // array; the wrapper applies `keep` (over the native unit, as the
   // interpreter does) and the valid-only presence rule, matching
-  // `Engine.evaluate`'s Result.annotations; `basic()` then re-projects the
-  // survivors to the Basic document's field names.
+  // `Engine.evaluate`'s Result.annotations; `basic()` renders that same
+  // flat surface through core's renderer.
   const rawEval = instantiateListAnn<ErrorUnit>(source, runtime, targets);
+  const evaluateList = (instance: JsonValue): CompiledListResult => {
+    const r = rawEval(instance);
+    if (!r.valid) return { valid: false, errors: r.errors };
+    const anns = keep ? r.annotations.filter(keep) : r.annotations;
+    return { valid: true, errors: r.errors, annotations: anns };
+  };
   return {
-    evaluateList: (instance): CompiledListResult => {
-      const r = rawEval(instance);
-      if (!r.valid) return { valid: false, errors: r.errors };
-      const anns = keep ? r.annotations.filter(keep) : r.annotations;
-      return { valid: true, errors: r.errors, annotations: anns };
-    },
+    evaluateList,
     basic: (instance) => {
-      const r = rawEval(instance);
-      const doc: BasicOutputDocument = {
-        valid: r.valid,
-        keywordLocation: "",
-        absoluteKeywordLocation: rootLocation,
-        instanceLocation: "",
-      };
-      if (!r.valid) {
-        doc.errors = r.errors.map(toBasicError);
-        return doc;
-      }
-      const anns = keep ? r.annotations.filter(keep) : r.annotations;
-      if (anns.length > 0) doc.annotations = anns.map(toBasicAnnotation);
-      return doc;
+      const r = evaluateList(instance);
+      return renderBasic(r.valid, rootLocation, r.errors, r.annotations ?? []);
     },
     plan,
     source,
   };
 }
-
-// Re-projections of native units to the Basic document's field names, key
-// order matching core's renderBasic.
-const toBasicError = (
-  e: ErrorUnit,
-): NonNullable<BasicOutputDocument["errors"]>[number] => ({
-  keywordLocation: e.evaluationPath,
-  absoluteKeywordLocation: e.schemaLocation,
-  instanceLocation: e.inputLocation,
-  error: e.error,
-});
-
-const toBasicAnnotation = (u: AnnotationUnit): BasicAnnotationUnit => ({
-  keywordLocation: u.evaluationPath,
-  absoluteKeywordLocation: u.schemaLocation,
-  instanceLocation: u.inputLocation,
-  annotation: u.annotation,
-});
