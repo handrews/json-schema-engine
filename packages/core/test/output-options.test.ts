@@ -103,6 +103,11 @@ describe("accepted combinations", () => {
       expect(r.valid).toBe(false);
       expect(r.outputDocument.valid).toBe(false);
       expect(r.trace.valid).toBe(false);
+      // Documents are projections of the flat surface; its decorations and
+      // errorParams fields never reach them.
+      expect(JSON.stringify(r.outputDocument)).not.toMatch(
+        /"source"|"params"|"vocabulary"/,
+      );
       expect(r.errors!.map((e) => e.keyword)).toEqual([
         "type",
         "type",

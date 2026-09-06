@@ -2,10 +2,14 @@
 
 **Recommendation:** decided 2026-09-05 (E2). The control model is fixed by
 [ADR 0003](../decisions/0003-output-levels-and-orthogonal-controls.md); the
-record/renderer boundary is one evaluation record set — relevant errors,
-dropped errors, every recorded annotation with its relevant subset, and the
-trace carrying per-keyword verdicts — consumed by one renderer per format
-name (`packages/core/src/output.ts`). JSE extension data lives on the flat
+record/renderer boundary has two stages. The interpreter renders its
+evaluation records into the flat surface — relevant errors, dropped errors,
+selected annotations split by relevance — and adapts its trace into a
+located tree (`RenderInput`, `packages/core/src/records.ts`: string
+locations, per-keyword verdicts, index lists into the flat units). One
+renderer per format name (`packages/core/src/output.ts`) consumes that
+input and nothing else, so a compiled artifact that records the same tree
+renders through the same code. JSE extension data lives on the flat
 `Result.errors`/`Result.annotations` surface with native field names
 (`evaluationPath`, `schemaLocation`, `inputLocation`); every document has
 exactly its source's structure. The extensibility and streaming questions

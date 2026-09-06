@@ -1,21 +1,15 @@
-// Output rendering (DESIGN.md D6; ADR 0003): one evaluation record set
-// (errors, annotations, relevance, the trace) rendered by format name into
-// each documented structure. Flat units carry the engine's native field
-// names (evaluationPath, schemaLocation, inputLocation); each document uses
-// its source's field vocabulary: IETF draft-03 §13 for basic/detailed/verbose,
-// the machines-oriented output proposal for list/hierarchical.
+// Output rendering (DESIGN.md D6; ADR 0003): the flat surface — units with
+// the engine's native field names (evaluationPath, schemaLocation,
+// inputLocation) — plus a located tree of schema applications, rendered by
+// format name into each documented structure: IETF draft-03 §13 for
+// basic/detailed/verbose, the machines-oriented output proposal for
+// list/hierarchical. Everything here consumes strings and indexes, never
+// engine records, so any producer of a RenderInput — the interpreter's
+// trace (records.ts) or a compiled artifact — renders through one code path.
 
 import { escapeSegment, unescapeSegment } from "./json.js";
-import { instancePointer } from "./cursor.js";
 import { ErrorParams } from "./dialect.js";
-import {
-  AnnotationRecord,
-  ErrorRecord,
-  PathNode,
-  RecordPredicate,
-  TraceNode,
-  materializePath,
-} from "./engine.js";
+import type { KeywordTrace, RecordPredicate } from "./engine.js";
 import { SourceLocation } from "./loader.js";
 
 /** One rendered assertion failure, native field names. */
@@ -53,7 +47,8 @@ export interface AnnotationUnit {
 /**
  * Which annotations reach output (ADR 0003): a control independent of the
  * output format and level. The allow-lists are OR-ed, the deny-lists
- * subtract after them, and `keep` runs last on the rendered native unit.
+ * subtract after them, and `keep` runs last on the rendered native unit —
+ * the very unit the flat surface then carries.
  */
 export interface AnnotationSelection {
   /** allow-list of keyword names; an empty array selects nothing */
@@ -68,57 +63,6 @@ export interface AnnotationSelection {
   keep?: (unit: AnnotationUnit) => boolean;
 }
 
-interface LocationRef {
-  baseUri: string;
-  pointer: string;
-}
-
-const keywordSuffix = (name: string | null): string =>
-  name === null ? "" : "/" + escapeSegment(name);
-
-const evaluationPathOf = (
-  pathNode: PathNode | null,
-  keywordName: string | null,
-): string => materializePath(pathNode) + keywordSuffix(keywordName);
-
-const schemaLocationOf = (
-  ref: LocationRef,
-  keywordName: string | null,
-): string => `${ref.baseUri}#${ref.pointer}${keywordSuffix(keywordName)}`;
-
-/** Renders one error record into its native unit. */
-export function renderError(
-  record: ErrorRecord,
-  includeParams = false,
-): ErrorUnit {
-  const unit: ErrorUnit = {
-    evaluationPath: evaluationPathOf(record.pathNode, record.keywordName),
-    schemaLocation: schemaLocationOf(record.schemaRef, record.keywordName),
-    inputLocation: instancePointer(record.cursor),
-    error: record.message,
-  };
-  if (includeParams) {
-    if (record.keywordName !== null) unit.keyword = record.keywordName;
-    if (record.vocabularyUri !== null) unit.vocabulary = record.vocabularyUri;
-    unit.params = record.params ?? {};
-  }
-  return unit;
-}
-
-/** Renders one annotation record into its native unit. */
-export function renderAnnotation(record: AnnotationRecord): AnnotationUnit {
-  return {
-    keyword: record.keywordName,
-    ...(record.vocabularyUri === null
-      ? {}
-      : { vocabulary: record.vocabularyUri }),
-    evaluationPath: evaluationPathOf(record.pathNode, record.keywordName),
-    schemaLocation: schemaLocationOf(record.schemaRef, record.keywordName),
-    inputLocation: instancePointer(record.cursor),
-    annotation: record.value,
-  };
-}
-
 // Selection applies to annotation records only (§4 rule 5); dependency
 // records live in a separate store, so no selection can hide one from
 // ctx.visible().
@@ -128,10 +72,10 @@ export function renderAnnotation(record: AnnotationRecord): AnnotationUnit {
  * the annotation — `false` records nothing, `true` everything, and a
  * selection object's allow/deny lists rule keywords out. The `keep`
  * predicate runs only at render: recording a superset of what it keeps is
- * correct, eliding on its behalf would not be. This is also
- * selectAnnotations' list stage, so the two can never disagree. It applies
- * at every output level: a deselected keyword's annotation is never
- * rendered, relevant or not.
+ * correct, eliding on its behalf would not be. This is also the list stage
+ * of the interpreter's render-time selection (records.ts), so the two can
+ * never disagree. It applies at every output level: a deselected keyword's
+ * annotation is never rendered, relevant or not.
  */
 export function makeRecordPredicate(
   selection: boolean | AnnotationSelection,
@@ -162,27 +106,111 @@ export function makeRecordPredicate(
   };
 }
 
-/** The selection decision on raw annotation records, shared by every renderer. */
-export function selectAnnotations(
-  annotations: readonly AnnotationRecord[],
-  selection: boolean | AnnotationSelection,
-): AnnotationRecord[] {
-  const byLists = makeRecordPredicate(selection);
-  let selected = annotations.filter((a) =>
-    byLists(a.behaviorId, a.keywordName, a.vocabularyUri),
-  );
-  const keep = typeof selection === "object" ? selection.keep : undefined;
-  if (keep) selected = selected.filter((a) => keep(renderAnnotation(a)));
-  return selected;
+/**
+ * One schema application in a located evaluation tree: what the document
+ * renderers need from any producer, the interpreter's trace or a compiled
+ * artifact. Locations are absolute strings; records are indexes into the
+ * owning {@link RenderInput}'s flat arrays.
+ *
+ * Producers keep three invariants: a child's `evaluationPath` equals or
+ * extends its parent's; a unit indexed at a node has the node's
+ * `evaluationPath` (a boolean `false` schema) or extends it by exactly one
+ * escaped segment, the keyword; `keywords` lists the node's non-structural
+ * keyword evaluations in evaluation order.
+ */
+export interface RenderNode {
+  /** Escaped JSON Pointer of the evaluation path; `""` at the root. */
+  readonly evaluationPath: string;
+  /** Canonical schema location of the applied subschema: `baseUri#pointer`. */
+  readonly schemaLocation: string;
+  /** JSON Pointer of the input position this application evaluated. */
+  readonly inputLocation: string;
+  readonly valid: boolean;
+  readonly keywords: readonly KeywordTrace[];
+  /** Indexes into {@link RenderInput.errors} of the errors raised here. */
+  readonly errors: readonly number[];
+  /** Indexes into {@link RenderInput.droppedErrors}. */
+  readonly droppedErrors: readonly number[];
+  /** Indexes into {@link RenderInput.annotations}. */
+  readonly annotations: readonly number[];
+  /** Indexes into {@link RenderInput.droppedAnnotations}. */
+  readonly droppedAnnotations: readonly number[];
+  /** Nested applications, in evaluation order. */
+  readonly children: readonly RenderNode[];
 }
 
-/** Selects and renders annotation records into native units. */
-export function renderAnnotations(
-  annotations: readonly AnnotationRecord[],
-  selection: boolean | AnnotationSelection,
-): AnnotationUnit[] {
-  return selectAnnotations(annotations, selection).map(renderAnnotation);
+/**
+ * The flat surface plus its located tree: the input of every document
+ * renderer. `droppedErrors` and `droppedAnnotations` are empty unless the
+ * producer retained irrelevant records (verbose demand); relevant-level
+ * renderings never read them.
+ */
+export interface RenderInput {
+  /** relevant errors, encounter order (`Result.errors`) */
+  readonly errors: readonly ErrorUnit[];
+  /** errors of rejecting sub-evaluations under an accepting keyword */
+  readonly droppedErrors: readonly ErrorUnit[];
+  /** relevant annotations, already selected (`Result.annotations`) */
+  readonly annotations: readonly AnnotationUnit[];
+  /** irrelevant annotations, already selected */
+  readonly droppedAnnotations: readonly AnnotationUnit[];
+  readonly root: RenderNode;
 }
+
+/** The index list of a node without records, shared rather than allocated. */
+export const NO_INDEXES: readonly number[] = [];
+
+// A unit at a node carries the node's path plus at most one keyword segment
+// (RenderNode's invariant); the keyword name is that segment, decoded, and a
+// boolean-`false` schema's error, located at the node itself, keys as "".
+const keywordOf = (unit: ErrorUnit, node: RenderNode): string => {
+  const rest = unit.evaluationPath.slice(node.evaluationPath.length);
+  return rest === "" ? "" : unescapeSegment(rest.slice(1));
+};
+
+// The evaluation-path segments of `child` below `parentPath`, decoded.
+const segmentsBelow = (child: RenderNode, parentPath: string): string[] => {
+  const rest = child.evaluationPath.slice(parentPath.length);
+  return rest === "" ? [] : rest.slice(1).split("/").map(unescapeSegment);
+};
+
+// The first of those segments, the applying keyword, without building the
+// list: the draft-03 walk asks this once per child application.
+const firstSegmentBelow = (
+  child: RenderNode,
+  parentPath: string,
+): string | null => {
+  const path = child.evaluationPath;
+  if (path.length === parentPath.length) return null;
+  const end = path.indexOf("/", parentPath.length + 1);
+  return unescapeSegment(
+    path.slice(parentPath.length + 1, end === -1 ? undefined : end),
+  );
+};
+
+// Documents project unit fields into fresh objects and never embed a unit:
+// the flat units are decorated (`positions`) after every document is built,
+// and their `errorParams` fields belong to the flat surface only. Most
+// nodes carry no records, so an empty pick allocates nothing.
+const NO_UNITS: readonly never[] = [];
+const pick = <T>(
+  indexes: readonly number[],
+  units: readonly T[],
+): readonly T[] =>
+  indexes.length === 0 ? NO_UNITS : indexes.map((i) => units[i]!);
+
+// Relevant records followed by dropped ones; a node's records are uniformly
+// one or the other, so the concatenation is reached only by a custom
+// keyword sharing its parent's node.
+const withDropped = <T>(
+  relevant: readonly T[],
+  dropped: readonly T[],
+): readonly T[] =>
+  relevant.length === 0
+    ? dropped
+    : dropped.length === 0
+      ? relevant
+      : [...relevant, ...dropped];
 
 /**
  * Output unit of the machines-oriented proposal (`list`, `hierarchical`):
@@ -211,21 +239,6 @@ export interface ListOutputDocument {
 }
 
 /**
- * The records of one evaluation, split by draft-03 §12.2 relevance, as the
- * structured renderers consume them.
- */
-export interface EvaluationRecords {
-  /** relevant errors, encounter order (`Result.errors` renders these) */
-  errors: readonly ErrorRecord[];
-  /** errors of rejecting sub-evaluations under an accepting keyword (tracing only) */
-  droppedErrors: readonly ErrorRecord[];
-  /** every annotation recorded (tracing), relevant or not */
-  annotations: readonly AnnotationRecord[];
-  /** the relevant subset of `annotations`: root-frame survivors of a valid run */
-  relevant: ReadonlySet<AnnotationRecord>;
-}
-
-/**
  * How a `list`/`hierarchical` renderer treats irrelevant records: "omit"
  * drops them and prunes the units left empty (the relevant level); "mark"
  * keeps every unit and renders them under `droppedErrors`/
@@ -233,93 +246,71 @@ export interface EvaluationRecords {
  */
 export type IrrelevantRendering = "omit" | "mark";
 
-/** Options for {@link renderHierarchical} and {@link renderList}. */
-export interface HierarchicalOptions {
-  irrelevant: IrrelevantRendering;
-  annotations: boolean | AnnotationSelection;
-}
-
-function groupByPath<T extends { pathNode: PathNode | null }>(
-  records: readonly T[],
-): Map<PathNode | null, T[]> {
-  const at = new Map<PathNode | null, T[]>();
-  for (const r of records) {
-    const list = at.get(r.pathNode);
-    if (list) list.push(r);
-    else at.set(r.pathNode, [r]);
-  }
-  return at;
-}
-
 // A keyword may report several errors (required's missing names); a
 // one-message-per-keyword field joins them.
-const joinMessages = (errs: readonly ErrorRecord[]): string =>
-  errs.map((e) => e.message).join("; ");
+const joinMessages = (errs: readonly ErrorUnit[]): string =>
+  errs.map((e) => e.error).join("; ");
 
-function errorsByKeyword(errs: readonly ErrorRecord[]): Record<string, string> {
+function errorsByKeyword(
+  errs: readonly ErrorUnit[],
+  node: RenderNode,
+): Record<string, string> {
   const byKeyword: Record<string, string> = {};
   for (const e of errs) {
-    const key = e.keywordName ?? "";
+    const key = keywordOf(e, node);
     byKeyword[key] =
-      byKeyword[key] === undefined
-        ? e.message
-        : `${byKeyword[key]}; ${e.message}`;
+      byKeyword[key] === undefined ? e.error : `${byKeyword[key]}; ${e.error}`;
   }
   return byKeyword;
 }
 
+function annotationsByKeyword(
+  anns: readonly AnnotationUnit[],
+): Record<string, unknown> {
+  const byKeyword: Record<string, unknown> = {};
+  for (const a of anns) byKeyword[a.keyword] = a.annotation;
+  return byKeyword;
+}
+
 /**
- * HIERARCHICAL structure over the evaluation trace. Units carry errors and
- * selected annotations keyed by keyword name. Irrelevant records render per
+ * HIERARCHICAL structure over the located tree. Units carry errors and
+ * annotations keyed by keyword name. Irrelevant records render per
  * {@link IrrelevantRendering}; the root unit always remains.
  */
 export function renderHierarchical(
-  root: TraceNode,
-  records: EvaluationRecords,
-  options: HierarchicalOptions,
+  input: RenderInput,
+  irrelevant: IrrelevantRendering,
 ): OutputUnit {
-  const { irrelevant } = options;
-  const errorsAt = groupByPath(records.errors);
-  const droppedAt =
-    irrelevant === "omit" ? null : groupByPath(records.droppedErrors);
-  const annotationsAt = groupByPath(
-    selectAnnotations(records.annotations, options.annotations),
-  );
-
-  const unitOf = (node: TraceNode): OutputUnit => ({
+  const unitOf = (node: RenderNode): OutputUnit => ({
     valid: node.valid,
-    evaluationPath: materializePath(node.pathNode),
-    schemaLocation: schemaLocationOf(node.schemaRef, null),
-    instanceLocation: instancePointer(node.cursor),
+    evaluationPath: node.evaluationPath,
+    schemaLocation: node.schemaLocation,
+    instanceLocation: node.inputLocation,
   });
 
-  const toUnit = (node: TraceNode): OutputUnit | undefined => {
+  const toUnit = (node: RenderNode): OutputUnit | undefined => {
     const details = node.children
       .map(toUnit)
       .filter((u): u is OutputUnit => u !== undefined);
 
     const unit = unitOf(node);
 
-    const errs = errorsAt.get(node.pathNode) ?? [];
-    if (errs.length > 0) unit.errors = errorsByKeyword(errs);
-    const dropped = droppedAt?.get(node.pathNode) ?? [];
-    if (dropped.length > 0) unit.droppedErrors = errorsByKeyword(dropped);
+    const errs = pick(node.errors, input.errors);
+    if (errs.length > 0) unit.errors = errorsByKeyword(errs, node);
+    if (irrelevant === "mark") {
+      const dropped = pick(node.droppedErrors, input.droppedErrors);
+      if (dropped.length > 0)
+        unit.droppedErrors = errorsByKeyword(dropped, node);
+    }
 
-    const kept: Record<string, unknown> = {};
-    const droppedAnns: Record<string, unknown> = {};
-    let keptAny = false;
-    let droppedAny = false;
-    for (const a of annotationsAt.get(node.pathNode) ?? []) {
-      if (records.relevant.has(a)) {
-        kept[a.keywordName] = a.value;
-        keptAny = true;
-      } else if (irrelevant === "mark") {
-        droppedAnns[a.keywordName] = a.value;
-        droppedAny = true;
+    const anns = pick(node.annotations, input.annotations);
+    if (anns.length > 0) unit.annotations = annotationsByKeyword(anns);
+    if (irrelevant === "mark") {
+      const dropped = pick(node.droppedAnnotations, input.droppedAnnotations);
+      if (dropped.length > 0) {
+        unit.droppedAnnotations = annotationsByKeyword(dropped);
       }
     }
-    if (keptAny) unit.annotations = kept;
-    if (droppedAny) unit.droppedAnnotations = droppedAnns;
 
     if (details.length > 0) unit.details = details;
 
@@ -335,27 +326,26 @@ export function renderHierarchical(
     return unit;
   };
 
-  return toUnit(root) ?? unitOf(root);
+  return toUnit(input.root) ?? unitOf(input.root);
 }
 
 /**
- * LIST structure over the evaluation trace: the same per-application units
- * as HIERARCHICAL, flattened under a root unit that carries only `valid` and
+ * LIST structure over the located tree: the same per-application units as
+ * HIERARCHICAL, flattened under a root unit that carries only `valid` and
  * `details`. At the relevant level only units that report an error or an
  * annotation appear (the proposal's SHOULD); the verbose level includes
  * every unit.
  */
 export function renderList(
-  root: TraceNode,
-  records: EvaluationRecords,
-  options: HierarchicalOptions,
+  input: RenderInput,
+  irrelevant: IrrelevantRendering,
 ): ListOutputDocument {
-  const nested = renderHierarchical(root, records, options);
+  const nested = renderHierarchical(input, irrelevant);
   const details: OutputUnit[] = [];
   const collect = (unit: OutputUnit): void => {
     const { details: children, ...rest } = unit;
     if (
-      options.irrelevant === "mark" ||
+      irrelevant === "mark" ||
       rest.errors !== undefined ||
       rest.annotations !== undefined
     ) {
@@ -364,7 +354,7 @@ export function renderList(
     children?.forEach(collect);
   };
   collect(nested);
-  return { valid: root.valid, details };
+  return { valid: input.root.valid, details };
 }
 
 /**
@@ -397,19 +387,6 @@ function attachNested(
 const nestedOf = (unit: DetailedOutputUnit): DetailedOutputUnit[] =>
   unit.errors ?? unit.annotations ?? [];
 
-// The first evaluation-path segment of a child application below its parent
-// names the applying keyword.
-function segmentBelow(
-  child: PathNode | null,
-  parent: PathNode | null,
-): string | null {
-  let segment: string | null = null;
-  for (let n = child; n !== null && n !== parent; n = n.parent) {
-    segment = n.segment;
-  }
-  return segment === null ? null : unescapeSegment(segment);
-}
-
 /**
  * The draft-03 keyword-level tree (§13.4.3–13.4.4). Every schema application
  * becomes a node whose children are one node per keyword evaluation, in
@@ -419,43 +396,44 @@ function segmentBelow(
  * relies on `valid` per node as the relevance marker.
  */
 function buildDraft03Tree(
-  root: TraceNode,
-  records: EvaluationRecords,
-  selection: boolean | AnnotationSelection,
+  input: RenderInput,
   level: "relevant" | "verbose",
 ): DetailedOutputUnit {
-  // A trace node's errors are uniformly relevant or irrelevant, so
-  // concatenating the two lists keeps encounter order within every node.
-  const errorsAt = groupByPath(
-    level === "verbose"
-      ? [...records.errors, ...records.droppedErrors]
-      : records.errors,
-  );
-  const annotationsAt = groupByPath(
-    selectAnnotations(records.annotations, selection).filter(
-      (a) => level === "verbose" || records.relevant.has(a),
-    ),
-  );
-
-  const build = (node: TraceNode): DetailedOutputUnit => {
-    const keywordLocation = materializePath(node.pathNode);
-    const absoluteKeywordLocation = schemaLocationOf(node.schemaRef, null);
-    const instanceLocation = instancePointer(node.cursor);
+  const build = (node: RenderNode): DetailedOutputUnit => {
+    const {
+      evaluationPath: keywordLocation,
+      schemaLocation: absoluteKeywordLocation,
+      inputLocation: instanceLocation,
+    } = node;
     const unit: DetailedOutputUnit = {
       valid: node.valid,
       keywordLocation,
       absoluteKeywordLocation,
       instanceLocation,
     };
-    const errs = errorsAt.get(node.pathNode) ?? [];
-    const anns = annotationsAt.get(node.pathNode) ?? [];
+    const errs =
+      level === "verbose"
+        ? withDropped(
+            pick(node.errors, input.errors),
+            pick(node.droppedErrors, input.droppedErrors),
+          )
+        : pick(node.errors, input.errors);
+    const anns =
+      level === "verbose"
+        ? withDropped(
+            pick(node.annotations, input.annotations),
+            pick(node.droppedAnnotations, input.droppedAnnotations),
+          )
+        : pick(node.annotations, input.annotations);
     // A boolean `false` schema's error belongs to the application itself.
-    const own = errs.filter((e) => e.keywordName === null);
+    const own = errs.filter((e) => e.evaluationPath === keywordLocation);
     if (own.length > 0) unit.error = joinMessages(own);
 
-    const childrenOf = new Map<string | null, TraceNode[]>();
+    // The first evaluation-path segment of a child application below its
+    // parent names the applying keyword.
+    const childrenOf = new Map<string | null, RenderNode[]>();
     for (const child of node.children) {
-      const key = segmentBelow(child.pathNode, node.pathNode);
+      const key = firstSegmentBelow(child, keywordLocation);
       const list = childrenOf.get(key);
       if (list) list.push(child);
       else childrenOf.set(key, [child]);
@@ -464,16 +442,17 @@ function buildDraft03Tree(
     const nested: DetailedOutputUnit[] = [];
     for (const k of node.keywords) {
       const suffix = "/" + escapeSegment(k.name);
+      const kwLocation = keywordLocation + suffix;
       const kwUnit: DetailedOutputUnit = {
         valid: k.valid,
-        keywordLocation: keywordLocation + suffix,
+        keywordLocation: kwLocation,
         absoluteKeywordLocation: absoluteKeywordLocation + suffix,
         instanceLocation,
       };
-      const kwErrs = errs.filter((e) => e.keywordName === k.name);
+      const kwErrs = errs.filter((e) => e.evaluationPath === kwLocation);
       if (kwErrs.length > 0) kwUnit.error = joinMessages(kwErrs);
-      const kwAnn = anns.find((a) => a.keywordName === k.name);
-      if (kwAnn !== undefined) kwUnit.annotation = kwAnn.value;
+      const kwAnn = anns.find((a) => a.keyword === k.name);
+      if (kwAnn !== undefined) kwUnit.annotation = kwAnn.annotation;
       const applied = childrenOf.get(k.name);
       if (applied !== undefined) {
         childrenOf.delete(k.name);
@@ -491,7 +470,7 @@ function buildDraft03Tree(
     attachNested(unit, nested);
     return unit;
   };
-  return build(root);
+  return build(input.root);
 }
 
 // Detailed condensation (§13.4.3): nodes with no children are removed, nodes
@@ -521,24 +500,13 @@ function condense(
 }
 
 /** Detailed output document (IETF draft-03 §13.4.3): the condensed keyword-level tree of relevant results. */
-export function renderDetailed(
-  root: TraceNode,
-  records: EvaluationRecords,
-  selection: boolean | AnnotationSelection,
-): DetailedOutputUnit {
-  return condense(
-    buildDraft03Tree(root, records, selection, "relevant"),
-    true,
-  )!;
+export function renderDetailed(input: RenderInput): DetailedOutputUnit {
+  return condense(buildDraft03Tree(input, "relevant"), true)!;
 }
 
 /** Verbose output document (IETF draft-03 §13.4.4): the full keyword-level tree, irrelevant results included. */
-export function renderVerbose(
-  root: TraceNode,
-  records: EvaluationRecords,
-  selection: boolean | AnnotationSelection,
-): DetailedOutputUnit {
-  return buildDraft03Tree(root, records, selection, "verbose");
+export function renderVerbose(input: RenderInput): DetailedOutputUnit {
+  return buildDraft03Tree(input, "verbose");
 }
 
 /**
@@ -573,44 +541,22 @@ export interface TraceUnit {
   readonly children: readonly TraceUnit[];
 }
 
-const NO_INDEXES: readonly number[] = [];
-
 /**
- * Renders the evaluation trace into its public tree. `errors` must be the
- * exact record stream `Result.errors` was rendered from: the correlation is
- * positional (index i here is unit i there), which is what lets object
- * identity stay internal.
+ * Renders the located tree into the public trace. Error correlation is
+ * positional: a node's `errors` indexes are its `errorIndexes`, and the
+ * public tree carries decoded segments so consumers never touch pointer
+ * escaping.
  */
-export function renderTrace(
-  root: TraceNode,
-  errors: readonly ErrorRecord[],
-): TraceUnit {
-  const indexesAt = new Map<PathNode | null, number[]>();
-  errors.forEach((e, i) => {
-    const list = indexesAt.get(e.pathNode);
-    if (list) list.push(i);
-    else indexesAt.set(e.pathNode, [i]);
+export function renderTrace(root: RenderNode): TraceUnit {
+  const toUnit = (node: RenderNode, parentPath: string): TraceUnit => ({
+    segments: segmentsBelow(node, parentPath),
+    schemaLocation: node.schemaLocation,
+    inputLocation: node.inputLocation,
+    valid: node.valid,
+    errorIndexes: node.errors,
+    children: node.children.map((c) => toUnit(c, node.evaluationPath)),
   });
-
-  const toUnit = (node: TraceNode, parentPath: PathNode | null): TraceUnit => {
-    // PathNode segments are stored pre-escaped (they concatenate straight
-    // into pointers); the public tree carries decoded segments instead so
-    // consumers never touch pointer escaping.
-    const segments: string[] = [];
-    for (let n = node.pathNode; n !== null && n !== parentPath; n = n.parent) {
-      segments.push(unescapeSegment(n.segment));
-    }
-    segments.reverse();
-    return {
-      segments,
-      schemaLocation: schemaLocationOf(node.schemaRef, null),
-      inputLocation: instancePointer(node.cursor),
-      valid: node.valid,
-      errorIndexes: indexesAt.get(node.pathNode) ?? NO_INDEXES,
-      children: node.children.map((c) => toUnit(c, node.pathNode)),
-    };
-  };
-  return toUnit(root, null);
+  return toUnit(root, "");
 }
 
 /** One error of the Basic document (IETF draft-03 §13.4.2). */
@@ -644,39 +590,38 @@ export interface BasicOutputDocument {
 }
 
 /**
- * Basic output document: per the suite's output-tests basic fixtures,
- * `errors` is absent on success; `annotations` appears only when selected
- * and non-empty.
+ * Basic output document from the flat surface: `rootLocation` is the root
+ * schema's canonical location, `errors` and `annotations` the relevant,
+ * already selected units. Per the suite's output-tests basic fixtures,
+ * `errors` is absent on success; `annotations` appears only when non-empty.
  */
 export function renderBasic(
   valid: boolean,
-  rootRef: LocationRef,
-  errors: readonly ErrorRecord[],
-  rootAnnotations: readonly AnnotationRecord[],
-  selection: boolean | AnnotationSelection,
+  rootLocation: string,
+  errors: readonly ErrorUnit[],
+  annotations: readonly AnnotationUnit[],
 ): BasicOutputDocument {
   const doc: BasicOutputDocument = {
     valid,
     keywordLocation: "",
-    absoluteKeywordLocation: schemaLocationOf(rootRef, null),
+    absoluteKeywordLocation: rootLocation,
     instanceLocation: "",
   };
   if (valid) {
-    const anns = selectAnnotations(rootAnnotations, selection).map(
-      (a): BasicAnnotationUnit => ({
-        keywordLocation: evaluationPathOf(a.pathNode, a.keywordName),
-        absoluteKeywordLocation: schemaLocationOf(a.schemaRef, a.keywordName),
-        instanceLocation: instancePointer(a.cursor),
-        annotation: a.value,
-      }),
-    );
-    if (anns.length > 0) doc.annotations = anns;
+    if (annotations.length > 0) {
+      doc.annotations = annotations.map((a): BasicAnnotationUnit => ({
+        keywordLocation: a.evaluationPath,
+        absoluteKeywordLocation: a.schemaLocation,
+        instanceLocation: a.inputLocation,
+        annotation: a.annotation,
+      }));
+    }
   } else {
     doc.errors = errors.map((e): BasicErrorUnit => ({
-      keywordLocation: evaluationPathOf(e.pathNode, e.keywordName),
-      absoluteKeywordLocation: schemaLocationOf(e.schemaRef, e.keywordName),
-      instanceLocation: instancePointer(e.cursor),
-      error: e.message,
+      keywordLocation: e.evaluationPath,
+      absoluteKeywordLocation: e.schemaLocation,
+      instanceLocation: e.inputLocation,
+      error: e.error,
     }));
   }
   return doc;

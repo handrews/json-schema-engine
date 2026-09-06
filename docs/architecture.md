@@ -44,7 +44,7 @@ flowchart TD
         INT["interpreter\nframe channel (§4) ·\ndynamic scope (D8) ·\ncycle + depth guards (D20)"]
         RY --> INT
         OUT["output renderers\nflag · list · hierarchical ·\nBasic/Detailed/Verbose (D6)"]
-        INT --> OUT
+        INT -- "RenderInput" --> OUT
     end
     subgraph COMP ["@jse/compiler"]
         PLAN["planner\nstatic units vs interpreted units\n(islands, fallbacks, cycles)"]
@@ -58,7 +58,8 @@ flowchart TD
     INT -- "valid · errors · records" --> ART
     INS["instance"] --> INT
     INS --> ART
-    ART --> OUT2["flag · flat errors/annotations ·\nBasic document"]
+    ART --> OUT2["flag · flat errors/annotations"]
+    ART -- "flat units → renderBasic" --> OUT
 ```
 
 ## The channel

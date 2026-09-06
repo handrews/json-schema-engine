@@ -33,20 +33,25 @@ import {
   BasicOutputDocument,
   DetailedOutputUnit,
   ErrorUnit,
-  EvaluationRecords,
+  IrrelevantRendering,
   ListOutputDocument,
   OutputUnit,
   makeRecordPredicate,
-  renderAnnotations,
   renderBasic,
   renderDetailed,
-  renderError,
   renderHierarchical,
   renderList,
   renderTrace,
   renderVerbose,
   TraceUnit,
 } from "./output.js";
+import {
+  type RecordSets,
+  renderError,
+  renderSelected,
+  schemaLocationOf,
+  toRenderInput,
+} from "./records.js";
 import {
   DIALECT_2020_12,
   registerStandardDialects,
@@ -141,9 +146,14 @@ export type {
 export { lowerIR } from "./lowering.js";
 export {
   makeRecordPredicate,
-  renderAnnotation,
-  renderError,
+  renderBasic,
+  renderDetailed,
+  renderHierarchical,
+  renderList,
+  renderTrace,
+  renderVerbose,
 } from "./output.js";
+export { renderAnnotation, renderError } from "./records.js";
 export type {
   LowerApply,
   LowerCursor,
@@ -169,10 +179,11 @@ export type {
   BasicOutputDocument,
   DetailedOutputUnit,
   ErrorUnit,
-  EvaluationRecords,
   IrrelevantRendering,
   ListOutputDocument,
   OutputUnit,
+  RenderInput,
+  RenderNode,
   TraceUnit,
 } from "./output.js";
 export type {
@@ -647,83 +658,77 @@ export class Engine {
     const result: Result = { valid };
     if (demand.format === "flag") return result;
 
+    // The flat surface first; its record arrays stay paired with the unit
+    // arrays so the located tree can index the units.
     const params = options.errorParams ?? false;
-    if (!valid) {
-      result.errors = state.errors.map((e) => renderError(e, params));
-    }
+    const records: RecordSets = {
+      errors: state.errors,
+      droppedErrors: [],
+      annotations: [],
+      droppedAnnotations: [],
+    };
+    const errors = state.errors.map((e) => renderError(e, params));
+    if (!valid) result.errors = errors;
+    let annotations: AnnotationUnit[] = [];
     if (valid && demand.annotations !== false) {
-      result.annotations = renderAnnotations(
+      const selected = renderSelected(
         state.rootAnnotations,
         demand.annotations,
       );
+      records.annotations = selected.records;
+      annotations = selected.units;
+      result.annotations = annotations;
     }
-    // The relevant annotations are a valid run's root survivors; an invalid
-    // run has none (draft-03 §12.2).
-    const relevant = new Set(valid ? state.rootAnnotations : []);
+    let droppedErrors: ErrorUnit[] = [];
+    let droppedAnnotations: AnnotationUnit[] = [];
     if (demand.verbose) {
-      result.droppedErrors = (state.droppedErrors ?? []).map((e) =>
-        renderError(e, params),
-      );
+      records.droppedErrors = state.droppedErrors ?? [];
+      droppedErrors = records.droppedErrors.map((e) => renderError(e, params));
+      result.droppedErrors = droppedErrors;
       if (demand.annotations !== false) {
-        result.droppedAnnotations = renderAnnotations(
+        // The relevant annotations are a valid run's root survivors; an
+        // invalid run has none (draft-03 §12.2).
+        const relevant = new Set(valid ? state.rootAnnotations : []);
+        const selected = renderSelected(
           (state.allAnnotations ?? []).filter((a) => !relevant.has(a)),
           demand.annotations,
         );
+        records.droppedAnnotations = selected.records;
+        droppedAnnotations = selected.units;
+        result.droppedAnnotations = droppedAnnotations;
       }
     }
-    if (options.trace) {
-      // Correlation is positional against result.errors, which only exists
-      // on failure — a valid run's trace carries no error indexes.
-      result.trace = renderTrace(state.traceRoot!, valid ? [] : state.errors);
-    }
+    const input = demand.tracing
+      ? toRenderInput(state.traceRoot!, records, {
+          errors,
+          droppedErrors,
+          annotations,
+          droppedAnnotations,
+        })
+      : null;
+    if (options.trace) result.trace = renderTrace(input!.root);
 
-    const records = (): EvaluationRecords => ({
-      errors: state.errors,
-      droppedErrors: state.droppedErrors ?? [],
-      annotations: state.allAnnotations ?? [],
-      relevant,
-    });
-    const structured = {
-      irrelevant: demand.verbose ? ("mark" as const) : ("omit" as const),
-      annotations: demand.annotations,
-    };
+    const irrelevant: IrrelevantRendering = demand.verbose ? "mark" : "omit";
     switch (demand.format) {
       case "basic":
         result.outputDocument = renderBasic(
           valid,
-          this.schemas.rootRef(schemaUri),
-          state.errors,
-          state.rootAnnotations,
-          demand.annotations,
+          schemaLocationOf(this.schemas.rootRef(schemaUri), null),
+          errors,
+          annotations,
         );
         break;
       case "list":
-        result.outputDocument = renderList(
-          state.traceRoot!,
-          records(),
-          structured,
-        );
+        result.outputDocument = renderList(input!, irrelevant);
         break;
       case "hierarchical":
-        result.outputDocument = renderHierarchical(
-          state.traceRoot!,
-          records(),
-          structured,
-        );
+        result.outputDocument = renderHierarchical(input!, irrelevant);
         break;
       case "detailed":
-        result.outputDocument = renderDetailed(
-          state.traceRoot!,
-          records(),
-          demand.annotations,
-        );
+        result.outputDocument = renderDetailed(input!);
         break;
       case "verbose":
-        result.outputDocument = renderVerbose(
-          state.traceRoot!,
-          records(),
-          demand.annotations,
-        );
+        result.outputDocument = renderVerbose(input!);
         break;
     }
     if (options.positions) {
