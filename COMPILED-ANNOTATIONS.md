@@ -113,7 +113,7 @@ annotations, but a cheaper mechanism than frames closes the gap:
   interpreter discarding the unit's frame. Same reasoning covers `not`
   (a succeeding negated subschema merges, then the unit fails and the
   caller discards) and `contains` probes. List mode already disables
-  inlining and boolean folding of `false` (serialize.ts:75–79), so no
+  inlining and boolean folding of `false` (serialize/index.ts), so no
   interaction with D9c arises.
 
 - **Laziness inverts, by design.** D9e's "unit objects materialize only
@@ -258,7 +258,7 @@ annotations: true })` — unit-by-unit equality _including
 
 Touched surfaces: `core/lowering.ts` (IR extension), a produce audit
 across every keyword module with `lower()` (including
-`dialect-draft04`), `compiler/serialize.ts` (the bulk: produce
+`dialect-draft04`), `compiler/serialize/` (the bulk: produce
 emission, `anns` threading, mark/truncate), `compiler/runtime.ts`
 (harvest), `compiler/index.ts` (API), `compiler/plan.ts` (mode
 plumbing, unknown keywords), plus the gate suite. Comparable in shape

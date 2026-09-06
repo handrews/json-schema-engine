@@ -7,3 +7,6 @@ package-lock.json
 # Vendored spec artifacts — must stay byte-verbatim.
 packages/core/src/keywords/metaschemas*.ts
 dist/
+
+# Codegen goldens pin the serializer's emitted text byte-for-byte.
+packages/compiler/test/goldens/codegen/

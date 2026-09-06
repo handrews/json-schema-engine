@@ -15,7 +15,7 @@ import {
   type JsonValue,
 } from "@jse/core";
 import { buildPlan, type CompilationPlan } from "./plan.js";
-import { serializePlan } from "./serialize.js";
+import { serializePlan } from "./serialize/index.js";
 import { makeRuntime } from "./runtime.js";
 import {
   instantiate,
@@ -28,7 +28,7 @@ export type { CompilationPlan, PlannedUnit, FallbackCause } from "./plan.js";
 export { buildPlan } from "./plan.js";
 export { explainCompilation } from "./explain.js";
 export type { CompilationExplanation } from "./explain.js";
-export { serializePlan } from "./serialize.js";
+export { serializePlan } from "./serialize/index.js";
 export { emitStandalone, StandaloneUnsupportedError } from "./standalone.js";
 export type { StandaloneOptions } from "./standalone.js";
 

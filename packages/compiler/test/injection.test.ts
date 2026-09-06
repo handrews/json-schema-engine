@@ -41,7 +41,8 @@ const HOSTILE_NAMES = [
  * Characters that, if a schema string reached source raw, would break out of
  * the double-quoted JS string literal the gated formatter emits — the ONLY
  * shape schema strings take (never template literals, never comments;
- * serialize.ts is ESLint-fenced against both). Only an unescaped `"` or a raw
+ * the serialize/ modules are ESLint-fenced against both). Only an unescaped
+ * `"` or a raw
  * newline/CR terminates such a literal; backtick, `${`, and comment delimiters
  * are inert inside it. A backslash is not a terminator either — it always
  * escapes the next char and JSON.stringify doubles it, so checking for it
