@@ -31,7 +31,7 @@
     "@eslint/js": "^10.0.1",
     "@hyperjump/json-schema": "^1.17.8",
     "@types/node": "^26.4.1",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "^5.0.0",
     "ajv": "^8.20.0",
     "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
@@ -43,6 +43,6 @@
     "typedoc-plugin-markdown": "^4.13.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.69.0",
-    "vitest": "^4.1.9"
+    "vitest": "^5.0.0"
   }
 }
