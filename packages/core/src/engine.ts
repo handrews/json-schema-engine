@@ -678,6 +678,12 @@ export interface FragmentOptions {
   shouldRecord?: RecordPredicate | null;
   regexCache?: RegexCache;
   maxDepth?: number;
+  /**
+   * Record the trace: every branch runs (a trace is verbose demand, ADR
+   * 0003) and the irrelevant records are retained, so a compiled evaluator
+   * can graft the fragment under its own located tree.
+   */
+  tracing?: boolean;
 }
 
 /**
@@ -686,7 +692,8 @@ export interface FragmentOptions {
  * fallback units alike. Returns the fragment's verdict, its errors, and its
  * root frame's surviving annotation and dependency records — cursor
  * identities intact, so a compiled caller can merge them under channel rule
- * 3 and filter under rule 4 exactly as an interpreted parent would.
+ * 3 and filter under rule 4 exactly as an interpreted parent would. With
+ * `tracing`, also the trace and the retained irrelevant records.
  */
 export function evaluateFragment(
   registry: SchemaRegistry,
@@ -698,11 +705,17 @@ export function evaluateFragment(
   errors: ErrorRecord[];
   annotations: AnnotationRecord[];
   dependencies: DependencyRecord[];
+  /** the fragment's application tree; null unless `tracing` */
+  traceRoot: TraceNode | null;
+  /** errors dropped by an accepting keyword, in drop order; empty unless `tracing` */
+  droppedErrors: ErrorRecord[];
+  /** every annotation recorded, relevant or not; empty unless `tracing` */
+  allAnnotations: AnnotationRecord[];
 } {
   const maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH;
   const state = new EvalState(
     registry,
-    false,
+    options.tracing === true,
     options.shouldRecord ?? null,
     options.regexCache ?? new RegexCache(),
     maxDepth,
@@ -721,5 +734,8 @@ export function evaluateFragment(
     errors: state.errors,
     annotations: state.rootAnnotations,
     dependencies: state.rootDependencies,
+    traceRoot: state.traceRoot,
+    droppedErrors: state.droppedErrors ?? [],
+    allAnnotations: state.allAnnotations ?? [],
   };
 }

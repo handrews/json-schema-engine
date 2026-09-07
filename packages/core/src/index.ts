@@ -143,7 +143,12 @@ export {
   renderTrace,
   renderVerbose,
 } from "./output.js";
-export { renderAnnotation, renderError } from "./records.js";
+export {
+  renderAnnotation,
+  renderError,
+  traceToRenderNodes,
+} from "./records.js";
+export type { MutableRenderNode } from "./records.js";
 export {
   OutputOptionsError,
   assembleResult,
