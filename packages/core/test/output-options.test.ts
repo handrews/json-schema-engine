@@ -7,10 +7,14 @@
 
 import { describe, it, expect } from "vitest";
 import {
+  assembleResult,
   createEngine,
+  resolveOutputDemand,
   OutputOptionsError,
+  type ErrorUnit,
   type EvaluateOptions,
   type OutputFormat,
+  type RenderNode,
 } from "@jse/core";
 
 function engineFor() {
@@ -141,5 +145,99 @@ describe("accepted combinations", () => {
     );
     const traced = engine.evaluate(uri, "x", { output: "basic", trace: true });
     expect(traced.trace.valid).toBe(true);
+  });
+});
+
+// result.ts's exports are what a compiled evaluator uses to build a Result
+// from a recorded tree instead of a live evaluation (compileEvaluator,
+// @jse/compiler) — both tiers share one owner for the demand-resolution and
+// assembly rules this file otherwise exercises only through Engine.evaluate.
+describe("resolveOutputDemand and assembleResult (shared with a compiled evaluator)", () => {
+  it("resolveOutputDemand resolves a demand, and assembleResult reproduces Engine.evaluate's Result from a hand-built tree", () => {
+    const demand = resolveOutputDemand({ output: "list", trace: true });
+    expect(demand).toEqual({
+      format: "list",
+      verbose: false,
+      tracing: true,
+      annotations: false,
+    });
+
+    // A boolean-`false` schema application: the render-input contract's
+    // simplest case (render-input.test.ts's "boolean-false schema
+    // application"), hand-built here with no interpreter run — exactly
+    // what a compiled evaluator's own trace recording stands in for.
+    const FALSE_SCHEMA_LOCATION =
+      "https://assemble.example/schema#/properties/x";
+
+    const falseSchemaError: ErrorUnit = {
+      evaluationPath: "/properties/x",
+      schemaLocation: FALSE_SCHEMA_LOCATION,
+      inputLocation: "/x",
+      error: "schema is false",
+    };
+
+    const child: RenderNode = {
+      evaluationPath: "/properties/x",
+      schemaLocation: FALSE_SCHEMA_LOCATION,
+      inputLocation: "/x",
+      valid: false,
+      keywords: [],
+      errors: [0],
+      droppedErrors: [],
+      annotations: [],
+      droppedAnnotations: [],
+      children: [],
+    };
+
+    const root: RenderNode = {
+      evaluationPath: "",
+      schemaLocation: "https://assemble.example/schema#",
+      inputLocation: "",
+      valid: false,
+      keywords: [{ name: "properties", valid: false }],
+      errors: [],
+      droppedErrors: [],
+      annotations: [],
+      droppedAnnotations: [],
+      children: [child],
+    };
+
+    const result = assembleResult(
+      demand,
+      false,
+      {
+        errors: [falseSchemaError],
+        droppedErrors: [],
+        annotations: [],
+        droppedAnnotations: [],
+      },
+      root,
+      "https://assemble.example/schema#",
+      true,
+    );
+
+    // The interpreter, evaluating the equivalent schema, must assemble the
+    // identical Result — assembleResult is the one owner of that shape for
+    // both tiers.
+    const engine = createEngine();
+    const uri = engine.registerSchema(
+      { properties: { x: false } },
+      "https://assemble.example/schema",
+    );
+    const interp = engine.evaluate(
+      uri,
+      { x: 1 },
+      { output: "list", trace: true },
+    );
+    expect(result).toEqual(interp);
+    // Invalid, no annotations requested, verbose off, trace requested: the
+    // assignment order in assembleResult (valid, then errors, then trace,
+    // then outputDocument) is the Result's own key order.
+    expect(Object.keys(result)).toEqual([
+      "valid",
+      "errors",
+      "trace",
+      "outputDocument",
+    ]);
   });
 });

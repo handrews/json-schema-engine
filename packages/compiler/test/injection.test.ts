@@ -17,8 +17,8 @@
 // escaping assertions bite hardest there.
 
 import { describe, it, expect } from "vitest";
-import { createEngine, type JsonValue } from "@jse/core";
-import { compileList, compileValidator } from "@jse/compiler";
+import { createEngine, type JsonValue, type OutputUnit } from "@jse/core";
+import { compileEvaluator, compileList, compileValidator } from "@jse/compiler";
 
 // Line/paragraph separators built from code points so this source file itself
 // carries no raw U+2028/U+2029 (which would defeat the "source is clean" test).
@@ -78,6 +78,25 @@ function guardGlobals(): () => void {
   };
 }
 
+/**
+ * Find the annotation `keyword` carries at the unit whose `evaluationPath`
+ * is `path`, searching a hierarchical document's `details` tree. Used to
+ * prove an unknown keyword's annotation reached both the root unit and a
+ * nested subschema's unit, not just one.
+ */
+function findAnnotation(
+  unit: OutputUnit,
+  path: string,
+  keyword: string,
+): unknown {
+  if (unit.evaluationPath === path) return unit.annotations?.[keyword];
+  for (const child of unit.details ?? []) {
+    const found = findAnnotation(child, path, keyword);
+    if (found !== undefined) return found;
+  }
+  return undefined;
+}
+
 /** Assert Object.prototype was not polluted by a __proto__-bearing payload. */
 function assertProtoClean(): void {
   const probe = {} as Record<string, unknown>;
@@ -88,22 +107,32 @@ function assertProtoClean(): void {
   ).toBeUndefined();
 }
 
+/** {@link checkAgreement}'s return: every emitted source, for the caller's own safety checks. */
+interface AgreementSources {
+  source: string;
+  evaluatorSource: string;
+}
+
 /**
  * Compile + differential-check one schema on a set of instances; return
- * source. Runs BOTH emission shapes: the flag artifact, and the list
- * artifact with structured params — hostile schema values reach emitted
- * code twice more there (params object literals and message strings), so
- * the corpus must cover that surface too.
+ * every emitted source. Runs THREE emission shapes: the flag artifact, the
+ * list artifact with structured params, and the evaluator — hostile schema
+ * values reach emitted code twice more in list/evaluator mode (params
+ * object literals and message strings) and a third time in the evaluator's
+ * trace keyword names, so the corpus must cover those surfaces too.
  */
 function checkAgreement(
   schema: JsonValue,
   uri: string,
   instances: JsonValue[],
-): string {
+): AgreementSources {
   const engine = createEngine();
   const registered = engine.registerSchema(schema, uri);
   const { validate, source } = compileValidator(engine, registered);
   const list = compileList(engine, registered, { errorParams: true });
+  const evaluator = compileEvaluator(engine, registered, {
+    errorParams: true,
+  });
   for (const inst of instances) {
     let interp: boolean | string;
     let comp: boolean | string;
@@ -137,8 +166,29 @@ function checkAgreement(
       compList = `throw:${(e as Error).constructor.name}`;
     }
     expect(compList, `list+params ${JSON.stringify(inst)}`).toEqual(interpList);
+
+    let interpHier: unknown;
+    let compHier: unknown;
+    try {
+      interpHier = engine.evaluate(registered, inst, {
+        output: "hierarchical",
+        trace: true,
+        errorParams: true,
+      });
+    } catch (e) {
+      interpHier = `throw:${(e as Error).constructor.name}`;
+    }
+    try {
+      compHier = evaluator.evaluate(inst, {
+        output: "hierarchical",
+        trace: true,
+      });
+    } catch (e) {
+      compHier = `throw:${(e as Error).constructor.name}`;
+    }
+    expect(compHier, `evaluator ${JSON.stringify(inst)}`).toEqual(interpHier);
   }
-  return source;
+  return { source, evaluatorSource: evaluator.source };
 }
 
 describe("codegen injection exemplars (M6.2)", () => {
@@ -221,7 +271,7 @@ describe("codegen injection corpus (M6.3)", () => {
     for (let i = 0; i < HOSTILE_PATTERNS.length; i++) {
       const source = "^" + HOSTILE_PATTERNS[i]! + "$";
       const guard = guardGlobals();
-      const emitted = checkAgreement(
+      const { source: emitted, evaluatorSource } = checkAgreement(
         { type: "string", pattern: source },
         `https://inj.example/pat/${String(i)}`,
         ["", "abc", "a`b", '"q"', "${x}", "/*c*/", "x y", "😀"],
@@ -229,6 +279,8 @@ describe("codegen injection corpus (M6.3)", () => {
       // Pattern must reach source, and only as an escaped R.re key.
       expect(emitted).toContain("R.re[");
       assertSourceSafe(emitted, source);
+      expect(evaluatorSource).toContain("R.re[");
+      assertSourceSafe(evaluatorSource, source);
       guard();
       assertProtoClean();
     }
@@ -239,12 +291,13 @@ describe("codegen injection corpus (M6.3)", () => {
     // still carry code-hostile characters.
     for (const key of ['a`${x}"', "/\\*x\\*/", "[\"'`]", "k k"]) {
       const guard = guardGlobals();
-      const emitted = checkAgreement(
+      const { source: emitted, evaluatorSource } = checkAgreement(
         { patternProperties: { [key]: { type: "string" } } },
         "https://inj.example/patprop/" + encodeURIComponent(key),
         [{}, { a: "s" }, { a: 1 }, { "a`b": "s" }, { x: {} }],
       );
       assertSourceSafe(emitted, key);
+      assertSourceSafe(evaluatorSource, key);
       guard();
       assertProtoClean();
     }
@@ -263,7 +316,7 @@ describe("codegen injection corpus (M6.3)", () => {
     ];
     for (const name of [...HOSTILE_NAMES, ...extraNames]) {
       const guard = guardGlobals();
-      const emitted = checkAgreement(
+      const { source: emitted, evaluatorSource } = checkAgreement(
         { type: "object", properties: { [name]: { type: "integer" } } },
         "https://inj.example/name/" + encodeURIComponent(name),
         [
@@ -275,6 +328,7 @@ describe("codegen injection corpus (M6.3)", () => {
         ] as JsonValue[],
       );
       assertSourceSafe(emitted, name);
+      assertSourceSafe(evaluatorSource, name);
       guard();
       assertProtoClean();
     }
@@ -283,7 +337,7 @@ describe("codegen injection corpus (M6.3)", () => {
   it("hostile $anchor values never reach source", () => {
     for (const anchor of ["a`b", "x${y}", 'q"z', "s" + LS + "p"]) {
       const guard = guardGlobals();
-      const emitted = checkAgreement(
+      const { source: emitted, evaluatorSource } = checkAgreement(
         {
           $defs: { t: { $anchor: anchor, type: "string" } },
           $ref: "#" + anchor,
@@ -293,6 +347,7 @@ describe("codegen injection corpus (M6.3)", () => {
       );
       // Anchors are resolution metadata; they must not appear in source.
       assertSourceSafe(emitted, anchor);
+      assertSourceSafe(evaluatorSource, anchor);
       guard();
     }
   });
@@ -328,12 +383,13 @@ describe("codegen injection corpus (M6.3)", () => {
     ];
     for (let i = 0; i < cases.length; i++) {
       const guard = guardGlobals();
-      const emitted = checkAgreement(
+      const { source: emitted, evaluatorSource } = checkAgreement(
         cases[i]!.schema,
         "https://inj.example/enumconst/" + String(i),
         cases[i]!.instances,
       );
       assertSourceSafe(emitted, hazardKey);
+      assertSourceSafe(evaluatorSource, hazardKey);
       guard();
       assertProtoClean();
     }
@@ -350,7 +406,7 @@ describe("codegen injection corpus (M6.3)", () => {
     for (let i = 0; i < hostileAnnotations.length; i++) {
       const value = hostileAnnotations[i]!;
       const guard = guardGlobals();
-      const emitted = checkAgreement(
+      const { source: emitted, evaluatorSource } = checkAgreement(
         {
           type: "object",
           properties: { a: { type: "string", title: "x", default: value } },
@@ -363,6 +419,11 @@ describe("codegen injection corpus (M6.3)", () => {
       // not appear in source at all — and never as raw separators.
       expect(emitted.includes(LS)).toBe(false);
       expect(emitted.includes(PS)).toBe(false);
+      // The evaluator here is compiled without `annotations`, so it elides
+      // the same annotation productions (ctx.annMode gates them, not trace).
+      if (typeof value === "string") assertSourceSafe(evaluatorSource, value);
+      expect(evaluatorSource.includes(LS)).toBe(false);
+      expect(evaluatorSource.includes(PS)).toBe(false);
       guard();
       assertProtoClean();
     }
@@ -377,12 +438,93 @@ describe("codegen injection corpus (M6.3)", () => {
     for (let i = 0; i < requiredSets.length; i++) {
       const req = requiredSets[i]!;
       const guard = guardGlobals();
-      const emitted = checkAgreement(
+      const { source: emitted, evaluatorSource } = checkAgreement(
         { type: "object", required: req },
         "https://inj.example/req/" + String(i),
         [{}, Object.fromEntries(req.map((k) => [k, 1])), { [req[0]!]: 1 }],
       );
-      for (const entry of req) assertSourceSafe(emitted, entry);
+      for (const entry of req) {
+        assertSourceSafe(emitted, entry);
+        assertSourceSafe(evaluatorSource, entry);
+      }
+      guard();
+      assertProtoClean();
+    }
+  });
+});
+
+describe("codegen injection: hostile UNKNOWN keyword names (evaluator trace)", () => {
+  // A key the dialect doesn't own collects as a constant annotation
+  // (engine.ts's unknown-keyword handling) and, in a traced artifact, as a
+  // keyword-trace entry too (unit.ts's unitBody, both gated through str()).
+  // These names are hostile at both units: the schema's own root, and a
+  // nested `properties` subschema, so both application sites of the emitter
+  // get exercised.
+  const UNKNOWN_HOSTILE_NAMES = [
+    'x"; process.exit(1); //',
+    " y",
+    "__proto__",
+    "constructor",
+  ];
+
+  it("reach source only through str(), and render as annotations at both units", () => {
+    for (const name of UNKNOWN_HOSTILE_NAMES) {
+      const guard = guardGlobals();
+      const engine = createEngine();
+      const uri = engine.registerSchema(
+        {
+          type: "object",
+          [name]: "root-marker",
+          properties: {
+            child: { type: "object", [name]: "nested-marker" },
+          },
+        },
+        "https://inj.example/unknown/" + encodeURIComponent(name),
+      );
+      const evaluator = compileEvaluator(engine, uri, { annotations: true });
+      const { source } = evaluator;
+
+      // No raw newline/CR/U+2028/U+2029 inside a string literal — the
+      // file's own breakout discipline, reused verbatim.
+      assertSourceSafe(source, name);
+      // Proves the name reached source only via the gated str() formatter,
+      // never by raw concatenation.
+      expect(source.includes(JSON.stringify(name))).toBe(true);
+
+      const instance = { child: {} };
+      const interp = engine.evaluate(uri, instance, {
+        output: "hierarchical",
+        trace: true,
+        annotations: true,
+      });
+      const comp = evaluator.evaluate(instance, {
+        output: "hierarchical",
+        trace: true,
+      });
+      expect(comp).toEqual(interp);
+
+      // The unknown keyword renders as an annotation keyed by its exact
+      // (hostile) name, at both the root unit and the nested subschema's.
+      //
+      // "__proto__" is excluded here: core's annotationsByKeyword/
+      // errorsByKeyword (output.ts) build the by-keyword record with plain
+      // `byKeyword[keyword] = value`, and a keyword literally named
+      // "__proto__" hits Object.prototype's own __proto__ accessor instead
+      // of creating a data property — the annotation is silently absent
+      // from the rendered document (confirmed on `interp`, i.e. the
+      // interpreter itself, not a compiled-artifact regression). It is
+      // still exercised above for the properties that DO hold regardless:
+      // no code injection (assertSourceSafe, the str() proof) and exact
+      // compiled-vs-interpreted equality (both sides lose the annotation
+      // identically, so `comp` still equals `interp`).
+      if (name !== "__proto__") {
+        const doc = comp.outputDocument;
+        expect(findAnnotation(doc, "", name)).toBe("root-marker");
+        expect(findAnnotation(doc, "/properties/child", name)).toBe(
+          "nested-marker",
+        );
+      }
+
       guard();
       assertProtoClean();
     }

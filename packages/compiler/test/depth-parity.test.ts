@@ -8,7 +8,12 @@
 
 import { describe, it, expect } from "vitest";
 import { createEngine, MaxDepthExceededError, type JsonValue } from "@jse/core";
-import { buildPlan, compileList, compileValidator } from "@jse/compiler";
+import {
+  buildPlan,
+  compileEvaluator,
+  compileList,
+  compileValidator,
+} from "@jse/compiler";
 
 describe("static recursive chain: shared depth budget", () => {
   const SCHEMA = {
@@ -44,6 +49,11 @@ describe("static recursive chain: shared depth budget", () => {
 
     const list = compileList(engine, uri, { maxDepth: 64 });
     expect(() => list.evaluateList(deep)).toThrow(MaxDepthExceededError);
+
+    const evaluator = compileEvaluator(engine, uri, { maxDepth: 64 });
+    expect(() =>
+      evaluator.evaluate(deep, { output: "hierarchical", trace: true }),
+    ).toThrow(MaxDepthExceededError);
   });
 
   it("a shallow instance agrees valid across all three surfaces", () => {
@@ -61,6 +71,13 @@ describe("static recursive chain: shared depth budget", () => {
 
     const list = compileList(engine, uri, { maxDepth: 64 });
     expect(list.evaluateList(shallow).valid).toBe(true);
+
+    const evaluator = compileEvaluator(engine, uri, { maxDepth: 64 });
+    expect(
+      evaluator.evaluate(shallow, { output: "hierarchical", trace: true }),
+    ).toEqual(
+      engine.evaluate(uri, shallow, { output: "hierarchical", trace: true }),
+    );
   });
 });
 
@@ -101,6 +118,11 @@ describe("$dynamicRef island: shared depth budget through the frag trampoline", 
 
     const flag = compileValidator(engine, uri, { maxDepth: 20 });
     expect(() => flag.validate(deep)).toThrow(MaxDepthExceededError);
+
+    const evaluator = compileEvaluator(engine, uri, { maxDepth: 20 });
+    expect(() =>
+      evaluator.evaluate(deep, { output: "hierarchical", trace: true }),
+    ).toThrow(MaxDepthExceededError);
   });
 
   it("a small budget is exhausted through the fragment trampoline: list surfaces", () => {
@@ -118,5 +140,10 @@ describe("$dynamicRef island: shared depth budget through the frag trampoline", 
 
     const list = compileList(engine, uri, { maxDepth: 20 });
     expect(() => list.evaluateList(deep)).toThrow(MaxDepthExceededError);
+
+    const evaluator = compileEvaluator(engine, uri, { maxDepth: 20 });
+    expect(() =>
+      evaluator.evaluate(deep, { output: "hierarchical", trace: true }),
+    ).toThrow(MaxDepthExceededError);
   });
 });

@@ -10,7 +10,7 @@ import {
   UnresolvableRefError,
   type KeywordBehavior,
 } from "@jse/core";
-import { compileList, compileValidator } from "@jse/compiler";
+import { compileEvaluator, compileList, compileValidator } from "@jse/compiler";
 
 const CORE = "https://json-schema.org/draft/2020-12/vocab/core";
 
@@ -23,24 +23,41 @@ describe("artifacts bind to a registry snapshot", () => {
     );
     const flag = compileValidator(engine, uri);
     const list = compileList(engine, uri);
+    const evaluator = compileEvaluator(engine, uri);
     // The unresolvable $ref makes its unit an interpreted island.
     expect(flag.plan.targets.length).toBeGreaterThan(0);
     expect(flag.validate({})).toBe(true);
     expect(() => flag.validate({ p: 1 })).toThrow(UnresolvableRefError);
     expect(() => list.evaluateList({ p: 1 })).toThrow(UnresolvableRefError);
+    expect(() => evaluator.evaluate({ p: 1 }, { output: "list" })).toThrow(
+      UnresolvableRefError,
+    );
 
     engine.registerSchema({ type: "string" }, "https://snap.example/target");
     expect(() => flag.validate({ p: 1 })).toThrow(UnresolvableRefError);
     expect(() => list.evaluateList({ p: 1 })).toThrow(UnresolvableRefError);
+    // The old evaluator, like the old flag/list artifacts, still resolves
+    // against the snapshot it was compiled against.
+    expect(() => evaluator.evaluate({ p: 1 }, { output: "list" })).toThrow(
+      UnresolvableRefError,
+    );
     // The interpreter, not an artifact, sees the live registry.
     expect(engine.evaluate(uri, { p: 1 }).valid).toBe(false);
 
     const flag2 = compileValidator(engine, uri);
     const list2 = compileList(engine, uri);
+    const evaluator2 = compileEvaluator(engine, uri);
     expect(flag2.validate({ p: 1 })).toBe(false);
     expect(flag2.validate({ p: "s" })).toBe(true);
     expect(
       list2.evaluateList({ p: 1 }).errors.map((e) => e.evaluationPath),
+    ).toEqual(["/properties/p/$ref/type"]);
+    // A NEW evaluator sees the later registration, matching the new list
+    // artifact exactly.
+    expect(
+      (evaluator2.evaluate({ p: 1 }, { output: "list" }).errors ?? []).map(
+        (e) => e.evaluationPath,
+      ),
     ).toEqual(["/properties/p/$ref/type"]);
     expect(() => flag.validate({ p: 1 })).toThrow(UnresolvableRefError);
   });
@@ -56,18 +73,33 @@ describe("artifacts bind to a registry snapshot", () => {
     );
     const flag = compileValidator(engine, uri);
     const list = compileList(engine, uri);
+    const evaluator = compileEvaluator(engine, uri);
     expect(flag.plan.targets.length).toBeGreaterThan(0);
     expect(flag.validate({ p: "s" })).toBe(true);
     expect(flag.validate({ p: 1 })).toBe(false);
+    expect(evaluator.evaluate({ p: "s" }, { output: "list" }).valid).toBe(true);
+    expect(evaluator.evaluate({ p: 1 }, { output: "list" }).valid).toBe(false);
 
     engine.registerSchema({ type: "integer" }, "https://snap.example/t");
     expect(flag.validate({ p: "s" })).toBe(true);
     expect(flag.validate({ p: 1 })).toBe(false);
     expect(list.evaluateList({ p: 1 }).errors).toHaveLength(1);
+    // The old evaluator keeps the old dynamic target, like the old flag/list
+    // artifacts.
+    expect(evaluator.evaluate({ p: "s" }, { output: "list" }).valid).toBe(true);
+    expect(
+      evaluator.evaluate({ p: 1 }, { output: "list" }).errors,
+    ).toHaveLength(1);
     expect(engine.evaluate(uri, { p: 1 }).valid).toBe(true);
     const flag2 = compileValidator(engine, uri);
     expect(flag2.validate({ p: "s" })).toBe(false);
     expect(flag2.validate({ p: 1 })).toBe(true);
+    // A NEW evaluator sees the re-registered target.
+    const evaluator2 = compileEvaluator(engine, uri);
+    expect(evaluator2.evaluate({ p: "s" }, { output: "list" }).valid).toBe(
+      false,
+    );
+    expect(evaluator2.evaluate({ p: 1 }, { output: "list" }).valid).toBe(true);
   });
 
   it("keeps the dialect it was compiled against when the source re-registers it", () => {
@@ -89,9 +121,12 @@ describe("artifacts bind to a registry snapshot", () => {
       DIALECT,
     );
     const flag = compileValidator(engine, uri);
+    const evaluator = compileEvaluator(engine, uri);
     expect(flag.plan.targets.length).toBeGreaterThan(0);
     expect(flag.validate(2)).toBe(true);
     expect(flag.validate(3)).toBe(false);
+    expect(evaluator.evaluate(2, { output: "list" }).valid).toBe(true);
+    expect(evaluator.evaluate(3, { output: "list" }).valid).toBe(false);
 
     const odd: KeywordBehavior = {
       id: `${VOCAB}#even`,
@@ -102,7 +137,15 @@ describe("artifacts bind to a registry snapshot", () => {
     engine.registerDialect(DIALECT, [CORE, VOCAB]);
     expect(flag.validate(2)).toBe(true);
     expect(flag.validate(3)).toBe(false);
+    // The old evaluator keeps the old dialect behavior, like the old flag
+    // artifact.
+    expect(evaluator.evaluate(2, { output: "list" }).valid).toBe(true);
+    expect(evaluator.evaluate(3, { output: "list" }).valid).toBe(false);
     expect(engine.evaluate(uri, 3).valid).toBe(true);
     expect(compileValidator(engine, uri).validate(3)).toBe(true);
+    // A NEW evaluator sees the re-registered dialect behavior.
+    expect(
+      compileEvaluator(engine, uri).evaluate(3, { output: "list" }).valid,
+    ).toBe(true);
   });
 });
