@@ -15,26 +15,26 @@ ev.push([...n2]); }
 return true; }
 function u1(v, d, s) { if (d >= h_maxd) h_deep(); d++;
 const g0 = (typeof v === "object" && v !== null && !Array.isArray(v));
-if ((g0 && (v["a"] !== undefined))) { if (!u2(v["a"], d, h_s0)) return false; }
+if ((g0 && ("a" in v))) { if (!u2(v["a"], d, h_s0)) return false; }
 if (g0) {  }
 return true; }
 function u1c(v, d, s, ev) { if (d >= h_maxd) h_deep(); d++;
 const g1 = (typeof v === "object" && v !== null && !Array.isArray(v));
 const n0 = new Set();
-if ((g1 && (v["a"] !== undefined))) { n0.add("a"); if (!u2(v["a"], d, h_s0)) return false; }
+if ((g1 && ("a" in v))) { n0.add("a"); if (!u2(v["a"], d, h_s0)) return false; }
 if (g1) { ev.push([...n0]); }
 return true; }
 function u2(v, d, s) { if (!((typeof v === "number" && Number.isInteger(v)))) { return false; }
 return true; }
 function u3(v, d, s) { if (d >= h_maxd) h_deep(); d++;
 const g0 = (typeof v === "object" && v !== null && !Array.isArray(v));
-if ((g0 && (v["b"] !== undefined))) { if (!u4(v["b"], d, h_s0)) return false; }
+if ((g0 && ("b" in v))) { if (!u4(v["b"], d, h_s0)) return false; }
 if (g0) {  }
 return true; }
 function u3c(v, d, s, ev) { if (d >= h_maxd) h_deep(); d++;
 const g1 = (typeof v === "object" && v !== null && !Array.isArray(v));
 const n0 = new Set();
-if ((g1 && (v["b"] !== undefined))) { n0.add("b"); if (!u4(v["b"], d, h_s0)) return false; }
+if ((g1 && ("b" in v))) { n0.add("b"); if (!u4(v["b"], d, h_s0)) return false; }
 if (g1) { ev.push([...n0]); }
 return true; }
 function u4(v, d, s) { if (!((typeof v === "string"))) { return false; }

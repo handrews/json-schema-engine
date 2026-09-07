@@ -343,15 +343,18 @@ paths; annotation units materialize on success paths by definition.
 **Plain-data instance contract (M6.5).** Compiled artifacts assume the
 instance is plain JSON data — the output of `JSON.parse` or equivalent —
 with `Object.prototype` intact and no inherited enumerable properties. Under
-that contract, emitted code tests own-property presence with `x[key] !==
-undefined` and enumerates with a bare `for…in` (no per-property `Object.keys`
-array, no per-access `Object.hasOwn` call) — the dominant flag-mode cost in
-profiling; the plain-data forms run several times faster and lifted the
-spike schemas from ~3.5x slower than ajv to at/under parity. Two escape
-hatches preserve correctness: a `key` that exists on `Object.prototype`
-(`constructor`, `toString`, …) or is literally `__proto__` would
-false-positive through the chain, so those emit an explicit
-`hasOwnProperty.call`. The interpreter makes NO such assumption — it uses
+that contract, emitted code tests own-property presence with `key in x` and
+enumerates with a bare `for…in` (no per-property `Object.keys` array, no
+per-access `Object.hasOwn` call) — the dominant flag-mode cost in profiling;
+the plain-data forms run several times faster and lifted the spike schemas
+from ~3.5x slower than ajv to at/under parity. Two escape hatches preserve
+correctness: a `key` that exists on `Object.prototype` (`constructor`,
+`toString`, …) or is literally `__proto__` would false-positive through the
+chain, so those emit an explicit `hasOwnProperty.call`. The probe was
+`x[key] !== undefined` through M9a; E12 (2026-09-07) measured the
+alternatives on the records corpora and moved it to `in`, which ties that
+load on uniform records and is ~5.5x faster on polymorphic ones, where a
+value load goes megamorphic (bench/corpora/README.md). The interpreter makes NO such assumption — it uses
 `Object.hasOwn` throughout — so a caller validating hand-built objects with a
 mutated prototype should use the interpreter (or the compiler once a
 strict-hygiene emit mode is added; not in M6). The differential fuzzer only
@@ -746,10 +749,10 @@ Five local commits, every gate green per commit:
   non-compliance; excluded from that corpus with the reason in the
   results JSON) and refuses the OAS schema without `strict: false`; the
   OAS corpus runs compiled under consumer tracking, with only genuine
-  `$dynamicRef` islands interpreted; on records-sparse the compiled tier
-  and AJV both fall to interpreter speed because the presence probe
-  `obj[key] !== undefined` goes megamorphic over differing record shapes
-  (conservative emission's `hasOwnProperty` probe does not; E12). No
+  `$dynamicRef` islands interpreted; records-sparse is where AJV and the
+  interpreter stay at ~22–27 ms while the compiled tier runs ~4 ms, the
+  plain-data presence probe having moved from a value load to `key in obj`
+  (E12) so it no longer goes megamorphic over differing record shapes. No
   thresholds — the spike bench stays the enforced gate; CI uploads
   results as an artifact and fails on an oracle failure.
 - **M9b (open, owner-gated):** final npm scope/name decision, version

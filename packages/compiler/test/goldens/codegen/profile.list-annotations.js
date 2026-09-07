@@ -7,13 +7,13 @@ const h_fragla = R.fragListAnn;
 function u0(v, d, s, ep, ip, errs, anns) { if (d >= h_maxd) h_deep(); d++;
 const g1 = (typeof v === "object" && v !== null && !Array.isArray(v));
 let ok = true;
-if ((g1 && (v["id"] !== undefined))) { const m0 = anns.length; if (!u1(v["id"], d, h_s0, ep + "/properties/id", ip + "/id", errs, anns)) { ok = false; anns.length = m0; } }
-if ((g1 && (v["displayName"] !== undefined))) { const m2 = anns.length; if (!u2(v["displayName"], d, h_s0, ep + "/properties/displayName", ip + "/displayName", errs, anns)) { ok = false; anns.length = m2; } }
-if ((g1 && (v["bio"] !== undefined))) { const m3 = anns.length; if (!u3(v["bio"], d, h_s0, ep + "/properties/bio", ip + "/bio", errs, anns)) { ok = false; anns.length = m3; } }
-if ((g1 && (v["createdAt"] !== undefined))) { const m4 = anns.length; if (!u4(v["createdAt"], d, h_s0, ep + "/properties/createdAt", ip + "/createdAt", errs, anns)) { ok = false; anns.length = m4; } }
+if ((g1 && ("id" in v))) { const m0 = anns.length; if (!u1(v["id"], d, h_s0, ep + "/properties/id", ip + "/id", errs, anns)) { ok = false; anns.length = m0; } }
+if ((g1 && ("displayName" in v))) { const m2 = anns.length; if (!u2(v["displayName"], d, h_s0, ep + "/properties/displayName", ip + "/displayName", errs, anns)) { ok = false; anns.length = m2; } }
+if ((g1 && ("bio" in v))) { const m3 = anns.length; if (!u3(v["bio"], d, h_s0, ep + "/properties/bio", ip + "/bio", errs, anns)) { ok = false; anns.length = m3; } }
+if ((g1 && ("createdAt" in v))) { const m4 = anns.length; if (!u4(v["createdAt"], d, h_s0, ep + "/properties/createdAt", ip + "/createdAt", errs, anns)) { ok = false; anns.length = m4; } }
 if (g1) {  }
 if (!(g1)) { ok = false; errs.push({ evaluationPath: ep + "/type", schemaLocation: "https://spike.example/profile#/type", inputLocation: ip, error: "expected type \"object\"", keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": "object" } }); }
-if (g1) { if (!((v["id"] !== undefined))) { ok = false; errs.push({ evaluationPath: ep + "/required", schemaLocation: "https://spike.example/profile#/required", inputLocation: ip, error: "missing required property 'id'", keyword: "required", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "missingProperty": "id" } }); } }
+if (g1) { if (!(("id" in v))) { ok = false; errs.push({ evaluationPath: ep + "/required", schemaLocation: "https://spike.example/profile#/required", inputLocation: ip, error: "missing required property 'id'", keyword: "required", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "missingProperty": "id" } }); } }
 anns.push({ keyword: "title", vocabulary: "https://json-schema.org/draft/2020-12/vocab/meta-data", evaluationPath: ep + "/title", schemaLocation: "https://spike.example/profile#/title", inputLocation: ip, annotation: "User profile" });
 return ok; }
 function u1(v, d, s, ep, ip, errs, anns) { let ok = true;

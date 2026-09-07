@@ -10,7 +10,7 @@ const tn = h_tnode(tp, ep, "https://codegen.example/island#", ip);
 const g2 = (typeof v === "object" && v !== null && !Array.isArray(v));
 let ok = true;
 let k0 = true;
-if ((g2 && (v["p"] !== undefined))) { const m1 = st.anns.length; if (!h_fragt(T[0], v["p"], s, d, ep + "/properties/p", ip + "/p", st, tn)) { ok = false; k0 = false; h_cutA(st, m1); } }
+if ((g2 && ("p" in v))) { const m1 = st.anns.length; if (!h_fragt(T[0], v["p"], s, d, ep + "/properties/p", ip + "/p", st, tn)) { ok = false; k0 = false; h_cutA(st, m1); } }
 if (g2) {  }
 tn.keywords.push({ name: "properties", valid: k0 });
 tn.valid = ok;

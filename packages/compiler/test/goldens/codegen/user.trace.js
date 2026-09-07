@@ -11,12 +11,12 @@ const tn = h_tnode(tp, ep, "https://spike.example/user#", ip);
 const g5 = (typeof v === "object" && v !== null && !Array.isArray(v));
 let ok = true;
 let k0 = true, k1 = true, k2 = true, k3 = true;
-if ((g5 && (v["id"] !== undefined))) { const m4 = st.anns.length; if (!u1(v["id"], d, h_s0, ep + "/properties/id", ip + "/id", st, tn)) { ok = false; k0 = false; h_cutA(st, m4); } }
-if ((g5 && (v["name"] !== undefined))) { const m6 = st.anns.length; if (!u2(v["name"], d, h_s0, ep + "/properties/name", ip + "/name", st, tn)) { ok = false; k0 = false; h_cutA(st, m6); } }
-if ((g5 && (v["email"] !== undefined))) { const m7 = st.anns.length; if (!u3(v["email"], d, h_s0, ep + "/properties/email", ip + "/email", st, tn)) { ok = false; k0 = false; h_cutA(st, m7); } }
-if ((g5 && (v["role"] !== undefined))) { const m8 = st.anns.length; if (!u4(v["role"], d, h_s0, ep + "/properties/role", ip + "/role", st, tn)) { ok = false; k0 = false; h_cutA(st, m8); } }
-if ((g5 && (v["tags"] !== undefined))) { const m9 = st.anns.length; if (!u5(v["tags"], d, h_s0, ep + "/properties/tags", ip + "/tags", st, tn)) { ok = false; k0 = false; h_cutA(st, m9); } }
-if ((g5 && (v["address"] !== undefined))) { const m10 = st.anns.length; if (!u7(v["address"], d, h_s0, ep + "/properties/address", ip + "/address", st, tn)) { ok = false; k0 = false; h_cutA(st, m10); } }
+if ((g5 && ("id" in v))) { const m4 = st.anns.length; if (!u1(v["id"], d, h_s0, ep + "/properties/id", ip + "/id", st, tn)) { ok = false; k0 = false; h_cutA(st, m4); } }
+if ((g5 && ("name" in v))) { const m6 = st.anns.length; if (!u2(v["name"], d, h_s0, ep + "/properties/name", ip + "/name", st, tn)) { ok = false; k0 = false; h_cutA(st, m6); } }
+if ((g5 && ("email" in v))) { const m7 = st.anns.length; if (!u3(v["email"], d, h_s0, ep + "/properties/email", ip + "/email", st, tn)) { ok = false; k0 = false; h_cutA(st, m7); } }
+if ((g5 && ("role" in v))) { const m8 = st.anns.length; if (!u4(v["role"], d, h_s0, ep + "/properties/role", ip + "/role", st, tn)) { ok = false; k0 = false; h_cutA(st, m8); } }
+if ((g5 && ("tags" in v))) { const m9 = st.anns.length; if (!u5(v["tags"], d, h_s0, ep + "/properties/tags", ip + "/tags", st, tn)) { ok = false; k0 = false; h_cutA(st, m9); } }
+if ((g5 && ("address" in v))) { const m10 = st.anns.length; if (!u7(v["address"], d, h_s0, ep + "/properties/address", ip + "/address", st, tn)) { ok = false; k0 = false; h_cutA(st, m10); } }
 if (g5) {  }
 tn.keywords.push({ name: "properties", valid: k0 });
 if (g5) { for (const b0 in v) { if (!(((b0 === "id") || (b0 === "name") || (b0 === "email") || (b0 === "role") || (b0 === "tags") || (b0 === "address")))) { const m11 = st.anns.length; if (!u11(v[b0], d, h_s0, ep + "/additionalProperties", ip + "/" + h_esc(String(b0)), st, tn)) { ok = false; k1 = false; h_cutA(st, m11); } } } }
@@ -24,10 +24,10 @@ if (g5) {  }
 tn.keywords.push({ name: "additionalProperties", valid: k1 });
 if (!(g5)) { ok = false; k2 = false; h_err(st, tn, { evaluationPath: ep + "/type", schemaLocation: "https://spike.example/user#/type", inputLocation: ip, error: "expected type \"object\"", keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": "object" } }); }
 tn.keywords.push({ name: "type", valid: k2 });
-if (g5) { if (!((v["id"] !== undefined))) { ok = false; k3 = false; h_err(st, tn, { evaluationPath: ep + "/required", schemaLocation: "https://spike.example/user#/required", inputLocation: ip, error: "missing required property 'id'", keyword: "required", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "missingProperty": "id" } }); }
-if (!((v["name"] !== undefined))) { ok = false; k3 = false; h_err(st, tn, { evaluationPath: ep + "/required", schemaLocation: "https://spike.example/user#/required", inputLocation: ip, error: "missing required property 'name'", keyword: "required", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "missingProperty": "name" } }); }
-if (!((v["email"] !== undefined))) { ok = false; k3 = false; h_err(st, tn, { evaluationPath: ep + "/required", schemaLocation: "https://spike.example/user#/required", inputLocation: ip, error: "missing required property 'email'", keyword: "required", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "missingProperty": "email" } }); }
-if (!((v["tags"] !== undefined))) { ok = false; k3 = false; h_err(st, tn, { evaluationPath: ep + "/required", schemaLocation: "https://spike.example/user#/required", inputLocation: ip, error: "missing required property 'tags'", keyword: "required", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "missingProperty": "tags" } }); } }
+if (g5) { if (!(("id" in v))) { ok = false; k3 = false; h_err(st, tn, { evaluationPath: ep + "/required", schemaLocation: "https://spike.example/user#/required", inputLocation: ip, error: "missing required property 'id'", keyword: "required", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "missingProperty": "id" } }); }
+if (!(("name" in v))) { ok = false; k3 = false; h_err(st, tn, { evaluationPath: ep + "/required", schemaLocation: "https://spike.example/user#/required", inputLocation: ip, error: "missing required property 'name'", keyword: "required", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "missingProperty": "name" } }); }
+if (!(("email" in v))) { ok = false; k3 = false; h_err(st, tn, { evaluationPath: ep + "/required", schemaLocation: "https://spike.example/user#/required", inputLocation: ip, error: "missing required property 'email'", keyword: "required", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "missingProperty": "email" } }); }
+if (!(("tags" in v))) { ok = false; k3 = false; h_err(st, tn, { evaluationPath: ep + "/required", schemaLocation: "https://spike.example/user#/required", inputLocation: ip, error: "missing required property 'tags'", keyword: "required", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "missingProperty": "tags" } }); } }
 tn.keywords.push({ name: "required", valid: k3 });
 tn.valid = ok;
 return ok; }
@@ -92,15 +92,15 @@ const tn = h_tnode(tp, ep, "https://spike.example/user#/properties/address", ip)
 const g4 = (typeof v === "object" && v !== null && !Array.isArray(v));
 let ok = true;
 let k0 = true, k1 = true, k2 = true;
-if ((g4 && (v["street"] !== undefined))) { const m3 = st.anns.length; if (!u8(v["street"], d, h_s0, ep + "/properties/street", ip + "/street", st, tn)) { ok = false; k0 = false; h_cutA(st, m3); } }
-if ((g4 && (v["city"] !== undefined))) { const m5 = st.anns.length; if (!u9(v["city"], d, h_s0, ep + "/properties/city", ip + "/city", st, tn)) { ok = false; k0 = false; h_cutA(st, m5); } }
-if ((g4 && (v["zip"] !== undefined))) { const m6 = st.anns.length; if (!u10(v["zip"], d, h_s0, ep + "/properties/zip", ip + "/zip", st, tn)) { ok = false; k0 = false; h_cutA(st, m6); } }
+if ((g4 && ("street" in v))) { const m3 = st.anns.length; if (!u8(v["street"], d, h_s0, ep + "/properties/street", ip + "/street", st, tn)) { ok = false; k0 = false; h_cutA(st, m3); } }
+if ((g4 && ("city" in v))) { const m5 = st.anns.length; if (!u9(v["city"], d, h_s0, ep + "/properties/city", ip + "/city", st, tn)) { ok = false; k0 = false; h_cutA(st, m5); } }
+if ((g4 && ("zip" in v))) { const m6 = st.anns.length; if (!u10(v["zip"], d, h_s0, ep + "/properties/zip", ip + "/zip", st, tn)) { ok = false; k0 = false; h_cutA(st, m6); } }
 if (g4) {  }
 tn.keywords.push({ name: "properties", valid: k0 });
 if (!(g4)) { ok = false; k1 = false; h_err(st, tn, { evaluationPath: ep + "/type", schemaLocation: "https://spike.example/user#/properties/address/type", inputLocation: ip, error: "expected type \"object\"", keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": "object" } }); }
 tn.keywords.push({ name: "type", valid: k1 });
-if (g4) { if (!((v["street"] !== undefined))) { ok = false; k2 = false; h_err(st, tn, { evaluationPath: ep + "/required", schemaLocation: "https://spike.example/user#/properties/address/required", inputLocation: ip, error: "missing required property 'street'", keyword: "required", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "missingProperty": "street" } }); }
-if (!((v["city"] !== undefined))) { ok = false; k2 = false; h_err(st, tn, { evaluationPath: ep + "/required", schemaLocation: "https://spike.example/user#/properties/address/required", inputLocation: ip, error: "missing required property 'city'", keyword: "required", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "missingProperty": "city" } }); } }
+if (g4) { if (!(("street" in v))) { ok = false; k2 = false; h_err(st, tn, { evaluationPath: ep + "/required", schemaLocation: "https://spike.example/user#/properties/address/required", inputLocation: ip, error: "missing required property 'street'", keyword: "required", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "missingProperty": "street" } }); }
+if (!(("city" in v))) { ok = false; k2 = false; h_err(st, tn, { evaluationPath: ep + "/required", schemaLocation: "https://spike.example/user#/properties/address/required", inputLocation: ip, error: "missing required property 'city'", keyword: "required", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "missingProperty": "city" } }); } }
 tn.keywords.push({ name: "required", valid: k2 });
 tn.valid = ok;
 return ok; }

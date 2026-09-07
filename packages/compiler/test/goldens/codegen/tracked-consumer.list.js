@@ -18,7 +18,7 @@ return ok; }
 function u1(v, d, s, ep, ip, errs) { if (d >= h_maxd) h_deep(); d++;
 const g0 = (typeof v === "object" && v !== null && !Array.isArray(v));
 let ok = true;
-if ((g0 && (v["a"] !== undefined))) { if (!u2(v["a"], d, h_s0, ep + "/properties/a", ip + "/a", errs)) { ok = false; } }
+if ((g0 && ("a" in v))) { if (!u2(v["a"], d, h_s0, ep + "/properties/a", ip + "/a", errs)) { ok = false; } }
 if (g0) {  }
 return ok; }
 function u1c(v, d, s, ep, ip, errs, ev) { if (d >= h_maxd) h_deep(); d++;
@@ -26,7 +26,7 @@ const g2 = (typeof v === "object" && v !== null && !Array.isArray(v));
 let ok = true;
 let k0 = true;
 const n1 = new Set();
-if ((g2 && (v["a"] !== undefined))) { n1.add("a"); if (!u2(v["a"], d, h_s0, ep + "/properties/a", ip + "/a", errs)) { ok = false; k0 = false; } }
+if ((g2 && ("a" in v))) { n1.add("a"); if (!u2(v["a"], d, h_s0, ep + "/properties/a", ip + "/a", errs)) { ok = false; k0 = false; } }
 if (g2) { if (k0) { ev.push([...n1]); } }
 return ok; }
 function u2(v, d, s, ep, ip, errs) { let ok = true;
@@ -35,7 +35,7 @@ return ok; }
 function u3(v, d, s, ep, ip, errs) { if (d >= h_maxd) h_deep(); d++;
 const g0 = (typeof v === "object" && v !== null && !Array.isArray(v));
 let ok = true;
-if ((g0 && (v["b"] !== undefined))) { if (!u4(v["b"], d, h_s0, ep + "/properties/b", ip + "/b", errs)) { ok = false; } }
+if ((g0 && ("b" in v))) { if (!u4(v["b"], d, h_s0, ep + "/properties/b", ip + "/b", errs)) { ok = false; } }
 if (g0) {  }
 return ok; }
 function u3c(v, d, s, ep, ip, errs, ev) { if (d >= h_maxd) h_deep(); d++;
@@ -43,7 +43,7 @@ const g2 = (typeof v === "object" && v !== null && !Array.isArray(v));
 let ok = true;
 let k0 = true;
 const n1 = new Set();
-if ((g2 && (v["b"] !== undefined))) { n1.add("b"); if (!u4(v["b"], d, h_s0, ep + "/properties/b", ip + "/b", errs)) { ok = false; k0 = false; } }
+if ((g2 && ("b" in v))) { n1.add("b"); if (!u4(v["b"], d, h_s0, ep + "/properties/b", ip + "/b", errs)) { ok = false; k0 = false; } }
 if (g2) { if (k0) { ev.push([...n1]); } }
 return ok; }
 function u4(v, d, s, ep, ip, errs) { let ok = true;
