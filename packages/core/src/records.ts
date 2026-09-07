@@ -136,14 +136,11 @@ function indexByPath(
 }
 
 /**
- * Adapts the interpreter's trace and its paired record/unit arrays into the
- * renderers' input, materializing every location once per application.
+ * Adapts the interpreter's trace into the located tree, materializing every
+ * location once per application; the index lists point into the unit
+ * arrays paired with `records`.
  */
-export function toRenderInput(
-  root: TraceNode,
-  records: RecordSets,
-  units: UnitSets,
-): RenderInput {
+export function toRenderNode(root: TraceNode, records: RecordSets): RenderNode {
   const errorsAt = indexByPath(records.errors);
   const droppedErrorsAt = indexByPath(records.droppedErrors);
   const annotationsAt = indexByPath(records.annotations);
@@ -160,11 +157,20 @@ export function toRenderInput(
     droppedAnnotations: droppedAnnotationsAt.get(node.pathNode) ?? NO_INDEXES,
     children: node.children.map(toNode),
   });
+  return toNode(root);
+}
+
+/** The located tree with its paired unit arrays: the renderers' input. */
+export function toRenderInput(
+  root: TraceNode,
+  records: RecordSets,
+  units: UnitSets,
+): RenderInput {
   return {
     errors: units.errors,
     droppedErrors: units.droppedErrors,
     annotations: units.annotations,
     droppedAnnotations: units.droppedAnnotations,
-    root: toNode(root),
+    root: toRenderNode(root, records),
   };
 }

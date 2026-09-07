@@ -27,30 +27,20 @@ import {
   SourceLocation,
   SourceRange,
 } from "./loader.js";
+import { AnnotationUnit, ErrorUnit, makeRecordPredicate } from "./output.js";
 import {
-  AnnotationSelection,
-  AnnotationUnit,
-  BasicOutputDocument,
-  DetailedOutputUnit,
-  ErrorUnit,
-  IrrelevantRendering,
-  ListOutputDocument,
-  OutputUnit,
-  makeRecordPredicate,
-  renderBasic,
-  renderDetailed,
-  renderHierarchical,
-  renderList,
-  renderTrace,
-  renderVerbose,
-  TraceUnit,
-} from "./output.js";
+  type EvaluateOptions,
+  type Result,
+  type ResultFor,
+  assembleResult,
+  resolveOutputDemand,
+} from "./result.js";
 import {
   type RecordSets,
   renderError,
   renderSelected,
   schemaLocationOf,
-  toRenderInput,
+  toRenderNode,
 } from "./records.js";
 import {
   DIALECT_2020_12,
@@ -154,6 +144,20 @@ export {
   renderVerbose,
 } from "./output.js";
 export { renderAnnotation, renderError } from "./records.js";
+export {
+  OutputOptionsError,
+  assembleResult,
+  resolveOutputDemand,
+} from "./result.js";
+export type {
+  EvaluateOptions,
+  OutputDemand,
+  OutputDocuments,
+  OutputFormat,
+  Result,
+  ResultFor,
+  ResultUnits,
+} from "./result.js";
 export type {
   LowerApply,
   LowerCursor,
@@ -212,154 +216,6 @@ export class SchemaValidationError extends Error {
   ) {
     super(message);
   }
-}
-
-/**
- * Output format names (ADR 0003), each fixing a document structure and field
- * vocabulary: `flag`, `basic`, `detailed`, `verbose` from IETF draft-03 §13;
- * `list`, `hierarchical` from the machines-oriented output proposal.
- */
-export type OutputFormat =
-  "flag" | "basic" | "detailed" | "verbose" | "list" | "hierarchical";
-
-const OUTPUT_FORMATS: ReadonlySet<string> = new Set<OutputFormat>([
-  "flag",
-  "basic",
-  "detailed",
-  "verbose",
-  "list",
-  "hierarchical",
-]);
-
-/** Thrown by {@link Engine.evaluate} for an unsupported combination of output options (ADR 0003: no silent no-ops). */
-export class OutputOptionsError extends Error {}
-
-/** Options for {@link Engine.evaluate}. */
-export interface EvaluateOptions {
-  /**
-   * Output format, by name; default `"flag"` (the minimal level: `valid`
-   * only). Every other name populates the flat `Result.errors`/
-   * `Result.annotations` surface and renders `Result.outputDocument` in the
-   * format's own structure ({@link OutputDocuments}).
-   */
-  output?: OutputFormat;
-  /**
-   * Request the verbose level for `list` or `hierarchical`: every unit is
-   * kept and irrelevant records (draft-03 §12.2) render marked, as
-   * `droppedErrors`/`droppedAnnotations` in the document and as
-   * `Result.droppedErrors`/`Result.droppedAnnotations`. `basic` and
-   * `detailed` are relevant-level by definition and reject it; `verbose` is
-   * the verbose level by definition.
-   */
-  verbose?: boolean;
-  /**
-   * Which annotations reach output: `false` (default) none, `true` all, or
-   * an {@link AnnotationSelection}. Independent of format and level; never
-   * affects dependency data or validation.
-   */
-  annotations?: boolean | AnnotationSelection;
-  /** Include `keyword`, `vocabulary`, and structured `params` on each flat error unit (D13). */
-  errorParams?: boolean;
-  /** Decorate flat units with schema-side source positions when available (D17). */
-  positions?: boolean;
-  /** Render the evaluation trace into `Result.trace`. */
-  trace?: boolean;
-}
-
-/** The document type each non-minimal {@link OutputFormat} renders. */
-export interface OutputDocuments {
-  basic: BasicOutputDocument;
-  detailed: DetailedOutputUnit;
-  verbose: DetailedOutputUnit;
-  list: ListOutputDocument;
-  hierarchical: OutputUnit;
-}
-
-/** The result of {@link Engine.evaluate}. */
-export interface Result {
-  valid: boolean;
-  /** relevant errors, native field names; present on an invalid result of any non-flag format */
-  errors?: ErrorUnit[];
-  /** relevant annotations per the selection; present on a valid result when annotations are selected */
-  annotations?: AnnotationUnit[];
-  /** irrelevant errors (draft-03 §12.2); present at the verbose level */
-  droppedErrors?: ErrorUnit[];
-  /** irrelevant annotations per the selection; present at the verbose level when annotations are selected */
-  droppedAnnotations?: AnnotationUnit[];
-  /** the output document, in the requested format's structure ({@link OutputDocuments}) */
-  outputDocument?: OutputDocuments[keyof OutputDocuments];
-  /** the evaluation trace, present with `trace: true`; `errorIndexes` reference `errors` on this result */
-  trace?: TraceUnit;
-}
-
-/**
- * {@link Result} narrowed by literal options: `outputDocument` takes the
- * requested format's document type and `trace` is present when requested.
- * A widened `EvaluateOptions` yields the plain `Result`.
- */
-export type ResultFor<O extends EvaluateOptions> = Result &
-  ([O["output"]] extends [infer F extends keyof OutputDocuments]
-    ? { outputDocument: OutputDocuments[F] }
-    : unknown) &
-  ([O["trace"]] extends [true] ? { trace: TraceUnit } : unknown);
-
-interface OutputDemand {
-  format: OutputFormat;
-  /** the verbose level: irrelevant records are rendered, marked */
-  verbose: boolean;
-  /** the trace is built: every format but flag and basic, or `trace: true` */
-  tracing: boolean;
-  annotations: boolean | AnnotationSelection;
-}
-
-// Every combination of controls is supported or rejected here, before any
-// evaluation (ADR 0003).
-function resolveOutput(options: EvaluateOptions): OutputDemand {
-  const format = options.output ?? "flag";
-  if (!OUTPUT_FORMATS.has(format)) {
-    throw new OutputOptionsError(`unknown output format '${format}'`);
-  }
-  const annotations = options.annotations ?? false;
-  if (format === "flag") {
-    const requested: [string, boolean][] = [
-      ["verbose", options.verbose === true],
-      ["annotations", annotations !== false],
-      ["errorParams", options.errorParams === true],
-      ["positions", options.positions === true],
-      ["trace", options.trace === true],
-    ];
-    for (const [name, on] of requested) {
-      if (on) {
-        throw new OutputOptionsError(
-          `'${name}' has no effect with output "flag", which carries no ` +
-            `records (the minimal level); choose "basic" or another format`,
-        );
-      }
-    }
-  }
-  if (
-    options.verbose === true &&
-    (format === "basic" || format === "detailed")
-  ) {
-    throw new OutputOptionsError(
-      `'verbose' does not apply to output "${format}", a relevant-level ` +
-        `format by definition (IETF draft-03 §13.4); use "verbose", or ` +
-        `"list"/"hierarchical" with verbose: true`,
-    );
-  }
-  if (options.verbose === false && format === "verbose") {
-    throw new OutputOptionsError(
-      `output "verbose" is the verbose level by definition; ` +
-        `'verbose: false' contradicts it`,
-    );
-  }
-  return {
-    format,
-    verbose: format === "verbose" || options.verbose === true,
-    tracing:
-      format !== "flag" && (format !== "basic" || options.trace === true),
-    annotations,
-  };
 }
 
 /** Options for {@link Engine}'s constructor. */
@@ -644,7 +500,7 @@ export class Engine {
     instance: JsonValue,
     options: EvaluateOptions = {},
   ): Result {
-    const demand = resolveOutput(options);
+    const demand = resolveOutputDemand(options);
     const { valid, state } = runEvaluation(
       this.schemas,
       schemaUri,
@@ -654,9 +510,7 @@ export class Engine {
       this.regexCache,
       this.maxDepth,
     );
-
-    const result: Result = { valid };
-    if (demand.format === "flag") return result;
+    if (demand.format === "flag") return { valid };
 
     // The flat surface first; its record arrays stay paired with the unit
     // arrays so the located tree can index the units.
@@ -668,7 +522,6 @@ export class Engine {
       droppedAnnotations: [],
     };
     const errors = state.errors.map((e) => renderError(e, params));
-    if (!valid) result.errors = errors;
     let annotations: AnnotationUnit[] = [];
     if (valid && demand.annotations !== false) {
       const selected = renderSelected(
@@ -677,14 +530,12 @@ export class Engine {
       );
       records.annotations = selected.records;
       annotations = selected.units;
-      result.annotations = annotations;
     }
     let droppedErrors: ErrorUnit[] = [];
     let droppedAnnotations: AnnotationUnit[] = [];
     if (demand.verbose) {
       records.droppedErrors = state.droppedErrors ?? [];
       droppedErrors = records.droppedErrors.map((e) => renderError(e, params));
-      result.droppedErrors = droppedErrors;
       if (demand.annotations !== false) {
         // The relevant annotations are a valid run's root survivors; an
         // invalid run has none (draft-03 §12.2).
@@ -695,42 +546,19 @@ export class Engine {
         );
         records.droppedAnnotations = selected.records;
         droppedAnnotations = selected.units;
-        result.droppedAnnotations = droppedAnnotations;
       }
     }
-    const input = demand.tracing
-      ? toRenderInput(state.traceRoot!, records, {
-          errors,
-          droppedErrors,
-          annotations,
-          droppedAnnotations,
-        })
+    const root = demand.tracing
+      ? toRenderNode(state.traceRoot!, records)
       : null;
-    if (options.trace) result.trace = renderTrace(input!.root);
-
-    const irrelevant: IrrelevantRendering = demand.verbose ? "mark" : "omit";
-    switch (demand.format) {
-      case "basic":
-        result.outputDocument = renderBasic(
-          valid,
-          schemaLocationOf(this.schemas.rootRef(schemaUri), null),
-          errors,
-          annotations,
-        );
-        break;
-      case "list":
-        result.outputDocument = renderList(input!, irrelevant);
-        break;
-      case "hierarchical":
-        result.outputDocument = renderHierarchical(input!, irrelevant);
-        break;
-      case "detailed":
-        result.outputDocument = renderDetailed(input!);
-        break;
-      case "verbose":
-        result.outputDocument = renderVerbose(input!);
-        break;
-    }
+    const result = assembleResult(
+      demand,
+      valid,
+      { errors, droppedErrors, annotations, droppedAnnotations },
+      root,
+      schemaLocationOf(this.schemas.rootRef(schemaUri), null),
+      options.trace === true,
+    );
     if (options.positions) {
       this.decorate(result.errors);
       this.decorate(result.annotations);
