@@ -16,6 +16,7 @@ import { createEngine, type Engine, type JsonValue } from "@jse/core";
 import { FORMATS_2020_12 } from "@jse/formats";
 import {
   buildPlan,
+  compileEvaluator,
   compileValidator,
   compileList,
   explainCompilation,
@@ -195,6 +196,7 @@ describe("Leg 3 — compiled optional/format-assertion matches the interpreter",
       );
       const flag = compileValidator(engine, uri);
       const list = compileList(engine, uri, { errorParams: true });
+      const evaluator = compileEvaluator(engine, uri, { errorParams: true });
       for (const test of group.tests) {
         run++;
         const label = `${group.description} / ${test.description}`;
@@ -213,6 +215,29 @@ describe("Leg 3 — compiled optional/format-assertion matches the interpreter",
         );
         expect(compiledList.errors, `${label}: list errors`).toEqual(
           interpList.errors ?? [],
+        );
+        // Compiled evaluator ≡ interpreter, on both { output: "list" } and
+        // { output: "hierarchical" } — the format-assertion vocabulary must
+        // lower identically no matter which surface renders the verdict.
+        const evalList = evaluator.evaluate(test.data, { output: "list" });
+        expect(evalList.valid, `${label}: evaluator list valid`).toBe(
+          interpList.valid,
+        );
+        expect(
+          evalList.errors ?? [],
+          `${label}: evaluator list errors`,
+        ).toEqual(interpList.errors ?? []);
+        const interpHier = engine.evaluate(uri, test.data, {
+          output: "hierarchical",
+          trace: true,
+          errorParams: true,
+        });
+        const evalHier = evaluator.evaluate(test.data, {
+          output: "hierarchical",
+          trace: true,
+        });
+        expect(evalHier, `${label}: evaluator hierarchical`).toEqual(
+          interpHier,
         );
       }
     }

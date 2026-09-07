@@ -19,8 +19,9 @@
 //   COMPILED-ANNOTATIONS.md's stage-3 bar.
 // - Every output format is timed on both tiers, split by verdict partition
 //   (valid/invalid render different costs — annotations vs. errors plus
-//   dropped-record retention). Three formats (flag, list+annotations,
-//   basic) compile; the rest are interpreter-only. Every compiled row's
+//   dropped-record retention). Six formats compile (flag, list+annotations,
+//   basic, hierarchical, detailed, list+trace); the verbose-level rows
+//   (list+verbose, verbose) are interpreter-only. Every compiled row's
 //   document must deep-equal the interpreter's for the same instance
 //   before timing runs — the same oracle discipline as list+annotations,
 //   generalized to the whole format table.
@@ -63,8 +64,10 @@ import {
 import {
   compileValidator,
   compileList,
+  compileEvaluator,
   type CompiledArtifact,
   type CompiledListArtifact,
+  type CompiledEvaluator,
 } from "@jse/compiler";
 import { Ajv as CompatAjv, Ajv2020 as CompatAjv2020 } from "@jse/ajv-compat";
 
@@ -358,6 +361,7 @@ interface CorpusContext {
   flag: CompiledArtifact;
   list: CompiledListArtifact;
   listAnn: CompiledListArtifact;
+  evaluator: CompiledEvaluator;
 }
 
 async function subjectsFor(corpus: Corpus): Promise<CorpusContext> {
@@ -365,6 +369,12 @@ async function subjectsFor(corpus: Corpus): Promise<CorpusContext> {
   const flag = compileValidator(engine, uri);
   const list = compileList(engine, uri, { errorParams: false });
   const listAnn = compileList(engine, uri, {
+    errorParams: false,
+    annotations: true,
+  });
+  // Backs the compiled hierarchical/detailed/list+trace rows: the same
+  // selection as `listAnn`, rendered as documents.
+  const evaluator = compileEvaluator(engine, uri, {
     errorParams: false,
     annotations: true,
   });
@@ -419,7 +429,7 @@ async function subjectsFor(corpus: Corpus): Promise<CorpusContext> {
       verdict: (x) => compatValidate(x),
     });
   }
-  return { subjects, engine, uri, flag, list, listAnn };
+  return { subjects, engine, uri, flag, list, listAnn, evaluator };
 }
 
 // --- Output formats --------------------------------------------------------
@@ -521,14 +531,38 @@ const FORMATS: FormatEntry[] = [
       { output: "list", annotations: true, trace: true },
       (r) => ({ document: r.outputDocument, trace: r.trace }),
     ),
+    compiled: ({ evaluator }) => ({
+      run: (x) => evaluator.evaluate(x, { output: "list", trace: true }),
+      probe: (x) => {
+        const r = evaluator.evaluate(x, { output: "list", trace: true });
+        return {
+          valid: r.valid,
+          document: { document: r.outputDocument, trace: r.trace },
+        };
+      },
+    }),
   },
   {
     format: "hierarchical",
     interpreter: interpreted({ output: "hierarchical", annotations: true }),
+    compiled: ({ evaluator }) => ({
+      run: (x) => evaluator.evaluate(x, { output: "hierarchical" }),
+      probe: (x) => {
+        const r = evaluator.evaluate(x, { output: "hierarchical" });
+        return { valid: r.valid, document: r.outputDocument };
+      },
+    }),
   },
   {
     format: "detailed",
     interpreter: interpreted({ output: "detailed", annotations: true }),
+    compiled: ({ evaluator }) => ({
+      run: (x) => evaluator.evaluate(x, { output: "detailed" }),
+      probe: (x) => {
+        const r = evaluator.evaluate(x, { output: "detailed" });
+        return { valid: r.valid, document: r.outputDocument };
+      },
+    }),
   },
   {
     format: "verbose",

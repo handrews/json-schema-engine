@@ -6,21 +6,28 @@
 
 import {
   DEFAULT_MAX_DEPTH,
+  OutputOptionsError,
+  assembleResult,
   renderBasic,
+  resolveOutputDemand,
   type AnnotationSelection,
   type AnnotationUnit,
   type BasicOutputDocument,
   type Engine,
   type ErrorUnit,
+  type EvaluateOptions,
   type JsonValue,
+  type Result,
+  type ResultFor,
 } from "@jse/core";
 import { buildPlan, type CompilationPlan } from "./plan.js";
 import { serializePlan } from "./serialize/index.js";
-import { makeRuntime } from "./runtime.js";
+import { finishTrace, makeRuntime } from "./runtime.js";
 import {
   instantiate,
   instantiateList,
   instantiateListAnn,
+  instantiateTrace,
   type CompiledValidate,
 } from "./runtime-compile.js";
 
@@ -98,6 +105,37 @@ export interface CompiledArtifact {
 }
 
 /**
+ * Options for {@link compileEvaluator}: the flat surface's controls
+ * (`errorParams`, the annotation selection), fixed when the evaluator is
+ * compiled.
+ */
+export type EvaluatorCompileOptions = ListCompileOptions;
+
+/**
+ * The render-time choices of {@link CompiledEvaluator.evaluate}: format,
+ * level, and trace. The controls fixed at compile time are rejected here
+ * with {@link OutputOptionsError} rather than ignored.
+ */
+export type EvaluatorOptions = Pick<
+  EvaluateOptions,
+  "output" | "verbose" | "trace"
+>;
+
+/**
+ * A compiled evaluator (see {@link compileEvaluator}): every output format
+ * from one recorded application tree, with `Engine.evaluate`'s result for
+ * the same instance and options.
+ */
+export interface CompiledEvaluator {
+  evaluate<O extends EvaluatorOptions>(
+    instance: JsonValue,
+    options?: O,
+  ): ResultFor<O>;
+  plan: CompilationPlan;
+  source: string;
+}
+
+/**
  * Compile a registered schema into a flag-mode validator. The artifact
  * binds to a snapshot of the engine's schema and dialect registries taken at
  * compile time, plus the engine's pattern cache: schemas registered,
@@ -114,14 +152,11 @@ export function compileValidator(
   // and this snapshot see one state; the artifact's islands never see a
   // later registration.
   const registry = engine.registry.snapshot();
-  const source = serializePlan(
-    plan,
-    registry,
-    "runtime",
-    options.conservative
+  const source = serializePlan(plan, registry, {
+    flags: options.conservative
       ? { inline: false, plainData: false }
       : { inline: true, plainData: true },
-  );
+  });
   const runtime = makeRuntime(
     registry,
     engine.patternCache,
@@ -162,17 +197,14 @@ export function compileList(
   const errorParams = options.errorParams ?? false;
   const plan = buildPlan(engine, schemaUri, { output: "list" });
   const registry = engine.registry.snapshot();
-  const source = serializePlan(
-    plan,
-    registry,
-    "runtime",
-    options.conservative
+  const source = serializePlan(plan, registry, {
+    flags: options.conservative
       ? { inline: false, plainData: false }
       : { inline: true, plainData: true },
-    "list",
-    errorParams,
-    collect ? { selection } : undefined,
-  );
+    output: "list",
+    listParams: errorParams,
+    annotate: collect ? { selection } : undefined,
+  });
   const runtime = makeRuntime(
     registry,
     engine.patternCache,
@@ -219,6 +251,103 @@ export function compileList(
       const r = evaluateList(instance);
       return renderBasic(r.valid, rootLocation, r.errors, r.annotations ?? []);
     },
+    plan,
+    source,
+  };
+}
+
+/**
+ * Compile a registered schema into an evaluator that renders every output
+ * format: a list artifact that also records each application's node —
+ * locations, keyword verdicts, and the records it raised — into core's
+ * located tree, so the documents render through the same code as the
+ * interpreter's. Format and `trace` are chosen per evaluation; the
+ * annotation selection and `errorParams` are fixed here (D5). Relevant
+ * level only: irrelevant records are discarded at the cut, and a
+ * verbose-level request throws {@link OutputOptionsError}. Binds to
+ * registry snapshots exactly like {@link compileValidator}.
+ */
+export function compileEvaluator(
+  engine: Engine,
+  schemaUri: string,
+  options: EvaluatorCompileOptions = {},
+): CompiledEvaluator {
+  const selection = options.annotations ?? false;
+  const collect = selection !== false;
+  const errorParams = options.errorParams ?? false;
+  const plan = buildPlan(engine, schemaUri, { output: "list" });
+  const registry = engine.registry.snapshot();
+  const source = serializePlan(plan, registry, {
+    flags: options.conservative
+      ? { inline: false, plainData: false }
+      : { inline: true, plainData: true },
+    output: "list",
+    listParams: errorParams,
+    annotate: collect ? { selection } : undefined,
+    trace: true,
+  });
+  const runtime = makeRuntime(
+    registry,
+    engine.patternCache,
+    plan.patterns,
+    options.maxDepth ?? DEFAULT_MAX_DEPTH,
+    errorParams,
+    collect ? { selection } : undefined,
+    engine.formats,
+    plan.formats,
+    true,
+  );
+  const run = instantiateTrace(
+    source,
+    runtime,
+    plan.targets.map((t) => t.ref),
+  );
+  const root = registry.rootRef(schemaUri);
+  const rootLocation = `${root.baseUri}#${root.pointer}`;
+  const keep = typeof selection === "object" ? selection.keep : undefined;
+
+  const evaluate = (
+    instance: JsonValue,
+    evaluateOptions: EvaluatorOptions = {},
+  ): Result => {
+    // The controls fixed at compile time are rejected, not ignored (ADR
+    // 0003: every combination is supported or refused).
+    for (const fixed of ["annotations", "errorParams", "positions"]) {
+      if (fixed in evaluateOptions) {
+        throw new OutputOptionsError(
+          `'${fixed}' is fixed when the evaluator is compiled`,
+        );
+      }
+    }
+    // The compiled selection stands in for the option; `flag` is admitted
+    // whatever the selection, since it renders no records.
+    const demand = {
+      ...resolveOutputDemand({
+        output: evaluateOptions.output,
+        verbose: evaluateOptions.verbose,
+        trace: evaluateOptions.trace,
+      }),
+      annotations: selection,
+    };
+    if (demand.verbose) {
+      throw new OutputOptionsError(
+        "the verbose level needs an evaluator compiled with verbose retention",
+      );
+    }
+    const st = run(instance);
+    if (demand.format === "flag") return { valid: st.valid };
+    const { units, root: node } = finishTrace(st, keep);
+    return assembleResult(
+      demand,
+      st.valid,
+      units,
+      node,
+      rootLocation,
+      evaluateOptions.trace === true,
+    );
+  };
+  return {
+    evaluate: evaluate as CompiledEvaluator["evaluate"],
     plan,
     source,
   };

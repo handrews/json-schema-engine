@@ -269,8 +269,11 @@ compiler assumes own-id production for any occurrence lacking the fact —
 sound degradation, never a broken proof).
 
 **Trampoline.** `evaluateFragment(registry, target, cursor, {dynamicScope,
-pathNode, depth, shouldRecord, regexCache, maxDepth})` → `{valid, errors,
-productions}`. One mechanism for dynamic islands and every fallback cause
+pathNode, depth, shouldRecord, regexCache, maxDepth, tracing})` → `{valid,
+errors, annotations, dependencies, traceRoot, droppedErrors,
+allAnnotations}`; with `tracing` every branch runs and the fragment's trace
+and retained irrelevant records come back for a compiled evaluator to graft
+under its own tree. One mechanism for dynamic islands and every fallback cause
 (unlowerable keyword, non-2020-12 dialect, in-place cycle, size budget).
 The caller passes its constant dynamic-scope contribution (outermost first,
 duplicates preserved — resolution is outermost-match), an evaluation-path
@@ -324,11 +327,15 @@ the error and annotation channels (errs truncates only on keyword
 acceptance, rule 6, never per branch).
 Modern-vocabulary LIST documents and all hierarchical/verbose documents
 are trace-shaped (renderList flattens renderHierarchical over the
-located tree) and stay on the interpreter, today the only producer of
-the renderers' `RenderInput`; the renderers consume string locations and
-index lists, so an artifact that records the tree renders through them
-unchanged, and `basic()` already renders through core. D9e is realized
-in list emission:
+located tree) render from the `RenderInput` either tier produces: the
+interpreter adapts its trace, and a compiled evaluator
+(`compileEvaluator`, trace emission — a list-mode variant) records the
+tree during evaluation: a node per application, a verdict per
+non-structural keyword in dialect order, records attributed as they are
+pushed, islands grafted from traced fragments; the relevance cuts route
+through the runtime so the artifact's level decides whether irrelevant
+records are discarded (relevant level, delivered) or retained (verbose
+level, open). D9e is realized in list emission:
 error-unit objects and message strings materialize only on failure
 paths; annotation units materialize on success paths by definition.
 
@@ -910,8 +917,12 @@ step 1 — DELIVERED 2026-09-06: the document renderers consume a
 tier-neutral `RenderInput` (string locations, keyword verdicts, index lists
 into the flat units), the interpreter adapts its trace in
 packages/core/src/records.ts, and the artifact's `basic()` renders through
-core (byte-identical, suite-wide sweep); step 2, artifacts recording the
-tree, stays open.
+core (byte-identical, suite-wide sweep); step 2 — DELIVERED 2026-09-07:
+`compileEvaluator` records the tree at the relevant level (trace emission,
+traced islands, per-format goldens, evaluator suite differentials over
+five dialects, `FUZZ_EVALUATOR` leg, harness rows); step 3, verbose-level
+retention (dropped errors in drop order, dropped annotations in recording
+order), stays open.
 
 Cross-repository command, package, TypeScript, and package-manager alignment is tracked by the
 canonical public [oaskit tooling-convergence plan](https://github.com/handrews/oaskit/blob/main/docs/tooling-convergence.md).

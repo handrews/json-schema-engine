@@ -172,6 +172,6 @@ export function emitStandalone(
   return (
     STANDALONE_PREAMBLE +
     depthPreamble +
-    serializePlan(plan, engine.registry, "standalone")
+    serializePlan(plan, engine.registry, { mode: "standalone" })
   );
 }

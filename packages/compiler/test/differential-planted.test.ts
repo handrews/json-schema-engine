@@ -7,8 +7,8 @@
 // so this test is the gate that would have caught the gate.
 
 import { describe, it, expect } from "vitest";
-import { createEngine, type JsonValue } from "@jse/core";
-import { compileList, compileValidator } from "@jse/compiler";
+import { createEngine, type JsonValue, type Result } from "@jse/core";
+import { compileEvaluator, compileList, compileValidator } from "@jse/compiler";
 import {
   outcomesAgree,
   runAnnotationsSide,
@@ -135,5 +135,83 @@ describe("planted annotation divergence: only the annotations comparison sees it
     expect(outcomesAgree(listInterpret(PASSING), listValidate(PASSING))).toBe(
       true,
     );
+  });
+});
+
+// Structured-comparison plant: the located tree's SHAPE (branch order)
+// corrupted, verdict and the flat errors/annotations untouched — visible
+// only to a comparison that encodes the WHOLE Result, never to the flat
+// { valid, errors } projection the plain LIST comparison uses (that
+// projection has no channel for the tree at all). Proves the structured
+// (hierarchical/trace) comparison referees something the list leg
+// structurally cannot.
+const ANYOF_SCHEMA = { anyOf: [{ type: "string" }, { type: "number" }] };
+const ANYOF_INSTANCE = "s" as JsonValue;
+
+describe("planted structured divergence: only a structured comparison sees it", () => {
+  it("reversed trace.children slips past the flat LIST comparison, catches on the whole Result", () => {
+    const engine = createEngine();
+    const uri = engine.registerSchema(
+      ANYOF_SCHEMA,
+      "https://planted.example/structured",
+    );
+    const result = engine.evaluate(uri, ANYOF_INSTANCE, {
+      output: "hierarchical",
+      trace: true,
+      annotations: true,
+      errorParams: true,
+    });
+    // Sanity: anyOf never short-circuits (engine.ts runs every branch), so
+    // both branches produced a trace child to reverse — the plant below
+    // isn't vacuous.
+    expect(result.trace.children).toHaveLength(2);
+
+    const corrupted: Result = {
+      ...result,
+      trace: {
+        ...result.trace,
+        children: [...result.trace.children].reverse(),
+      },
+    };
+
+    // The plain list projection carries no trace at all, so the reordering
+    // is structurally invisible to it.
+    const listProject = (r: Result) => ({
+      valid: r.valid,
+      errors: r.errors ?? [],
+    });
+    expect(
+      outcomesAgree(
+        runListSide(() => listProject(result))(ANYOF_INSTANCE),
+        runListSide(() => listProject(corrupted))(ANYOF_INSTANCE),
+      ),
+    ).toBe(true);
+
+    // The whole Result — trace included — is what a structured comparison
+    // encodes, and it does see the reordering.
+    expect(
+      outcomesAgree(
+        runListSide(() => result)(ANYOF_INSTANCE),
+        runListSide(() => corrupted)(ANYOF_INSTANCE),
+      ),
+    ).toBe(false);
+
+    // The uncorrupted evaluator agrees with the interpreter's Result under
+    // that same whole-Result encoding: the structured comparison isn't only
+    // sensitive to corruption, it's correct on the honest artifact too.
+    const evaluator = compileEvaluator(engine, uri, {
+      errorParams: true,
+      annotations: true,
+    });
+    const compiled = evaluator.evaluate(ANYOF_INSTANCE, {
+      output: "hierarchical",
+      trace: true,
+    });
+    expect(
+      outcomesAgree(
+        runListSide(() => result)(ANYOF_INSTANCE),
+        runListSide(() => compiled)(ANYOF_INSTANCE),
+      ),
+    ).toBe(true);
   });
 });

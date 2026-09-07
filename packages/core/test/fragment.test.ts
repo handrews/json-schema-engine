@@ -137,3 +137,47 @@ describe("evaluateFragment (M6.1 trampoline)", () => {
     ).toThrow(MaxDepthExceededError);
   });
 });
+
+describe("evaluateFragment with tracing", () => {
+  const engine = createEngine();
+  const uri = engine.registerSchema(
+    {
+      $defs: {
+        obj: { anyOf: [{ required: ["a"] }, { required: ["b"] }], title: "T" },
+      },
+    },
+    "https://frag.example/traced",
+  );
+  const target = engine.registry.resolveRef(`${uri}#/$defs/obj`, uri);
+  const prefix: PathNode = { parent: null, segment: "properties/o/$ref" };
+
+  it("records the tree and the irrelevant records when asked to", () => {
+    const r = evaluateFragment(engine.registry, target, rootCursor({ b: 1 }), {
+      pathNode: prefix,
+      tracing: true,
+    });
+    expect(r.valid).toBe(true);
+    expect(r.traceRoot!.keywords).toEqual([
+      { name: "anyOf", valid: true },
+      { name: "title", valid: true },
+    ]);
+    // Every branch ran: the rejecting first branch is in the tree and its
+    // error is retained as dropped (draft-03 §12.2).
+    expect(r.traceRoot!.children.map((c) => c.valid)).toEqual([false, true]);
+    expect(r.errors).toHaveLength(0);
+    expect(r.droppedErrors.map((e) => e.keywordName)).toEqual(["required"]);
+    expect(r.allAnnotations.map((a) => a.keywordName)).toEqual(["title"]);
+    expect(materializePath(r.traceRoot!.children[0]!.pathNode)).toBe(
+      "/properties/o/$ref/anyOf/0",
+    );
+  });
+
+  it("builds nothing extra by default", () => {
+    const r = evaluateFragment(engine.registry, target, rootCursor({ b: 1 }), {
+      pathNode: prefix,
+    });
+    expect(r.traceRoot).toBeNull();
+    expect(r.droppedErrors).toEqual([]);
+    expect(r.allAnnotations).toEqual([]);
+  });
+});

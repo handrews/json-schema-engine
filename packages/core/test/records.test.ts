@@ -10,6 +10,7 @@ import {
   makeRecordPredicate,
   rootCursor,
   runEvaluation,
+  traceToRenderNodes,
   UndeclaredProductionError,
   type EvaluateOptions,
   type JsonValue,
@@ -258,5 +259,42 @@ describe("evaluateFragment", () => {
     ]);
     expect(result.dependencies[0]!.cursor).toBe(cursor);
     expect(result.annotations[0]!.cursor).toBe(cursor);
+  });
+});
+
+describe("traceToRenderNodes", () => {
+  it("locates a traced fragment under the caller's prefixes", () => {
+    const engine = createEngine();
+    const uri = engine.registerSchema(
+      {
+        $defs: {
+          obj: {
+            anyOf: [{ required: ["a"] }, { required: ["b"] }],
+            title: "T",
+          },
+        },
+      },
+      "https://records.example/graft",
+    );
+    const target = engine.registry.resolveRef(`${uri}#/$defs/obj`, uri);
+    const r = evaluateFragment(engine.registry, target, rootCursor({ b: 1 }), {
+      pathNode: { parent: null, segment: "properties/o/$ref" },
+      tracing: true,
+    });
+    const { root, at } = traceToRenderNodes(r.traceRoot!, "/o");
+    expect(root.evaluationPath).toBe("/properties/o/$ref");
+    expect(root.schemaLocation).toBe(`${uri}#/$defs/obj`);
+    expect(root.inputLocation).toBe("/o");
+    expect(root.valid).toBe(true);
+    expect(root.keywords.map((k) => k.name)).toEqual(["anyOf", "title"]);
+    expect(root.children.map((c) => c.evaluationPath)).toEqual([
+      "/properties/o/$ref/anyOf/0",
+      "/properties/o/$ref/anyOf/1",
+    ]);
+    expect(root.children.map((c) => c.valid)).toEqual([false, true]);
+    // Owners by path-node identity: the dropped error belongs to branch 0.
+    expect(at.get(r.droppedErrors[0]!.pathNode)).toEqual([root.children[0]]);
+    expect(at.get(r.allAnnotations[0]!.pathNode)).toEqual([root]);
+    expect(root.errors).toEqual([]);
   });
 });

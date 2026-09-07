@@ -18,19 +18,26 @@ import {
   R,
   T,
   EV,
+  EP,
+  IP,
+  ST,
+  TP,
+  TN,
+  type ChannelShape,
   unitFn,
   unitFnRegion,
   regexConst,
   formatConst,
+  channelArgs,
+  fragHelper,
 } from "./names.js";
 import {
   UnitContext,
   SerializeError,
   type EmitMode,
   type EmitFlags,
-  type EmitOutput,
   DEFAULT_FLAGS,
-  type AnnotateOptions,
+  type SerializeOptions,
 } from "./context.js";
 import { guardDecl } from "./guards.js";
 import { unitBody } from "./unit.js";
@@ -40,6 +47,7 @@ export type {
   EmitFlags,
   EmitMode,
   EmitOutput,
+  SerializeOptions,
 } from "./context.js";
 
 /** The root application call the footer wraps: static function or trampoline, per mode. */
@@ -47,37 +55,34 @@ function rootCallChunk(
   plan: CompilationPlan,
   fnIndex: Map<string, number>,
   tableIndex: Map<string, number>,
-  annMode: boolean,
-  output: EmitOutput,
+  shape: ChannelShape,
 ): CodeChunk {
   const root = plan.units.get(plan.rootKey)!;
-  const ERRS = id("errs");
-  const ANNS = id("anns");
-  const rootStatic = root.kind === "static";
-  const rootFn = rootStatic ? unitFn(fnIndex.get(root.key)!) : null;
-  const rootSlot = rootStatic ? null : num(tableIndex.get(root.key)!);
-  const rootCall = annMode
-    ? rootStatic
-      ? js`${rootFn!}(${V}, 0, ${id("h_s0")}, "", "", ${ERRS}, ${ANNS})`
-      : js`${id("h_fragla")}(${T}[${rootSlot!}], ${V}, ${id("h_s0")}, 0, "", "", ${ERRS}, ${ANNS})`
-    : output === "list"
-      ? rootStatic
-        ? js`${rootFn!}(${V}, 0, ${id("h_s0")}, "", "", ${ERRS})`
-        : js`${id("h_fragl")}(${T}[${rootSlot!}], ${V}, ${id("h_s0")}, 0, "", "", ${ERRS})`
-      : rootStatic
-        ? js`${rootFn!}(${V}, 0, ${id("h_s0")})`
-        : js`${id("h_frag")}(${T}[${rootSlot!}], ${V}, ${id("h_s0")}, 0)`;
-  return rootCall;
+  // The root's prefixes are empty; under trace emission its parent is the
+  // state's holder node.
+  const args = channelArgs(
+    shape,
+    () => [str(""), str("")],
+    js`${ST}.hold`,
+    false,
+  );
+  if (root.kind === "static") {
+    const fn = unitFn(fnIndex.get(root.key)!);
+    return js`${fn}(${join(", ", [V, num(0), id("h_s0"), ...args])})`;
+  }
+  const slot = num(tableIndex.get(root.key)!);
+  const helper = fragHelper(shape, false);
+  return js`${helper}(${join(", ", [js`${T}[${slot}]`, V, id("h_s0"), num(0), ...args])})`;
 }
 
 /** Helper bindings, the depth bound, and the hoisted regex/format consts (D9f). */
 function prologueChunks(
   plan: CompilationPlan,
   mode: EmitMode,
-  annMode: boolean,
+  shape: ChannelShape,
   hasRegion: boolean,
-  output: EmitOutput,
 ): CodeChunk[] {
+  const { output, annMode, trace } = shape;
   // Prologue hoists (D9f): helper bindings, the depth bound, and one const
   // per regex source — property/table lookups move out of the hot path.
   // Standalone mode: the module preamble (standalone.ts) already defines the
@@ -92,7 +97,17 @@ function prologueChunks(
       js`const h_s0 = [];`,
       js`const h_hop = Object.prototype.hasOwnProperty;`,
     );
-    if (annMode) prologue.push(js`const h_fragla = ${R}.fragListAnn;`);
+    if (annMode && !trace) {
+      prologue.push(js`const h_fragla = ${R}.fragListAnn;`);
+    }
+    // Trace emission records through the runtime: node creation, the record
+    // pushes that name their application, the level-dependent cuts, and the
+    // traced island trampoline.
+    if (trace) {
+      prologue.push(
+        js`const { traceState: h_tstate, traceNode: h_tnode, traceError: h_err, traceAnn: h_ann, cutErrors: h_cutE, cutAnns: h_cutA, fragTrace: h_fragt } = ${R};`,
+      );
+    }
     // Region emission (phase B) helpers: the two channel folds, plus the
     // coverage-harvesting island trampoline in flag mode (list islands go
     // through the list trampolines' trailing-`ev` overloads instead). Only
@@ -126,12 +141,17 @@ function prologueChunks(
 /** The artifact's entry function, per output and mode. */
 function footerChunk(
   mode: EmitMode,
-  annMode: boolean,
-  output: EmitOutput,
+  shape: ChannelShape,
   rootCall: CodeChunk,
 ): CodeChunk {
+  const { output, annMode, trace } = shape;
   const ERRS = id("errs");
   const ANNS = id("anns");
+  if (trace) {
+    // The state carries the flat channels with their owners and the tree;
+    // the artifact wrapper turns it into a Result.
+    return js`\nreturn function evaluateTrace(${V}) { const ${ST} = ${id("h_tstate")}(); const ok = ${rootCall}; ${ST}.valid = ok; return ${ST}; };\n`;
+  }
   const footer = annMode
     ? js`\nreturn function evaluateList(${V}) { const ${ERRS} = []; const ${ANNS} = []; const ok = ${rootCall}; return { valid: ok, errors: ${ERRS}, annotations: ${ANNS} }; };\n`
     : output === "list"
@@ -142,18 +162,25 @@ function footerChunk(
   return footer;
 }
 
-/** Serializes one compilation plan into artifact source (flag mode). */
+/** Serializes one compilation plan into artifact source. */
 export function serializePlan(
   plan: CompilationPlan,
   registry: SchemaRegistry,
-  mode: EmitMode = "runtime",
-  flags: EmitFlags = DEFAULT_FLAGS,
-  output: EmitOutput = "flag",
-  listParams = false,
-  annotate?: AnnotateOptions,
+  options: SerializeOptions = {},
 ): string {
+  const {
+    mode = "runtime",
+    flags = DEFAULT_FLAGS,
+    output = "flag",
+    listParams = false,
+    annotate,
+    trace = false,
+  } = options;
   if (output === "list" && mode === "standalone") {
     throw new SerializeError("standalone emission is flag-only (M6.5 scope)");
+  }
+  if (trace && output !== "list") {
+    throw new SerializeError("trace emission is a list-mode variant");
   }
   // Runtime coverage tracking (COMPILED-CONSUMERS.md) composes with flag AND
   // list/annotation outputs — list plans track every consumer (plan.ts), so
@@ -174,6 +201,7 @@ export function serializePlan(
   // fail-open, no-short-circuit discipline, adding a flat `anns` channel with
   // mark/truncate at every application boundary (channel rule 3).
   const annMode = annotate !== undefined && output === "list";
+  const shape: ChannelShape = { output, annMode, trace };
   // Static selection: the annotate/unknown-keyword allow/deny decision, applied
   // at emit time so ruled-out annotations never emit. `keep` is deferred.
   const annKeep: RecordPredicate | null = annMode
@@ -211,9 +239,8 @@ export function serializePlan(
         fnIndex,
         tableIndex,
         effFlags,
-        output,
+        shape,
         listParams,
-        annMode,
         annKeep,
         coverageIds,
         false,
@@ -231,9 +258,8 @@ export function serializePlan(
           fnIndex,
           tableIndex,
           effFlags,
-          output,
+          shape,
           listParams,
-          annMode,
           annKeep,
           coverageIds,
           true,
@@ -258,9 +284,9 @@ export function serializePlan(
     )
     .map((r) => r.chunk);
 
-  const rootCall = rootCallChunk(plan, fnIndex, tableIndex, annMode, output);
-  const prologue = prologueChunks(plan, mode, annMode, hasRegion, output);
-  const footer = footerChunk(mode, annMode, output, rootCall);
+  const rootCall = rootCallChunk(plan, fnIndex, tableIndex, shape);
+  const prologue = prologueChunks(plan, mode, shape, hasRegion);
+  const footer = footerChunk(mode, shape, rootCall);
   return frag(
     raw(mode === "runtime" ? '"use strict";\n' : ""),
     join("\n", prologue),
@@ -277,9 +303,8 @@ function serializeUnit(
   fnIndex: Map<string, number>,
   tableIndex: Map<string, number>,
   flags: EmitFlags,
-  output: EmitOutput,
+  shape: ChannelShape,
   listParams: boolean,
-  annMode: boolean,
   annKeep: RecordPredicate | null,
   coverageIds: ReadonlySet<string>,
   /** emitting the channel-threaded region variant of an inRegion unit */
@@ -303,15 +328,13 @@ function serializeUnit(
     ? unitFnRegion(fnIndex.get(unit.key)!)
     : unitFn(fnIndex.get(unit.key)!);
   const node = unit.ref.node;
-  // Annotation mode extends the list signature with a trailing `anns` channel;
-  // a region variant appends the coverage channel after every other parameter.
-  const listSig = annMode
-    ? regionVariant
-      ? js`(${V}, ${D}, ${S}, ${id("ep")}, ${id("ip")}, ${id("errs")}, ${id("anns")}, ${EV})`
-      : js`(${V}, ${D}, ${S}, ${id("ep")}, ${id("ip")}, ${id("errs")}, ${id("anns")})`
-    : regionVariant
-      ? js`(${V}, ${D}, ${S}, ${id("ep")}, ${id("ip")}, ${id("errs")}, ${EV})`
-      : js`(${V}, ${D}, ${S}, ${id("ep")}, ${id("ip")}, ${id("errs")})`;
+  const { output, annMode, trace } = shape;
+  const sloc = str(unit.ref.baseUri + "#" + unit.ref.pointer);
+  // Trace emission: every application, boolean schemas included, is a node.
+  const enterNode = js`const ${TN} = ${id("h_tnode")}(${TP}, ${EP}, ${sloc}, ${IP});`;
+  // The unit signature carries the channels of the emission (channelArgs); a
+  // region variant appends the coverage channel after every other parameter.
+  const sig = js`(${join(", ", [V, D, S, ...channelArgs(shape, () => [EP, IP], TP, regionVariant)])})`;
 
   if (typeof node === "boolean") {
     // List mode: `false` reports the interpreter's boolean-schema error
@@ -321,9 +344,13 @@ function serializeUnit(
     // A `false` schema never produces an annotation; the `anns` parameter is
     // carried only to match the call signature.
     const falseParams = listParams ? js`, params: {}` : js``;
-    const chunk =
-      output === "list" && !node
-        ? js`function ${fn}${listSig} { ${id("errs")}.push({ evaluationPath: ${id("ep")}, schemaLocation: ${str(unit.ref.baseUri + "#" + unit.ref.pointer)}, inputLocation: ${id("ip")}, error: "schema is false"${falseParams} }); return false; }`
+    const falseUnit = js`{ evaluationPath: ${id("ep")}, schemaLocation: ${sloc}, inputLocation: ${id("ip")}, error: "schema is false"${falseParams} }`;
+    const chunk = trace
+      ? node
+        ? js`function ${fn}${sig} { ${id("h_tnode")}(${TP}, ${EP}, ${sloc}, ${IP}); return true; }`
+        : js`function ${fn}${sig} { ${enterNode} ${TN}.valid = false; ${id("h_err")}(${ST}, ${TN}, ${falseUnit}); return false; }`
+      : output === "list" && !node
+        ? js`function ${fn}${sig} { ${id("errs")}.push(${falseUnit}); return false; }`
         : js`function ${fn}() { return ${raw(String(node))}; }`;
     return {
       key: unit.key,
@@ -341,6 +368,7 @@ function serializeUnit(
     // can consume it.
     body.push(js`${S} = [...${S}, ${str(unit.ref.baseUri)}];`);
   }
+  if (trace) body.push(enterNode);
 
   // A unit that participates in region emission (a tracked unit, or an
   // inRegion unit — through EITHER variant) never inlines: a single-use child
@@ -365,6 +393,7 @@ function serializeUnit(
     annKeep,
     regionMode,
     coverageIds,
+    shape.trace,
   );
   const unitStmts = unitBody(ctx);
   // Depth guard (D20 combined budget) only where a chain can grow: a
@@ -382,19 +411,17 @@ function serializeUnit(
   body.push(...unitStmts);
 
   if (output === "list") {
+    if (trace) body.push(js`${TN}.valid = ok;`);
     body.push(js`return ok;`);
     return {
       key: unit.key,
       boolean: false,
-      chunk: js`function ${fn}${listSig} { ${join("\n", body)} }`,
+      chunk: js`function ${fn}${sig} { ${join("\n", body)} }`,
       inlined: ctx.inlinedKeys,
       region: regionVariant,
     };
   }
   body.push(js`return true;`);
-  const sig = regionVariant
-    ? js`(${V}, ${D}, ${S}, ${EV})`
-    : js`(${V}, ${D}, ${S})`;
   return {
     key: unit.key,
     boolean: false,

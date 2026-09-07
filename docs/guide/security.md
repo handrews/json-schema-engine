@@ -14,9 +14,10 @@ the same care as any other untrusted program input.
 
 ## The compiler tier and code generation
 
-`@jse/compiler` DOES generate code: `compileValidator`/`compileList` build
-artifact source and instantiate it with `new Function` (the only two such
-call sites, fenced by lint rules). Two properties bound the risk:
+`@jse/compiler` DOES generate code: `compileValidator`, `compileList`, and
+`compileEvaluator` build artifact source and instantiate it with
+`new Function` (the only such call sites, fenced by lint rules). Two
+properties bound the risk:
 
 - All emitted text is assembled through a gated formatter whose typed
   wrappers escape every schema-derived value; there is no raw-code path in

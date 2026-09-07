@@ -9,6 +9,7 @@ import { instancePointer } from "./cursor.js";
 import {
   AnnotationRecord,
   ErrorRecord,
+  KeywordTrace,
   PathNode,
   TraceNode,
   materializePath,
@@ -136,14 +137,11 @@ function indexByPath(
 }
 
 /**
- * Adapts the interpreter's trace and its paired record/unit arrays into the
- * renderers' input, materializing every location once per application.
+ * Adapts the interpreter's trace into the located tree, materializing every
+ * location once per application; the index lists point into the unit
+ * arrays paired with `records`.
  */
-export function toRenderInput(
-  root: TraceNode,
-  records: RecordSets,
-  units: UnitSets,
-): RenderInput {
+export function toRenderNode(root: TraceNode, records: RecordSets): RenderNode {
   const errorsAt = indexByPath(records.errors);
   const droppedErrorsAt = indexByPath(records.droppedErrors);
   const annotationsAt = indexByPath(records.annotations);
@@ -160,11 +158,69 @@ export function toRenderInput(
     droppedAnnotations: droppedAnnotationsAt.get(node.pathNode) ?? NO_INDEXES,
     children: node.children.map(toNode),
   });
+  return toNode(root);
+}
+
+/**
+ * A {@link RenderNode} still being filled by its producer: the index lists
+ * grow as records are attributed, `valid` is settled when the application
+ * ends. Assignable to `RenderNode` once complete.
+ */
+export interface MutableRenderNode extends RenderNode {
+  valid: boolean;
+  keywords: KeywordTrace[];
+  errors: number[];
+  droppedErrors: number[];
+  annotations: number[];
+  droppedAnnotations: number[];
+  children: MutableRenderNode[];
+}
+
+/**
+ * Converts a traced fragment into producer-side nodes. The evaluation path
+ * comes from the fragment's path chain (a compiled caller seeds it with its
+ * own prefix), the input location gets the caller's prefix, and `at` maps
+ * each path node to the nodes sharing it so the caller can attribute the
+ * fragment's records to their owners the way the interpreter's adapter does.
+ */
+export function traceToRenderNodes(
+  root: TraceNode,
+  inputPrefix: string,
+): { root: MutableRenderNode; at: Map<PathNode | null, MutableRenderNode[]> } {
+  const at = new Map<PathNode | null, MutableRenderNode[]>();
+  const toNode = (node: TraceNode): MutableRenderNode => {
+    const out: MutableRenderNode = {
+      evaluationPath: materializePath(node.pathNode),
+      schemaLocation: schemaLocationOf(node.schemaRef, null),
+      inputLocation: inputPrefix + instancePointer(node.cursor),
+      valid: node.valid,
+      keywords: node.keywords,
+      errors: [],
+      droppedErrors: [],
+      annotations: [],
+      droppedAnnotations: [],
+      children: [],
+    };
+    const sharing = at.get(node.pathNode);
+    if (sharing) sharing.push(out);
+    else at.set(node.pathNode, [out]);
+    for (const child of node.children) out.children.push(toNode(child));
+    return out;
+  };
+  return { root: toNode(root), at };
+}
+
+/** The located tree with its paired unit arrays: the renderers' input. */
+export function toRenderInput(
+  root: TraceNode,
+  records: RecordSets,
+  units: UnitSets,
+): RenderInput {
   return {
     errors: units.errors,
     droppedErrors: units.droppedErrors,
     annotations: units.annotations,
     droppedAnnotations: units.droppedAnnotations,
-    root: toNode(root),
+    root: toRenderNode(root, records),
   };
 }

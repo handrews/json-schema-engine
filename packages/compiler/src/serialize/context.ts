@@ -53,6 +53,23 @@ export interface EmitFlags {
 export type EmitOutput = "flag" | "list";
 export const DEFAULT_FLAGS: EmitFlags = { inline: true, plainData: true };
 
+/** How a plan is serialized; every field has the flag-mode default. */
+export interface SerializeOptions {
+  mode?: EmitMode;
+  flags?: EmitFlags;
+  output?: EmitOutput;
+  /** structured `keyword`/`vocabulary`/`params` on error units (D13) */
+  listParams?: boolean;
+  /** annotation collection (a list-mode variant) */
+  annotate?: AnnotateOptions;
+  /**
+   * Trace emission (a list-mode variant): every application records its
+   * node in a located tree — locations, keyword verdicts, and the records
+   * it raised — so the artifact renders every output format.
+   */
+  trace?: boolean;
+}
+
 /** Per-unit serialization state: bindings, keyword context, apply targets. */
 export interface Counters {
   binding: number;
@@ -108,6 +125,12 @@ export class UnitContext {
 
   /** Unit keys this context (transitively) inlined — their functions are omitted. */
   readonly inlinedKeys = new Set<string>();
+  /**
+   * Trace emission: the verdict variable of each present keyword,
+   * pre-declared for the unit because `if` settles `then`/`else`'s verdicts
+   * before those keywords' own (empty) statements run.
+   */
+  readonly kwVerdicts = new Map<string, CodeChunk>();
 
   constructor(
     readonly unit: PlannedUnit,
@@ -132,5 +155,7 @@ export class UnitContext {
     readonly regionMode = false,
     /** behavior ids a consumer observes (region channel-push gate, rule 5) */
     readonly coverageIds: ReadonlySet<string> = new Set(),
+    /** trace emission: record the application tree (SerializeOptions.trace) */
+    readonly trace = false,
   ) {}
 }

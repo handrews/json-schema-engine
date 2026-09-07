@@ -3,6 +3,7 @@
 
 import { escapeSegment, type LowerMessage, type LowerParams } from "@jse/core";
 import { type CodeChunk, id, join, js, str } from "../emit.js";
+import { ERRS, ST, TN } from "./names.js";
 import { UnitContext, SerializeError } from "./context.js";
 import { expr } from "./expressions.js";
 
@@ -81,7 +82,27 @@ export function pushError(
   const fail = ctx.kwOk
     ? js`ok = false; ${ctx.kwOk} = false;`
     : js`ok = false;`;
-  return js`${fail} ${id("errs")}.push({ evaluationPath: ${id("ep")} + ${str(suffix)}, schemaLocation: ${str(sloc)}, inputLocation: ${id("ip")}, error: ${msg}${extra} });`;
+  const unit = js`{ evaluationPath: ${id("ep")} + ${str(suffix)}, schemaLocation: ${str(sloc)}, inputLocation: ${id("ip")}, error: ${msg}${extra} }`;
+  // Trace emission records the raising application with the unit.
+  return ctx.trace
+    ? js`${fail} ${id("h_err")}(${ST}, ${TN}, ${unit});`
+    : js`${fail} ${ERRS}.push(${unit});`;
+}
+
+/** The error channel's current length: the value a relevance mark takes. */
+export function errsLength(ctx: UnitContext): CodeChunk {
+  return ctx.trace ? js`${ST}.errs.length` : js`${ERRS}.length`;
+}
+
+/**
+ * Drop the errors pushed since mark `m` (an accepting keyword made them
+ * irrelevant). Trace emission routes the cut through the runtime, which
+ * discards or retains them by the artifact's level.
+ */
+export function errsCut(ctx: UnitContext, m: CodeChunk): CodeChunk {
+  return ctx.trace
+    ? js`${id("h_cutE")}(${ST}, ${m});`
+    : js`${ERRS}.length = ${m};`;
 }
 
 /**
