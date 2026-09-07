@@ -1,4 +1,5 @@
-// Executes every ```ts code block in README.md and docs/guide/*.md
+// Executes every ```ts code block in README.md, docs/conformance.md, and
+// docs/guide/*.md
 // (CONTRIBUTING.md "Documentation conventions" states the contract): each
 // block is a self-contained module that must import successfully and run
 // without throwing. Snippets import "@jse/core" etc. by package name, which
@@ -21,7 +22,8 @@ import { describe, it, beforeAll, afterAll, expect } from "vitest";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, "..", "..", "..");
 const SNIPPET_DIR = join(ROOT, ".cache", "snippets");
-const GUIDE_DIR = join(ROOT, "docs", "guide");
+const DOCS_DIR = join(ROOT, "docs");
+const GUIDE_DIR = join(DOCS_DIR, "guide");
 
 interface Snippet {
   id: string;
@@ -48,6 +50,9 @@ function extractSnippets(markdownPath: string, label: string): Snippet[] {
 
 const sources = [
   { path: join(ROOT, "README.md"), label: "README" },
+  // Named explicitly rather than sweeping docs/: that would pull in
+  // architecture.md and the planning area, whose blocks are illustrative.
+  { path: join(DOCS_DIR, "conformance.md"), label: "conformance" },
   ...readdirSync(GUIDE_DIR)
     .filter((f) => f.endsWith(".md"))
     .map((f) => ({
