@@ -12,7 +12,7 @@
 //   FUZZ_DIALECT=draft7 npm run fuzz   # seed from another dialect's suite
 //   FUZZ_LIST=1 npm run fuzz           # referee full list output
 //   FUZZ_ANNOTATIONS=1 npm run fuzz    # referee list output + annotations
-//   FUZZ_EVALUATOR=1 npm run fuzz      # referee the compiled evaluator (every format)
+//   FUZZ_EVALUATOR=1 npm run fuzz      # referee the compiled evaluator (relevant + verbose)
 //
 // Deterministic: the summary reports the seed, and every case reproduces
 // from (seed, fileIndex, groupIndex, caseIndex). Exit code is nonzero on any
@@ -67,9 +67,15 @@ const ANNOTATIONS_MODE = process.env.FUZZ_ANNOTATIONS === "1";
 // annotation — canonicalized the same way as the list/annotations legs
 // (runListSide over the raw Result rather than a hand-picked subset), so the
 // comparison covers errors, annotations, and the trace tree together in one
-// pass. A strict superset of the FUZZ_ANNOTATIONS comparison, so it takes
-// precedence over both FUZZ_ANNOTATIONS and FUZZ_LIST. Seeds from
-// ANNOTATION_SEED_GROUPS exactly like FUZZ_ANNOTATIONS, for the same reason.
+// pass. Both levels are refereed in one leg: a relevant artifact and a
+// verbose artifact are compiled from the same schema and each side encodes
+// one `{ relevant, verbose }` object, so a single divergence report pins
+// which level (or both) disagreed. The verbose side compares the whole
+// Result, droppedErrors/droppedAnnotations included — the retention channel
+// has no relevant-level analogue to referee any other way. A strict superset
+// of the FUZZ_ANNOTATIONS comparison, so it takes precedence over both
+// FUZZ_ANNOTATIONS and FUZZ_LIST. Seeds from ANNOTATION_SEED_GROUPS exactly
+// like FUZZ_ANNOTATIONS, for the same reason.
 const EVALUATOR_MODE = process.env.FUZZ_EVALUATOR === "1";
 const MODE_NAME = EVALUATOR_MODE
   ? "evaluator"
@@ -135,23 +141,44 @@ function factoryFor(baseUri: string): DifferentialFactory {
         DIALECT_SETUP?.(engine);
         const uri = engine.registerSchema(schema, baseUri);
         if (EVALUATOR_MODE) {
-          const artifact = compileEvaluator(engine, uri, {
+          const relevantArtifact = compileEvaluator(engine, uri, {
             ...COMPILE_OPTS,
             errorParams: true,
             annotations: true,
           });
+          const verboseArtifact = compileEvaluator(engine, uri, {
+            ...COMPILE_OPTS,
+            errorParams: true,
+            annotations: true,
+            verbose: true,
+          });
           return {
-            interpret: runListSide((x) =>
-              engine.evaluate(uri, x, {
+            interpret: runListSide((x) => ({
+              relevant: engine.evaluate(uri, x, {
                 output: "hierarchical",
                 trace: true,
                 annotations: true,
                 errorParams: true,
               }),
-            ),
-            validate: runListSide((x) =>
-              artifact.evaluate(x, { output: "hierarchical", trace: true }),
-            ),
+              verbose: engine.evaluate(uri, x, {
+                output: "hierarchical",
+                trace: true,
+                annotations: true,
+                errorParams: true,
+                verbose: true,
+              }),
+            })),
+            validate: runListSide((x) => ({
+              relevant: relevantArtifact.evaluate(x, {
+                output: "hierarchical",
+                trace: true,
+              }),
+              verbose: verboseArtifact.evaluate(x, {
+                output: "hierarchical",
+                verbose: true,
+                trace: true,
+              }),
+            })),
           };
         }
         if (ANNOTATIONS_MODE) {
