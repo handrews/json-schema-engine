@@ -63,25 +63,42 @@ export interface TraceState {
   valid: boolean;
   errs: ErrorUnit[];
   errNodes: NodeRef[];
+  /**
+   * The errors an accepting keyword made irrelevant, in drop order (the
+   * interpreter's `dropErrorsFrom` order). Filled only by a retaining
+   * artifact; the relevant level discards at the cut.
+   */
+  droppedErrs: ErrorUnit[];
+  droppedErrNodes: NodeRef[];
   anns: AnnotationUnit[];
   annNodes: NodeRef[];
+  /**
+   * Indexes into `anns` of the annotations a failed application made
+   * irrelevant. A retaining artifact keeps every annotation in `anns` in
+   * recording order and its cuts flag here instead of truncating, so the
+   * dropped side renders in that order too; null on the relevant level.
+   */
+  annDropped: Set<number> | null;
   /** the root's parent: `hold.children[0]` is the root application */
   hold: NodeParent;
 }
 
 /**
  * Attributes every unit to its application and applies the selection's
- * `keep` predicate, yielding the flat surface and the tree. The relevant
- * level discards dropped records at the cut, so the dropped pair is empty;
- * an invalid run has no relevant annotations (draft-03 §12.2).
+ * `keep` predicate, yielding the flat surface and the tree. With `retain`
+ * the irrelevant records a retaining artifact kept aside are rendered as
+ * the dropped pair; without it they are left out, so a verbose artifact
+ * serves a relevant-level demand exactly. An invalid run has no relevant
+ * annotations (draft-03 §12.2): every one it recorded is a dropped one.
  */
 export function finishTrace(
   st: TraceState,
   keep: ((unit: AnnotationUnit) => boolean) | undefined,
+  retain: boolean,
 ): { units: ResultUnits; root: MutableRenderNode } {
   const attribute = (
     ref: NodeRef,
-    list: "errors" | "annotations",
+    list: "errors" | "droppedErrors" | "annotations" | "droppedAnnotations",
     index: number,
   ): void => {
     if (Array.isArray(ref)) for (const node of ref) node[list].push(index);
@@ -90,20 +107,37 @@ export function finishTrace(
   st.errs.forEach((_, i) => {
     attribute(st.errNodes[i]!, "errors", i);
   });
+  const droppedErrors = retain ? st.droppedErrs : [];
+  droppedErrors.forEach((_, i) => {
+    attribute(st.droppedErrNodes[i]!, "droppedErrors", i);
+  });
   const annotations: AnnotationUnit[] = [];
-  if (st.valid) {
-    st.anns.forEach((unit, i) => {
-      if (keep !== undefined && !keep(unit)) return;
+  const droppedAnnotations: AnnotationUnit[] = [];
+  const flagged = st.annDropped;
+  st.anns.forEach((unit, i) => {
+    const irrelevant = !st.valid || flagged?.has(i) === true;
+    if (irrelevant && !retain) return;
+    // `keep` sees relevant and dropped units alike, as the interpreter's
+    // selection does.
+    if (keep !== undefined && !keep(unit)) return;
+    if (irrelevant) {
+      attribute(
+        st.annNodes[i]!,
+        "droppedAnnotations",
+        droppedAnnotations.length,
+      );
+      droppedAnnotations.push(unit);
+    } else {
       attribute(st.annNodes[i]!, "annotations", annotations.length);
       annotations.push(unit);
-    });
-  }
+    }
+  });
   return {
     units: {
       errors: st.errs,
-      droppedErrors: [],
+      droppedErrors,
       annotations,
-      droppedAnnotations: [],
+      droppedAnnotations,
     },
     root: st.hold.children[0]!,
   };
@@ -213,14 +247,22 @@ export interface Runtime {
   traceError?(st: TraceState, tn: MutableRenderNode, unit: ErrorUnit): void;
   /** Trace emission: an annotation unit with the application that raised it. */
   traceAnn?(st: TraceState, tn: MutableRenderNode, unit: AnnotationUnit): void;
-  /** Trace emission: an accepting keyword's cut of the errors since mark `m`. */
+  /**
+   * Trace emission: an accepting keyword's cut of the errors since mark
+   * `m`. The emitted source is level-neutral; the artifact's level decides
+   * here whether the cut discards them or moves them aside as dropped.
+   */
   cutErrors?(st: TraceState, m: number): void;
-  /** Trace emission: a failed application's cut of the annotations since mark `m`. */
+  /**
+   * Trace emission: a failed application's cut of the annotations since
+   * mark `m` — discarded, or flagged as dropped, by the artifact's level.
+   */
   cutAnns?(st: TraceState, m: number): void;
   /**
    * Trace emission's island trampoline: the fragment runs traced, its
    * subtree is grafted under the calling application, and its records join
-   * the channels attributed to the fragment nodes that raised them. `ev`
+   * the channels attributed to the fragment nodes that raised them — on a
+   * retaining artifact, the fragment's own dropped records included. `ev`
    * composes as on {@link Runtime.fragList}.
    */
   fragTrace?(
@@ -236,7 +278,11 @@ export interface Runtime {
   ): boolean;
 }
 
-/** Builds the {@link Runtime} closure for an artifact bound to one registry. */
+/**
+ * Builds the {@link Runtime} closure for an artifact bound to one registry.
+ * `retain` selects the verbose level's trace helpers: the relevance cuts
+ * keep the irrelevant records aside instead of discarding them.
+ */
 export function makeRuntime(
   registry: SchemaRegistry,
   regexCache: RegexCache,
@@ -247,6 +293,7 @@ export function makeRuntime(
   formatTable?: FormatTable,
   usedFormats: readonly string[] = [],
   trace = false,
+  retain = false,
 ): Runtime {
   const re = Object.create(null) as Record<
     string,
@@ -402,10 +449,12 @@ export function makeRuntime(
           },
         }
       : {}),
-    ...(trace ? traceHelpers() : {}),
+    ...(trace ? traceHelpers(retain) : {}),
   };
 
-  function traceHelpers(): Pick<
+  function traceHelpers(
+    retain: boolean,
+  ): Pick<
     Runtime,
     | "traceState"
     | "traceNode"
@@ -420,8 +469,11 @@ export function makeRuntime(
         valid: true,
         errs: [],
         errNodes: [],
+        droppedErrs: [],
+        droppedErrNodes: [],
         anns: [],
         annNodes: [],
+        annDropped: retain ? new Set() : null,
         hold: { children: [] },
       }),
       traceNode: (tp, ep, sloc, ip) => {
@@ -449,15 +501,34 @@ export function makeRuntime(
         st.annNodes.push(tn);
       },
       // The relevant level discards what an accepting keyword or a failed
-      // application made irrelevant, exactly as list mode truncates.
-      cutErrors: (st, m) => {
-        st.errs.length = m;
-        st.errNodes.length = m;
-      },
-      cutAnns: (st, m) => {
-        st.anns.length = m;
-        st.annNodes.length = m;
-      },
+      // application made irrelevant, exactly as list mode truncates. The
+      // verbose level keeps it: dropped errors move aside in drop order
+      // (the interpreter's `dropErrorsFrom`); dropped annotations stay in
+      // place, flagged, so the marks that later cuts take remain positions
+      // in the one recording-ordered channel.
+      cutErrors: retain
+        ? (st, m) => {
+            const { errs, errNodes } = st;
+            for (let i = m; i < errs.length; i++) {
+              st.droppedErrs.push(errs[i]!);
+              st.droppedErrNodes.push(errNodes[i]!);
+            }
+            errs.length = m;
+            errNodes.length = m;
+          }
+        : (st, m) => {
+            st.errs.length = m;
+            st.errNodes.length = m;
+          },
+      cutAnns: retain
+        ? (st, m) => {
+            const flagged = st.annDropped!;
+            for (let i = m; i < st.anns.length; i++) flagged.add(i);
+          }
+        : (st, m) => {
+            st.anns.length = m;
+            st.annNodes.length = m;
+          },
       fragTrace: (target, value, scope, depth, ep, ip, st, tp, ev) => {
         const pathNode: PathNode | null =
           ep === "" ? null : { parent: null, segment: ep.slice(1) };
@@ -487,11 +558,36 @@ export function makeRuntime(
           st.errs.push(unit);
           st.errNodes.push(owner(record.pathNode));
         }
-        for (const a of result.annotations) {
-          const unit = renderAnnotation(a);
-          unit.inputLocation = ip + unit.inputLocation;
-          st.anns.push(unit);
-          st.annNodes.push(owner(a.pathNode));
+        if (retain) {
+          // The fragment ran to completion between two compiled cuts, so
+          // appending its drops here keeps the whole run's drop order.
+          for (const record of result.droppedErrors) {
+            const unit = renderError(record, listParams);
+            unit.inputLocation = ip + unit.inputLocation;
+            st.droppedErrs.push(unit);
+            st.droppedErrNodes.push(owner(record.pathNode));
+          }
+          // Every annotation the fragment recorded, in recording order;
+          // those outside its root frame's survivors are dropped — all of
+          // them when the fragment failed, since a failed application's
+          // frame is discarded whole.
+          const relevant = result.valid ? new Set(result.annotations) : null;
+          for (const a of result.allAnnotations) {
+            const unit = renderAnnotation(a);
+            unit.inputLocation = ip + unit.inputLocation;
+            if (!relevant?.has(a)) {
+              st.annDropped!.add(st.anns.length);
+            }
+            st.anns.push(unit);
+            st.annNodes.push(owner(a.pathNode));
+          }
+        } else {
+          for (const a of result.annotations) {
+            const unit = renderAnnotation(a);
+            unit.inputLocation = ip + unit.inputLocation;
+            st.anns.push(unit);
+            st.annNodes.push(owner(a.pathNode));
+          }
         }
         if (ev !== undefined) {
           ev.push(...harvestCoverage(result.dependencies, cursor, coverageIds));

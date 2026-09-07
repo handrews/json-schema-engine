@@ -19,12 +19,13 @@
 //   COMPILED-ANNOTATIONS.md's stage-3 bar.
 // - Every output format is timed on both tiers, split by verdict partition
 //   (valid/invalid render different costs — annotations vs. errors plus
-//   dropped-record retention). Six formats compile (flag, list+annotations,
-//   basic, hierarchical, detailed, list+trace); the verbose-level rows
-//   (list+verbose, verbose) are interpreter-only. Every compiled row's
-//   document must deep-equal the interpreter's for the same instance
-//   before timing runs — the same oracle discipline as list+annotations,
-//   generalized to the whole format table.
+//   dropped-record retention). Every row compiles; the verbose-level rows
+//   (list+verbose, verbose) run against a separately compiled retaining
+//   artifact (`verboseEvaluator`) so the relevant-level rows keep measuring
+//   an artifact that does no retention. Every compiled row's document must
+//   deep-equal the interpreter's for the same instance before timing runs —
+//   the same oracle discipline as list+annotations, generalized to the
+//   whole format table.
 // - tinybench's `iterations`/`warmupIterations` floors are pinned low
 //   (5/2): left at their defaults (64/16), a slow task would run for
 //   seconds regardless of BENCH_BUDGET.
@@ -362,6 +363,7 @@ interface CorpusContext {
   list: CompiledListArtifact;
   listAnn: CompiledListArtifact;
   evaluator: CompiledEvaluator;
+  verboseEvaluator: CompiledEvaluator;
 }
 
 async function subjectsFor(corpus: Corpus): Promise<CorpusContext> {
@@ -377,6 +379,14 @@ async function subjectsFor(corpus: Corpus): Promise<CorpusContext> {
   const evaluator = compileEvaluator(engine, uri, {
     errorParams: false,
     annotations: true,
+  });
+  // Backs the list+verbose and verbose rows: a separate artifact because
+  // retention is fixed at compile time (D5), and the relevant-level rows
+  // above must keep measuring an artifact that does no retention.
+  const verboseEvaluator = compileEvaluator(engine, uri, {
+    errorParams: false,
+    annotations: true,
+    verbose: true,
   });
   const subjects: Subject[] = [
     { name: "jse compiled flag", verdict: (x) => flag.validate(x) },
@@ -429,7 +439,16 @@ async function subjectsFor(corpus: Corpus): Promise<CorpusContext> {
       verdict: (x) => compatValidate(x),
     });
   }
-  return { subjects, engine, uri, flag, list, listAnn, evaluator };
+  return {
+    subjects,
+    engine,
+    uri,
+    flag,
+    list,
+    listAnn,
+    evaluator,
+    verboseEvaluator,
+  };
 }
 
 // --- Output formats --------------------------------------------------------
@@ -523,6 +542,17 @@ const FORMATS: FormatEntry[] = [
       verbose: true,
       annotations: true,
     }),
+    compiled: ({ verboseEvaluator }) => ({
+      run: (x) =>
+        verboseEvaluator.evaluate(x, { output: "list", verbose: true }),
+      probe: (x) => {
+        const r = verboseEvaluator.evaluate(x, {
+          output: "list",
+          verbose: true,
+        });
+        return { valid: r.valid, document: r.outputDocument };
+      },
+    }),
   },
   // The ajv-compat escalation path (list evaluation with the trace kept).
   {
@@ -567,6 +597,13 @@ const FORMATS: FormatEntry[] = [
   {
     format: "verbose",
     interpreter: interpreted({ output: "verbose", annotations: true }),
+    compiled: ({ verboseEvaluator }) => ({
+      run: (x) => verboseEvaluator.evaluate(x, { output: "verbose" }),
+      probe: (x) => {
+        const r = verboseEvaluator.evaluate(x, { output: "verbose" });
+        return { valid: r.valid, document: r.outputDocument };
+      },
+    }),
   },
 ];
 
