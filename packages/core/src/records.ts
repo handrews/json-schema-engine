@@ -181,7 +181,7 @@ export interface MutableRenderNode extends RenderNode {
  * comes from the fragment's path chain (a compiled caller seeds it with its
  * own prefix), the input location gets the caller's prefix, and `at` maps
  * each path node to the nodes sharing it so the caller can attribute the
- * fragment's records to their owners the way {@link toRenderNode} does.
+ * fragment's records to their owners the way the interpreter's adapter does.
  */
 export function traceToRenderNodes(
   root: TraceNode,

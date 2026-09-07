@@ -59,7 +59,7 @@ flowchart TD
     INS["instance"] --> INT
     INS --> ART
     ART --> OUT2["flag · flat errors/annotations"]
-    ART -- "flat units → renderBasic" --> OUT
+    ART -- "RenderInput (recorded tree)" --> OUT
 ```
 
 ## The channel

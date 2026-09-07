@@ -64,8 +64,9 @@ use the engine's own field names: `evaluationPath`, `schemaLocation`,
 `inputLocation`, and `error` or `keyword`/`vocabulary`/`annotation`. The
 controls `errorParams`, `positions`, and `trace` apply to this surface on any
 non-flag format; `outputDocument` always has exactly its source's structure.
-Compiled artifacts (`@jse/compiler`) render `flag`, this flat surface, and
-the `basic` document; the other documents are rendered by the interpreter.
+Compiled evaluators (`@jse/compiler`, [below](#compiled-evaluators)) render
+every relevant-level format and the trace from one recorded application
+tree; the verbose level is rendered by the interpreter.
 
 | Concept          | Flat surface            | IETF draft-03 documents           | Machines-oriented documents         |
 | ---------------- | ----------------------- | --------------------------------- | ----------------------------------- |
@@ -297,7 +298,8 @@ flat error unit: the failing keyword's identity and a plain-JSON object of
 structured failure data, so tooling consumes the failure mechanically
 instead of parsing the message string. `keyword` and `vocabulary` are absent
 when a boolean `false` schema failed. Documents never carry these fields;
-`compileList` accepts the same option and produces identical units.
+`compileList` and `compileEvaluator` accept the same option and produce
+identical units.
 
 ```ts
 import assert from "node:assert";
@@ -322,6 +324,43 @@ assert.equal(
   "https://json-schema.org/draft/2020-12/vocab/validation",
 );
 ```
+
+### Compiled evaluators
+
+`compileEvaluator` compiles a schema once into an artifact that records
+each application's node while it evaluates, then renders the requested
+format through the same code the interpreter uses. The annotation
+selection and `errorParams` are fixed when the evaluator is compiled;
+`output` and `trace` are chosen per evaluation. The result is the
+interpreter's, key for key.
+
+```ts
+import assert from "node:assert";
+import { createEngine } from "@jse/core";
+import { compileEvaluator } from "@jse/compiler";
+
+const engine = createEngine();
+const uri = engine.registerSchema(
+  { title: "root", properties: { count: { type: "integer" } } },
+  "https://example.com/evaluator",
+);
+const evaluator = compileEvaluator(engine, uri, { annotations: true });
+
+const instance = { count: "three" };
+assert.deepStrictEqual(
+  evaluator.evaluate(instance, { output: "hierarchical", trace: true }),
+  engine.evaluate(uri, instance, {
+    output: "hierarchical",
+    trace: true,
+    annotations: true,
+  }),
+);
+```
+
+Every relevant-level format is available: `flag`, `basic`, `list`,
+`hierarchical`, `detailed`, each with or without `trace`. A verbose-level
+request (`verbose`, or `verbose: true`) and any attempt to change the
+compile-time controls at evaluation throw `OutputOptionsError`.
 
 The vocabulary, per keyword: `type` → `{expected}` (the schema value);
 `enum` → `{allowedValues}`; `const` → `{allowedValue}`; the string/
