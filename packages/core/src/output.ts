@@ -251,6 +251,25 @@ export type IrrelevantRendering = "omit" | "mark";
 const joinMessages = (errs: readonly ErrorUnit[]): string =>
   errs.map((e) => e.error).join("; ");
 
+// The by-keyword records are keyed by names the schema chooses, and the
+// documents stay ordinary objects (consumers compare them as plain JSON),
+// so the one name an ordinary object already answers to — "__proto__",
+// an accessor on Object.prototype — has to be defined as an own property:
+// assigned, a primitive would be discarded and an object would replace the
+// record's prototype with schema-derived data.
+function setKeyed<T>(record: Record<string, T>, key: string, value: T): void {
+  if (key === "__proto__") {
+    Object.defineProperty(record, key, {
+      value,
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
+  } else {
+    record[key] = value;
+  }
+}
+
 function errorsByKeyword(
   errs: readonly ErrorUnit[],
   node: RenderNode,
@@ -258,8 +277,12 @@ function errorsByKeyword(
   const byKeyword: Record<string, string> = {};
   for (const e of errs) {
     const key = keywordOf(e, node);
-    byKeyword[key] =
-      byKeyword[key] === undefined ? e.error : `${byKeyword[key]}; ${e.error}`;
+    const prior = Object.hasOwn(byKeyword, key) ? byKeyword[key] : undefined;
+    setKeyed(
+      byKeyword,
+      key,
+      prior === undefined ? e.error : `${prior}; ${e.error}`,
+    );
   }
   return byKeyword;
 }
@@ -268,7 +291,7 @@ function annotationsByKeyword(
   anns: readonly AnnotationUnit[],
 ): Record<string, unknown> {
   const byKeyword: Record<string, unknown> = {};
-  for (const a of anns) byKeyword[a.keyword] = a.annotation;
+  for (const a of anns) setKeyed(byKeyword, a.keyword, a.annotation);
   return byKeyword;
 }
 
