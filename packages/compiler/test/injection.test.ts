@@ -504,26 +504,14 @@ describe("codegen injection: hostile UNKNOWN keyword names (evaluator trace)", (
       expect(comp).toEqual(interp);
 
       // The unknown keyword renders as an annotation keyed by its exact
-      // (hostile) name, at both the root unit and the nested subschema's.
-      //
-      // "__proto__" is excluded here: core's annotationsByKeyword/
-      // errorsByKeyword (output.ts) build the by-keyword record with plain
-      // `byKeyword[keyword] = value`, and a keyword literally named
-      // "__proto__" hits Object.prototype's own __proto__ accessor instead
-      // of creating a data property — the annotation is silently absent
-      // from the rendered document (confirmed on `interp`, i.e. the
-      // interpreter itself, not a compiled-artifact regression). It is
-      // still exercised above for the properties that DO hold regardless:
-      // no code injection (assertSourceSafe, the str() proof) and exact
-      // compiled-vs-interpreted equality (both sides lose the annotation
-      // identically, so `comp` still equals `interp`).
-      if (name !== "__proto__") {
-        const doc = comp.outputDocument;
-        expect(findAnnotation(doc, "", name)).toBe("root-marker");
-        expect(findAnnotation(doc, "/properties/child", name)).toBe(
-          "nested-marker",
-        );
-      }
+      // (hostile) name, at both the root unit and the nested subschema's —
+      // "__proto__" included, as an own property of the record
+      // (core/test/proto-keyword.test.ts pins the renderer's side).
+      const doc = comp.outputDocument;
+      expect(findAnnotation(doc, "", name)).toBe("root-marker");
+      expect(findAnnotation(doc, "/properties/child", name)).toBe(
+        "nested-marker",
+      );
 
       guard();
       assertProtoClean();
