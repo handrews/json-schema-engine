@@ -114,14 +114,11 @@ export function compileValidator(
   // and this snapshot see one state; the artifact's islands never see a
   // later registration.
   const registry = engine.registry.snapshot();
-  const source = serializePlan(
-    plan,
-    registry,
-    "runtime",
-    options.conservative
+  const source = serializePlan(plan, registry, {
+    flags: options.conservative
       ? { inline: false, plainData: false }
       : { inline: true, plainData: true },
-  );
+  });
   const runtime = makeRuntime(
     registry,
     engine.patternCache,
@@ -162,17 +159,14 @@ export function compileList(
   const errorParams = options.errorParams ?? false;
   const plan = buildPlan(engine, schemaUri, { output: "list" });
   const registry = engine.registry.snapshot();
-  const source = serializePlan(
-    plan,
-    registry,
-    "runtime",
-    options.conservative
+  const source = serializePlan(plan, registry, {
+    flags: options.conservative
       ? { inline: false, plainData: false }
       : { inline: true, plainData: true },
-    "list",
-    errorParams,
-    collect ? { selection } : undefined,
-  );
+    output: "list",
+    listParams: errorParams,
+    annotate: collect ? { selection } : undefined,
+  });
   const runtime = makeRuntime(
     registry,
     engine.patternCache,

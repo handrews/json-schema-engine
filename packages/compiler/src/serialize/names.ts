@@ -2,6 +2,7 @@
 
 import { type LowerProduceValue, type LowerStmt } from "@jse/core";
 import { type CodeChunk, id } from "../emit.js";
+import type { EmitOutput, UnitContext } from "./context.js";
 
 export const V = id("v"); // instance parameter
 export const D = id("d"); // depth parameter
@@ -9,6 +10,64 @@ export const S = id("s"); // dynamic-scope parameter
 export const R = id("R"); // runtime closure
 export const T = id("T"); // interpreted-target table
 export const EV = id("ev"); // runtime coverage channel (region emission, phase B)
+export const EP = id("ep"); // evaluation-path prefix parameter (list emission)
+export const IP = id("ip"); // instance-pointer prefix parameter (list emission)
+export const ERRS = id("errs"); // error channel (list emission)
+export const ANNS = id("anns"); // annotation channel (annotation mode)
+export const ST = id("st"); // per-evaluation trace state (trace emission)
+export const TP = id("tp"); // parent application node parameter (trace emission)
+export const TN = id("tn"); // this application's node (trace emission)
+
+/** Which channels an emission threads through every application. */
+export interface ChannelShape {
+  output: EmitOutput;
+  annMode: boolean;
+  trace: boolean;
+}
+
+export const shapeOf = (ctx: UnitContext): ChannelShape => ({
+  output: ctx.output,
+  annMode: ctx.annMode,
+  trace: ctx.trace,
+});
+
+/**
+ * The arguments every application carries after the instance, depth, and
+ * scope: in list emission the two location prefixes and the record
+ * channels (the trace state and parent node under trace emission), and the
+ * coverage channel for an in-place region call. Unit signatures, unit
+ * calls, trampolines, and the root call all build from here, so the
+ * variants cannot drift apart. `locate` is called only in list emission —
+ * a flag-mode apply never computes its prefixes.
+ */
+export function channelArgs(
+  shape: ChannelShape,
+  locate: () => [CodeChunk, CodeChunk],
+  parent: CodeChunk,
+  ev: boolean,
+): CodeChunk[] {
+  const args: CodeChunk[] = [];
+  if (shape.output === "list") {
+    args.push(...locate());
+    if (shape.trace) args.push(ST, parent);
+    else {
+      args.push(ERRS);
+      if (shape.annMode) args.push(ANNS);
+    }
+  }
+  if (ev) args.push(EV);
+  return args;
+}
+
+/** The interpreter trampoline an emission calls for an interpreted target. */
+export function fragHelper(
+  shape: ChannelShape,
+  inPlaceRegion: boolean,
+): CodeChunk {
+  if (shape.output !== "list") return id(inPlaceRegion ? "h_fragc" : "h_frag");
+  if (shape.trace) return id("h_fragt");
+  return id(shape.annMode ? "h_fragla" : "h_fragl");
+}
 
 export const unitFn = (index: number): CodeChunk => id("u" + String(index));
 // Region-variant of a unit function: same body with the trailing coverage

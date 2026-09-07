@@ -11,6 +11,7 @@ import { type CodeChunk, id, js, str, json } from "../emit.js";
 import { UnitContext, SerializeError } from "./context.js";
 import { beginKeyword } from "./keywords.js";
 import { keywordStatements } from "./statements.js";
+import { annsPush } from "./spans.js";
 
 /** Serialize every present keyword of this unit, in dialect order. */
 export function unitBody(ctx: UnitContext): CodeChunk[] {
@@ -52,7 +53,10 @@ export function unitBody(ctx: UnitContext): CodeChunk[] {
       const suffix = "/" + escapeSegment(name);
       const sloc = ctx.unit.ref.baseUri + "#" + ctx.unit.ref.pointer + suffix;
       out.push(
-        js`${id("anns")}.push({ keyword: ${str(name)}, evaluationPath: ${id("ep")} + ${str(suffix)}, schemaLocation: ${str(sloc)}, inputLocation: ${id("ip")}, annotation: ${json(node[name]!)} });`,
+        annsPush(
+          ctx,
+          js`{ keyword: ${str(name)}, evaluationPath: ${id("ep")} + ${str(suffix)}, schemaLocation: ${str(sloc)}, inputLocation: ${id("ip")}, annotation: ${json(node[name]!)} }`,
+        ),
       );
     }
   }

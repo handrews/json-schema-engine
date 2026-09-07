@@ -3,7 +3,18 @@
 
 import { escapeSegment, type LowerApply, type LowerCursor } from "@jse/core";
 import { type CodeChunk, id, join, js, num, str } from "../emit.js";
-import { D, S, T, EV, unitFn, unitFnRegion, bindingVar } from "./names.js";
+import {
+  D,
+  S,
+  T,
+  TN,
+  unitFn,
+  unitFnRegion,
+  bindingVar,
+  channelArgs,
+  fragHelper,
+  shapeOf,
+} from "./names.js";
 import { UnitContext, SerializeError } from "./context.js";
 import { guardDecl } from "./guards.js";
 import { expr } from "./expressions.js";
@@ -22,6 +33,10 @@ export function applyCall(ctx: UnitContext, apply: LowerApply): CodeChunk {
   if (!target) {
     throw new SerializeError("apply target '" + targetKey + "' not planned");
   }
+  const locate = (): [CodeChunk, CodeChunk] => [
+    applyEp(ctx, apply),
+    applyIp(ctx, apply),
+  ];
   if (target.kind === "static") {
     // Boolean subschemas fold to literals — except in list mode, where a
     // `false` schema must report its "schema is false" error unit.
@@ -51,18 +66,8 @@ export function applyCall(ctx: UnitContext, apply: LowerApply): CodeChunk {
     const fn = inPlaceRegion
       ? unitFnRegion(ctx.fnIndex.get(targetKey)!)
       : unitFn(ctx.fnIndex.get(targetKey)!);
-    if (ctx.annMode) {
-      return inPlaceRegion
-        ? js`${fn}(${valueExpr}, ${D}, ${scope}, ${applyEp(ctx, apply)}, ${applyIp(ctx, apply)}, ${id("errs")}, ${id("anns")}, ${EV})`
-        : js`${fn}(${valueExpr}, ${D}, ${scope}, ${applyEp(ctx, apply)}, ${applyIp(ctx, apply)}, ${id("errs")}, ${id("anns")})`;
-    }
-    if (ctx.output === "list") {
-      return inPlaceRegion
-        ? js`${fn}(${valueExpr}, ${D}, ${scope}, ${applyEp(ctx, apply)}, ${applyIp(ctx, apply)}, ${id("errs")}, ${EV})`
-        : js`${fn}(${valueExpr}, ${D}, ${scope}, ${applyEp(ctx, apply)}, ${applyIp(ctx, apply)}, ${id("errs")})`;
-    }
-    if (inPlaceRegion) return js`${fn}(${valueExpr}, ${D}, ${scope}, ${EV})`;
-    return js`${fn}(${valueExpr}, ${D}, ${scope})`;
+    const args = channelArgs(shapeOf(ctx), locate, TN, inPlaceRegion);
+    return js`${fn}(${join(", ", [valueExpr, D, scope, ...args])})`;
   }
   const slot = num(ctx.tableIndex.get(targetKey)!);
   ctx.calledUnit = true;
@@ -70,20 +75,9 @@ export function applyCall(ctx: UnitContext, apply: LowerApply): CodeChunk {
   // channel (rule 7) — fragCov in flag mode, the trailing-`ev` overloads of
   // the list trampolines otherwise. A child-cursor island stays plain.
   const inPlaceRegion = ctx.regionMode && apply.cursor.kind === "here";
-  if (ctx.annMode) {
-    return inPlaceRegion
-      ? js`${id("h_fragla")}(${T}[${slot}], ${valueExpr}, ${S}, ${D}, ${applyEp(ctx, apply)}, ${applyIp(ctx, apply)}, ${id("errs")}, ${id("anns")}, ${EV})`
-      : js`${id("h_fragla")}(${T}[${slot}], ${valueExpr}, ${S}, ${D}, ${applyEp(ctx, apply)}, ${applyIp(ctx, apply)}, ${id("errs")}, ${id("anns")})`;
-  }
-  if (ctx.output === "list") {
-    return inPlaceRegion
-      ? js`${id("h_fragl")}(${T}[${slot}], ${valueExpr}, ${S}, ${D}, ${applyEp(ctx, apply)}, ${applyIp(ctx, apply)}, ${id("errs")}, ${EV})`
-      : js`${id("h_fragl")}(${T}[${slot}], ${valueExpr}, ${S}, ${D}, ${applyEp(ctx, apply)}, ${applyIp(ctx, apply)}, ${id("errs")})`;
-  }
-  if (inPlaceRegion) {
-    return js`${id("h_fragc")}(${T}[${slot}], ${valueExpr}, ${S}, ${D}, ${EV})`;
-  }
-  return js`${id("h_frag")}(${T}[${slot}], ${valueExpr}, ${S}, ${D})`;
+  const helper = fragHelper(shapeOf(ctx), inPlaceRegion);
+  const args = channelArgs(shapeOf(ctx), locate, TN, inPlaceRegion);
+  return js`${helper}(${join(", ", [js`${T}[${slot}]`, valueExpr, S, D, ...args])})`;
 }
 
 /**
@@ -232,6 +226,9 @@ export function tryInline(
     ctx.listParams,
     ctx.annMode,
     ctx.annKeep,
+    false,
+    new Set(),
+    ctx.trace,
   );
   const body = unitBody(child);
   if (child.calledUnit) ctx.calledUnit = true;

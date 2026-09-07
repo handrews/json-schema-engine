@@ -11,8 +11,23 @@ import {
 import { type CodeChunk, id, join, js, num, json } from "../emit.js";
 import { EV, bindingVar, counterVar, foldVar } from "./names.js";
 import { UnitContext, SerializeError } from "./context.js";
-import { renderMessage, paramsChunk, pushError, errMark } from "./messages.js";
-import { channelSpans, spanDecls, spanResets, branchSpan } from "./spans.js";
+import {
+  renderMessage,
+  paramsChunk,
+  pushError,
+  errMark,
+  errsLength,
+  errsCut,
+} from "./messages.js";
+import {
+  channelSpans,
+  spanDecls,
+  spanResets,
+  branchSpan,
+  annsLength,
+  annsCut,
+  annsPush,
+} from "./spans.js";
 import { annUnit, annRecordSegment, produceChannel } from "./keywords.js";
 import { expr } from "./expressions.js";
 import { applyCall, tryInline } from "./apply.js";
@@ -51,7 +66,7 @@ export function keywordStatements(
         paramsChunk(ctx, params),
       );
       out.push(
-        js`let ${a} = false; const ${em} = ${id("errs")}.length; ${join(" ", runs)} if (${a}) { ${id("errs")}.length = ${em}; } else { ${onFail} }`,
+        js`let ${a} = false; const ${em} = ${errsLength(ctx)}; ${join(" ", runs)} if (${a}) { ${errsCut(ctx, em)} } else { ${onFail} }`,
       );
     } else if (ctx.regionMode) {
       // Every branch runs (no short-circuit — a later branch's success
@@ -102,7 +117,7 @@ export function keywordStatements(
       );
       const em = errMark(ctx)!;
       out.push(
-        js`${decl} const ${em} = ${id("errs")}.length; ${join(" ", incs)} if (${c} === 1) { ${id("errs")}.length = ${em}; } else { ${onFail} }`,
+        js`${decl} const ${em} = ${errsLength(ctx)}; ${join(" ", incs)} if (${c} === 1) { ${errsCut(ctx, em)} } else { ${onFail} }`,
       );
     } else if (ctx.regionMode) {
       // Run every branch with a per-branch mark/truncate (rule 2): a passing
@@ -169,8 +184,8 @@ function emitIf(
     const t = id("m" + String(ctx.counters.temp++));
     const em = errMark(ctx);
     const call = applyCall(ctx, stmt.cond.apply);
-    const errDecl = em ? js`const ${em} = ${id("errs")}.length; ` : js``;
-    const errReset = em ? js` ${id("errs")}.length = ${em};` : js``;
+    const errDecl = em ? js`const ${em} = ${errsLength(ctx)}; ` : js``;
+    const errReset = em ? js` ${errsCut(ctx, em)}` : js``;
     const resets =
       spans.length > 0 ? js` if (!${t}) { ${spanResets(ctx, spans)} }` : js``;
     const head = js`${spanDecls(ctx, spans)} ${errDecl}const ${t} = ${call};${errReset}${resets}`;
@@ -259,7 +274,7 @@ function emitAnnotate(
   const value = (ctx.unit.ref.node as Record<string, JsonValue>)[
     ctx.currentKeyword
   ]!;
-  return js`${id("anns")}.push(${annUnit(ctx, json(value))});`;
+  return annsPush(ctx, annUnit(ctx, json(value)));
 }
 
 /** A consumed producer's dependency data onto the coverage channel (region mode only). */
@@ -320,9 +335,9 @@ function emitCountRange(
   // rejecting one keeps them (§12.2) — one mark around the whole loop,
   // never per probe.
   const em = errMark(ctx);
-  const errDecl = em ? js`const ${em} = ${id("errs")}.length; ` : js``;
+  const errDecl = em ? js`const ${em} = ${errsLength(ctx)}; ` : js``;
   const check = em
-    ? js`if (${outOfRange}) { ${onFail} } else { ${id("errs")}.length = ${em}; }`
+    ? js`if (${outOfRange}) { ${onFail} } else { ${errsCut(ctx, em)} }`
     : js`if (${outOfRange}) { ${onFail} }`;
   // contains' probe IS a bare applyExpr (the only shape besides `if`'s
   // condition): mark/truncate each probe so a matching item's
@@ -335,7 +350,7 @@ function emitCountRange(
       ctx.annKw?.matched && stmt.collectIndexes
         ? js` ${ctx.annKw.matched}.push(${b});`
         : js``;
-    const loop = js`${errDecl}let ${c} = 0; for (let ${b} = 0; ${b} < ${expr(ctx, stmt.target)}.length; ${b}++) { const ${m} = ${id("anns")}.length; if (${probe}) { ${c}++;${pushIdx} } else ${id("anns")}.length = ${m}; }`;
+    const loop = js`${errDecl}let ${c} = 0; for (let ${b} = 0; ${b} < ${expr(ctx, stmt.target)}.length; ${b}++) { const ${m} = ${annsLength(ctx)}; if (${probe}) { ${c}++;${pushIdx} } else ${annsCut(ctx, m)} }`;
     return js`${loop} ${check}`;
   }
   if (ctx.regionMode && stmt.countWhen.kind === "applyExpr") {
@@ -421,7 +436,7 @@ function emitListApply(
         true,
         paramsChunk(ctx, apply.params),
       );
-      return js`${spanDecls(ctx, spans)} const ${em} = ${id("errs")}.length; if (${call}) { ${err} } else { ${id("errs")}.length = ${em}; ${spanResets(ctx, spans)} }`;
+      return js`${spanDecls(ctx, spans)} const ${em} = ${errsLength(ctx)}; if (${call}) { ${err} } else { ${errsCut(ctx, em)} ${spanResets(ctx, spans)} }`;
     }
     default:
       return null; // grouped folds handled by keywordStatements; discard by applyExpr
