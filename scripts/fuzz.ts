@@ -12,6 +12,7 @@
 //   FUZZ_DIALECT=draft7 npm run fuzz   # seed from another dialect's suite
 //   FUZZ_LIST=1 npm run fuzz           # referee full list output
 //   FUZZ_ANNOTATIONS=1 npm run fuzz    # referee list output + annotations
+//   FUZZ_EVALUATOR=1 npm run fuzz      # referee the compiled evaluator (every format)
 //
 // Deterministic: the summary reports the seed, and every case reproduces
 // from (seed, fileIndex, groupIndex, caseIndex). Exit code is nonzero on any
@@ -21,7 +22,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createEngine, type Engine, type JsonValue } from "@jse/core";
-import { compileList, compileValidator } from "@jse/compiler";
+import { compileEvaluator, compileList, compileValidator } from "@jse/compiler";
 import { DIALECT_DRAFT_04, registerDraft04 } from "@jse/dialect-draft04";
 import {
   Prng,
@@ -58,8 +59,25 @@ const LIST_MODE = process.env.FUZZ_LIST === "1";
 // locations, value) in ORDER, and the presence/absence of the annotations key
 // itself. The suite corpus is extended with ANNOTATION_SEED_GROUPS because
 // suite schemas barely use pure annotation producers. Takes precedence over
-// FUZZ_LIST (it is a strict superset of that comparison).
+// FUZZ_LIST (it is a strict superset of that comparison), but yields to
+// FUZZ_EVALUATOR below.
 const ANNOTATIONS_MODE = process.env.FUZZ_ANNOTATIONS === "1";
+// FUZZ_EVALUATOR=1 referees compileEvaluator against the interpreter over the
+// WHOLE Result — hierarchical output with trace, errorParams, and every
+// annotation — canonicalized the same way as the list/annotations legs
+// (runListSide over the raw Result rather than a hand-picked subset), so the
+// comparison covers errors, annotations, and the trace tree together in one
+// pass. A strict superset of the FUZZ_ANNOTATIONS comparison, so it takes
+// precedence over both FUZZ_ANNOTATIONS and FUZZ_LIST. Seeds from
+// ANNOTATION_SEED_GROUPS exactly like FUZZ_ANNOTATIONS, for the same reason.
+const EVALUATOR_MODE = process.env.FUZZ_EVALUATOR === "1";
+const MODE_NAME = EVALUATOR_MODE
+  ? "evaluator"
+  : ANNOTATIONS_MODE
+    ? "annotations"
+    : LIST_MODE
+      ? "list"
+      : "flag";
 
 // FUZZ_DIALECT seeds the corpus from another dialect's suite directory
 // (M6.6: legacy dialects compile natively, so they need fuzz pressure too).
@@ -116,6 +134,26 @@ function factoryFor(baseUri: string): DifferentialFactory {
         const engine = createEngine(ENGINE_OPTS);
         DIALECT_SETUP?.(engine);
         const uri = engine.registerSchema(schema, baseUri);
+        if (EVALUATOR_MODE) {
+          const artifact = compileEvaluator(engine, uri, {
+            ...COMPILE_OPTS,
+            errorParams: true,
+            annotations: true,
+          });
+          return {
+            interpret: runListSide((x) =>
+              engine.evaluate(uri, x, {
+                output: "hierarchical",
+                trace: true,
+                annotations: true,
+                errorParams: true,
+              }),
+            ),
+            validate: runListSide((x) =>
+              artifact.evaluate(x, { output: "hierarchical", trace: true }),
+            ),
+          };
+        }
         if (ANNOTATIONS_MODE) {
           const artifact = compileList(engine, uri, {
             ...COMPILE_OPTS,
@@ -202,8 +240,10 @@ function main(): void {
       registrable.push({ file, fi, gi, group });
     });
   });
-  if (ANNOTATIONS_MODE) {
+  if (ANNOTATIONS_MODE || EVALUATOR_MODE) {
     // Annotation-producer corpus, appended exactly like another suite file.
+    // FUZZ_EVALUATOR seeds it too: its comparison is a strict superset of
+    // the annotations one, so it needs the same pressure.
     ANNOTATION_SEED_GROUPS.forEach((group, gi) => {
       const baseUri = `https://fuzz.example/annotation-seeds/${String(gi)}`;
       if (factoryFor(baseUri).prepare(group.schema) === undefined) return;
@@ -267,11 +307,13 @@ function main(): void {
           subject,
           group.schema,
           instance,
-          ANNOTATIONS_MODE
-            ? { sameDivergence: sameAnnotationsDivergenceClass }
-            : LIST_MODE
-              ? { sameDivergence: sameListDivergenceClass }
-              : {},
+          EVALUATOR_MODE
+            ? { sameDivergence: sameListDivergenceClass }
+            : ANNOTATIONS_MODE
+              ? { sameDivergence: sameAnnotationsDivergenceClass }
+              : LIST_MODE
+                ? { sameDivergence: sameListDivergenceClass }
+                : {},
         );
         console.error(
           `\nDIVERGENCE ${file} group ${String(gi)} case ${String(ci)}\n` +
@@ -288,7 +330,7 @@ function main(): void {
   const ms = Date.now() - t0;
   console.log(
     `fuzz summary: cases=${String(cases)} divergences=${String(divergences)} ` +
-      `dialect=${DIALECT_NAME} seed=0x${SEED.toString(16)} groups=${String(registrable.length)} ` +
+      `mode=${MODE_NAME} dialect=${DIALECT_NAME} seed=0x${SEED.toString(16)} groups=${String(registrable.length)} ` +
       `perGroup=${String(perGroup)} ms=${String(ms)}`,
   );
   if (divergences > 0) process.exitCode = 1;
