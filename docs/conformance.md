@@ -306,8 +306,9 @@ the native overflow is converted rather than leaked.
 `packages/compiler/test/depth-parity.test.ts` asserts the same
 `MaxDepthExceededError` at the same `maxDepth` from the interpreter,
 `compileValidator`, `compileList`, and `compileEvaluator` — including through
-a dynamic island that trampolines back into the interpreter's counter. One
-exception is noted under [Divergences and limits](#divergences-and-limits).
+a dynamic island that trampolines back into the interpreter's counter.
+Standalone modules, which cannot import that class, reach structural parity
+instead — see [Divergences and limits](#divergences-and-limits).
 
 ```ts
 import assert from "node:assert";
@@ -421,10 +422,13 @@ skipped, because under CSP they run on the interpreter by design. The skip
 count is reported on every run, so the check cannot quietly degrade to zero
 coverage.
 
-**Standalone modules do not share the depth error class.** Emitted standalone
-artifacts throw a plain `RangeError` on depth exhaustion rather than
-`MaxDepthExceededError`, so the parity asserted above covers the four
-in-process entry points and not standalone output. Known defect.
+**Standalone modules reach only structural depth parity.** A standalone
+module has no imports at all, so it cannot share core's
+`MaxDepthExceededError` class object: the error it throws has the same
+constructor name, message, and bound, but `instanceof` against core's class
+is false by construction. That is a limit of self-contained emission, not a
+defect, and `packages/compiler/test/depth-parity.test.ts` pins both halves —
+what matches and what cannot.
 
 **Output formats may change.** They are under active discussion in the IETF
 process. JSE follows its two cited sources and names each format as its source
