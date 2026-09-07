@@ -106,10 +106,19 @@ export interface CompiledArtifact {
 
 /**
  * Options for {@link compileEvaluator}: the flat surface's controls
- * (`errorParams`, the annotation selection), fixed when the evaluator is
- * compiled.
+ * (`errorParams`, the annotation selection) and the level, fixed when the
+ * evaluator is compiled.
  */
-export type EvaluatorCompileOptions = ListCompileOptions;
+export interface EvaluatorCompileOptions extends ListCompileOptions {
+  /**
+   * Retain irrelevant records (draft-03 §12.2) so the artifact can serve
+   * the verbose level: `output: "verbose"`, and `list`/`hierarchical` with
+   * `verbose: true`. A retaining artifact serves the relevant level too;
+   * the retention costs a copy per dropped record and nothing on the
+   * emitted source, which is identical at both levels.
+   */
+  verbose?: boolean;
+}
 
 /**
  * The render-time choices of {@link CompiledEvaluator.evaluate}: format,
@@ -261,11 +270,12 @@ export function compileList(
  * format: a list artifact that also records each application's node —
  * locations, keyword verdicts, and the records it raised — into core's
  * located tree, so the documents render through the same code as the
- * interpreter's. Format and `trace` are chosen per evaluation; the
- * annotation selection and `errorParams` are fixed here (D5). Relevant
- * level only: irrelevant records are discarded at the cut, and a
- * verbose-level request throws {@link OutputOptionsError}. Binds to
- * registry snapshots exactly like {@link compileValidator}.
+ * interpreter's. Format, level, and `trace` are chosen per evaluation; the
+ * annotation selection, `errorParams`, and whether irrelevant records are
+ * retained (`verbose`) are fixed here (D5). Without retention the records
+ * are discarded at the cut and a verbose-level request throws
+ * {@link OutputOptionsError}. Binds to registry snapshots exactly like
+ * {@link compileValidator}.
  */
 export function compileEvaluator(
   engine: Engine,
@@ -275,6 +285,7 @@ export function compileEvaluator(
   const selection = options.annotations ?? false;
   const collect = selection !== false;
   const errorParams = options.errorParams ?? false;
+  const retain = options.verbose ?? false;
   const plan = buildPlan(engine, schemaUri, { output: "list" });
   const registry = engine.registry.snapshot();
   const source = serializePlan(plan, registry, {
@@ -296,6 +307,7 @@ export function compileEvaluator(
     engine.formats,
     plan.formats,
     true,
+    retain,
   );
   const run = instantiateTrace(
     source,
@@ -329,14 +341,14 @@ export function compileEvaluator(
       }),
       annotations: selection,
     };
-    if (demand.verbose) {
+    if (demand.verbose && !retain) {
       throw new OutputOptionsError(
-        "the verbose level needs an evaluator compiled with verbose retention",
+        "the verbose level needs an evaluator compiled with verbose: true",
       );
     }
     const st = run(instance);
     if (demand.format === "flag") return { valid: st.valid };
-    const { units, root: node } = finishTrace(st, keep);
+    const { units, root: node } = finishTrace(st, keep, demand.verbose);
     return assembleResult(
       demand,
       st.valid,

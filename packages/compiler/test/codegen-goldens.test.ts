@@ -53,5 +53,23 @@ describe("codegen goldens", () => {
         );
       });
     }
+
+    // The level is a runtime binding, not an emission mode: the cuts route
+    // through helpers the artifact's level selects, so a verbose artifact
+    // is the trace golden byte for byte.
+    it(`${name}: a verbose artifact emits the pinned trace source`, () => {
+      const engine = createEngine();
+      const uri = engine.registerSchema(
+        schema,
+        `https://codegen.example/${name}`,
+      );
+      expect(
+        compileEvaluator(engine, uri, {
+          errorParams: true,
+          annotations: true,
+          verbose: true,
+        }).source,
+      ).toBe(readFileSync(join(DIR, `${name}.trace.js`), "utf8"));
+    });
   }
 });

@@ -1,13 +1,15 @@
 // Compiled-evaluator gate suite: `compileEvaluator` renders every output
 // format from one recorded application tree (index.ts), so — unlike
 // `compileList`'s single flat surface — its differential has to prove
-// parity across the whole render-time surface: six option sets, thrown
-// errors, and the render-time control rejections (ADR 0003: an unsupported
-// combination is refused, never silently ignored). The comparison formula
-// (`interpreterFor`) makes the compile-time selection stand in for the
-// interpreter's `annotations`/`errorParams` options — the render-time
-// options replay as-is — because a compiled evaluator fixes that selection
-// at compile time and rejects it at evaluate time.
+// parity across the whole render-time surface: six relevant-level option
+// sets on both artifact levels, the three verbose-level sets on a
+// retaining artifact, thrown errors, and the render-time control
+// rejections (ADR 0003: an unsupported combination is refused, never
+// silently ignored). The comparison formula (`interpreterFor`) makes the
+// compile-time selection stand in for the interpreter's
+// `annotations`/`errorParams` options — the render-time options replay
+// as-is — because a compiled evaluator fixes that selection at compile
+// time and rejects it at evaluate time.
 
 import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
@@ -106,6 +108,26 @@ const OPTION_SETS: readonly { name: string; options: EvaluatorOptions }[] = [
   { name: "detailed", options: { output: "detailed" } },
   { name: "list+trace", options: { output: "list", trace: true } },
 ];
+
+// The verbose level: served only by an artifact compiled with
+// `verbose: true`, which retains the irrelevant records at the cut.
+const VERBOSE_SETS: readonly { name: string; options: EvaluatorOptions }[] = [
+  { name: "list+verbose", options: { output: "list", verbose: true } },
+  {
+    name: "hierarchical+verbose+trace",
+    options: { output: "hierarchical", verbose: true, trace: true },
+  },
+  { name: "verbose", options: { output: "verbose" } },
+];
+const ALL_SETS = [...OPTION_SETS, ...VERBOSE_SETS];
+const RELEVANT_COMPILE: EvaluatorCompileOptions = {
+  annotations: true,
+  errorParams: true,
+};
+const VERBOSE_COMPILE: EvaluatorCompileOptions = {
+  ...RELEVANT_COMPILE,
+  verbose: true,
+};
 
 // ---------------------------------------------------------------------------
 // Generic value-level and throw-level comparison. `resultDivergence` is a
@@ -221,6 +243,8 @@ interface DialectPin {
   instances: number;
   traceNodes: number;
   detailsUnits: number;
+  /** dropped errors plus dropped annotations over the `list+verbose` set */
+  droppedUnits: number;
 }
 
 // Instance totals equal the Bowtie/exactRun conformance pins per dialect
@@ -234,6 +258,7 @@ const SWEEP: Record<string, DialectPin> = {
     instances: 1299,
     traceNodes: 3772,
     detailsUnits: 893,
+    droppedUnits: 284,
   },
   "draft2019-09": {
     dir: "draft2019-09",
@@ -243,6 +268,7 @@ const SWEEP: Record<string, DialectPin> = {
     instances: 1259,
     traceNodes: 3722,
     detailsUnits: 903,
+    droppedUnits: 279,
   },
   draft7: {
     dir: "draft7",
@@ -252,6 +278,7 @@ const SWEEP: Record<string, DialectPin> = {
     instances: 927,
     traceNodes: 2044,
     detailsUnits: 573,
+    droppedUnits: 79,
   },
   draft6: {
     dir: "draft6",
@@ -261,6 +288,7 @@ const SWEEP: Record<string, DialectPin> = {
     instances: 839,
     traceNodes: 1879,
     detailsUnits: 519,
+    droppedUnits: 73,
   },
   draft4: {
     dir: "draft4",
@@ -271,6 +299,7 @@ const SWEEP: Record<string, DialectPin> = {
     instances: 618,
     traceNodes: 1412,
     detailsUnits: 368,
+    droppedUnits: 45,
   },
 };
 
@@ -280,6 +309,7 @@ interface SweepOutcome {
   instances: number;
   traceNodes: number;
   detailsUnits: number;
+  droppedUnits: number;
   annotationUnits: number;
   divergences: string[];
 }
@@ -301,6 +331,7 @@ async function sweepDialect(
   let instances = 0;
   let traceNodes = 0;
   let detailsUnits = 0;
+  let droppedUnits = 0;
   let annotationUnits = 0;
   const divergences: string[] = [];
   for (const file of files) {
@@ -358,6 +389,11 @@ async function sweepDialect(
             detailsUnits += (result.outputDocument as ListOutputDocument)
               .details.length;
           }
+          if (name === "list+verbose") {
+            droppedUnits +=
+              (result.droppedErrors?.length ?? 0) +
+              (result.droppedAnnotations?.length ?? 0);
+          }
         }
       }
     }
@@ -368,6 +404,7 @@ async function sweepDialect(
     instances,
     traceNodes,
     detailsUnits,
+    droppedUnits,
     annotationUnits,
     divergences,
   };
@@ -384,12 +421,11 @@ function expectNoDivergences(divergences: string[], label: string): void {
 
 const CONSERVATIVE = process.env.EVALUATOR_CONSERVATIVE === "1";
 
-describe("Leg 1 — compiled evaluator ≡ interpreter over every dialect suite, all six option sets", () => {
+describe("Leg 1 — compiled evaluator ≡ interpreter over every dialect suite, both artifact levels", () => {
   for (const [name, pin] of Object.entries(SWEEP)) {
-    it(`${name} agrees on every case and matches the pinned totals`, async () => {
+    it(`${name}: a relevant-level artifact agrees on every case across the six relevant sets and matches the pinned totals`, async () => {
       const outcome = await sweepDialect(pin, {
-        annotations: true,
-        errorParams: true,
+        ...RELEVANT_COMPILE,
         ...(CONSERVATIVE ? { conservative: true } : {}),
       });
       expectNoDivergences(outcome.divergences, name);
@@ -408,6 +444,40 @@ describe("Leg 1 — compiled evaluator ≡ interpreter over every dialect suite,
         instances: pin.instances,
         traceNodes: pin.traceNodes,
         detailsUnits: pin.detailsUnits,
+      });
+    });
+
+    // The retaining artifact must serve the relevant level exactly as the
+    // non-retaining one does (the same six sets, the same pins) and the
+    // verbose level on top: dropped errors in drop order, dropped
+    // annotations in recording order, attributed to their applications.
+    it(`${name}: a verbose artifact agrees on every case across all nine sets and matches the pinned totals`, async () => {
+      const outcome = await sweepDialect(
+        pin,
+        {
+          ...VERBOSE_COMPILE,
+          ...(CONSERVATIVE ? { conservative: true } : {}),
+        },
+        ALL_SETS,
+      );
+      expectNoDivergences(outcome.divergences, `${name} (verbose artifact)`);
+      expect(
+        {
+          groups: outcome.groups,
+          skippedGroups: outcome.skippedGroups,
+          instances: outcome.instances,
+          traceNodes: outcome.traceNodes,
+          detailsUnits: outcome.detailsUnits,
+          droppedUnits: outcome.droppedUnits,
+        },
+        `${name} verbose sweep totals`,
+      ).toEqual({
+        groups: pin.groups,
+        skippedGroups: pin.skippedGroups,
+        instances: pin.instances,
+        traceNodes: pin.traceNodes,
+        detailsUnits: pin.detailsUnits,
+        droppedUnits: pin.droppedUnits,
       });
     });
   }
@@ -438,6 +508,8 @@ const HIER_AND_TRACE = OPTION_SETS.filter(
 );
 // Transcribed from a local run (deterministic — two runs agree).
 const LEG3_ANNOTATION_UNITS = 56;
+const LEG3_VERBOSE_ANNOTATION_UNITS = 84;
+const LEG3_VERBOSE_DROPPED_UNITS = 267;
 
 describe("Leg 3 — a combined annotation selection over the draft2020-12 suite", () => {
   it("agrees on hierarchical and list+trace and matches the pinned annotation-unit total", async () => {
@@ -452,6 +524,20 @@ describe("Leg 3 — a combined annotation selection over the draft2020-12 suite"
     expect(outcome.skippedGroups).toBe(pin.skippedGroups);
     expect(outcome.instances).toBe(pin.instances);
     expect(outcome.annotationUnits).toBe(LEG3_ANNOTATION_UNITS);
+  });
+
+  // The selection's lists and `keep` apply to the dropped annotations too.
+  it("a verbose artifact agrees on the three verbose sets and matches the pinned unit totals", async () => {
+    const pin = SWEEP["draft2020-12"]!;
+    const outcome = await sweepDialect(
+      pin,
+      { annotations: LEG3_SELECTION, errorParams: true, verbose: true },
+      VERBOSE_SETS,
+    );
+    expectNoDivergences(outcome.divergences, "draft2020-12 (Leg 3, verbose)");
+    expect(outcome.instances).toBe(pin.instances);
+    expect(outcome.annotationUnits).toBe(LEG3_VERBOSE_ANNOTATION_UNITS);
+    expect(outcome.droppedUnits).toBe(LEG3_VERBOSE_DROPPED_UNITS);
   });
 });
 
@@ -552,6 +638,25 @@ describe("Leg 4 — planted corruptions are reported by resultDivergence", () =>
   it("control: an unmodified clone reports no divergence", () => {
     expect(resultDivergence(real, structuredClone(real))).toBeNull();
   });
+
+  // The verbose level's own surface: a dropped error promoted to the
+  // relevant list is a wrong answer the relevant-level comparison cannot
+  // see. `{ a: "hello" }` passes anyOf through the string branch, so the
+  // integer branch's error is dropped; `b` still fails.
+  it("reports a dropped error promoted to the relevant errors", () => {
+    const verbose = engine.evaluate(
+      uri,
+      { a: "hello", b: 1 },
+      { output: "list", verbose: true },
+    );
+    expect(verbose.valid).toBe(false);
+    expect(verbose.droppedErrors).toHaveLength(1);
+    const clone = structuredClone(verbose);
+    clone.errors = [...clone.errors!, ...clone.droppedErrors!];
+    clone.droppedErrors = [];
+    expect(resultDivergence(verbose, clone)).not.toBeNull();
+    expect(resultDivergence(verbose, structuredClone(verbose))).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -624,14 +729,28 @@ describe("Leg 5 — compileEvaluator's plan is identical to compileList's", () =
 // plus the flag/basic-with-no-annotations contracts interpreterFor assumes.
 // ---------------------------------------------------------------------------
 
-const REJECTIONS: readonly { name: string; options: EvaluatorOptions }[] = [
+// A verbose-level demand: refused by a non-retaining artifact, served by a
+// retaining one.
+const LEVEL_DEMANDS: readonly { name: string; options: EvaluatorOptions }[] = [
   {
-    name: "verbose:true with output:list (relevant-level only)",
+    name: "verbose:true with output:list",
     options: { output: "list", verbose: true },
   },
   {
-    name: "output:verbose (the verbose level always demands retention)",
+    name: "verbose:true with output:hierarchical",
+    options: { output: "hierarchical", verbose: true },
+  },
+  {
+    name: "output:verbose (the verbose level by definition)",
     options: { output: "verbose" },
+  },
+];
+
+// Refused whatever the artifact's level.
+const REJECTIONS: readonly { name: string; options: EvaluatorOptions }[] = [
+  {
+    name: "verbose:false with output:verbose",
+    options: { output: "verbose", verbose: false },
   },
   {
     name: "an annotations key present",
@@ -682,16 +801,34 @@ describe("Leg 6 — option rejections and the flag/annotation-less contracts", (
     { type: "integer" },
     "https://eval-suite.example/leg6/reject",
   );
-  const evaluator = compileEvaluator(engine, uri, {
-    annotations: true,
-    errorParams: true,
-  });
+  const evaluator = compileEvaluator(engine, uri, RELEVANT_COMPILE);
+  const retaining = compileEvaluator(engine, uri, VERBOSE_COMPILE);
 
   for (const rejection of REJECTIONS) {
-    it(`rejects ${rejection.name}`, () => {
+    it(`rejects ${rejection.name} on both artifact levels`, () => {
       expect(() => evaluator.evaluate(1, rejection.options)).toThrow(
         OutputOptionsError,
       );
+      expect(() => retaining.evaluate(1, rejection.options)).toThrow(
+        OutputOptionsError,
+      );
+    });
+  }
+
+  for (const demand of LEVEL_DEMANDS) {
+    it(`${demand.name}: a relevant-level artifact refuses it, a verbose artifact matches the interpreter`, () => {
+      expect(() => evaluator.evaluate(1, demand.options)).toThrow(
+        OutputOptionsError,
+      );
+      const interp = interpreterFor(engine, uri, {
+        annotations: true,
+        errorParams: true,
+      });
+      for (const x of [1, "x"]) {
+        expect(retaining.evaluate(x, demand.options)).toStrictEqual(
+          interp(x, demand.options),
+        );
+      }
     });
   }
 
@@ -735,8 +872,8 @@ describe("Leg 6 — option rejections and the flag/annotation-less contracts", (
 // Leg 7 — curated ordering: schema shapes the official suite under-exercises
 // (deeply nested anyOf, if/then/else annotation, unknown keywords, legacy
 // $ref siblings, every $dynamicRef island shape), each run across every
-// option set with the same interpreterFor/outcomeDivergence machinery as
-// the sweeps.
+// option set on both artifact levels with the same
+// interpreterFor/outcomeDivergence machinery as the sweeps.
 // ---------------------------------------------------------------------------
 
 interface CuratedCase {
@@ -756,24 +893,38 @@ function runCurated(c: CuratedCase): void {
       c.schema,
       `https://eval-suite.example/leg7/${encodeURIComponent(c.name)}`,
     );
-    const compileOptions: EvaluatorCompileOptions = c.compileOptions ?? {
-      annotations: true,
-      errorParams: true,
-    };
-    const evaluator = compileEvaluator(engine, uri, compileOptions);
+    const compileOptions: EvaluatorCompileOptions =
+      c.compileOptions ?? RELEVANT_COMPILE;
+    const artifacts = [
+      {
+        level: "relevant",
+        evaluator: compileEvaluator(engine, uri, compileOptions),
+        sets: OPTION_SETS,
+      },
+      {
+        level: "verbose",
+        evaluator: compileEvaluator(engine, uri, {
+          ...compileOptions,
+          verbose: true,
+        }),
+        sets: ALL_SETS,
+      },
+    ];
     const interp = interpreterFor(engine, uri, {
       annotations: compileOptions.annotations ?? false,
       errorParams: compileOptions.errorParams ?? false,
     });
     for (const instance of c.instances) {
-      for (const { name, options } of OPTION_SETS) {
-        const iAttempt = attempt(() => interp(instance, options));
-        const cAttempt = attempt(() => evaluator.evaluate(instance, options));
-        const d = outcomeDivergence(iAttempt, cAttempt);
-        expect(
-          d,
-          `${c.name} / ${name} / ${JSON.stringify(instance)}`,
-        ).toBeNull();
+      for (const { level, evaluator, sets } of artifacts) {
+        for (const { name, options } of sets) {
+          const iAttempt = attempt(() => interp(instance, options));
+          const cAttempt = attempt(() => evaluator.evaluate(instance, options));
+          const d = outcomeDivergence(iAttempt, cAttempt);
+          expect(
+            d,
+            `${c.name} / ${level} artifact / ${name} / ${JSON.stringify(instance)}`,
+          ).toBeNull();
+        }
       }
     }
   });
