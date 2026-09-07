@@ -19,7 +19,7 @@ return ok; }
 function u1(v, d, s, ep, ip, errs, anns) { if (d >= h_maxd) h_deep(); d++;
 const g1 = (typeof v === "object" && v !== null && !Array.isArray(v));
 let ok = true;
-if ((g1 && (v["a"] !== undefined))) { const m0 = anns.length; if (!u2(v["a"], d, h_s0, ep + "/properties/a", ip + "/a", errs, anns)) { ok = false; anns.length = m0; } }
+if ((g1 && ("a" in v))) { const m0 = anns.length; if (!u2(v["a"], d, h_s0, ep + "/properties/a", ip + "/a", errs, anns)) { ok = false; anns.length = m0; } }
 if (g1) {  }
 return ok; }
 function u1c(v, d, s, ep, ip, errs, anns, ev) { if (d >= h_maxd) h_deep(); d++;
@@ -27,7 +27,7 @@ const g3 = (typeof v === "object" && v !== null && !Array.isArray(v));
 let ok = true;
 let k0 = true;
 const n1 = new Set();
-if ((g3 && (v["a"] !== undefined))) { n1.add("a"); const m2 = anns.length; if (!u2(v["a"], d, h_s0, ep + "/properties/a", ip + "/a", errs, anns)) { ok = false; k0 = false; anns.length = m2; } }
+if ((g3 && ("a" in v))) { n1.add("a"); const m2 = anns.length; if (!u2(v["a"], d, h_s0, ep + "/properties/a", ip + "/a", errs, anns)) { ok = false; k0 = false; anns.length = m2; } }
 if (g3) { if (k0) { ev.push([...n1]); } }
 return ok; }
 function u2(v, d, s, ep, ip, errs, anns) { let ok = true;
@@ -36,7 +36,7 @@ return ok; }
 function u3(v, d, s, ep, ip, errs, anns) { if (d >= h_maxd) h_deep(); d++;
 const g1 = (typeof v === "object" && v !== null && !Array.isArray(v));
 let ok = true;
-if ((g1 && (v["b"] !== undefined))) { const m0 = anns.length; if (!u4(v["b"], d, h_s0, ep + "/properties/b", ip + "/b", errs, anns)) { ok = false; anns.length = m0; } }
+if ((g1 && ("b" in v))) { const m0 = anns.length; if (!u4(v["b"], d, h_s0, ep + "/properties/b", ip + "/b", errs, anns)) { ok = false; anns.length = m0; } }
 if (g1) {  }
 return ok; }
 function u3c(v, d, s, ep, ip, errs, anns, ev) { if (d >= h_maxd) h_deep(); d++;
@@ -44,7 +44,7 @@ const g3 = (typeof v === "object" && v !== null && !Array.isArray(v));
 let ok = true;
 let k0 = true;
 const n1 = new Set();
-if ((g3 && (v["b"] !== undefined))) { n1.add("b"); const m2 = anns.length; if (!u4(v["b"], d, h_s0, ep + "/properties/b", ip + "/b", errs, anns)) { ok = false; k0 = false; anns.length = m2; } }
+if ((g3 && ("b" in v))) { n1.add("b"); const m2 = anns.length; if (!u4(v["b"], d, h_s0, ep + "/properties/b", ip + "/b", errs, anns)) { ok = false; k0 = false; anns.length = m2; } }
 if (g3) { if (k0) { ev.push([...n1]); } }
 return ok; }
 function u4(v, d, s, ep, ip, errs, anns) { let ok = true;

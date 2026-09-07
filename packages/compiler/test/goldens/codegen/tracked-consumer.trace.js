@@ -25,7 +25,7 @@ const tn = h_tnode(tp, ep, "https://codegen.example/tracked-consumer#/anyOf/0", 
 const g2 = (typeof v === "object" && v !== null && !Array.isArray(v));
 let ok = true;
 let k0 = true;
-if ((g2 && (v["a"] !== undefined))) { const m1 = st.anns.length; if (!u2(v["a"], d, h_s0, ep + "/properties/a", ip + "/a", st, tn)) { ok = false; k0 = false; h_cutA(st, m1); } }
+if ((g2 && ("a" in v))) { const m1 = st.anns.length; if (!u2(v["a"], d, h_s0, ep + "/properties/a", ip + "/a", st, tn)) { ok = false; k0 = false; h_cutA(st, m1); } }
 if (g2) {  }
 tn.keywords.push({ name: "properties", valid: k0 });
 tn.valid = ok;
@@ -36,7 +36,7 @@ const g3 = (typeof v === "object" && v !== null && !Array.isArray(v));
 let ok = true;
 let k0 = true;
 const n1 = new Set();
-if ((g3 && (v["a"] !== undefined))) { n1.add("a"); const m2 = st.anns.length; if (!u2(v["a"], d, h_s0, ep + "/properties/a", ip + "/a", st, tn)) { ok = false; k0 = false; h_cutA(st, m2); } }
+if ((g3 && ("a" in v))) { n1.add("a"); const m2 = st.anns.length; if (!u2(v["a"], d, h_s0, ep + "/properties/a", ip + "/a", st, tn)) { ok = false; k0 = false; h_cutA(st, m2); } }
 if (g3) { if (k0) { ev.push([...n1]); } }
 tn.keywords.push({ name: "properties", valid: k0 });
 tn.valid = ok;
@@ -53,7 +53,7 @@ const tn = h_tnode(tp, ep, "https://codegen.example/tracked-consumer#/anyOf/1", 
 const g2 = (typeof v === "object" && v !== null && !Array.isArray(v));
 let ok = true;
 let k0 = true;
-if ((g2 && (v["b"] !== undefined))) { const m1 = st.anns.length; if (!u4(v["b"], d, h_s0, ep + "/properties/b", ip + "/b", st, tn)) { ok = false; k0 = false; h_cutA(st, m1); } }
+if ((g2 && ("b" in v))) { const m1 = st.anns.length; if (!u4(v["b"], d, h_s0, ep + "/properties/b", ip + "/b", st, tn)) { ok = false; k0 = false; h_cutA(st, m1); } }
 if (g2) {  }
 tn.keywords.push({ name: "properties", valid: k0 });
 tn.valid = ok;
@@ -64,7 +64,7 @@ const g3 = (typeof v === "object" && v !== null && !Array.isArray(v));
 let ok = true;
 let k0 = true;
 const n1 = new Set();
-if ((g3 && (v["b"] !== undefined))) { n1.add("b"); const m2 = st.anns.length; if (!u4(v["b"], d, h_s0, ep + "/properties/b", ip + "/b", st, tn)) { ok = false; k0 = false; h_cutA(st, m2); } }
+if ((g3 && ("b" in v))) { n1.add("b"); const m2 = st.anns.length; if (!u4(v["b"], d, h_s0, ep + "/properties/b", ip + "/b", st, tn)) { ok = false; k0 = false; h_cutA(st, m2); } }
 if (g3) { if (k0) { ev.push([...n1]); } }
 tn.keywords.push({ name: "properties", valid: k0 });
 tn.valid = ok;

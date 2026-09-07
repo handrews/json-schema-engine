@@ -35,9 +35,10 @@
 // - To compare a change: run on main, copy bench/results/results.json
 //   aside, run again on the branch, then
 //   `npm run bench:compare -- before.json after.json`.
-// - records-sparse is where the compiled tier and AJV both drop to
-//   interpreter speed: the presence probe `obj[key] !== undefined` goes
-//   megamorphic over differing record shapes (bench/corpora/README.md).
+// - records-sparse is where AJV and the interpreter both stay slow while
+//   the compiled tier does not: since E12 the plain-data presence probe is
+//   `key in obj`, which keeps its speed over differing record shapes
+//   (bench/corpora/README.md).
 //
 // Run: npm run bench:harness
 //   (BENCH_BUDGET=<ms per task>, default 250; BENCH_FILTER=<regex>, default all)

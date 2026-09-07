@@ -11,7 +11,7 @@ let ok = true;
 const ev = [];
 let k0 = true;
 const n1 = new Set();
-if ((g3 && (v["a"] !== undefined))) { n1.add("a"); const m2 = anns.length; if (!u1(v["a"], d, h_s0, ep + "/properties/a", ip + "/a", errs, anns)) { ok = false; k0 = false; anns.length = m2; } }
+if ((g3 && ("a" in v))) { n1.add("a"); const m2 = anns.length; if (!u1(v["a"], d, h_s0, ep + "/properties/a", ip + "/a", errs, anns)) { ok = false; k0 = false; anns.length = m2; } }
 if (g3) { if (k0) { ev.push([...n1]); } }
 let k4 = true;
 const n5 = new Set();

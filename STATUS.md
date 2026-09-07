@@ -98,25 +98,30 @@ or milestone:
   lifts the OAS 3.1 corpus from interpreter-parity to ~40k ops/s flag /
   ~18k list (~19×/~9×, flag ~13× ahead of Hyperjump); only genuine
   `$dynamicRef` islands stay interpreted there.
-- **Polymorphic record shapes** (2026-09-06): over a wide `properties`
-  schema, records whose field sets differ put compiled flag mode and
-  AJV alike at interpreter speed (`records-sparse` harness corpus:
-  ~44 ops/s for 2000 records, against ~27k ops/s for records of one
-  shape), because the plain-data presence probe goes megamorphic;
-  conservative emission's `hasOwnProperty` probe stays ~10× faster
-  there (backlog E12).
+- **Polymorphic record shapes** (E12, 2026-09-07): over a wide
+  `properties` schema, records whose field sets differ used to put
+  compiled flag mode and AJV alike at interpreter speed, the plain-data
+  presence probe going megamorphic over the differing shapes. The probe
+  is now `key in obj` rather than a value load, and on the
+  `records-sparse` harness corpus compiled flag runs ~232 ops/s for 2000
+  records against AJV's ~44 and the interpreter's ~37 — while
+  `records-uniform` holds at ~27k ops/s, unchanged. `in` was the only
+  candidate measured fast on both: the own-check probes reach the same
+  sparse figure but cost ~50× on uniform records.
 - **Compiled structured output** (2026-09-07): `compileEvaluator` renders
   every relevant-level format from one recorded application tree. On the
   harness corpora compiled `hierarchical` runs ~5–24× the interpreter's,
   `list` with the trace ~3–6×, `detailed` ~2–4× (report-only); recording
-  the tree costs about 4× the compiled flat list on the payload corpus,
-  and `records-sparse` stays at parity in both tiers (E12).
+  the tree costs about 4× the compiled flat list on the payload corpus;
+  since E12 `records-sparse` shows a real compiled margin there too
+  (`hierarchical` ~6×, `list` with the trace ~4×, `detailed` ~3×).
 - **Compiled verbose level** (2026-09-07): a `verbose: true` evaluator
   retains the irrelevant records from the same emitted source. On the
   harness corpora compiled `list` at the verbose level runs ~5–13× the
-  interpreter's and `verbose` ~3–9× (report-only); `records-sparse`
-  runs ~1.6× in both rows, the retention being the one cost the
-  presence probe does not dominate there.
+  interpreter's and `verbose` ~3–9× (report-only); since E12
+  `records-sparse` runs ~5× (`list` at the verbose level) and ~3.6×
+  (`verbose`), the retention now being the dominant cost there rather
+  than the presence probe.
 - ajv-compat is a **migration adapter for a documented subset**, not a
   full AJV clone; divergences are enumerated in COMPAT.md and enforced
   by fixture tests and a suite-differential golden set.

@@ -24,14 +24,23 @@ export function expr(ctx: UnitContext, e: LowerExpr): CodeChunk {
       return typeTest(ctx, e.target, e.types);
     case "hasOwn": {
       // Plain-data instance contract (DESIGN §7, M6.5): for JSON data,
-      // presence-of-own-key ≡ `!== undefined` — V8 executes the load ~8x
-      // faster than Object.hasOwn. Keys that exist on Object.prototype
-      // (constructor, toString, …) or are "__proto__" would false-positive
-      // through the prototype chain, so those keep an explicit own-check.
+      // presence-of-own-key is `key in obj` — plain data has no inherited
+      // enumerables, so the prototype chain `in` walks holds nothing but
+      // Object.prototype's own names. Keys that live there (constructor,
+      // toString, …) or are "__proto__" would false-positive through that
+      // chain, so those keep an explicit own-check.
+      //
+      // `in` with a constant key is the only probe fast on both record
+      // shapes (E12, bench/corpora records-*, 2000 records): on uniform
+      // records it ties the `obj[key] !== undefined` load it replaces
+      // (0.033 ms), while on sparse records — where a value load goes
+      // megamorphic over differing shapes — it costs 4.1 ms against that
+      // load's 22.7 ms. The own-check forms measure the other way round:
+      // ~2.8 ms sparse but ~1.7 ms uniform, a ~50x uniform regression.
       if (typeof e.key === "string") {
         const dangerous = e.key === "__proto__" || e.key in Object.prototype;
         if (ctx.flags.plainData && !dangerous) {
-          return js`(${expr(ctx, e.target)}[${str(e.key)}] !== undefined)`;
+          return js`(${str(e.key)} in ${expr(ctx, e.target)})`;
         }
         return js`${id("h_hop")}.call(${expr(ctx, e.target)}, ${str(e.key)})`;
       }

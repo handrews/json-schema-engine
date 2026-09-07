@@ -40,16 +40,18 @@ deterministically inside the harness (seeded, no third-party data).
   float-modulo check fails valid two-decimal amounts that jse's
   decimal-safe scaling accepts (a documented COMPAT.md divergence). The
   corpus measures throughput, not that divergence.
-- **Record shapes decide the compiled tier's speed on wide schemas.** On
-  `records-uniform` (one record shape) compiled flag mode validates 2000
-  records in ~0.04 ms; on `records-sparse` (optional fields in varying
-  order) the same artifact takes ~23 ms, level with AJV and the
-  interpreter, because the plain-data presence probe
-  (`obj[key] !== undefined`, one per schema property per record) goes
-  megamorphic once record shapes differ. Conservative emission's
-  `hasOwnProperty` probe measures ~2 ms on the same input (ad hoc; not a
-  harness subject) and Hyperjump, which iterates instance keys, ~7 ms.
-  Backlog E12.
+- **Record shapes still cost the compiled tier something, but far less
+  than the probe once did (E12, 2026-09-07).** On `records-uniform` (one
+  record shape) compiled flag mode validates 2000 records in ~0.03 ms; on
+  `records-sparse` (optional fields in varying order) the same artifact
+  takes ~4 ms. It was ~23 ms — level with AJV (~22 ms) and the interpreter
+  (~27 ms) — while the plain-data presence probe was
+  `obj[key] !== undefined`, one value load per schema property per record,
+  which goes megamorphic once record shapes differ. The probe is now
+  `key in obj`, which is the only candidate measured fast on both corpora:
+  the own-check forms (`hasOwnProperty.call`, `Object.hasOwn`) reach
+  ~2.8 ms on sparse but cost ~1.7 ms on uniform, a ~50× regression there.
+  Hyperjump, which iterates instance keys, is ~6 ms on sparse either way.
 - **tinybench's iteration floors are pinned** (5 samples, 2 warmup): the
   defaults (64 and 16) would run every records task for seconds regardless
   of `BENCH_BUDGET`, since one evaluation there costs 20–50 ms.

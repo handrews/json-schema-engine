@@ -4,7 +4,7 @@ const h_maxd = R.maxDepth;
 const h_s0 = [];
 const h_hop = Object.prototype.hasOwnProperty;
 function u0(v, d, s) { const g1 = (typeof v === "object" && v !== null && !Array.isArray(v));
-if ((g1 && (v["a"] !== undefined))) { const t0 = v["a"];
+if ((g1 && ("a" in v))) { const t0 = v["a"];
 if (!((typeof t0 === "string"))) { return false; } }
 if (g1) {  }
 if (g1) { for (const b0 in v) { if (!(((b0 === "a")))) { return false; } }

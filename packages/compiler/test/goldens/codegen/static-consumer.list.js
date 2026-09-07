@@ -10,7 +10,7 @@ let ok = true;
 const ev = [];
 let k0 = true;
 const n1 = new Set();
-if ((g2 && (v["a"] !== undefined))) { n1.add("a"); if (!u1(v["a"], d, h_s0, ep + "/properties/a", ip + "/a", errs)) { ok = false; k0 = false; } }
+if ((g2 && ("a" in v))) { n1.add("a"); if (!u1(v["a"], d, h_s0, ep + "/properties/a", ip + "/a", errs)) { ok = false; k0 = false; } }
 if (g2) { if (k0) { ev.push([...n1]); } }
 let k3 = true;
 const n4 = new Set();

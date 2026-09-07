@@ -12,7 +12,7 @@ let ok = true;
 const ev = [];
 let k0 = true, k1 = true;
 const n2 = new Set();
-if ((g4 && (v["a"] !== undefined))) { n2.add("a"); const m3 = st.anns.length; if (!u1(v["a"], d, h_s0, ep + "/properties/a", ip + "/a", st, tn)) { ok = false; k0 = false; h_cutA(st, m3); } }
+if ((g4 && ("a" in v))) { n2.add("a"); const m3 = st.anns.length; if (!u1(v["a"], d, h_s0, ep + "/properties/a", ip + "/a", st, tn)) { ok = false; k0 = false; h_cutA(st, m3); } }
 if (g4) { if (k0) { ev.push([...n2]); } }
 tn.keywords.push({ name: "properties", valid: k0 });
 const n5 = new Set();
