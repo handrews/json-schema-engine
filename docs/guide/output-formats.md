@@ -65,8 +65,8 @@ use the engine's own field names: `evaluationPath`, `schemaLocation`,
 controls `errorParams`, `positions`, and `trace` apply to this surface on any
 non-flag format; `outputDocument` always has exactly its source's structure.
 Compiled evaluators (`@jse/compiler`, [below](#compiled-evaluators)) render
-every relevant-level format and the trace from one recorded application
-tree; the verbose level is rendered by the interpreter.
+every format, at either level, and the trace from one recorded application
+tree.
 
 | Concept          | Flat surface            | IETF draft-03 documents           | Machines-oriented documents         |
 | ---------------- | ----------------------- | --------------------------------- | ----------------------------------- |
@@ -330,18 +330,22 @@ assert.equal(
 `compileEvaluator` compiles a schema once into an artifact that records
 each application's node while it evaluates, then renders the requested
 format through the same code the interpreter uses. The annotation
-selection and `errorParams` are fixed when the evaluator is compiled;
-`output` and `trace` are chosen per evaluation. The result is the
-interpreter's, key for key.
+selection, `errorParams`, and the level (`verbose`) are fixed when the
+evaluator is compiled; `output`, `verbose`, and `trace` are chosen per
+evaluation. The result is the interpreter's, key for key.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
+import { createEngine, OutputOptionsError } from "@jse/core";
 import { compileEvaluator } from "@jse/compiler";
 
 const engine = createEngine();
 const uri = engine.registerSchema(
-  { title: "root", properties: { count: { type: "integer" } } },
+  {
+    title: "root",
+    properties: { count: { type: "integer" } },
+    anyOf: [{ required: ["count"] }, { required: ["id"] }],
+  },
   "https://example.com/evaluator",
 );
 const evaluator = compileEvaluator(engine, uri, { annotations: true });
@@ -355,12 +359,36 @@ assert.deepStrictEqual(
     annotations: true,
   }),
 );
+
+// The verbose level needs an evaluator that retains irrelevant records.
+assert.throws(
+  () => evaluator.evaluate(instance, { output: "list", verbose: true }),
+  OutputOptionsError,
+);
+const retaining = compileEvaluator(engine, uri, {
+  annotations: true,
+  verbose: true,
+});
+const verbose = retaining.evaluate(instance, { output: "list", verbose: true });
+assert.deepStrictEqual(
+  verbose,
+  engine.evaluate(uri, instance, {
+    output: "list",
+    verbose: true,
+    annotations: true,
+  }),
+);
+// The losing anyOf branch's error, kept and marked.
+assert.equal(verbose.droppedErrors?.[0]?.evaluationPath, "/anyOf/1/required");
 ```
 
-Every relevant-level format is available: `flag`, `basic`, `list`,
-`hierarchical`, `detailed`, each with or without `trace`. A verbose-level
-request (`verbose`, or `verbose: true`) and any attempt to change the
-compile-time controls at evaluation throw `OutputOptionsError`.
+Every format is available: `flag`, `basic`, `list`, `hierarchical`,
+`detailed`, each with or without `trace`, and on a retaining evaluator
+`verbose` and the verbose level of `list` and `hierarchical`. A retaining
+evaluator serves the relevant level too, at the cost of keeping the
+dropped records; its emitted source is identical. A verbose-level request
+on any other evaluator, and any attempt to change the compile-time controls
+at evaluation, throw `OutputOptionsError`.
 
 The vocabulary, per keyword: `type` → `{expected}` (the schema value);
 `enum` → `{allowedValues}`; `const` → `{allowedValue}`; the string/

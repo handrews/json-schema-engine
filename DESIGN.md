@@ -334,8 +334,9 @@ tree during evaluation: a node per application, a verdict per
 non-structural keyword in dialect order, records attributed as they are
 pushed, islands grafted from traced fragments; the relevance cuts route
 through the runtime so the artifact's level decides whether irrelevant
-records are discarded (relevant level, delivered) or retained (verbose
-level, open). D9e is realized in list emission:
+records are discarded (relevant level) or retained (verbose level, a
+`verbose: true` artifact); the emitted source is the same. D9e is
+realized in list emission:
 error-unit objects and message strings materialize only on failure
 paths; annotation units materialize on success paths by definition.
 
@@ -920,9 +921,12 @@ packages/core/src/records.ts, and the artifact's `basic()` renders through
 core (byte-identical, suite-wide sweep); step 2 — DELIVERED 2026-09-07:
 `compileEvaluator` records the tree at the relevant level (trace emission,
 traced islands, per-format goldens, evaluator suite differentials over
-five dialects, `FUZZ_EVALUATOR` leg, harness rows); step 3, verbose-level
-retention (dropped errors in drop order, dropped annotations in recording
-order), stays open.
+five dialects, `FUZZ_EVALUATOR` leg, harness rows); step 3 — DELIVERED
+2026-09-07: verbose-level retention (`compileEvaluator` `verbose: true`;
+dropped errors in drop order, dropped annotations in recording order,
+traced islands included) as a runtime binding over the same emitted
+source, refereed on both artifact levels by the evaluator suite, the
+`FUZZ_EVALUATOR` leg, and the harness oracle.
 
 Cross-repository command, package, TypeScript, and package-manager alignment is tracked by the
 canonical public [oaskit tooling-convergence plan](https://github.com/handrews/oaskit/blob/main/docs/tooling-convergence.md).
