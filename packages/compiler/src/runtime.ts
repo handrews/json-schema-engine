@@ -6,9 +6,12 @@ import {
   MaxDepthExceededError,
   renderAnnotation,
   renderError,
+  traceToRenderNodes,
   type AnnotationUnit,
   type ErrorUnit,
+  type MutableRenderNode,
   type PathNode,
+  type ResultUnits,
   canonicalKey,
   codePointLength,
   escapeSegment,
@@ -38,6 +41,73 @@ export const isObject = (v: unknown): v is Record<string, JsonValue> =>
 /** `n` is an integer-valued JSON number. */
 export const isInteger = (v: unknown): boolean =>
   typeof v === "number" && Number.isInteger(v);
+
+/**
+ * The application(s) that raised one recorded unit: one node, or the nodes
+ * sharing a path node inside a traced island (a segment-less custom apply
+ * shares its parent's, as core's own adapter attributes it).
+ */
+export type NodeRef = MutableRenderNode | MutableRenderNode[];
+
+/** A node's parent as emitted code sees it: the holder or another node. */
+export interface NodeParent {
+  children: MutableRenderNode[];
+}
+
+/**
+ * Per-evaluation state of a trace artifact: the flat channels paired with
+ * the application that raised each unit, and the tree under its holder.
+ * Emitted code fills it; {@link finishTrace} turns it into renderer input.
+ */
+export interface TraceState {
+  valid: boolean;
+  errs: ErrorUnit[];
+  errNodes: NodeRef[];
+  anns: AnnotationUnit[];
+  annNodes: NodeRef[];
+  /** the root's parent: `hold.children[0]` is the root application */
+  hold: NodeParent;
+}
+
+/**
+ * Attributes every unit to its application and applies the selection's
+ * `keep` predicate, yielding the flat surface and the tree. The relevant
+ * level discards dropped records at the cut, so the dropped pair is empty;
+ * an invalid run has no relevant annotations (draft-03 §12.2).
+ */
+export function finishTrace(
+  st: TraceState,
+  keep: ((unit: AnnotationUnit) => boolean) | undefined,
+): { units: ResultUnits; root: MutableRenderNode } {
+  const attribute = (
+    ref: NodeRef,
+    list: "errors" | "annotations",
+    index: number,
+  ): void => {
+    if (Array.isArray(ref)) for (const node of ref) node[list].push(index);
+    else ref[list].push(index);
+  };
+  st.errs.forEach((_, i) => {
+    attribute(st.errNodes[i]!, "errors", i);
+  });
+  const annotations: AnnotationUnit[] = [];
+  if (st.valid) {
+    st.anns.forEach((unit, i) => {
+      if (keep !== undefined && !keep(unit)) return;
+      attribute(st.annNodes[i]!, "annotations", annotations.length);
+      annotations.push(unit);
+    });
+  }
+  return {
+    units: {
+      errors: st.errs,
+      droppedErrors: [],
+      annotations,
+      droppedAnnotations: [],
+    },
+    root: st.hold.children[0]!,
+  };
+}
 
 /**
  * The closure passed to every compiled unit function: shared helpers, the
@@ -130,6 +200,40 @@ export interface Runtime {
     anns: AnnotationUnit[],
     ev?: unknown[],
   ): boolean;
+  /** Trace emission: a fresh per-evaluation state. Present only on trace artifacts. */
+  traceState?(): TraceState;
+  /** Trace emission: the node of one application, linked under its parent. */
+  traceNode?(
+    tp: NodeParent,
+    ep: string,
+    sloc: string,
+    ip: string,
+  ): MutableRenderNode;
+  /** Trace emission: an error unit with the application that raised it. */
+  traceError?(st: TraceState, tn: MutableRenderNode, unit: ErrorUnit): void;
+  /** Trace emission: an annotation unit with the application that raised it. */
+  traceAnn?(st: TraceState, tn: MutableRenderNode, unit: AnnotationUnit): void;
+  /** Trace emission: an accepting keyword's cut of the errors since mark `m`. */
+  cutErrors?(st: TraceState, m: number): void;
+  /** Trace emission: a failed application's cut of the annotations since mark `m`. */
+  cutAnns?(st: TraceState, m: number): void;
+  /**
+   * Trace emission's island trampoline: the fragment runs traced, its
+   * subtree is grafted under the calling application, and its records join
+   * the channels attributed to the fragment nodes that raised them. `ev`
+   * composes as on {@link Runtime.fragList}.
+   */
+  fragTrace?(
+    target: SchemaRef,
+    value: JsonValue,
+    scope: readonly string[],
+    depth: number,
+    ep: string,
+    ip: string,
+    st: TraceState,
+    tp: NodeParent,
+    ev?: unknown[],
+  ): boolean;
 }
 
 /** Builds the {@link Runtime} closure for an artifact bound to one registry. */
@@ -142,6 +246,7 @@ export function makeRuntime(
   annotate?: { selection?: boolean | AnnotationSelection },
   formatTable?: FormatTable,
   usedFormats: readonly string[] = [],
+  trace = false,
 ): Runtime {
   const re = Object.create(null) as Record<
     string,
@@ -297,5 +402,102 @@ export function makeRuntime(
           },
         }
       : {}),
+    ...(trace ? traceHelpers() : {}),
   };
+
+  function traceHelpers(): Pick<
+    Runtime,
+    | "traceState"
+    | "traceNode"
+    | "traceError"
+    | "traceAnn"
+    | "cutErrors"
+    | "cutAnns"
+    | "fragTrace"
+  > {
+    return {
+      traceState: () => ({
+        valid: true,
+        errs: [],
+        errNodes: [],
+        anns: [],
+        annNodes: [],
+        hold: { children: [] },
+      }),
+      traceNode: (tp, ep, sloc, ip) => {
+        const node: MutableRenderNode = {
+          evaluationPath: ep,
+          schemaLocation: sloc,
+          inputLocation: ip,
+          valid: true,
+          keywords: [],
+          errors: [],
+          droppedErrors: [],
+          annotations: [],
+          droppedAnnotations: [],
+          children: [],
+        };
+        tp.children.push(node);
+        return node;
+      },
+      traceError: (st, tn, unit) => {
+        st.errs.push(unit);
+        st.errNodes.push(tn);
+      },
+      traceAnn: (st, tn, unit) => {
+        st.anns.push(unit);
+        st.annNodes.push(tn);
+      },
+      // The relevant level discards what an accepting keyword or a failed
+      // application made irrelevant, exactly as list mode truncates.
+      cutErrors: (st, m) => {
+        st.errs.length = m;
+        st.errNodes.length = m;
+      },
+      cutAnns: (st, m) => {
+        st.anns.length = m;
+        st.annNodes.length = m;
+      },
+      fragTrace: (target, value, scope, depth, ep, ip, st, tp, ev) => {
+        const pathNode: PathNode | null =
+          ep === "" ? null : { parent: null, segment: ep.slice(1) };
+        // The SAME cursor object must reach harvestCoverage (see fragCov).
+        const cursor = rootCursor(value);
+        const options: FragmentOptions = {
+          dynamicScope: scope,
+          depth,
+          regexCache,
+          maxDepth,
+          shouldRecord: annRecord ?? shouldRecord,
+          pathNode,
+          tracing: true,
+        };
+        const result = evaluateFragment(registry, target, cursor, options);
+        // The fragment's tree hangs under the calling application whether or
+        // not it passed: the interpreter keeps failed applications too.
+        const { root, at } = traceToRenderNodes(result.traceRoot!, ip);
+        tp.children.push(root);
+        const owner = (node: PathNode | null): NodeRef => {
+          const nodes = at.get(node)!;
+          return nodes.length === 1 ? nodes[0]! : nodes;
+        };
+        for (const record of result.errors) {
+          const unit = renderError(record, listParams);
+          unit.inputLocation = ip + unit.inputLocation;
+          st.errs.push(unit);
+          st.errNodes.push(owner(record.pathNode));
+        }
+        for (const a of result.annotations) {
+          const unit = renderAnnotation(a);
+          unit.inputLocation = ip + unit.inputLocation;
+          st.anns.push(unit);
+          st.annNodes.push(owner(a.pathNode));
+        }
+        if (ev !== undefined) {
+          ev.push(...harvestCoverage(result.dependencies, cursor, coverageIds));
+        }
+        return result.valid;
+      },
+    };
+  }
 }

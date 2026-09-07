@@ -7,7 +7,8 @@ import {
   type LowerStmt,
   type LoweringContext,
 } from "@jse/core";
-import { type CodeChunk, id, js, str, json } from "../emit.js";
+import { type CodeChunk, id, join, js, str, json } from "../emit.js";
+import { TN } from "./names.js";
 import { UnitContext, SerializeError } from "./context.js";
 import { beginKeyword } from "./keywords.js";
 import { keywordStatements } from "./statements.js";
@@ -23,6 +24,21 @@ export function unitBody(ctx: UnitContext): CodeChunk[] {
   // never planned.
   const refOnly = dialect.refIgnoresSiblings && Object.hasOwn(node, "$ref");
   const out: CodeChunk[] = [];
+  if (ctx.trace) {
+    // One verdict slot per present non-structural keyword, declared up front:
+    // `if` settles `then`/`else`'s verdicts before those keywords' own (empty)
+    // statement lists run. Structural keywords record no entry (engine.ts).
+    const slots: CodeChunk[] = [];
+    for (const entry of dialect.ordered) {
+      if (refOnly && entry.name !== "$ref") continue;
+      if (!Object.hasOwn(node, entry.name)) continue;
+      if (entry.behavior.structural === true) continue;
+      const k = id("k" + String(ctx.counters.temp++));
+      ctx.kwVerdicts.set(entry.name, k);
+      slots.push(js`${k} = true`);
+    }
+    if (slots.length > 0) out.push(js`let ${join(", ", slots)};`);
+  }
   for (const entry of dialect.ordered) {
     if (refOnly && entry.name !== "$ref") continue;
     if (!Object.hasOwn(node, entry.name)) continue;
@@ -42,13 +58,27 @@ export function unitBody(ctx: UnitContext): CodeChunk[] {
     const decls = beginKeyword(ctx, stmts);
     const chunks = keywordStatements(ctx, stmts);
     out.push(...decls, ...chunks);
+    // The verdict entry follows the keyword's applications, as the
+    // interpreter's traceKeyword does.
+    if (ctx.trace && behavior.structural !== true) {
+      const k = ctx.kwVerdicts.get(entry.name)!;
+      out.push(
+        js`${TN}.keywords.push({ name: ${str(entry.name)}, valid: ${k} });`,
+      );
+    }
   }
   // Unknown keywords collect as annotations (engine.ts:414): unconditional
   // constant annotations, in schema-key order, after every dialect keyword.
-  // The refOnly break silences siblings, matching the interpreter.
-  if (ctx.annMode && !refOnly) {
+  // The refOnly break silences siblings, matching the interpreter. Trace
+  // emission records each as an accepting keyword entry whether or not its
+  // annotation is selected.
+  if ((ctx.annMode || ctx.trace) && !refOnly) {
     for (const name of Object.keys(node)) {
       if (dialect.keywords.has(name)) continue;
+      if (ctx.trace) {
+        out.push(js`${TN}.keywords.push({ name: ${str(name)}, valid: true });`);
+      }
+      if (!ctx.annMode) continue;
       if (ctx.annKeep && !ctx.annKeep("", name, null)) continue;
       const suffix = "/" + escapeSegment(name);
       const sloc = ctx.unit.ref.baseUri + "#" + ctx.unit.ref.pointer + suffix;

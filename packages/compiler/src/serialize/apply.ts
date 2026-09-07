@@ -39,12 +39,13 @@ export function applyCall(ctx: UnitContext, apply: LowerApply): CodeChunk {
   ];
   if (target.kind === "static") {
     // Boolean subschemas fold to literals — except in list mode, where a
-    // `false` schema must report its "schema is false" error unit.
+    // `false` schema must report its "schema is false" error unit, and in
+    // trace emission, where every application is a node.
     if (typeof target.ref.node === "boolean") {
       if (ctx.output !== "list") {
         return target.ref.node ? js`true` : js`false`;
       }
-      if (target.ref.node) return js`true`;
+      if (target.ref.node && !ctx.trace) return js`true`;
     }
     const scope = ctx.unit.reachesInterpreted ? S : id("h_s0");
     ctx.calledUnit = true;
@@ -183,8 +184,9 @@ export function tryInline(
 ): CodeChunk | null {
   if (!ctx.flags.inline) return null;
   // Region emission never inlines: an in-place target is called through its
-  // channel-threaded region variant, not expanded (rule 8).
-  if (ctx.regionMode) return null;
+  // channel-threaded region variant, not expanded (rule 8). Trace emission
+  // never inlines either: an application is a node only as a call.
+  if (ctx.regionMode || ctx.trace) return null;
   let targetKey: string;
   if (apply.ref !== undefined) {
     targetKey = edgeTarget(ctx, apply.ref, null);

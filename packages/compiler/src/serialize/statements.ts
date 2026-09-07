@@ -415,9 +415,13 @@ function emitListApply(
       // covers less, still run.
       const rec = annRecordSegment(ctx, apply.cursor);
       const pre = rec ? js`${rec} ` : js``;
-      const fail = ctx.kwOk
-        ? js`ok = false; ${ctx.kwOk} = false;`
-        : js`ok = false;`;
+      // A driven sibling's application (`then`/`else` under `if`) fails that
+      // sibling's own verdict, as the interpreter reports it.
+      const slot =
+        ctx.trace && apply.sibling !== undefined
+          ? (ctx.kwVerdicts.get(apply.sibling) ?? null)
+          : ctx.kwOk;
+      const fail = slot ? js`ok = false; ${slot} = false;` : js`ok = false;`;
       const spans = channelSpans(ctx, evSpan);
       if (spans.length === 0) return js`${pre}if (!${call}) { ${fail} }`;
       return js`${pre}${spanDecls(ctx, spans)} if (!${call}) { ${fail} ${spanResets(ctx, spans)} }`;

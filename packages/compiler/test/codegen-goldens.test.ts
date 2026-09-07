@@ -5,14 +5,15 @@
 // deliberate codegen change re-pins them the way plan-census pins are
 // updated. The fixture schemas: the three bench spike schemas, a
 // static-coverage consumer, a runtime-tracked consumer (anyOf contributors),
-// and a $dynamicRef island.
+// and a $dynamicRef island. The `trace` mode is the evaluator's emission:
+// list mode plus the recorded application tree.
 
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createEngine, type Engine, type JsonValue } from "@jse/core";
-import { compileList, compileValidator } from "@jse/compiler";
+import { compileEvaluator, compileList, compileValidator } from "@jse/compiler";
 
 const DIR = join(dirname(fileURLToPath(import.meta.url)), "goldens", "codegen");
 
@@ -30,6 +31,9 @@ const MODES: Record<string, (engine: Engine, uri: string) => string> = {
   list: (engine, uri) => compileList(engine, uri, { errorParams: true }).source,
   "list-annotations": (engine, uri) =>
     compileList(engine, uri, { errorParams: true, annotations: true }).source,
+  trace: (engine, uri) =>
+    compileEvaluator(engine, uri, { errorParams: true, annotations: true })
+      .source,
 };
 
 describe("codegen goldens", () => {

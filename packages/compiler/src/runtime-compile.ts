@@ -4,7 +4,7 @@
 // Standalone source emission (M6.5) bypasses this module entirely.
 
 import type { AnnotationUnit, JsonValue, SchemaRef } from "@jse/core";
-import type { Runtime } from "./runtime.js";
+import type { Runtime, TraceState } from "./runtime.js";
 
 /** A compiled flag-mode validator. */
 export type CompiledValidate = (instance: JsonValue) => boolean;
@@ -51,6 +51,23 @@ export function instantiateListAnn<E>(
     R: Runtime,
     T: readonly SchemaRef[],
   ) => CompiledEvaluateListAnn<E>;
+  return factory(runtime, targets);
+}
+
+/** A compiled trace-mode evaluator: the filled per-evaluation {@link TraceState}. */
+export type CompiledEvaluateTrace = (instance: JsonValue) => TraceState;
+
+/** Instantiate trace-mode artifact source (same closure contract as {@link instantiate}). */
+export function instantiateTrace(
+  source: string,
+  runtime: Runtime,
+  targets: readonly SchemaRef[],
+): CompiledEvaluateTrace {
+  // eslint-disable-next-line @typescript-eslint/no-implied-eval
+  const factory = new Function("R", "T", source) as (
+    R: Runtime,
+    T: readonly SchemaRef[],
+  ) => CompiledEvaluateTrace;
   return factory(runtime, targets);
 }
 

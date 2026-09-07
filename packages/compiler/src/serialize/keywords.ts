@@ -25,7 +25,10 @@ export function beginKeyword(
   ctx.annKw = null;
   ctx.annKwKept = false;
   ctx.covKwKept = false;
-  ctx.kwOk = null;
+  // Trace emission pre-declared every keyword's verdict slot (unit.ts).
+  ctx.kwOk = ctx.trace
+    ? (ctx.kwVerdicts.get(ctx.currentKeyword) ?? null)
+    : null;
   if (!ctx.annMode && !ctx.regionMode) return [];
   ctx.annKwKept =
     ctx.annMode &&
@@ -39,7 +42,7 @@ export function beginKeyword(
   ctx.covKwKept = ctx.regionMode && ctx.coverageIds.has(ctx.currentBehaviorId);
   if (!ctx.covKwKept) return [];
   const decls: CodeChunk[] = [];
-  if (ctx.output === "list") {
+  if (ctx.output === "list" && !ctx.trace) {
     const k = id("k" + String(ctx.counters.temp++));
     ctx.kwOk = k;
     decls.push(js`let ${k} = true;`);
