@@ -56,7 +56,7 @@ semantics, and the release surface is documented and testable.
 - Ship `@jse/core`, `@jse/compiler`, `@jse/formats`, and
   `@jse/dialect-draft04` under the owner's chosen names.
 - Run conformance, differential, fuzz, security/resource-bound,
-  documentation, package-consumer, oaskit-smoke, and benchmark gates.
+  documentation, package-consumer, downstream-smoke, and benchmark gates.
 - Publish evidence explaining how JSE implements IETF draft-03 rather than
   presenting performance alone.
 
@@ -66,7 +66,7 @@ semantics, and the release surface is documented and testable.
 
 - Release `@jse/ajv-compat` after adapting it to the record model and fixing
   its open defects.
-- Complete generic error grouping and oaskit adoption.
+- Complete generic error grouping and downstream adoption.
 - Complete schema-driven input transformation and default-filling designs.
 - Add native OAS dialects and annotation consumers without exposing the larger
   private product strategy.

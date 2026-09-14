@@ -201,7 +201,7 @@ annotation-dropping-on-failure semantics, and the annotated-instance API is
 genuinely useful, but: no `keywordLocation` (same gap), no collection
 configurability (all-or-nothing via plugin), and experimental status means no
 stability contract — thin ice for anything load-bearing (a caution relevant to
-@oaskit D12, §10).
+the downstream project's D12, §10).
 
 ### 3.5 Performance posture (architecture-level)
 
@@ -514,7 +514,7 @@ experimental output formats becoming all-stable.
 
 ---
 
-## 10. Relationship to @oaskit (aware, not coupled)
+## 10. Relationship to the downstream project (aware, not coupled)
 
 `~/src/oas-codegen-replacement/DESIGN.md` D12 pins `@hyperjump/json-schema` for
 document validation and runtime residuals, with the explicit revisit trigger
@@ -524,11 +524,11 @@ annotation needs (`readOnly`/`writeOnly`, discriminators, extension-keyword
 annotations, per-location retention) map directly onto §7.3, and D9's
 runtime-checked residuals could eventually use the compiler tier to generate
 standalone residual validators (D9's own noted "bigger lift, later"). Also note
-§3.4: @oaskit's current dependency rests on Hyperjump's _experimental_ annotation
-surface — a stability risk worth logging against D12 regardless of whether this
-project proceeds. No design coupling in either direction beyond that; the engine
-must stand as a general-purpose JSON Schema implementation or it will end up an
-@oaskit internal.
+§3.4: the downstream project's current dependency rests on Hyperjump's
+_experimental_ annotation surface — a stability risk worth logging against D12
+regardless of whether this project proceeds. No design coupling in either
+direction beyond that; the engine must stand as a general-purpose JSON Schema
+implementation or it will end up an internal of the downstream project.
 
 ## 11. IP policy
 
@@ -558,7 +558,7 @@ must stand as a general-purpose JSON Schema implementation or it will end up an
   the compiler tier isolated so the high-expertise surface area is small.
 - **Funding:** grants bootstrap but don't sustain (AJV is the case study).
   Realistic paths: corporate underwriting from OpenAPI-tooling vendors (the
-  constituency blocked on 2020-12 — and per the @oaskit competitive analyses,
+  constituency blocked on 2020-12 — and per the downstream project's competitive analyses,
   substrate libraries are commoditizing in exactly this space), Tidelift/
   thanks.dev passive income, and keeping scope small enough that maintenance is
   measured in hours/month. A conformance-profile relationship with your OAS test

@@ -261,7 +261,7 @@ the compiled calling convention:
   `unevaluatedProperties`, conditional tuples): ~2 orders of
   magnitude available.** From 1/230–1/400 of AJV to AJV-class. This is
   the strict-API-schema idiom 2020-12 was designed for.
-- **OAS 3.1 validation (the oaskit workload): the flagship corpus goes
+- **OAS 3.1 validation (the downstream OpenAPI-tooling workload): the flagship corpus goes
   from "compilation buys nothing" (§1.2) to bounded 11.7×, realistic
   high single digits** — and from losing to Hyperjump on that corpus
   to leading it by several ×. If validating OpenAPI documents at scale

@@ -241,10 +241,10 @@ Requirements:
 ## Compatibility and migration
 
 Record changes to format names, field vocabularies, result overloads, artifact
-APIs, caching, oaskit, and AJV compatibility. Name formats by their format
+APIs, caching, the downstream project, and AJV compatibility. Name formats by their format
 names, never as "2020-12" or "modern", and state each name's source. The
-compiled `basic()` accessor and the draft-03 location fields that oaskit reads
-are kept or migrated in coordination with oaskit.
+compiled `basic()` accessor and the draft-03 location fields that the downstream project reads
+are kept or migrated in coordination with the downstream project.
 
 ## Exit criteria
 

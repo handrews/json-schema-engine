@@ -7,7 +7,7 @@
 The 2026-09-05 planning scaffold placed five investigations (output model,
 generic errors, annotation and transformation, defaults, output revisit) ahead
 of implementation and the first public release. JSE is to be published before
-oaskit. IETF draft-03 §12.9 states that implementations are not expected to
+the downstream project. IETF draft-03 §12.9 states that implementations are not expected to
 make use of annotations on behalf of applications, so application facilities
 (transformation, default filling, generic error grouping) are not required for
 a conforming release.
@@ -50,9 +50,9 @@ a conforming release.
 
 - Draft-03 §12.9: annotations are provided to applications; implementations
   are not expected to use them on the application's behalf.
-- oaskit census (2026-09-05): the only runtime path is
+- downstream census (2026-09-05): the only runtime path is
   `compileList(...).basic()`, reading `valid`, `errors[]`,
-  `instanceLocation`, and the keyword-location fields. oaskit does not use
+  `instanceLocation`, and the keyword-location fields. The downstream project does not use
   `ajv-compat`.
 - `packages/ajv-compat/COMPAT.md` and the 2026-07-12 audit: open defects in
   custom-keyword `compile` timing and discriminator/`ajv-errors` discovery.
@@ -64,8 +64,8 @@ a conforming release.
   pull no implementation onto the release path.
 - `STATUS.md` names the shipped slice; `COMPAT.md` gains a follow-up-release
   note in Phase 4.
-- oaskit keeps consuming vendored tarballs through the release; the release
-  gate includes an oaskit smoke against the candidate build (P3).
+- The downstream project keeps consuming vendored tarballs through the release; the release
+  gate includes a downstream smoke against the candidate build (P3).
 
 ## Compatibility
 

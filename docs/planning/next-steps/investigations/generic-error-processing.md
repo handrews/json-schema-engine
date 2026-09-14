@@ -18,7 +18,7 @@ AJV/application-specific paths, parameters, messages, and presentation.
 ## Current behavior
 
 JSE errors can carry keyword identity and JSON-shaped parameters. The AJV
-adapter uses trace/application context to filter and translate them. Oaskit
+adapter uses trace/application context to filter and translate them. The downstream project
 groups Basic/list output by `instanceLocation` and uses `NOISE_KEYWORDS` plus
 path inference. Its worker-safe diagnostics attach source ranges through
 pointer-to-CST correlation, which is distinct from evaluation locations.
@@ -52,7 +52,7 @@ vocabularies must not require brittle declaration merging.
 
 Compare stateless transforms, a trace-derived grouping tree, a configurable
 problem collector, and keyword-aware helpers above a neutral core. Prototype
-oaskit and AJV as separate consumers against `basic`/`list` and
+the downstream project and AJV as separate consumers against `basic`/`list` and
 `detailed`/`hierarchical` output.
 Measure successful flag-to-diagnostic escalation, relevance processing,
 combiner-heavy grouping, carried context, and source correlation.
@@ -61,7 +61,7 @@ combiner-heavy grouping, carried context, and source correlation.
 
 - Generic and compatibility responsibilities are named separately.
 - Normative relevance filtering occurs before application-specific grouping.
-- An oaskit prototype removes path/keyword heuristics.
+- A downstream-project prototype removes path/keyword heuristics.
 - AJV consumes rather than defines the generic layer.
 - Custom vocabulary errors have a clear extension story.
 - Output-model feedback is recorded.

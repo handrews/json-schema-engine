@@ -33,7 +33,7 @@ configuration switch, and no verbose-level reproduction.
 - Draft-03 §12.9 and Appendix D (tables 6 and 7).
 - The official test suite and Bowtie check validation results only; neither
   checks annotation output.
-- oaskit census (2026-09-05): no oaskit code reads annotations of any kind.
+- downstream census (2026-09-05): no downstream-project code reads annotations of any kind.
 - `packages/core/test/goldens/list.json` shows the current computed
   `properties` annotation; the goldens are regenerated in Phase 1.
 
