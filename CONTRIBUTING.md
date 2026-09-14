@@ -142,7 +142,8 @@ Releases are conformance-gated: suite and Bowtie green, or no release
   rule (the `npm ci` section above is the model).
 - User guide (`docs/guide/`): examples over prose. Mark areas that upcoming
   milestones will change with a `TBD` note instead of documenting twice.
-- Every fenced ` ```ts ` block in `docs/guide/*.md` and `README.md` is
+- Every fenced ` ```ts ` block in `docs/guide/*.md`, `docs/conformance.md`,
+  and `README.md` is
   **executed by CI** (`packages/core/test/docs.test.ts`): it must be a
   self-contained module that imports what it uses (`@jse/core`,
   `node:assert`) and throws on failure. Use ` ```jsonc ` or ` ```txt ` for

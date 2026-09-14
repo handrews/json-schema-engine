@@ -1,18 +1,31 @@
 // Trampoline depth-budget parity (D20): the same MaxDepthExceededError
-// class, at the same shared maxDepth, from all three evaluation surfaces —
-// interpreter, compiled flag, compiled list. A fully static recursive chain
-// exercises the compiled tier's own depth counter; a $dynamicRef island
-// exercises the frag/fragList trampoline back into the interpreter's depth
-// counter. Both must agree with Engine.evaluate, and neither may silently
-// swallow the bound.
+// class, at the same shared maxDepth, from all three in-process evaluation
+// surfaces — interpreter, compiled flag, compiled list. A fully static
+// recursive chain exercises the compiled tier's own depth counter; a
+// $dynamicRef island exercises the frag/fragList trampoline back into the
+// interpreter's depth counter. Both must agree with Engine.evaluate, and
+// neither may silently swallow the bound.
+//
+// Standalone modules are the fourth surface and reach only structural
+// parity: a zero-import module cannot share core's class object, so the
+// last describe pins what is actually available there.
 
 import { describe, it, expect } from "vitest";
-import { createEngine, MaxDepthExceededError, type JsonValue } from "@jse/core";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import {
+  DEFAULT_MAX_DEPTH,
+  createEngine,
+  MaxDepthExceededError,
+  type JsonValue,
+} from "@jse/core";
 import {
   buildPlan,
   compileEvaluator,
   compileList,
   compileValidator,
+  emitStandalone,
 } from "@jse/compiler";
 
 describe("static recursive chain: shared depth budget", () => {
@@ -145,5 +158,95 @@ describe("$dynamicRef island: shared depth budget through the frag trampoline", 
     expect(() =>
       evaluator.evaluate(deep, { output: "hierarchical", trace: true }),
     ).toThrow(MaxDepthExceededError);
+  });
+});
+
+describe("standalone modules: structural depth parity", () => {
+  // The other three surfaces import core's MaxDepthExceededError, so
+  // `toThrow(MaxDepthExceededError)` pins them nominally. A standalone
+  // module has no imports at all — that is the format's purpose — so its
+  // error is a distinct class object and instanceof against core's is false
+  // by construction. What must hold is everything else: the same
+  // constructor name, the same message, and the same bound.
+  const SCHEMA = {
+    properties: { next: { $ref: "#" } },
+  };
+
+  const emitAndLoad = async (
+    source: string,
+  ): Promise<(v: unknown) => boolean> => {
+    const dir = mkdtempSync(join(tmpdir(), "jse-depth-standalone-"));
+    const file = join(dir, "artifact.mjs");
+    writeFileSync(file, source);
+    try {
+      const mod = (await import(/* @vite-ignore */ file)) as {
+        default: (v: unknown) => boolean;
+      };
+      return mod.default;
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+
+  it("throws a MaxDepthExceededError-shaped error, not a RangeError", async () => {
+    const engine = createEngine({ maxDepth: 64 });
+    const uri = engine.registerSchema(
+      SCHEMA,
+      "https://depth.example/standalone-deep",
+    );
+    let deep: JsonValue = {};
+    for (let i = 0; i < 200; i++) deep = { next: deep };
+
+    const validate = await emitAndLoad(
+      emitStandalone(engine, uri, { maxDepth: 64 }),
+    );
+
+    let thrown: unknown;
+    try {
+      validate(deep);
+    } catch (err) {
+      thrown = err;
+    }
+    expect(thrown).toBeInstanceOf(Error);
+    // Core converts a native stack RangeError INTO the typed error, so a
+    // RangeError here would make the bound indistinguishable from a crash.
+    expect(thrown).not.toBeInstanceOf(RangeError);
+    expect((thrown as Error).constructor.name).toBe("MaxDepthExceededError");
+
+    // The message matches what a runtime-compiled artifact reports.
+    let runtimeThrown: unknown;
+    try {
+      compileValidator(engine, uri, { maxDepth: 64 }).validate(deep);
+    } catch (err) {
+      runtimeThrown = err;
+    }
+    expect((thrown as Error).message).toBe((runtimeThrown as Error).message);
+    expect(runtimeThrown).toBeInstanceOf(MaxDepthExceededError);
+  });
+
+  it("bakes in core's DEFAULT_MAX_DEPTH when no bound is given", () => {
+    const engine = createEngine();
+    const uri = engine.registerSchema(
+      SCHEMA,
+      "https://depth.example/standalone-default",
+    );
+    // Pins the shared constant rather than a literal: a change to core's
+    // default must reach emitted modules, not drift away from them.
+    expect(emitStandalone(engine, uri)).toContain(
+      `const h_maxd = ${String(DEFAULT_MAX_DEPTH)};`,
+    );
+  });
+
+  it("a shallow instance still agrees with the interpreter", async () => {
+    const engine = createEngine({ maxDepth: 64 });
+    const uri = engine.registerSchema(
+      SCHEMA,
+      "https://depth.example/standalone-shallow",
+    );
+    const shallow: JsonValue = { next: { next: {} } };
+    const validate = await emitAndLoad(
+      emitStandalone(engine, uri, { maxDepth: 64 }),
+    );
+    expect(validate(shallow)).toBe(engine.evaluate(uri, shallow).valid);
   });
 });
