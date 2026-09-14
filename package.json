@@ -30,19 +30,19 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@hyperjump/json-schema": "^1.17.8",
-    "@types/node": "^26.4.1",
+    "@types/node": "^26.5.1",
     "@vitest/coverage-v8": "^5.0.0",
     "ajv": "^8.20.0",
-    "eslint": "^10.9.1",
+    "eslint": "^10.10.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-tsdoc": "^0.5.2",
     "prettier": "^3.9.6",
-    "tinybench": "^6.1.4",
+    "tinybench": "^6.2.0",
     "tsx": "^4.23.13",
     "typedoc": "^0.28.20",
     "typedoc-plugin-markdown": "^4.13.0",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.69.0",
+    "typescript-eslint": "^8.70.0",
     "vitest": "^5.0.0"
   }
 }
