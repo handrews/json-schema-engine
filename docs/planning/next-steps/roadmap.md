@@ -16,6 +16,9 @@ notice with them.
 
 Gate: no planning document contradicts a recorded decision.
 
+Status: delivered 2026-09-05 (ADRs 0001–0003 recorded; planning documents,
+`STATUS.md`, and the `DESIGN.md` notice aligned).
+
 ## Phase 1: semantic reconciliation, interpreter first (S1–S3)
 
 1. Conformance fixtures before code, covering both irrelevance directions:
@@ -49,6 +52,10 @@ with zero-skip counts unchanged; no dependency data appears in any annotation
 output; goldens are regenerated and the header of
 `packages/core/test/goldens.test.ts` explains the draft-03 relevance outcome;
 the Phase 3 estimate exists. Compiler parity is Phase 3's gate, not this one.
+
+Status: delivered 2026-09-05 (backlog S1–S3): the record split, draft-03
+relevance with accept-only dependency data, and `if`/`then`/`else` as three
+keyword results.
 
 ## Phase 2: output levels and controls (E2, E9, S4)
 
@@ -103,6 +110,13 @@ emission remains flag-only (E3 post-release).
 7. Owner-controlled publication and Bowtie submission.
 
 Gate: every shipped package is solid within its documented scope.
+
+Status: items 2–6 delivered (item 3 as `docs/conformance.md`; item 4 as the
+migration table in `docs/guide/output-formats.md`, which the
+downstream-project smoke of 2026-09-14 exercised without a consumer change;
+item 5 against the candidate `65de809`, the downstream node-side tests
+passing unchanged; item 6 green on the same commit; item 2 with the
+compiler guide, E10). Items 1 and 7 are the owner's.
 
 ## Post-release stream
 

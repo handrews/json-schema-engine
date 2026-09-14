@@ -73,7 +73,8 @@ or milestone:
   record model and fixes for its open defects. `private: true` + version
   `0.0.0` remain the anti-accident latch; naming, versioning, registry
   publication, and outreach remain owner-controlled. Sibling projects consume
-  `npm pack` tarballs meanwhile (CONTRIBUTING).
+  `npm pack` tarballs meanwhile (CONTRIBUTING); the downstream-project
+  smoke (P3) passed unchanged against `65de809` on 2026-09-14.
 - **Bowtie submission.** The harness (all five dialects) runs locally
   and in CI with exact pins; the PR to Bowtie and the bowtie.report
   listing are made by the owner personally (no automated PRs, ever —
