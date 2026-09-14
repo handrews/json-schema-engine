@@ -83,8 +83,10 @@ Status: delivered 2026-09-06 (backlog E1). Artifacts bind to copy-on-write
 snapshots of both registries; the suite-scale parity legs cover the Basic
 document on every dialect with and without annotations, error params
 combined with annotations, a selection sweep, and draft-04 fuzzing. The
-compiled tier's output scope stays `flag`, the flat surface, and `basic`;
-structured documents are interpreter-only (E3 post-release).
+compiled tier's output scope has since grown past what this phase required:
+`compileEvaluator` renders every format at both levels from a recorded
+application tree, deep-equal to the interpreter (STATUS.md). Standalone
+emission remains flag-only (E3 post-release).
 
 ## Phase 4: release gate (P1–P4), in this order
 
