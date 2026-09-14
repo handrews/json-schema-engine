@@ -102,6 +102,9 @@ assert.deepEqual(titles?.map((t) => t.inputLocation).sort(), ["", "/name"]);
 ## Documentation
 
 - [User guide](docs/guide/index.md) — task-oriented, example-driven.
+- [Conformance and evidence](docs/conformance.md) — how JSE implements the
+  IETF draft-03 model, the fixtures and suite results behind that claim, and
+  where it diverges.
 - [Security and resource limits](docs/guide/security.md) — evaluating
   untrusted schemas and instances (ReDoS, recursion depth, uniqueness cost).
 - API reference — generated from source: `npm run docs:api`, output in

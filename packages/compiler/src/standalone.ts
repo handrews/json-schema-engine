@@ -16,7 +16,7 @@
 // vector corpus, and the CSP check re-runs the official suite through
 // emitted modules.
 
-import type { Engine } from "@jse/core";
+import { DEFAULT_MAX_DEPTH, type Engine } from "@jse/core";
 import { buildPlan } from "./plan.js";
 import { serializePlan } from "./serialize/index.js";
 
@@ -36,6 +36,16 @@ const h_obj = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
 const h_int = (v) => typeof v === "number" && Number.isInteger(v);
 const h_hop = Object.prototype.hasOwnProperty;
 const h_s0 = [];
+// Mirrors core's MaxDepthExceededError, which the interpreter and every
+// runtime-compiled artifact throw for this bound. Self-contained emission
+// cannot share core's class object, so \`instanceof\` against it is false
+// here by construction; \`constructor.name\` is the discriminator a
+// standalone consumer has. Throwing RangeError instead would be worse than
+// imprecise: core converts a native stack RangeError INTO this class so a
+// depth failure is never uncatchable by type, and reusing RangeError for
+// the bound makes "schema too deep" and "blew the native stack"
+// indistinguishable.
+class MaxDepthExceededError extends Error {}
 const h_rx = (source) => {
   try {
     return new RegExp(source, "u");
@@ -123,7 +133,7 @@ const h_mof = (instance, divisor) => {
 
 /** Options for {@link emitStandalone}. */
 export interface StandaloneOptions {
-  /** depth bound baked into the module; default matches core's */
+  /** depth bound baked into the module; defaults to core's DEFAULT_MAX_DEPTH */
   maxDepth?: number;
 }
 
@@ -165,10 +175,10 @@ export function emitStandalone(
         "tracking; standalone emission covers static-coverage schemas only",
     );
   }
-  const maxDepth = options.maxDepth ?? 512;
+  const maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH;
   const depthPreamble =
     `const h_maxd = ${String(maxDepth)};\n` +
-    `const h_deep = () => { throw new RangeError("evaluation exceeds maxDepth (${String(maxDepth)})"); };\n`;
+    `const h_deep = () => { throw new MaxDepthExceededError("compiled evaluation exceeds maxDepth (${String(maxDepth)})"); };\n`;
   return (
     STANDALONE_PREAMBLE +
     depthPreamble +

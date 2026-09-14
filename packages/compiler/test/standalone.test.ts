@@ -16,6 +16,7 @@ import {
   hasDuplicateItems,
   isMultipleOf,
   jsonEqual,
+  MaxDepthExceededError,
   type JsonValue,
 } from "@jse/core";
 import { emitStandalone, StandaloneUnsupportedError } from "@jse/compiler";
@@ -29,13 +30,15 @@ interface PreambleHelpers {
   h_cpl: (s: string) => number;
   h_esc: (s: string) => string;
   h_mof: (a: number, b: number) => boolean;
+  MaxDepthExceededError: new (message: string) => Error;
 }
 
 // Materialize the preamble's helpers for direct comparison. new Function is
 // fine here — this is a test, not a CSP context.
 // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
 const preambleFactory = new Function(
-  STANDALONE_PREAMBLE + "return { h_eq, h_ck, h_dup, h_cpl, h_esc, h_mof };",
+  STANDALONE_PREAMBLE +
+    "return { h_eq, h_ck, h_dup, h_cpl, h_esc, h_mof, MaxDepthExceededError };",
 ) as () => PreambleHelpers;
 const helpers = preambleFactory();
 
@@ -127,6 +130,26 @@ describe("standalone preamble drift guards (M6.5)", () => {
         isMultipleOf(a, b),
       );
     }
+  });
+
+  it("the mirrored MaxDepthExceededError matches core's class shape", () => {
+    const mirrored = new helpers.MaxDepthExceededError("m");
+    const original = new MaxDepthExceededError("m");
+
+    // Same discriminator a standalone consumer can actually reach: the
+    // constructor name. instanceof cannot match across the boundary — the
+    // module has no imports — so it is asserted false deliberately rather
+    // than left as an unstated surprise.
+    expect(mirrored.constructor.name).toBe(original.constructor.name);
+    expect(mirrored).not.toBeInstanceOf(MaxDepthExceededError);
+
+    // Core sets no own `name`, so the mirror must not either: a standalone
+    // module reporting "MaxDepthExceededError" where core reports "Error"
+    // would be its own divergence.
+    expect(mirrored.name).toBe(original.name);
+    expect(mirrored.message).toBe(original.message);
+    expect(mirrored).toBeInstanceOf(Error);
+    expect(mirrored).not.toBeInstanceOf(RangeError);
   });
 });
 
