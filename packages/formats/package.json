@@ -1,7 +1,6 @@
 {
   "name": "@json-schema-engine/formats",
   "version": "0.0.1",
-  "private": true,
   "description": "Format implementations for @json-schema-engine/core's format-assertion vocabulary and assertFormats configuration (DESIGN.md M7)",
   "type": "module",
   "main": "./dist/index.js",
