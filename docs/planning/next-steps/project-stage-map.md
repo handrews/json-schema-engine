@@ -53,8 +53,8 @@ semantics, and the release surface is documented and testable.
 
 ## Stage 3: first public release
 
-- Ship `@jse/core`, `@jse/compiler`, `@jse/formats`, and
-  `@jse/dialect-draft04` under the owner's chosen names.
+- Ship `@json-schema-engine/core`, `@json-schema-engine/compiler`, `@json-schema-engine/formats`, and
+  `@json-schema-engine/dialect-draft04` under the owner's chosen names.
 - Run conformance, differential, fuzz, security/resource-bound,
   documentation, package-consumer, downstream-smoke, and benchmark gates.
 - Publish evidence explaining how JSE implements IETF draft-03 rather than
@@ -64,7 +64,7 @@ semantics, and the release surface is documented and testable.
 
 ## Stage 4: application facilities and integrations
 
-- Release `@jse/ajv-compat` after adapting it to the record model and fixing
+- Release `@json-schema-engine/ajv-compat` after adapting it to the record model and fixing
   its open defects.
 - Complete generic error grouping and downstream adoption.
 - Complete schema-driven input transformation and default-filling designs.

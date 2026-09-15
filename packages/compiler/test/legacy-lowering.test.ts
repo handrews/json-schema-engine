@@ -6,8 +6,12 @@
 // (engine.ts:397 parity) that landed alongside those lowerings.
 
 import { describe, it, expect } from "vitest";
-import { createEngine, DIALECT_DRAFT_07, type JsonValue } from "@jse/core";
-import { compileValidator, compileList } from "@jse/compiler";
+import {
+  createEngine,
+  DIALECT_DRAFT_07,
+  type JsonValue,
+} from "@json-schema-engine/core";
+import { compileValidator, compileList } from "@json-schema-engine/compiler";
 
 describe("draft-07 refIgnoresSiblings (M6.6 planner fix)", () => {
   it("compiled and interpreter both ignore a $ref's sibling constraints", () => {

@@ -4,8 +4,8 @@
 // D15); messages come from our own template table reproducing AJV's
 // defaults, since downstream tests assert on message text.
 
-import { unescapeSegment } from "@jse/core";
-import type { ErrorUnit, JsonValue, TraceUnit } from "@jse/core";
+import { unescapeSegment } from "@json-schema-engine/core";
+import type { ErrorUnit, JsonValue, TraceUnit } from "@json-schema-engine/core";
 import { getAtPointer, segments } from "./pointer.js";
 
 /** AJV v8's error object shape (public surface). */

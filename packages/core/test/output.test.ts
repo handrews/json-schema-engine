@@ -5,7 +5,7 @@
 // machines-oriented output proposal.
 
 import { describe, it, expect } from "vitest";
-import { createEngine, JsonValue } from "@jse/core";
+import { createEngine, JsonValue } from "@json-schema-engine/core";
 
 const schema: JsonValue = {
   $defs: { base: { required: ["id"] } },

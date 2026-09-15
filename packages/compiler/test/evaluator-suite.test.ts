@@ -29,7 +29,7 @@ import {
   type OutputUnit,
   type Result,
   type TraceUnit,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 import {
   compileEvaluator,
   compileList,
@@ -38,9 +38,12 @@ import {
   type EvaluatorCompileOptions,
   type EvaluatorOptions,
   type PlannedUnit,
-} from "@jse/compiler";
-import { registerDraft04, DIALECT_DRAFT_04 } from "@jse/dialect-draft04";
-import { suiteRemotesLoader } from "@jse/test-kit";
+} from "@json-schema-engine/compiler";
+import {
+  registerDraft04,
+  DIALECT_DRAFT_04,
+} from "@json-schema-engine/dialect-draft04";
+import { suiteRemotesLoader } from "@json-schema-engine/test-kit";
 
 const SUITE_ROOT = join(
   dirname(fileURLToPath(import.meta.url)),

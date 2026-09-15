@@ -4,7 +4,7 @@
 // here: core stays free of draft-04 syntax (D11), so the dialect package
 // registers this as an ordinary schema resource through the public Engine
 // surface. The id's empty fragment is stripped to the resource URI.
-import { JsonValue } from "@jse/core";
+import { JsonValue } from "@json-schema-engine/core";
 
 export const METASCHEMAS_DRAFT_04: readonly (readonly [string, JsonValue])[] = [
   [

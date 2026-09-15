@@ -11,8 +11,9 @@ public release, followed by four coupled investigations: flexible output,
 generic error post-processing, annotation processing and input transformation,
 and default filling. IETF draft-03's annotation, dependency-information, and
 output-relevance model is the semantic foundation beneath all of them. The
-plan covers interpreted and compiled evaluation and uses `@jse/ajv-compat` and
-the downstream project as concrete consumers without allowing either consumer's compatibility
+plan covers interpreted and compiled evaluation and uses
+`@json-schema-engine/ajv-compat` and the downstream project as concrete
+consumers without allowing either consumer's compatibility
 constraints to define generic JSE APIs.
 
 ## Scope

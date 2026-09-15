@@ -1,7 +1,11 @@
 // Error-unit rendering for list mode: messages, structured params, and the
 // relevance mark that truncates a keyword's rejected sub-evaluation errors.
 
-import { escapeSegment, type LowerMessage, type LowerParams } from "@jse/core";
+import {
+  escapeSegment,
+  type LowerMessage,
+  type LowerParams,
+} from "@json-schema-engine/core";
 import { type CodeChunk, id, join, js, str } from "../emit.js";
 import { ERRS, ST, TN } from "./names.js";
 import { UnitContext, SerializeError } from "./context.js";

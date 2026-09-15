@@ -1,9 +1,9 @@
 # Compiling schemas
 
 > Installation: TBD — the package is not yet published. Within this
-> repository, import from `@jse/compiler`.
+> repository, import from `@json-schema-engine/compiler`.
 
-`@jse/core` interprets a schema on every evaluation. `@jse/compiler` turns a
+`@json-schema-engine/core` interprets a schema on every evaluation. `@json-schema-engine/compiler` turns a
 registered schema into specialized JavaScript once, so later evaluations skip
 the interpretive walk. The compiled tier is not a second implementation: any
 subschema the compiler cannot emit calls back into the interpreter, so an
@@ -20,8 +20,8 @@ thing the engine offers, and the right default when you only need a boolean.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
-import { compileValidator } from "@jse/compiler";
+import { createEngine } from "@json-schema-engine/core";
+import { compileValidator } from "@json-schema-engine/compiler";
 
 const engine = createEngine();
 const uri = engine.registerSchema(
@@ -54,8 +54,8 @@ output document.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
-import { compileList } from "@jse/compiler";
+import { createEngine } from "@json-schema-engine/core";
+import { compileList } from "@json-schema-engine/compiler";
 
 const engine = createEngine();
 const uri = engine.registerSchema(
@@ -95,8 +95,8 @@ only, matching the interpreter's contract.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
-import { compileList } from "@jse/compiler";
+import { createEngine } from "@json-schema-engine/core";
+import { compileList } from "@json-schema-engine/compiler";
 
 const engine = createEngine();
 const uri = engine.registerSchema(
@@ -127,8 +127,8 @@ interpreter uses. Format and `trace` are chosen per evaluation.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
-import { compileEvaluator } from "@jse/compiler";
+import { createEngine } from "@json-schema-engine/core";
+import { compileEvaluator } from "@json-schema-engine/compiler";
 
 const engine = createEngine();
 const uri = engine.registerSchema(
@@ -167,8 +167,8 @@ for and it throws `OutputOptionsError` rather than silently degrading.
 
 ```ts
 import assert from "node:assert";
-import { createEngine, OutputOptionsError } from "@jse/core";
-import { compileEvaluator } from "@jse/compiler";
+import { createEngine, OutputOptionsError } from "@json-schema-engine/core";
+import { compileEvaluator } from "@json-schema-engine/compiler";
 
 const engine = createEngine();
 const uri = engine.registerSchema(
@@ -199,8 +199,8 @@ inside the artifact too, so there is one rule across the whole thing.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
-import { compileValidator } from "@jse/compiler";
+import { createEngine } from "@json-schema-engine/core";
+import { compileValidator } from "@json-schema-engine/compiler";
 
 const engine = createEngine();
 engine.registerSchema({ type: "string" }, "https://example.com/target");
@@ -232,8 +232,8 @@ interpreted islands. `explainCompilation` reports the split.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
-import { buildPlan, explainCompilation } from "@jse/compiler";
+import { createEngine } from "@json-schema-engine/core";
+import { buildPlan, explainCompilation } from "@json-schema-engine/compiler";
 
 const engine = createEngine();
 const uri = engine.registerSchema(
@@ -264,8 +264,11 @@ it at runtime, with no code generation on the client.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
-import { emitStandalone, StandaloneUnsupportedError } from "@jse/compiler";
+import { createEngine } from "@json-schema-engine/core";
+import {
+  emitStandalone,
+  StandaloneUnsupportedError,
+} from "@json-schema-engine/compiler";
 
 const engine = createEngine();
 const uri = engine.registerSchema(

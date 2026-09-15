@@ -1,4 +1,4 @@
-// Official-suite conformance for @jse/compiler's compiled tier over the
+// Official-suite conformance for @json-schema-engine/compiler's compiled tier over the
 // draft-04 dialect (M6.6). Same FILES list, remotes loader, and exactRun
 // pin as suite4.test.ts's interpreter leg — every group registers as
 // always, but the verdict comes from compileValidator(...).validate(instance)
@@ -11,9 +11,12 @@
 import { describe, it, expect } from "vitest";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { runSuiteFilesVitest, suiteRemotesLoader } from "@jse/test-kit";
-import { createEngine } from "@jse/core";
-import { compileValidator } from "@jse/compiler";
+import {
+  runSuiteFilesVitest,
+  suiteRemotesLoader,
+} from "@json-schema-engine/test-kit";
+import { createEngine } from "@json-schema-engine/core";
+import { compileValidator } from "@json-schema-engine/compiler";
 import { registerDraft04, DIALECT_DRAFT_04 } from "../src/index.js";
 
 const SUITE_ROOT = join(

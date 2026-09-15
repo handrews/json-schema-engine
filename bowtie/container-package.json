@@ -1,5 +1,5 @@
 {
-  "name": "jse-bowtie-harness",
+  "name": "json-schema-engine-bowtie-harness",
   "private": true,
   "type": "module"
 }

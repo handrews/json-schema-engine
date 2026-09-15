@@ -6,7 +6,7 @@ import {
   type JsonValue,
   type LowerStmt,
   type LoweringContext,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 import { type CodeChunk, id, join, js, str, json } from "../emit.js";
 import { TN } from "./names.js";
 import { UnitContext, SerializeError } from "./context.js";

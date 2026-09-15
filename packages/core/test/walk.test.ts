@@ -10,7 +10,7 @@ import {
   JsonValue,
   MaxDepthExceededError,
   SchemaWalkVisit,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 
 const dialect = createEngine().dialects.getDialect(DIALECT_2020_12);
 

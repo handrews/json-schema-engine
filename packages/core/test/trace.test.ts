@@ -4,7 +4,7 @@
 // strings to reconstruct application context.
 
 import { describe, it, expect } from "vitest";
-import { createEngine, JsonValue, TraceUnit } from "@jse/core";
+import { createEngine, JsonValue, TraceUnit } from "@json-schema-engine/core";
 
 function run(schema: JsonValue, instance: JsonValue) {
   const engine = createEngine();

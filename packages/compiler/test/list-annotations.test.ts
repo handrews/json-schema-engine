@@ -11,8 +11,8 @@ import {
   createEngine,
   type AnnotationSelection,
   type JsonValue,
-} from "@jse/core";
-import { compileList } from "@jse/compiler";
+} from "@json-schema-engine/core";
+import { compileList } from "@json-schema-engine/compiler";
 
 let counter = 0;
 const freshUri = (): string => `https://ann.example/s${String(counter++)}`;

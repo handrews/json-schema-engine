@@ -7,14 +7,14 @@ other concerns need a choice from the caller: regular-expression cost,
 array-comparison cost, and recursion depth. Each has a bound or an opt-out
 below.
 
-The `@jse/core` interpreter generates no code, so code-injection concerns
+The `@json-schema-engine/core` interpreter generates no code, so code-injection concerns
 that apply to compiling validators do not apply to it. A denial-of-service
 bound is best effort, not a guarantee: treat wildly untrusted schemas with
 the same care as any other untrusted program input.
 
 ## The compiler tier and code generation
 
-`@jse/compiler` DOES generate code: `compileValidator`, `compileList`, and
+`@json-schema-engine/compiler` DOES generate code: `compileValidator`, `compileList`, and
 `compileEvaluator` build artifact source and instantiate it with
 `new Function` (the only such call sites, fenced by lint rules). Two
 properties bound the risk:
@@ -48,7 +48,7 @@ quantifiers and accepts ordinary patterns.
 
 ```ts
 import assert from "node:assert";
-import { createEngine, UnsafeRegexError } from "@jse/core";
+import { createEngine, UnsafeRegexError } from "@json-schema-engine/core";
 
 const engine = createEngine({ rejectUnsafeRegex: true });
 
@@ -72,7 +72,7 @@ The engine compiles each pattern once and caches it.
 
 ```ts
 import assert from "node:assert";
-import { createEngine, type RegexEngine } from "@jse/core";
+import { createEngine, type RegexEngine } from "@json-schema-engine/core";
 
 // Shape only — a real deployment returns an RE2 instance from compile().
 const re2Like: RegexEngine = { compile: (pattern) => new RegExp(pattern) };
@@ -86,7 +86,7 @@ corpus:
 
 ```ts
 import assert from "node:assert";
-import { detectUnsafeRegex } from "@jse/core";
+import { detectUnsafeRegex } from "@json-schema-engine/core";
 
 assert.equal(detectUnsafeRegex("(a+)+$").safe, false);
 assert.equal(detectUnsafeRegex("^[a-z]+$").safe, true);
@@ -102,7 +102,7 @@ afterward — each evaluation runs in fresh state.
 
 ```ts
 import assert from "node:assert";
-import { createEngine, MaxDepthExceededError } from "@jse/core";
+import { createEngine, MaxDepthExceededError } from "@json-schema-engine/core";
 
 const engine = createEngine({ maxDepth: 16 });
 const uri = engine.registerSchema(

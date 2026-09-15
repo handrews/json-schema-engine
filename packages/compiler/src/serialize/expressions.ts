@@ -1,7 +1,7 @@
 // LowerExpr rendering: instance access, type tests, helper calls, and the
 // coverage-fold membership tests of region emission.
 
-import { type LowerExpr } from "@jse/core";
+import { type LowerExpr } from "@json-schema-engine/core";
 import { type CodeChunk, id, join, js, raw, str, json } from "../emit.js";
 import { bindingVar, regexConst, formatConst } from "./names.js";
 import { UnitContext, SerializeError } from "./context.js";

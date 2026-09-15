@@ -12,16 +12,23 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createEngine, type Engine, type JsonValue } from "@jse/core";
-import { FORMATS_2020_12 } from "@jse/formats";
+import {
+  createEngine,
+  type Engine,
+  type JsonValue,
+} from "@json-schema-engine/core";
+import { FORMATS_2020_12 } from "@json-schema-engine/formats";
 import {
   buildPlan,
   compileEvaluator,
   compileValidator,
   compileList,
   explainCompilation,
-} from "@jse/compiler";
-import { runPlanCensus, suiteRemotesLoader } from "@jse/test-kit";
+} from "@json-schema-engine/compiler";
+import {
+  runPlanCensus,
+  suiteRemotesLoader,
+} from "@json-schema-engine/test-kit";
 
 const SUITE_ROOT = join(
   dirname(fileURLToPath(import.meta.url)),

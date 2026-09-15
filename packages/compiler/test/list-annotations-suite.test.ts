@@ -22,14 +22,17 @@ import {
   type ErrorUnit,
   type JsonValue,
   type AnnotationSelection,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 import {
   compileList,
   type CompilationPlan,
   type CompiledListResult,
-} from "@jse/compiler";
-import { registerDraft04, DIALECT_DRAFT_04 } from "@jse/dialect-draft04";
-import { suiteRemotesLoader } from "@jse/test-kit";
+} from "@json-schema-engine/compiler";
+import {
+  registerDraft04,
+  DIALECT_DRAFT_04,
+} from "@json-schema-engine/dialect-draft04";
+import { suiteRemotesLoader } from "@json-schema-engine/test-kit";
 
 const SUITE_ROOT = join(
   dirname(fileURLToPath(import.meta.url)),

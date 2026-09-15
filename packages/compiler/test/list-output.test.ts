@@ -7,8 +7,8 @@ import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createEngine, type JsonValue } from "@jse/core";
-import { compileList } from "@jse/compiler";
+import { createEngine, type JsonValue } from "@json-schema-engine/core";
+import { compileList } from "@json-schema-engine/compiler";
 
 const SUITE_DIR = join(
   dirname(fileURLToPath(import.meta.url)),

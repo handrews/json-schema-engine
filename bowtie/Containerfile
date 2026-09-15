@@ -1,11 +1,11 @@
-# Bowtie harness image for @jse/core + @jse/dialect-draft04, running the
+# Bowtie harness image for @json-schema-engine/core + @json-schema-engine/dialect-draft04, running the
 # built dist output under plain node — no package manager and no install
 # scripts run inside the image (a newer npm's script-blocking policy broke
 # the previous tsx-based image on CI, and dist is what publication
 # consumers execute anyway). Prerequisites are built by `npm run bowtie`
 # (scripts/bowtie-check.ts); to build by hand from the repo root:
 #   npm run build && npx tsc -p bowtie/tsconfig.build.json
-#   podman build -t localhost/jse-bowtie -f bowtie/Containerfile .
+#   podman build -t localhost/json-schema-engine-bowtie -f bowtie/Containerfile .
 FROM docker.io/library/node:24-alpine
 WORKDIR /app
 COPY bowtie/container-package.json package.json
@@ -16,7 +16,7 @@ COPY packages/dialect-draft04/dist packages/dialect-draft04/dist
 COPY bowtie/dist/harness.js bowtie/harness.js
 # Workspace-shaped resolution without npm: package-name imports resolve
 # through these links to each package's exports (default -> dist).
-RUN mkdir -p node_modules/@jse \
- && ln -s ../../packages/core node_modules/@jse/core \
- && ln -s ../../packages/dialect-draft04 node_modules/@jse/dialect-draft04
+RUN mkdir -p node_modules/@json-schema-engine \
+ && ln -s ../../packages/core node_modules/@json-schema-engine/core \
+ && ln -s ../../packages/dialect-draft04 node_modules/@json-schema-engine/dialect-draft04
 ENTRYPOINT ["node", "bowtie/harness.js"]

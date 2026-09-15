@@ -12,7 +12,7 @@ the next one.
 
 ```ts
 import assert from "node:assert";
-import { createEngine, JsonValue } from "@jse/core";
+import { createEngine, JsonValue } from "@json-schema-engine/core";
 
 const documents = new Map<string, JsonValue>([
   ["https://example.com/name", { type: "string", minLength: 1 }],
@@ -41,7 +41,7 @@ several documents resolves in one call.
 
 ```ts
 import assert from "node:assert";
-import { createEngine, JsonValue } from "@jse/core";
+import { createEngine, JsonValue } from "@json-schema-engine/core";
 
 const documents = new Map<string, JsonValue>([
   ["https://example.com/b", { $ref: "https://example.com/c" }],
@@ -70,7 +70,7 @@ your own — useful for metaschemas or standalone shared definitions.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
+import { createEngine } from "@json-schema-engine/core";
 
 const engine = createEngine({
   loaders: [
@@ -95,7 +95,7 @@ registration time.
 
 ```ts
 import assert from "node:assert";
-import { createEngine, UnresolvableRefError } from "@jse/core";
+import { createEngine, UnresolvableRefError } from "@json-schema-engine/core";
 
 const engine = createEngine();
 const uri = engine.registerSchema(

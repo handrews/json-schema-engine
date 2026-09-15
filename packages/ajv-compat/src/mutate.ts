@@ -18,9 +18,14 @@
 // specific schema nodes and reads keyword VALUES there (a `default`, the
 // patternProperties map, the literal additionalProperties value).
 
-import { unescapeSegment } from "@jse/core";
-import type { Engine, ErrorUnit, JsonValue, OutputUnit } from "@jse/core";
-import type { CompiledListArtifact } from "@jse/compiler";
+import { unescapeSegment } from "@json-schema-engine/core";
+import type {
+  Engine,
+  ErrorUnit,
+  JsonValue,
+  OutputUnit,
+} from "@json-schema-engine/core";
+import type { CompiledListArtifact } from "@json-schema-engine/compiler";
 import { getAtPointer, joinPointer, segments } from "./pointer.js";
 
 export interface MutationOptions {

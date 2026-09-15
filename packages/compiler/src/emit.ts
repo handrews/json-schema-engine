@@ -8,7 +8,7 @@
 // by grammar. Downstream modules traffic in CodeChunk, never string, so the
 // type system carries the guarantee and ESLint fences the one escape hatch.
 
-import type { JsonValue } from "@jse/core";
+import type { JsonValue } from "@json-schema-engine/core";
 
 const BRAND = Symbol("CodeChunk");
 

@@ -12,8 +12,8 @@ import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createEngine, type JsonValue } from "@jse/core";
-import { compileList, compileValidator } from "@jse/compiler";
+import { createEngine, type JsonValue } from "@json-schema-engine/core";
+import { compileList, compileValidator } from "@json-schema-engine/compiler";
 import {
   Prng,
   deriveSeed,
@@ -30,7 +30,7 @@ import {
   ANNOTATION_SEED_GROUPS,
   CONSUMER_SEED_GROUPS,
   type DifferentialFactory,
-} from "@jse/test-kit";
+} from "@json-schema-engine/test-kit";
 
 const SUITE_DIR = join(
   dirname(fileURLToPath(import.meta.url)),

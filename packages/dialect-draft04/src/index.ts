@@ -1,5 +1,5 @@
 // JSON Schema draft-04 dialect (DESIGN.md M10, D11, D18), assembled entirely
-// through @jse/core's public surface — this package is the reference for
+// through @json-schema-engine/core's public surface — this package is the reference for
 // third-party dialect authoring. Keywords draft-04 shares with draft-07 are
 // harvested as behavior objects from the engine's registered draft-07
 // dialect: behaviors are stateless shared values (draft-06 already reuses
@@ -16,7 +16,7 @@ import {
   DIALECT_DRAFT_07,
   lowerIR,
   LoweringContext,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 import { METASCHEMAS_DRAFT_04 } from "./metaschema4.js";
 
 /** draft-04 dialect URI. */

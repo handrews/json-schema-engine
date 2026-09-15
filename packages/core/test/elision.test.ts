@@ -10,7 +10,10 @@ import { readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, expect } from "vitest";
-import { runSuiteFilesVitest, suiteRemotesLoader } from "@jse/test-kit";
+import {
+  runSuiteFilesVitest,
+  suiteRemotesLoader,
+} from "@json-schema-engine/test-kit";
 import {
   createEngine,
   DialectRegistry,
@@ -21,7 +24,7 @@ import {
   DIALECT_2019_09,
   DIALECT_DRAFT_07,
   DIALECT_DRAFT_06,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 import { runEvaluation } from "../src/engine.js";
 import { makeRecordPredicate } from "../src/output.js";
 import { registerStandardDialects } from "../src/keywords/vocab2020.js";

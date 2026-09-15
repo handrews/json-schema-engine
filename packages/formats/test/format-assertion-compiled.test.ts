@@ -13,7 +13,7 @@
 //
 // emitStandalone rejection of format-asserting plans is not re-tested here:
 // packages/compiler/test/standalone.test.ts already covers exactly this case
-// ("refuses format-asserting schemas"), and pulling @jse/compiler's
+// ("refuses format-asserting schemas"), and pulling @json-schema-engine/compiler's
 // standalone entry point into this package for a byte-identical scenario
 // would duplicate that gate without adding coverage.
 
@@ -21,10 +21,18 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createEngine, type Engine, type JsonValue } from "@jse/core";
-import { FORMATS_2020_12 } from "@jse/formats";
-import { buildPlan, compileValidator, compileList } from "@jse/compiler";
-import { suiteRemotesLoader } from "@jse/test-kit";
+import {
+  createEngine,
+  type Engine,
+  type JsonValue,
+} from "@json-schema-engine/core";
+import { FORMATS_2020_12 } from "@json-schema-engine/formats";
+import {
+  buildPlan,
+  compileValidator,
+  compileList,
+} from "@json-schema-engine/compiler";
+import { suiteRemotesLoader } from "@json-schema-engine/test-kit";
 
 const SUITE_ROOT = join(
   dirname(fileURLToPath(import.meta.url)),

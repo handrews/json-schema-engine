@@ -4,7 +4,7 @@
 // executed shape is authoritative, see test/oracle/capture-companions.ts's
 // `formats-*` cases). Shared names (date, time, date-time, duration, uri,
 // uri-reference, uri-template, email, hostname, ipv4, ipv6, regex, uuid,
-// json-pointer, relative-json-pointer) delegate to @jse/formats, which the
+// json-pointer, relative-json-pointer) delegate to @json-schema-engine/formats, which the
 // oracle showed byte-for-byte equivalent to ajv-formats' "full" mode. The
 // remaining names are ajv-formats-only and implemented here from their
 // defining specs, with boundary behavior pinned by execution.
@@ -16,7 +16,7 @@
 // under "fast" but not "full" (e.g. 2021-02-29 as a `date`) are rejected
 // here instead of silently accepted. Document this delta at the call site.
 
-import type { ErrorParams, FormatDefinition } from "@jse/core";
+import type { ErrorParams, FormatDefinition } from "@json-schema-engine/core";
 import {
   date,
   dateTime,
@@ -33,7 +33,7 @@ import {
   uriReference,
   uriTemplate,
   uuid,
-} from "@jse/formats";
+} from "@json-schema-engine/formats";
 import type { Ajv, KeywordDefinition } from "./index.js";
 
 // ---- ajv-formats-only formats (RFC3339/OpenAPI 3.0 "format" extensions) ---

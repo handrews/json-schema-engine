@@ -9,8 +9,12 @@ import {
   createEngine,
   UnresolvableRefError,
   type KeywordBehavior,
-} from "@jse/core";
-import { compileEvaluator, compileList, compileValidator } from "@jse/compiler";
+} from "@json-schema-engine/core";
+import {
+  compileEvaluator,
+  compileList,
+  compileValidator,
+} from "@json-schema-engine/compiler";
 
 const CORE = "https://json-schema.org/draft/2020-12/vocab/core";
 

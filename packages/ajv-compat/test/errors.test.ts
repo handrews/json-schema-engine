@@ -12,8 +12,8 @@ import {
   DIALECT_2020_12,
   DIALECT_DRAFT_07,
   type JsonValue,
-} from "@jse/core";
-import { FORMATS_2020_12 } from "@jse/formats";
+} from "@json-schema-engine/core";
+import { FORMATS_2020_12 } from "@json-schema-engine/formats";
 import { mapErrors } from "../src/errors.js";
 import { Ajv2020 } from "../src/index.js";
 import addFormats from "../src/formats.js";

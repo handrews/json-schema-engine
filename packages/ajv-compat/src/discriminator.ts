@@ -27,7 +27,7 @@ import type {
   JsonValue,
   KeywordBehavior,
   KeywordContext,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 
 const isRecord = (v: JsonValue | undefined): v is Record<string, JsonValue> =>
   typeof v === "object" && v !== null && !Array.isArray(v);

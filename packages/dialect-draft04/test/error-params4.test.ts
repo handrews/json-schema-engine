@@ -5,8 +5,15 @@
 // Harvested keywords are pinned in core's error-params.test.ts.
 
 import { describe, it, expect } from "vitest";
-import { createEngine, type JsonValue, type ErrorUnit } from "@jse/core";
-import { registerDraft04, DIALECT_DRAFT_04 } from "@jse/dialect-draft04";
+import {
+  createEngine,
+  type JsonValue,
+  type ErrorUnit,
+} from "@json-schema-engine/core";
+import {
+  registerDraft04,
+  DIALECT_DRAFT_04,
+} from "@json-schema-engine/dialect-draft04";
 
 const failures = (
   schema: JsonValue,

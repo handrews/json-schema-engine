@@ -5,7 +5,7 @@
 // (schema, instance) repro so a real lowering bug reports a small witness.
 //
 // This module is validator-agnostic: callers pass plain callbacks, so it
-// carries no @jse/core or @jse/compiler dependency and can referee any two
+// carries no @json-schema-engine/core or @json-schema-engine/compiler dependency and can referee any two
 // implementations (including the minimizer self-test's deliberately buggy
 // fake). IP policy (DESIGN.md D15): implemented from spec/suite only.
 

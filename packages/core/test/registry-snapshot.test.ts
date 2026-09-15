@@ -11,7 +11,7 @@ import {
   UnknownDialectError,
   UnresolvableRefError,
   type KeywordBehavior,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 
 const CORE = "https://json-schema.org/draft/2020-12/vocab/core";
 

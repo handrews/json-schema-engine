@@ -11,9 +11,9 @@ suite and fuzz gates referee flag, list, and annotation agreement.
 ## Two tiers, one keyword registry
 
 The engine is an annotation-first, two-tier design (D1). The interpreter in
-`@jse/core` is the reference semantics: spec-faithful, CSP-safe (no code
+`@json-schema-engine/core` is the reference semantics: spec-faithful, CSP-safe (no code
 generation anywhere in its dependency graph), covering all four built-in
-dialects and every output format. The compiler in `@jse/compiler` emits
+dialects and every output format. The compiler in `@json-schema-engine/compiler` emits
 specialized JavaScript for the static parts of a schema and falls back to
 the interpreter — through one trampoline — for everything else.
 
@@ -38,7 +38,7 @@ drifting apart semantically.
 ```mermaid
 flowchart TD
     SD["schema documents"] --> REG
-    subgraph CORE ["@jse/core"]
+    subgraph CORE ["@json-schema-engine/core"]
         REG["registration walk\nidentifiers · dialects · refs\n(analyze-driven, D18/D19)"]
         REG --> RY[("SchemaRegistry\ndocuments · anchors ·\ndialects · behaviors")]
         INT["interpreter\nframe channel (§4) ·\ndynamic scope (D8) ·\ncycle + depth guards (D20)"]
@@ -46,7 +46,7 @@ flowchart TD
         OUT["output renderers\nflag · list · hierarchical ·\nBasic/Detailed/Verbose (D6)"]
         INT -- "RenderInput" --> OUT
     end
-    subgraph COMP ["@jse/compiler"]
+    subgraph COMP ["@json-schema-engine/compiler"]
         PLAN["planner\nstatic units vs interpreted units\n(islands, fallbacks, cycles)"]
         LOWER["keyword lower() → IR"]
         EMIT["gated serializer\ntyped escapes only (D20)"]

@@ -1,8 +1,8 @@
 {
-  "name": "@jse/compiler",
-  "version": "0.0.0",
+  "name": "@json-schema-engine/compiler",
+  "version": "0.0.1",
   "private": true,
-  "description": "Compiler tier: emits specialized validators from @jse/core registrations, trampolining to the interpreter for dynamic islands (DESIGN.md M6)",
+  "description": "Compiler tier: emits specialized validators from @json-schema-engine/core registrations, trampolining to the interpreter for dynamic islands (DESIGN.md M6)",
   "type": "module",
   "main": "./dist/index.js",
   "exports": {
@@ -14,10 +14,10 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@jse/core": "0.0.0"
+    "@json-schema-engine/core": "^0.0.1"
   },
   "devDependencies": {
-    "@jse/formats": "0.0.0"
+    "@json-schema-engine/formats": "^0.0.1"
   },
   "types": "./dist/index.d.ts",
   "files": [

@@ -12,13 +12,13 @@ import {
   DIALECT_DRAFT_06,
   DIALECT_DRAFT_07,
   type JsonValue,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 import {
   buildPlan,
   compileList,
   compileValidator,
   explainCompilation,
-} from "@jse/compiler";
+} from "@json-schema-engine/compiler";
 
 describe.each([
   ["draft-07", DIALECT_DRAFT_07],

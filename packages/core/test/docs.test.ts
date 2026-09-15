@@ -2,7 +2,7 @@
 // docs/guide/*.md
 // (CONTRIBUTING.md "Documentation conventions" states the contract): each
 // block is a self-contained module that must import successfully and run
-// without throwing. Snippets import "@jse/core" etc. by package name, which
+// without throwing. Snippets import "@json-schema-engine/core" etc. by package name, which
 // Node resolves by walking up from the importing file to find node_modules
 // — a system tmpdir sits outside that walk and breaks resolution, so
 // snippets are written under a gitignored .cache/ directory in the repo

@@ -24,10 +24,10 @@ pages is executed by CI; examples are guaranteed to work as shown.
   schema-against-metaschema validation.
 - [Security and resource limits](security.md) — evaluating untrusted schemas
   and instances: ReDoS, recursion depth, array-uniqueness cost.
-- [Compiling schemas](compiled.md) — `@jse/compiler`: compiled validators,
+- [Compiling schemas](compiled.md) — `@json-schema-engine/compiler`: compiled validators,
   error and annotation artifacts, every output format, the registry-snapshot
   rule, standalone modules under CSP.
-- [Migrating from AJV](ajv-migration.md) — the `@jse/ajv-compat`
+- [Migrating from AJV](ajv-migration.md) — the `@json-schema-engine/ajv-compat`
   migration adapter: what is emulated, what fails loudly, documented
   divergences.
 

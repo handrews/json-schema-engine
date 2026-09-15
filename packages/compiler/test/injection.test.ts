@@ -17,8 +17,16 @@
 // escaping assertions bite hardest there.
 
 import { describe, it, expect } from "vitest";
-import { createEngine, type JsonValue, type OutputUnit } from "@jse/core";
-import { compileEvaluator, compileList, compileValidator } from "@jse/compiler";
+import {
+  createEngine,
+  type JsonValue,
+  type OutputUnit,
+} from "@json-schema-engine/core";
+import {
+  compileEvaluator,
+  compileList,
+  compileValidator,
+} from "@json-schema-engine/compiler";
 
 // Line/paragraph separators built from code points so this source file itself
 // carries no raw U+2028/U+2029 (which would defeat the "source is clean" test).

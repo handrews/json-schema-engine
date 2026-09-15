@@ -10,7 +10,7 @@ import {
   MaxDepthExceededError,
   rootCursor,
   type PathNode,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 
 describe("evaluateFragment (M6.1 trampoline)", () => {
   it("evaluates a subschema fragment and reports errors under the path prefix", () => {

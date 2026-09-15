@@ -3,7 +3,11 @@
 // else, including the interpreter, is greppably free of code generation.
 // Standalone source emission (M6.5) bypasses this module entirely.
 
-import type { AnnotationUnit, JsonValue, SchemaRef } from "@jse/core";
+import type {
+  AnnotationUnit,
+  JsonValue,
+  SchemaRef,
+} from "@json-schema-engine/core";
 import type { Runtime, TraceState } from "./runtime.js";
 
 /** A compiled flag-mode validator. */

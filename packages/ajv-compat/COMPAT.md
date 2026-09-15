@@ -1,6 +1,6 @@
 # AJV v8 compatibility matrix
 
-What `@jse/ajv-compat` emulates, ignores, and refuses, and where its
+What `@json-schema-engine/ajv-compat` emulates, ignores, and refuses, and where its
 behavior deviates from AJV. Every "verified" claim below is pinned by an
 executed-AJV fixture (`test/oracle/capture*.ts` →
 `test/fixtures/ajv-*.json`; AJV is run, never read — DESIGN.md D15) or by
@@ -50,15 +50,15 @@ process}`, `addUsedSchema` (partially honored for `$id` retention),
 
 ### Refused (typed `AjvCompatUnsupportedError`)
 
-| Surface                                                                             | Reason                                                           |
-| ----------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `$data: true` (option or per-keyword)                                               | Instance-controlled keyword values are excluded by design.       |
-| `code`-style keywords (`KeywordCxt`)                                                | AJV-codegen-coupled by definition; port to `validate`/`compile`. |
-| `$async` schemas, async keywords, async formats                                     | Evaluation is synchronous.                                       |
-| `macro` keywords                                                                    | Not yet emulated; use `validate`/`compile`.                      |
-| `removeKeyword` of built-ins                                                        | Dialects assemble from whole vocabularies.                       |
-| JTD options (`timestamp`, `parseDate`, `allowDate`, `specialNumbers`, `int32range`) | JTD is out of scope.                                             |
-| `code.source` standalone                                                            | Not mapped; use `@jse/compiler`'s standalone emission.           |
+| Surface                                                                             | Reason                                                                |
+| ----------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `$data: true` (option or per-keyword)                                               | Instance-controlled keyword values are excluded by design.            |
+| `code`-style keywords (`KeywordCxt`)                                                | AJV-codegen-coupled by definition; port to `validate`/`compile`.      |
+| `$async` schemas, async keywords, async formats                                     | Evaluation is synchronous.                                            |
+| `macro` keywords                                                                    | Not yet emulated; use `validate`/`compile`.                           |
+| `removeKeyword` of built-ins                                                        | Dialects assemble from whole vocabularies.                            |
+| JTD options (`timestamp`, `parseDate`, `allowDate`, `specialNumbers`, `int32range`) | JTD is out of scope.                                                  |
+| `code.source` standalone                                                            | Not mapped; use `@json-schema-engine/compiler`'s standalone emission. |
 
 ## Methods
 
@@ -141,7 +141,7 @@ adapter filters the engine's complete error record to match (**oracle**:
 ## Companions
 
 - `addFormats(ajv, opts?)`: all 26 ajv-formats names (**oracle**:
-  enumerated by execution); shared names use `@jse/formats`' RFC-grade
+  enumerated by execution); shared names use `@json-schema-engine/formats`' RFC-grade
   implementations (differentially probed against ajv-formats "full"
   mode); `mode: "fast"` accepted, mapped to the same implementations;
   `keywords: true` adds formatMinimum/Maximum/Exclusive\* with

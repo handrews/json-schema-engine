@@ -13,8 +13,8 @@ import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { jsonEqual, type JsonValue } from "@jse/core";
-import { Prng, deriveSeed, instancePool } from "@jse/test-kit";
+import { jsonEqual, type JsonValue } from "@json-schema-engine/core";
+import { Prng, deriveSeed, instancePool } from "@json-schema-engine/test-kit";
 import {
   Ajv2020,
   MutationNonConvergenceError,

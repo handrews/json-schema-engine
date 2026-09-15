@@ -1,6 +1,6 @@
 # Migrating from AJV
 
-`@jse/ajv-compat` is a migration adapter for a documented subset of AJV
+`@json-schema-engine/ajv-compat` is a migration adapter for a documented subset of AJV
 v8's public API — the complete matrix of what is emulated, ignored, and
 refused is [COMPAT.md](../../packages/ajv-compat/COMPAT.md). Code that
 stays inside the emulated surface migrates by changing an import; code
@@ -11,7 +11,7 @@ executed-AJV fixtures: verdicts, error objects (`keyword`,
 mutation, and companion packages.
 
 ```ts
-import { Ajv2020 } from "@jse/ajv-compat";
+import { Ajv2020 } from "@json-schema-engine/ajv-compat";
 
 const ajv = new Ajv2020({ allErrors: true });
 const validate = ajv.compile({
@@ -50,7 +50,7 @@ Class per draft, like AJV: `Ajv` (draft-07), `Ajv2019`, `Ajv2020`.
   outputs. Fastify's default configuration works unchanged:
 
 ```ts
-import { Ajv } from "@jse/ajv-compat";
+import { Ajv } from "@json-schema-engine/ajv-compat";
 
 const ajv = new Ajv({
   coerceTypes: "array",
@@ -82,7 +82,7 @@ if (JSON.stringify(query) !== '{"page":3,"tags":["a"]}') {
   `instanceof`, `uniqueItemProperties`, `prohibited`).
 
 ```ts
-import { Ajv2020, addFormats } from "@jse/ajv-compat";
+import { Ajv2020, addFormats } from "@json-schema-engine/ajv-compat";
 
 const ajv = new Ajv2020();
 addFormats(ajv);
@@ -110,7 +110,7 @@ if (!validate("2026-07-07T12:00:00Z") || validate("nope")) {
   `select*` (`$data`).
 
 `code.source` (standalone module emission) is not mapped; use
-`@jse/compiler`'s own standalone emission instead.
+`@json-schema-engine/compiler`'s own standalone emission instead.
 
 ## Documented divergences
 

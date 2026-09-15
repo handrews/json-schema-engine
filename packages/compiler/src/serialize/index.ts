@@ -8,7 +8,7 @@ import {
   makeRecordPredicate,
   type RecordPredicate,
   type SchemaRegistry,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 import { type CodeChunk, frag, id, join, js, num, raw, str } from "../emit.js";
 import type { CompilationPlan, PlannedUnit } from "../plan.js";
 import {

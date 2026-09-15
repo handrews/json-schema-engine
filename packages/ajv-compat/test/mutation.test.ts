@@ -7,7 +7,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { JsonValue } from "@jse/core";
+import type { JsonValue } from "@json-schema-engine/core";
 import {
   Ajv,
   Ajv2020,

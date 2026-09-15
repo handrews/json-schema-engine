@@ -11,7 +11,7 @@ import {
   type SchemaRef,
   type StaticFacts,
   type SubschemaApplication,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 
 /** Why a unit is interpreted rather than compiled. */
 export type FallbackCause =
@@ -400,7 +400,7 @@ interface CoverageHalves {
  * evaluates the target, so contribution is independent of compilability.
  */
 function coverageHalves(
-  registry: import("@jse/core").SchemaRegistry,
+  registry: import("@json-schema-engine/core").SchemaRegistry,
   ref: SchemaRef,
   visiting: Set<string>,
   excludeConsumers: boolean,

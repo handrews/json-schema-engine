@@ -1,5 +1,5 @@
 // Compiled list output ≡ interpreter for the draft-04 suite directory
-// (M6.6), mirroring @jse/compiler's list-output-legacy.test.ts pattern for
+// (M6.6), mirroring @json-schema-engine/compiler's list-output-legacy.test.ts pattern for
 // the other legacy dialects. Now that draft-04's own minimum/maximum carry
 // lower(), every unit in this package's vocabulary compiles, so this leg is
 // the exactness referee for Task 1: message text, keyword, params, and
@@ -11,9 +11,9 @@ import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createEngine, type JsonValue } from "@jse/core";
-import { compileList } from "@jse/compiler";
-import { suiteRemotesLoader } from "@jse/test-kit";
+import { createEngine, type JsonValue } from "@json-schema-engine/core";
+import { compileList } from "@json-schema-engine/compiler";
+import { suiteRemotesLoader } from "@json-schema-engine/test-kit";
 import { registerDraft04, DIALECT_DRAFT_04 } from "../src/index.js";
 
 const SUITE_ROOT = join(

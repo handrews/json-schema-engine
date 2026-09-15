@@ -1,11 +1,14 @@
-// Official-suite conformance for @jse/core's 2019-09 dialect (M4-A).
+// Official-suite conformance for @json-schema-engine/core's 2019-09 dialect (M4-A).
 // Full draft2019-09 file list; nothing may be skipped (UNSUPPORTED: []).
 
 import { describe, it, expect } from "vitest";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { runSuiteFilesVitest, suiteRemotesLoader } from "@jse/test-kit";
-import { createEngine, DIALECT_2019_09 } from "@jse/core";
+import {
+  runSuiteFilesVitest,
+  suiteRemotesLoader,
+} from "@json-schema-engine/test-kit";
+import { createEngine, DIALECT_2019_09 } from "@json-schema-engine/core";
 
 const SUITE_ROOT = join(
   dirname(fileURLToPath(import.meta.url)),

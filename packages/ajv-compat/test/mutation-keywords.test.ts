@@ -12,7 +12,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { JsonValue } from "@jse/core";
+import type { JsonValue } from "@json-schema-engine/core";
 import { Ajv2020, type Options } from "../src/index.js";
 import ajvKeywords from "../src/ajv-keywords.js";
 

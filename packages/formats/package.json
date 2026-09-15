@@ -1,8 +1,8 @@
 {
-  "name": "@jse/formats",
-  "version": "0.0.0",
+  "name": "@json-schema-engine/formats",
+  "version": "0.0.1",
   "private": true,
-  "description": "Format implementations for @jse/core's format-assertion vocabulary and assertFormats configuration (DESIGN.md M7)",
+  "description": "Format implementations for @json-schema-engine/core's format-assertion vocabulary and assertFormats configuration (DESIGN.md M7)",
   "type": "module",
   "main": "./dist/index.js",
   "exports": {
@@ -14,10 +14,10 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@jse/core": "0.0.0"
+    "@json-schema-engine/core": "^0.0.1"
   },
   "devDependencies": {
-    "@jse/compiler": "0.0.0"
+    "@json-schema-engine/compiler": "^0.0.1"
   },
   "types": "./dist/index.d.ts",
   "files": [

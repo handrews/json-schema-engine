@@ -13,8 +13,8 @@ import {
   UnknownVocabularyError,
   identifiersLegacy,
   identifiers2019,
-} from "@jse/core";
-import { parseJsonWithRanges } from "@jse/test-kit";
+} from "@json-schema-engine/core";
+import { parseJsonWithRanges } from "@json-schema-engine/test-kit";
 
 describe("cycle guard", () => {
   it("throws on true reference cycles", () => {
@@ -395,7 +395,7 @@ describe("non-schema values in schema positions (D19)", () => {
 
   it("dialect decides what is a schema position: tuple items", async () => {
     const shape: JsonValue = { items: [{ type: "string" }] };
-    const { DIALECT_DRAFT_07 } = await import("@jse/core");
+    const { DIALECT_DRAFT_07 } = await import("@json-schema-engine/core");
     const legacy = createEngine({ defaultDialect: DIALECT_DRAFT_07 });
     // Valid draft-07: array-form items claims each element, not the array.
     expect(
@@ -447,7 +447,7 @@ describe("legacy dialect keyword sets (D11/D18)", () => {
   });
 
   it("treats post-draft-07 validation keywords as unknown in draft-07", async () => {
-    const { DIALECT_DRAFT_07 } = await import("@jse/core");
+    const { DIALECT_DRAFT_07 } = await import("@json-schema-engine/core");
     const engine = createEngine({ defaultDialect: DIALECT_DRAFT_07 });
     const uri = engine.registerSchema(
       { dependentRequired: { a: ["b"] }, contains: true, minContains: 2 },

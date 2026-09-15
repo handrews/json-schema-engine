@@ -44,7 +44,7 @@ const notImplemented = (): boolean => {
   throw new Error("not implemented");
 };
 
-describe("@jse/test-kit runSuiteFiles (collect mode)", () => {
+describe("@json-schema-engine/test-kit runSuiteFiles (collect mode)", () => {
   it("skips every case when the file's only keyword is declared unsupported", async () => {
     const summary = await runSuiteFiles({
       suiteDir: SUITE_DIR,
@@ -158,7 +158,7 @@ function makeRecorder(): Recorder {
   };
 }
 
-describe("@jse/test-kit runSuiteFilesVitest (recorder harness)", () => {
+describe("@json-schema-engine/test-kit runSuiteFilesVitest (recorder harness)", () => {
   it("registers a skip per unsupported group and runs no case bodies", async () => {
     const recorder = makeRecorder();
     runSuiteFilesVitest({

@@ -4,7 +4,7 @@
 // the document and OpenAPI's discriminator).
 
 import { describe, it, expect } from "vitest";
-import type { JsonValue } from "@jse/core";
+import type { JsonValue } from "@json-schema-engine/core";
 import { Ajv2020 } from "../src/index.js";
 
 const OAS_URL = "https://api.example/openapi.json";

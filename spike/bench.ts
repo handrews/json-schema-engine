@@ -32,8 +32,8 @@ import {
   profileFlag,
   profileAnnotated,
 } from "./compiled.js";
-import { createEngine } from "@jse/core";
-import { compileValidator } from "@jse/compiler";
+import { createEngine } from "@json-schema-engine/core";
+import { compileValidator } from "@json-schema-engine/compiler";
 
 // --- Set up competitors ----------------------------------------------------
 
@@ -58,7 +58,7 @@ const hjCompileMs = performance.now() - tCompileHj;
 
 const hjAnnotateProfile = await annotate("https://spike.example/profile");
 
-// The REAL compiler tier (M6.5 gate): artifacts from @jse/compiler, not the
+// The REAL compiler tier (M6.5 gate): artifacts from @json-schema-engine/compiler, not the
 // hand-written shapes above (those stay as the spike's reference ceiling).
 const tCompileM6 = performance.now();
 const m6Engine = createEngine();
@@ -266,7 +266,7 @@ for (const group of groups) {
 
 console.log(`ajv compile time (3 schemas): ${ajvCompileMs.toFixed(1)} ms`);
 console.log(
-  `@jse/compiler compile time (3 schemas): ${m6CompileMs.toFixed(1)} ms`,
+  `@json-schema-engine/compiler compile time (3 schemas): ${m6CompileMs.toFixed(1)} ms`,
 );
 console.log(
   `hyperjump register+compile time (3 schemas): ${hjCompileMs.toFixed(1)} ms`,

@@ -32,7 +32,7 @@ import {
   type SchemaRef,
   type SchemaRegistry,
   type RegexCache,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 
 /** True for JSON objects (not arrays, not null). */
 export const isObject = (v: unknown): v is Record<string, JsonValue> =>
