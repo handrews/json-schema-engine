@@ -31,7 +31,12 @@ pages is executed by CI; examples are guaranteed to work as shown.
   migration adapter: what is emulated, what fails loudly, documented
   divergences.
 
-## TBD (planned, not yet stable)
+## Install
 
-- Installation — the package is not yet published; the npm name is TBD
-  (see [STATUS.md](../../STATUS.md)).
+```sh
+npm install @json-schema-engine/core
+```
+
+`@json-schema-engine/compiler`, `@json-schema-engine/formats`, and
+`@json-schema-engine/dialect-draft04` install the same way and need `core`
+alongside them. `@json-schema-engine/ajv-compat` is not yet published.
