@@ -5,8 +5,8 @@ name: Publish
 # tarball. The workflow can only publish a package whose npmjs.com settings
 # name this repository and this file as a trusted publisher, which is
 # configured per package after its first release (CONTRIBUTING.md,
-# "Releasing"). Private workspaces (`ajv-compat`, `test-kit`) are skipped
-# by npm.
+# "Releasing"). The public packages are named explicitly; `ajv-compat` and
+# `test-kit` are private and never listed here.
 
 on:
   push:
@@ -36,4 +36,7 @@ jobs:
       - run: npm ci
       - run: npm run verify
       - run: npm run pack:check
-      - run: npm publish --workspaces --access public
+      - run: >-
+          npm publish --access public
+          -w packages/core -w packages/formats
+          -w packages/dialect-draft04 -w packages/compiler

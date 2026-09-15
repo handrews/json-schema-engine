@@ -97,7 +97,7 @@ Every package carries the same version; a release bumps every
 `packages/*/package.json`, the inter-package ranges, the root
 `package.json`, and the lockfile together, in one commit. Tag the merged
 commit `v<version>`: the `Publish` workflow (`.github/workflows/publish.yml`)
-runs the gates and publishes every public workspace through npm trusted
+runs the gates and publishes the four public packages through npm trusted
 publishing, which attaches provenance. A package's first release is made
 by the owner with a publish token, since npm configures a trusted publisher
 on an existing package; the trusted publisher (this repository, workflow
