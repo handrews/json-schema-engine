@@ -1,12 +1,32 @@
 # json-schema-engine
 
 A JSON Schema implementation for JavaScript/TypeScript that is both
-spec-complete and built for speed. It validates instances **and** collects
-annotations, with full location information in every output unit — the
-combination existing implementations do not offer.
+spec-complete and built for speed. It validates instances and fully
+supports annotation collection and error output formats from both
+the current IETF draft and other proposals under consideration.
 
-**Status: 0.0.1.** Published for initial public feedback on both the
-functionality and the documentation; APIs may change before 1.0.
+Produce by Henry Andrews via Claude Code.
+
+**Status: 0.0.1.** _To be published as soon as issues with my long-dormant
+NPM account are sorted out._
+
+The `0.0.x` versions indicate that all documentation is AI-written and
+not yet audited against actual usage or human readability standards.
+Despite the version number, the functionality is believed to be complete
+and the API is unlikely to change.
+
+The `0.1.x` version will ship once the documentation is deemed suitable
+for general consumption. `0.x.y` releases will continue while real-world
+testing is done. `1.0.0` will be released once enough feedback has been
+received that the implementation is trustworthy.
+
+A follow-on package will support migrating from `ajv`, including support
+for most of the keywords in `ajv-keywords`.
+
+The remaining text in this README is AI-written.
+
+---
+
 [STATUS.md](STATUS.md) is the authoritative statement of what is built,
 what is deliberately staged for later, and which gates run where.
 
