@@ -5,7 +5,7 @@ spec-complete and built for speed. It validates instances and fully
 supports annotation collection and error output formats from both
 the current IETF draft and other proposals under consideration.
 
-Produce by Henry Andrews via Claude Code.
+Produced by Henry Andrews via Claude Code.
 
 **Status: 0.0.1.** _To be published as soon as issues with my long-dormant
 NPM account are sorted out._
