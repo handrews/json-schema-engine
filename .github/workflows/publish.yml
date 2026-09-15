@@ -1,0 +1,42 @@
+name: Publish
+
+# Publishes every public workspace package to npm through OIDC trusted
+# publishing: no token is stored, and npm attaches provenance to each
+# tarball. The workflow can only publish a package whose npmjs.com settings
+# name this repository and this file as a trusted publisher, which is
+# configured per package after its first release (CONTRIBUTING.md,
+# "Releasing"). The public packages are named explicitly; `ajv-compat` and
+# `test-kit` are private and never listed here.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing needs npm 11.5.1 or later; Node 24's bundled npm
+      # may lag that.
+      - run: npm install -g npm@latest
+      - run: npm ci
+      - run: npm run verify
+      - run: npm run pack:check
+      - run: >-
+          npm publish --access public
+          -w packages/core -w packages/formats
+          -w packages/dialect-draft04 -w packages/compiler

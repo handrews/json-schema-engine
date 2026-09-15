@@ -5,10 +5,10 @@ spec-complete and built for speed. It validates instances **and** collects
 annotations, with full location information in every output unit — the
 combination existing implementations do not offer.
 
-**Status: pre-release.** The package is not yet published; the npm name is
-TBD. APIs may change before 1.0. [STATUS.md](STATUS.md) is the
-authoritative statement of what is built, what is deliberately staged for
-later, and which gates run where.
+**Status: 0.0.1.** Published for initial public feedback on both the
+functionality and the documentation; APIs may change before 1.0.
+[STATUS.md](STATUS.md) is the authoritative statement of what is built,
+what is deliberately staged for later, and which gates run where.
 
 ## Why
 
@@ -44,6 +44,21 @@ later, and which gates run where.
   documented subset, pinned against executed-AJV fixtures — see the
   [migration guide](docs/guide/ajv-migration.md) and
   [compatibility matrix](packages/ajv-compat/COMPAT.md).
+
+## Install
+
+```sh
+npm install @json-schema-engine/core
+```
+
+Add the others as needed:
+
+- `@json-schema-engine/compiler` — compiled validators and evaluators for
+  hot paths; needs `core`.
+- `@json-schema-engine/formats` — the `format` implementations, for
+  format assertion; needs `core`.
+- `@json-schema-engine/dialect-draft04` — draft-04 support alongside the
+  built-in drafts; needs `core`.
 
 ## Validate
 

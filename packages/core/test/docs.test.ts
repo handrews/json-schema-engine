@@ -1,5 +1,5 @@
-// Executes every ```ts code block in README.md, docs/conformance.md, and
-// docs/guide/*.md
+// Executes every ```ts code block in README.md, packages/*/README.md,
+// docs/conformance.md, and docs/guide/*.md
 // (CONTRIBUTING.md "Documentation conventions" states the contract): each
 // block is a self-contained module that must import successfully and run
 // without throwing. Snippets import "@json-schema-engine/core" etc. by package name, which
@@ -9,6 +9,7 @@
 // root instead (still outside the source tree, still never committed).
 
 import {
+  existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -50,6 +51,14 @@ function extractSnippets(markdownPath: string, label: string): Snippet[] {
 
 const sources = [
   { path: join(ROOT, "README.md"), label: "README" },
+  // The package READMEs are what npm renders; their examples hold to the
+  // same contract.
+  ...readdirSync(join(ROOT, "packages"))
+    .filter((p) => existsSync(join(ROOT, "packages", p, "README.md")))
+    .map((p) => ({
+      path: join(ROOT, "packages", p, "README.md"),
+      label: `pkg-${p}`,
+    })),
   // Named explicitly rather than sweeping docs/: that would pull in
   // architecture.md and the planning area, whose blocks are illustrative.
   { path: join(DOCS_DIR, "conformance.md"), label: "conformance" },

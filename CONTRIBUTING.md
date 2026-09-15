@@ -79,14 +79,29 @@ CI runs check-types, lint, format:check, test, and docs:api on every push.
 new execution surface that imports `@json-schema-engine/*` by package name must enable
 that condition or it will resolve — and possibly miss — `dist/`.
 
-Packages stay `private: true` deliberately: `npm pack` works (that is the
-supported consumption path), `npm publish` is blocked.
-Nothing may be published or pushed to any external registry.
+The public packages (`core`, `compiler`, `formats`, `dialect-draft04`)
+publish to npm under the `@json-schema-engine` scope with
+`publishConfig.access: public`. `ajv-compat` and `test-kit` stay
+`private: true`; nothing publishes them.
 
-**Consuming from sibling projects:** run `npm run build`, then install
-tarballs produced by `npm pack -w packages/<name>` (npm does not reliably
-run prepare scripts for `file:` directory dependencies, so prefer
-tarballs over directory links).
+**Consuming an unpublished package or a candidate build:** run
+`npm run build`, then install tarballs produced by
+`npm pack -w packages/<name>` (npm does not reliably run prepare scripts
+for `file:` directory dependencies, so prefer tarballs over directory
+links). `npm run pack:check` proves the tarballs install offline, carry
+LICENSE and README, and type-check from a consumer.
+
+### Releasing
+
+Every package carries the same version; a release bumps every
+`packages/*/package.json`, the inter-package ranges, the root
+`package.json`, and the lockfile together, in one commit. Tag the merged
+commit `v<version>`: the `Publish` workflow (`.github/workflows/publish.yml`)
+runs the gates and publishes the four public packages through npm trusted
+publishing, which attaches provenance. A package's first release is made
+by the owner with a publish token, since npm configures a trusted publisher
+on an existing package; the trusted publisher (this repository, workflow
+`publish.yml`) is then set on npmjs.com and tokens disallowed.
 
 ## Conformance testing
 
@@ -143,7 +158,7 @@ Releases are conformance-gated: suite and Bowtie green, or no release
 - User guide (`docs/guide/`): examples over prose. Mark areas that upcoming
   milestones will change with a `TBD` note instead of documenting twice.
 - Every fenced ` ```ts ` block in `docs/guide/*.md`, `docs/conformance.md`,
-  and `README.md` is
+  `README.md`, and `packages/*/README.md` is
   **executed by CI** (`packages/core/test/docs.test.ts`): it must be a
   self-contained module that imports what it uses (`@json-schema-engine/core`,
   `node:assert`) and throws on failure. Use ` ```jsonc ` or ` ```txt ` for

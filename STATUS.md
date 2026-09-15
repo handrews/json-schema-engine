@@ -5,7 +5,7 @@ for later, and which quality gates run where. Prose elsewhere (README,
 DESIGN.md milestone notes, guide pages) defers to this page when they
 disagree — and a disagreement is a bug worth filing.
 
-Last updated: 2026-09-06 (post-M9a plus the IETF draft-03 semantic
+Last updated: 2026-09-15 (0.0.1 publication readiness, on top of M9a plus the IETF draft-03 semantic
 reconciliation, the output model, and the compiled tier's registry
 snapshot: two-kind record channel, keyword relevance, accept-only
 dependency data, formats by name with levels and orthogonal controls,
@@ -27,6 +27,13 @@ format at both levels from a recorded application tree
 The evidence for the draft-03 claim — fixtures, suite and parity results,
 resource posture, benchmark context, and the known divergences — is collected
 in [docs/conformance.md](docs/conformance.md).
+
+Version `0.0.1` of `@json-schema-engine/core`, `compiler`, `formats`, and
+`dialect-draft04` is published for initial public feedback on both the
+functionality and the documentation; APIs may change before 1.0 ([ADR
+0001](docs/planning/next-steps/decisions/0001-first-release-scope.md)). The
+downstream-project smoke (P3) passed unchanged against `65de809` on
+2026-09-14; registry publication and outreach are owner-controlled.
 
 ## Built and gated
 
@@ -62,19 +69,10 @@ in [docs/conformance.md](docs/conformance.md).
 These are staged, not overlooked. Each is gated on an explicit decision
 or milestone:
 
-- **The first public release.** M9a delivered publication mechanics: dist
-  builds, export maps, and the offline tarball gate are in place under the
-  placeholder `@json-schema-engine/*` names. The release ships `@json-schema-engine/core`, `@json-schema-engine/compiler`,
-  `@json-schema-engine/formats`, and `@json-schema-engine/dialect-draft04` once the IETF draft-03 semantic
-  reconciliation, the output-level/control foundation, cross-tier parity
-  (the registry-snapshot fix is in), and the release evidence are solid
-  ([ADR 0001](docs/planning/next-steps/decisions/0001-first-release-scope.md)).
-  `@json-schema-engine/ajv-compat` ships in a follow-up release after adaptation to the new
-  record model and fixes for its open defects. `private: true` remains the
-  anti-accident latch; registry publication and outreach remain
-  owner-controlled. Sibling projects consume
-  `npm pack` tarballs meanwhile (CONTRIBUTING); the downstream-project
-  smoke (P3) passed unchanged against `65de809` on 2026-09-14.
+- **`@json-schema-engine/ajv-compat`.** Stays `private: true` and ships in
+  a follow-up release after adaptation to the record model and fixes for
+  its open defects ([ADR 0001](docs/planning/next-steps/decisions/0001-first-release-scope.md));
+  consumers take an `npm pack` tarball meanwhile (CONTRIBUTING).
 - **Bowtie submission.** The harness (all five dialects) runs locally
   and in CI with exact pins; the PR to Bowtie and the bowtie.report
   listing are made by the owner personally (no automated PRs, ever —

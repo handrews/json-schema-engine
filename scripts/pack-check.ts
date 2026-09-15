@@ -39,12 +39,36 @@ mkdirSync(tarballDir);
 console.log(`pack-check consumer: ${consumerDir}`);
 
 run("npm", ["run", "build"], ROOT);
+// What a registry consumer receives: npm includes a package directory's
+// LICENSE and README whatever `files` says, but only from that directory,
+// so a missing copy would ship a bare tarball without any other gate
+// noticing.
+const REQUIRED_FILES = [
+  "LICENSE",
+  "README.md",
+  "package.json",
+  "dist/index.js",
+];
 for (const pkg of PACKAGES) {
-  run(
-    "npm",
-    ["pack", "--pack-destination", tarballDir, "-w", `packages/${pkg}`],
-    ROOT,
-  );
+  const report = JSON.parse(
+    run(
+      "npm",
+      [
+        "pack",
+        "--json",
+        "--pack-destination",
+        tarballDir,
+        "-w",
+        `packages/${pkg}`,
+      ],
+      ROOT,
+    ),
+  ) as { files: { path: string }[] }[];
+  const paths = new Set(report.flatMap((r) => r.files.map((f) => f.path)));
+  const missing = REQUIRED_FILES.filter((f) => !paths.has(f));
+  if (missing.length > 0) {
+    throw new Error(`packages/${pkg} tarball lacks: ${missing.join(", ")}`);
+  }
 }
 const tarballs = readdirSync(tarballDir).filter((f) => f.endsWith(".tgz"));
 if (tarballs.length !== PACKAGES.length) {

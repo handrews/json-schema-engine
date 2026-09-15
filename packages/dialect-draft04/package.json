@@ -1,7 +1,6 @@
 {
   "name": "@json-schema-engine/dialect-draft04",
   "version": "0.0.1",
-  "private": true,
   "description": "JSON Schema draft-04 dialect for @json-schema-engine/core, assembled through the public dialect-authoring surface (DESIGN.md M10, D11)",
   "type": "module",
   "main": "./dist/index.js",
@@ -13,6 +12,12 @@
     }
   },
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22"
+  },
   "dependencies": {
     "@json-schema-engine/core": "^0.0.1"
   },

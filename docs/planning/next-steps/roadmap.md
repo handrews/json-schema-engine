@@ -111,12 +111,14 @@ emission remains flag-only (E3 post-release).
 
 Gate: every shipped package is solid within its documented scope.
 
-Status: items 2–6 delivered (item 3 as `docs/conformance.md`; item 4 as the
+Status: item 1 decided (scope `@json-schema-engine`; `0.0.1` for initial
+public feedback, `0.1.0` after the documentation audit); items 2–6
+delivered (item 3 as `docs/conformance.md`; item 4 as the
 migration table in `docs/guide/output-formats.md`, which the
 downstream-project smoke of 2026-09-14 exercised without a consumer change;
 item 5 against the candidate `65de809`, the downstream node-side tests
 passing unchanged; item 6 green on the same commit; item 2 with the
-compiler guide, E10). Items 1 and 7 are the owner's.
+compiler guide, E10). Item 7 is the owner's.
 
 ## Post-release stream
 

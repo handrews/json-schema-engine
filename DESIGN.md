@@ -714,8 +714,8 @@ Five local commits, every gate green per commit:
   through the custom `jse-source` condition (tsconfig
   `customConditions`, vitest `resolve.conditions`,
   `tsx --conditions=jse-source`). Inter-package ranges pinned to the
-  lockstep version. `private: true` is the deliberate not-published
-  latch — flipping it is all that publication requires. `scripts/pack-check.ts` is the
+  lockstep version. `private: true` marks the packages that do not
+  publish (`ajv-compat`, `test-kit`). `scripts/pack-check.ts` is the
   publication gate: tarballs installed into a tmpdir consumer with
   `npm install --offline` (registry contact = failure), runtime smoke
   across every package's installed dist, typed consumer resolved
