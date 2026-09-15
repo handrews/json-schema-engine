@@ -6,7 +6,7 @@ import {
   type LowerCursor,
   type LowerProduceValue,
   type LowerStmt,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 import { type CodeChunk, id, js, num, str } from "../emit.js";
 import { EV, findProduce, hasAnnotate } from "./names.js";
 import { UnitContext } from "./context.js";

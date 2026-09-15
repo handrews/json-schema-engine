@@ -8,7 +8,7 @@
 // Methodology notes:
 // - Format validation is disabled everywhere (jse asserts formats only by
 //   opt-in; AJV would otherwise refuse unknown formats at compile). Format
-//   throughput is a property of @jse/formats, not of the corpora here.
+//   throughput is a property of @json-schema-engine/formats, not of the corpora here.
 // - Hyperjump appears in hot-path tasks only: its global registry API does
 //   not support repeated fresh compiles of the same URI, so compile/first
 //   tasks would measure registry bookkeeping, not compilation.
@@ -62,7 +62,7 @@ import {
   type EvaluateOptions,
   type JsonValue,
   type Result,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 import {
   compileValidator,
   compileList,
@@ -70,8 +70,11 @@ import {
   type CompiledArtifact,
   type CompiledListArtifact,
   type CompiledEvaluator,
-} from "@jse/compiler";
-import { Ajv as CompatAjv, Ajv2020 as CompatAjv2020 } from "@jse/ajv-compat";
+} from "@json-schema-engine/compiler";
+import {
+  Ajv as CompatAjv,
+  Ajv2020 as CompatAjv2020,
+} from "@json-schema-engine/ajv-compat";
 
 // CJS interop: at runtime module.exports is the class and also carries
 // .default, but ajv's own types declare `.default` as always present.

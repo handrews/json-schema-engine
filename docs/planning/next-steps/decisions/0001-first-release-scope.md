@@ -17,10 +17,10 @@ a conforming release.
 - The release path is: semantic reconciliation (S1–S3, fixtures first) →
   output levels and controls (E2, E9, S4) → cross-tier parity plus E1 →
   release gate. See the [roadmap](../roadmap.md).
-- Shipped packages: `@jse/core`, `@jse/compiler`, `@jse/formats`, and
-  `@jse/dialect-draft04`. The `@jse` scope is a placeholder until the owner's
+- Shipped packages: `@json-schema-engine/core`, `@json-schema-engine/compiler`, `@json-schema-engine/formats`, and
+  `@json-schema-engine/dialect-draft04`. The `@jse` scope is a placeholder until the owner's
   naming decision, which precedes the release documentation pass.
-- `@jse/ajv-compat` ships in a follow-up release. It stays in the repository
+- `@json-schema-engine/ajv-compat` ships in a follow-up release. It stays in the repository
   with its tests running and `private: true`; after the first release it is
   adapted to the annotation/dependency record model and A1–A6 are fixed.
 - E1 (registry visibility across compiled code and interpreted islands) is

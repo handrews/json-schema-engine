@@ -10,8 +10,12 @@
 // any is a loud, small failure rather than a census drift.
 
 import { describe, it, expect } from "vitest";
-import { createEngine, type JsonValue } from "@jse/core";
-import { buildPlan, compileList, compileValidator } from "@jse/compiler";
+import { createEngine, type JsonValue } from "@json-schema-engine/core";
+import {
+  buildPlan,
+  compileList,
+  compileValidator,
+} from "@json-schema-engine/compiler";
 
 /** Every verdict of the compiled artifact must match the interpreter. */
 function expectVerdictParity(

@@ -1,12 +1,15 @@
-// Official-suite conformance for @jse/core via the test-kit runner.
+// Official-suite conformance for @json-schema-engine/core via the test-kit runner.
 // M3: the full draft2020-12 file list, with the suite's remote resources
 // served from the submodule's remotes/ tree through a loader.
 
 import { describe, it, expect } from "vitest";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { runSuiteFilesVitest, suiteRemotesLoader } from "@jse/test-kit";
-import { createEngine } from "@jse/core";
+import {
+  runSuiteFilesVitest,
+  suiteRemotesLoader,
+} from "@json-schema-engine/test-kit";
+import { createEngine } from "@json-schema-engine/core";
 
 const SUITE_ROOT = join(
   dirname(fileURLToPath(import.meta.url)),

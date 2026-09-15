@@ -1,11 +1,18 @@
-// Bowtie IO-protocol harness (version 1) for @jse/core: line-delimited JSON
+// Bowtie IO-protocol harness (version 1) for @json-schema-engine/core: line-delimited JSON
 // commands on stdin, one response per command on stdout. Case registries are
 // served to the engine as a loader, so remote refs and $schema/metaschema
 // references resolve exactly the way real loaders do (D7).
 
 import * as readline from "node:readline";
-import { createEngine, JsonValue, SchemaLoader } from "@jse/core";
-import { registerDraft04, DIALECT_DRAFT_04 } from "@jse/dialect-draft04";
+import {
+  createEngine,
+  JsonValue,
+  SchemaLoader,
+} from "@json-schema-engine/core";
+import {
+  registerDraft04,
+  DIALECT_DRAFT_04,
+} from "@json-schema-engine/dialect-draft04";
 
 const DIALECTS = [
   "https://json-schema.org/draft/2020-12/schema",
@@ -49,7 +56,7 @@ async function handle(line: string): Promise<void> {
         implementation: {
           language: "javascript",
           name: "jse",
-          version: "0.0.0",
+          version: "0.0.1",
           dialects: DIALECTS,
           homepage: "https://github.com/handrews/json-schema-engine",
           issues: "https://github.com/handrews/json-schema-engine/issues",

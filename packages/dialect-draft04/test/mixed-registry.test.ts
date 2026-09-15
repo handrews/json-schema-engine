@@ -4,8 +4,11 @@
 // dialect's semantics across the $ref boundary in both directions.
 
 import { describe, it, expect } from "vitest";
-import { createEngine, DIALECT_2020_12 } from "@jse/core";
-import { registerDraft04, DIALECT_DRAFT_04 } from "@jse/dialect-draft04";
+import { createEngine, DIALECT_2020_12 } from "@json-schema-engine/core";
+import {
+  registerDraft04,
+  DIALECT_DRAFT_04,
+} from "@json-schema-engine/dialect-draft04";
 
 const DRAFT04_URI = "https://mixed.example/legacy";
 const MODERN_URI = "https://mixed.example/modern";

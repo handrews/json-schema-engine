@@ -9,7 +9,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { JsonValue } from "@jse/core";
+import type { JsonValue } from "@json-schema-engine/core";
 import { Ajv2020 } from "../src/index.js";
 import addFormats, { AJV_FORMATS_TABLE } from "../src/formats.js";
 import ajvErrors from "../src/ajv-errors.js";

@@ -1,6 +1,6 @@
-// Official-suite conformance for @jse/compiler's compiled tier over the
+// Official-suite conformance for @json-schema-engine/compiler's compiled tier over the
 // 2019-09 dialect (M6.6 stretch). Same FILES list and remotes loader as
-// @jse/core's suite2019.test.ts (M4-A): every group registers and
+// @json-schema-engine/core's suite2019.test.ts (M4-A): every group registers and
 // evaluates through the interpreter as always, but the verdict comes from
 // compileValidator(...).validate(instance) instead of
 // engine.evaluate(...).valid — the compiled tier must be exactly as
@@ -11,9 +11,12 @@
 import { describe, it, expect } from "vitest";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { runSuiteFilesVitest, suiteRemotesLoader } from "@jse/test-kit";
-import { createEngine, DIALECT_2019_09 } from "@jse/core";
-import { compileValidator } from "@jse/compiler";
+import {
+  runSuiteFilesVitest,
+  suiteRemotesLoader,
+} from "@json-schema-engine/test-kit";
+import { createEngine, DIALECT_2019_09 } from "@json-schema-engine/core";
+import { compileValidator } from "@json-schema-engine/compiler";
 
 const SUITE_ROOT = join(
   dirname(fileURLToPath(import.meta.url)),

@@ -5,9 +5,9 @@
 // collected LowerStmt list against a concrete instance and renders each
 // keyword's record exactly as the accumulation-model TSDoc specifies, so the
 // gate can differentially check the recipes against the interpreter's own
-// records before the serializer ever consumes them. Depends only on @jse/core (the
+// records before the serializer ever consumes them. Depends only on @json-schema-engine/core (the
 // LowerStmt vocabulary and the trampoline live there); it duck-types the
-// planner's unit as {@link OracleUnit}, so it never imports @jse/compiler —
+// planner's unit as {@link OracleUnit}, so it never imports @json-schema-engine/compiler —
 // the same one-way dependency discipline census.ts follows.
 
 import {
@@ -31,7 +31,7 @@ import {
   type RegexCache,
   type SchemaRef,
   type SchemaRegistry,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 
 /** The static evaluated-name coverage a planner attaches to a unit (D9a). */
 export interface OracleCoverage {
@@ -44,7 +44,7 @@ export interface OracleCoverage {
 
 /**
  * The slice of a planned unit the oracle needs: the schema position and its
- * static coverage. Duck-typed so test-kit stays free of \@jse/compiler; a
+ * static coverage. Duck-typed so test-kit stays free of \@json-schema-engine/compiler; a
  * `PlannedUnit` satisfies it structurally.
  */
 export interface OracleUnit {

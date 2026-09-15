@@ -6,14 +6,17 @@
 import { describe, it, expect } from "vitest";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { runSuiteFilesVitest, suiteRemotesLoader } from "@jse/test-kit";
+import {
+  runSuiteFilesVitest,
+  suiteRemotesLoader,
+} from "@json-schema-engine/test-kit";
 import {
   createEngine,
   UnknownFormatError,
   VOCAB_FORMAT_ASSERTION,
   DIALECT_2020_12,
-} from "@jse/core";
-import { FORMATS_2020_12 } from "@jse/formats";
+} from "@json-schema-engine/core";
+import { FORMATS_2020_12 } from "@json-schema-engine/formats";
 
 const SUITE_ROOT = join(
   dirname(fileURLToPath(import.meta.url)),

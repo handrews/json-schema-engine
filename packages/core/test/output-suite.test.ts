@@ -1,7 +1,7 @@
 // Official output-tests conformance (test-suite/output-tests, DESIGN.md M5):
 // for each case, evaluate `data` against the group `schema`, render the
 // Basic output document (2020-12 field names), and validate that document
-// against the case's own output schema using @jse/core itself — "the
+// against the case's own output schema using @json-schema-engine/core itself — "the
 // rendered document self-validates" is the pass condition. Only "basic" is
 // populated in the vendored suite as of this writing (output-tests/README);
 // list/detailed/verbose cases would be counted and reported as loud skips
@@ -11,8 +11,12 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { runOutputTests } from "@jse/test-kit";
-import { createEngine, JsonValue, DIALECT_2019_09 } from "@jse/core";
+import { runOutputTests } from "@json-schema-engine/test-kit";
+import {
+  createEngine,
+  JsonValue,
+  DIALECT_2019_09,
+} from "@json-schema-engine/core";
 
 const SUITE_ROOT = join(
   dirname(fileURLToPath(import.meta.url)),

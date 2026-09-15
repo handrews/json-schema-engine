@@ -1,11 +1,14 @@
-// Official-suite conformance for @jse/core's draft-07 dialect (M4-B).
+// Official-suite conformance for @json-schema-engine/core's draft-07 dialect (M4-B).
 // Full draft7 file list (no optional/); nothing may be skipped (UNSUPPORTED: []).
 
 import { describe, it, expect } from "vitest";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { runSuiteFilesVitest, suiteRemotesLoader } from "@jse/test-kit";
-import { createEngine, DIALECT_DRAFT_07 } from "@jse/core";
+import {
+  runSuiteFilesVitest,
+  suiteRemotesLoader,
+} from "@json-schema-engine/test-kit";
+import { createEngine, DIALECT_DRAFT_07 } from "@json-schema-engine/core";
 
 const SUITE_ROOT = join(
   dirname(fileURLToPath(import.meta.url)),

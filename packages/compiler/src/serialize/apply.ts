@@ -1,7 +1,11 @@
 // Subschema applications: the unit/trampoline call for a LowerApply, its
 // evaluation-path and instance-pointer arguments, and D9c inlining.
 
-import { escapeSegment, type LowerApply, type LowerCursor } from "@jse/core";
+import {
+  escapeSegment,
+  type LowerApply,
+  type LowerCursor,
+} from "@json-schema-engine/core";
 import { type CodeChunk, id, join, js, num, str } from "../emit.js";
 import {
   D,

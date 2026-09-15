@@ -76,11 +76,11 @@ CI runs check-types, lint, format:check, test, and docs:api on every push.
 `dist/`, and in-repo development resolves TS source through the custom
 `jse-source` condition (root tsconfig `customConditions`, vitest
 `resolve.conditions`, `tsx --conditions=jse-source` in npm scripts). A
-new execution surface that imports `@jse/*` by package name must enable
+new execution surface that imports `@json-schema-engine/*` by package name must enable
 that condition or it will resolve — and possibly miss — `dist/`.
 
-Packages stay `private: true` at version `0.0.0` deliberately: `npm pack`
-works (that is the supported consumption path), `npm publish` is blocked.
+Packages stay `private: true` deliberately: `npm pack` works (that is the
+supported consumption path), `npm publish` is blocked.
 Nothing may be published or pushed to any external registry.
 
 **Consuming from sibling projects:** run `npm run build`, then install
@@ -145,7 +145,7 @@ Releases are conformance-gated: suite and Bowtie green, or no release
 - Every fenced ` ```ts ` block in `docs/guide/*.md`, `docs/conformance.md`,
   and `README.md` is
   **executed by CI** (`packages/core/test/docs.test.ts`): it must be a
-  self-contained module that imports what it uses (`@jse/core`,
+  self-contained module that imports what it uses (`@json-schema-engine/core`,
   `node:assert`) and throws on failure. Use ` ```jsonc ` or ` ```txt ` for
   non-runnable content.
 - API reference comes from TSDoc comments on exported symbols; run

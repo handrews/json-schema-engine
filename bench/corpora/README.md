@@ -66,7 +66,7 @@ deterministically inside the harness (seeded, no third-party data).
 - **api-payload** — a moderate object schema over generated request
   payloads (valid and invalid mixes). The hot-path throughput case.
 - **migration** — a draft-07 schema run natively and through
-  `@jse/ajv-compat`, measuring the migration story's cost against real AJV.
+  `@json-schema-engine/ajv-compat`, measuring the migration story's cost against real AJV.
 - **records-uniform** — one schema applied many times over records that all
   share one shape (same fields, same order). Isolates per-application trace
   and annotation-unit allocation from property-access variance.

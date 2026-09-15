@@ -21,7 +21,7 @@ import {
   type ErrorUnit,
   type AnnotationUnit,
   type TraceUnit,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 
 const GOLDENS_DIR = join(dirname(fileURLToPath(import.meta.url)), "goldens");
 

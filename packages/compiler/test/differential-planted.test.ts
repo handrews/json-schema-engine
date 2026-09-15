@@ -7,14 +7,22 @@
 // so this test is the gate that would have caught the gate.
 
 import { describe, it, expect } from "vitest";
-import { createEngine, type JsonValue, type Result } from "@jse/core";
-import { compileEvaluator, compileList, compileValidator } from "@jse/compiler";
+import {
+  createEngine,
+  type JsonValue,
+  type Result,
+} from "@json-schema-engine/core";
+import {
+  compileEvaluator,
+  compileList,
+  compileValidator,
+} from "@json-schema-engine/compiler";
 import {
   outcomesAgree,
   runAnnotationsSide,
   runListSide,
   runSide,
-} from "@jse/test-kit";
+} from "@json-schema-engine/test-kit";
 
 const SCHEMA = { type: "object", properties: { n: { minimum: 3 } } };
 const FAILING = { n: 1 } as JsonValue;

@@ -13,7 +13,7 @@ engine's `defaultDialect` applies — 2020-12 unless configured otherwise.
 
 ```ts
 import assert from "node:assert";
-import { createEngine, DIALECT_DRAFT_07 } from "@jse/core";
+import { createEngine, DIALECT_DRAFT_07 } from "@json-schema-engine/core";
 
 const engine = createEngine({ defaultDialect: DIALECT_DRAFT_07 });
 const uri = engine.registerSchema(
@@ -34,7 +34,7 @@ the same dialect as the bare URI.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
+import { createEngine } from "@json-schema-engine/core";
 
 const engine = createEngine({
   defaultDialect: "http://json-schema.org/draft-07/schema#",
@@ -65,7 +65,7 @@ import {
   DIALECT_2020_12,
   DIALECT_DRAFT_07,
   InvalidSchemaError,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 
 const shape = { items: [{ type: "string" }, { type: "integer" }] };
 
@@ -93,7 +93,7 @@ metaschema's job; opt in with `validateSchemas` (see
 
 ```ts
 import assert from "node:assert";
-import { createEngine, SchemaValidationError } from "@jse/core";
+import { createEngine, SchemaValidationError } from "@json-schema-engine/core";
 
 // Accepted structurally; behavior of the bad value is undefined.
 createEngine().registerSchema(
@@ -119,7 +119,7 @@ assembling dialects from `$vocabulary`.
 
 ```ts
 import assert from "node:assert";
-import { createEngine, UnknownDialectError } from "@jse/core";
+import { createEngine, UnknownDialectError } from "@json-schema-engine/core";
 
 const engine = createEngine();
 
@@ -136,7 +136,7 @@ assert.throws(() => {
 draft-04's syntax differs from every later draft — `id` instead of `$id`,
 boolean `exclusiveMinimum`/`exclusiveMaximum` modifying sibling bounds,
 and no `const`, `contains`, `propertyNames`, or `if`/`then`/`else` — so it
-ships as `@jse/dialect-draft04` rather than in core. One registration call
+ships as `@json-schema-engine/dialect-draft04` rather than in core. One registration call
 adds the dialect, its keyword behaviors, and the vendored draft-04
 metaschema to an engine; draft-04 documents then coexist with every other
 draft in the same registry, including `$ref`s across the dialect boundary
@@ -144,8 +144,8 @@ in both directions.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
-import { registerDraft04 } from "@jse/dialect-draft04";
+import { createEngine } from "@json-schema-engine/core";
+import { registerDraft04 } from "@json-schema-engine/dialect-draft04";
 
 const engine = createEngine();
 registerDraft04(engine);

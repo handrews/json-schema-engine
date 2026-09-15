@@ -24,7 +24,7 @@ annotations: it builds no evaluation trace.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
+import { createEngine } from "@json-schema-engine/core";
 
 const engine = createEngine();
 const uri = engine.registerSchema(
@@ -66,7 +66,7 @@ The two lists are OR-ed.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
+import { createEngine } from "@json-schema-engine/core";
 
 const engine = createEngine();
 const uri = engine.registerSchema(
@@ -92,7 +92,7 @@ specific keywords or vocabularies.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
+import { createEngine } from "@json-schema-engine/core";
 
 const engine = createEngine();
 const uri = engine.registerSchema(
@@ -116,7 +116,7 @@ The selection's `keep` runs last, on the rendered unit.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
+import { createEngine } from "@json-schema-engine/core";
 
 const engine = createEngine();
 const uri = engine.registerSchema(
@@ -149,7 +149,7 @@ underlying mechanism.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
+import { createEngine } from "@json-schema-engine/core";
 
 const engine = createEngine();
 const uri = engine.registerSchema(

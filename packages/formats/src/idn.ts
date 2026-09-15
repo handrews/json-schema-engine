@@ -3,7 +3,7 @@
 // RFCs with Unicode data through ECMA-262's native \p{...} property
 // escapes plus small cited tables (DESIGN.md D15).
 
-import type { FormatDefinition } from "@jse/core";
+import type { FormatDefinition } from "@json-schema-engine/core";
 import {
   decodePunycode,
   encodePunycode,

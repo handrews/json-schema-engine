@@ -12,9 +12,15 @@
 import { describe, it, expect } from "vitest";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { runSuiteFilesVitest, suiteRemotesLoader } from "@jse/test-kit";
-import { createEngine } from "@jse/core";
-import { registerDraft04, DIALECT_DRAFT_04 } from "@jse/dialect-draft04";
+import {
+  runSuiteFilesVitest,
+  suiteRemotesLoader,
+} from "@json-schema-engine/test-kit";
+import { createEngine } from "@json-schema-engine/core";
+import {
+  registerDraft04,
+  DIALECT_DRAFT_04,
+} from "@json-schema-engine/dialect-draft04";
 
 const SUITE_ROOT = join(
   dirname(fileURLToPath(import.meta.url)),

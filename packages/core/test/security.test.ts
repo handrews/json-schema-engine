@@ -12,7 +12,7 @@ import {
   UnsafeRegexError,
   type JsonValue,
   type RegexEngine,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 
 describe("uniqueItems is near-linear (D20)", () => {
   it("validates 100k distinct items well within budget", () => {

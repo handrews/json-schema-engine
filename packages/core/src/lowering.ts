@@ -1,7 +1,7 @@
 // Compiler lowering IR (D1/D9, M6.1): the type vocabulary keyword behaviors
 // use to describe their compiled form, and the LoweringContext service
 // interface the compiler implements. Types only — core carries no compiler
-// runtime. Keyword modules depend on this file, never on @jse/compiler, so
+// runtime. Keyword modules depend on this file, never on @json-schema-engine/compiler, so
 // keyword knowledge stays in exactly one module per keyword.
 //
 // Two properties are load-bearing for security and semantics:

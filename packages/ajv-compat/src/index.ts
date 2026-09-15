@@ -1,4 +1,4 @@
-// @jse/ajv-compat (M8): AJV v8's public API surface over the engine. The
+// @json-schema-engine/ajv-compat (M8): AJV v8's public API surface over the engine. The
 // compat class owns a config ledger and rebuilds its Engine lazily when
 // schema/keyword/format state changes (AJV also recompiles in those
 // cases). Every emulated behavior is pinned against executed-AJV fixtures
@@ -23,13 +23,13 @@ import {
   type SchemaLoader,
   type TraceUnit,
   walkSchema,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 import { getAtPointer } from "./pointer.js";
 import {
   compileList,
   compileValidator,
   type CompiledListArtifact,
-} from "@jse/compiler";
+} from "@json-schema-engine/compiler";
 import { mapErrors, needsTrace, type AjvErrorObject } from "./errors.js";
 import {
   anyMutation,
@@ -67,7 +67,7 @@ export function assertTierAgreement(valid: boolean, errors: unknown[]): void {
     throw new Error(
       "ajv-compat: flag-tier validator (compileValidator) reported invalid, " +
         "but the list tier (compileList) produced no errors. This is a " +
-        "tier-agreement bug in @jse/compiler or @jse/core, not a schema " +
+        "tier-agreement bug in @json-schema-engine/compiler or @json-schema-engine/core, not a schema " +
         "problem — please file a bug report with the schema and instance " +
         "that triggered this.",
     );

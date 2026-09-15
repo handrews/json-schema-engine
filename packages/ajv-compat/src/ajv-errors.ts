@@ -54,8 +54,8 @@
 //  - `${/json/pointer}` and relative-pointer (`${0#}` — the property-name
 //    form) templates interpolate JSON.stringify'd values.
 
-import { escapeSegment, unescapeSegment } from "@jse/core";
-import type { JsonValue } from "@jse/core";
+import { escapeSegment, unescapeSegment } from "@json-schema-engine/core";
+import type { JsonValue } from "@json-schema-engine/core";
 import type { AjvErrorObject } from "./errors.js";
 import type { Ajv } from "./index.js";
 import { getAtPointer } from "./pointer.js";

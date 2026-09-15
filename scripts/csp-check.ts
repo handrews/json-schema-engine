@@ -16,8 +16,11 @@ import {
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
-import { createEngine, type JsonValue } from "@jse/core";
-import { emitStandalone, StandaloneUnsupportedError } from "@jse/compiler";
+import { createEngine, type JsonValue } from "@json-schema-engine/core";
+import {
+  emitStandalone,
+  StandaloneUnsupportedError,
+} from "@json-schema-engine/compiler";
 
 const SUITE_DIR = join(
   import.meta.dirname,

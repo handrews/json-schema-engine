@@ -9,13 +9,13 @@
 import { describe, it, expect } from "vitest";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createEngine } from "@jse/core";
-import { buildPlan, explainCompilation } from "@jse/compiler";
+import { createEngine } from "@json-schema-engine/core";
+import { buildPlan, explainCompilation } from "@json-schema-engine/compiler";
 import {
   runPlanCensus,
   suiteRemotesLoader,
   type PlanCensusResult,
-} from "@jse/test-kit";
+} from "@json-schema-engine/test-kit";
 
 const SUITE_ROOT = join(
   dirname(fileURLToPath(import.meta.url)),

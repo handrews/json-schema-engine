@@ -1,4 +1,4 @@
-// @jse/formats: format implementations for the format-assertion vocabulary
+// @json-schema-engine/formats: format implementations for the format-assertion vocabulary
 // and the assertFormats configuration (M7). Implemented from the defining
 // RFCs and the JSON Schema specs only (DESIGN.md D15) — no format/IDNA
 // library is consulted.
@@ -9,7 +9,7 @@
 // formats (the OpenAPI format registry's number-scoped entries are a
 // planned future table).
 
-import type { FormatDefinition, FormatTable } from "@jse/core";
+import type { FormatDefinition, FormatTable } from "@json-schema-engine/core";
 import { isValidALabel } from "./idna.js";
 import { idnEmail, idnHostname } from "./idn.js";
 

@@ -13,7 +13,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv2020Import from "ajv/dist/2020.js";
-import type { JsonValue } from "@jse/core";
+import type { JsonValue } from "@json-schema-engine/core";
 import { Ajv2020, type ErrorObject } from "../src/index.js";
 
 type RealAjvCtor = new (options?: Record<string, unknown>) => {

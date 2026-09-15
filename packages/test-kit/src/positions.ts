@@ -1,6 +1,6 @@
 // Position-tracking JSON parser: a reference implementation of the D17
 // loader capability, used to exercise Engine position lookups in tests.
-// Types are structural duplicates of @jse/core's Source* types so test-kit
+// Types are structural duplicates of @json-schema-engine/core's Source* types so test-kit
 // stays dependency-free; the shapes must stay assignment-compatible.
 
 /** A JSON-representable value. */
@@ -18,7 +18,7 @@ export interface SourceSpan {
   start: SourcePosition;
   end: SourcePosition;
 }
-/** Key vs value spans for an object member; see \@jse/core's loader.ts SourceRange. */
+/** Key vs value spans for an object member; see \@json-schema-engine/core's loader.ts SourceRange. */
 export interface SourceRange {
   key?: SourceSpan;
   value: SourceSpan;

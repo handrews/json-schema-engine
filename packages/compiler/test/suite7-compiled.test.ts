@@ -1,5 +1,5 @@
-// Official-suite conformance for @jse/compiler's compiled tier over the
-// draft-07 dialect (M6.6). Same FILES list and remotes loader as @jse/core's
+// Official-suite conformance for @json-schema-engine/compiler's compiled tier over the
+// draft-07 dialect (M6.6). Same FILES list and remotes loader as @json-schema-engine/core's
 // suite7.test.ts (M4-B): every group registers and evaluates through the
 // interpreter as always, but the verdict comes from
 // compileValidator(...).validate(instance) instead of
@@ -11,9 +11,12 @@
 import { describe, it, expect } from "vitest";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { runSuiteFilesVitest, suiteRemotesLoader } from "@jse/test-kit";
-import { createEngine, DIALECT_DRAFT_07 } from "@jse/core";
-import { compileValidator } from "@jse/compiler";
+import {
+  runSuiteFilesVitest,
+  suiteRemotesLoader,
+} from "@json-schema-engine/test-kit";
+import { createEngine, DIALECT_DRAFT_07 } from "@json-schema-engine/core";
+import { compileValidator } from "@json-schema-engine/compiler";
 
 const SUITE_ROOT = join(
   dirname(fileURLToPath(import.meta.url)),

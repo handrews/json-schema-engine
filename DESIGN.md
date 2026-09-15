@@ -195,7 +195,7 @@ instanceLocation, data}`: computed information for other keywords, never
 | M5   | Output completion: Detailed/Verbose/hierarchical renderers, official output-tests adoption, golden fixtures, retention deny lists                                                                                                                                                   | patterned (trace capture: judgment, prework)                            | Renderer goldens green; official `output-tests/` (draft2019-09 + draft2020-12 `basic`) green, output self-validated by the engine                                                         |
 | M5.5 | Annotation-collection controls (owner request 2026-07-06): retention-driven produce-time elision — skip productions provably neither channel-consumed (StaticFacts.consumes) nor retainable (policy + collectAnnotations); channels MUST be unaffected                              | judgment                                                                | Full suite + channels tests green with elision active; elision on/off differential run identical over suite schemas; bench quantifies annotations-off win                                 |
 | M5.6 | Security baseline (owner request 2026-07-06, pre-M6, D20): pluggable+cached `regexEngine` + `detectUnsafeRegex`/`rejectUnsafeRegex`; O(n) `uniqueItems`; `maxDepth`/`MaxDepthExceededError`; standing adversarial resource-exhaustion suite                                         | patterned + judgment (detector, depth default)                          | Adversarial suite green within time budgets; four dialect suites unchanged zero-skip; ReDoS/uniqueItems/deep-nesting probes bounded; prototype-pollution probes locked in                 |
-| M6   | `compiler` (@jse/compiler): five sub-milestones below, scoped to **draft2020-12** — other dialects classify as interpreted units (fallback)                                                                                                                                         | judgment overall                                                        | All five sub-signals below                                                                                                                                                                |
+| M6   | `compiler` (@json-schema-engine/compiler): five sub-milestones below, scoped to **draft2020-12** — other dialects classify as interpreted units (fallback)                                                                                                                          | judgment overall                                                        | All five sub-signals below                                                                                                                                                                |
 | M6.1 | Compiler contracts in core: StaticFacts v2 (AnalyzeContext, coverage + application facts, produces fan-out), lowering IR types + `lower()` slot, `evaluateFragment` trampoline, Engine getters/exports, docs/architecture.md                                                        | judgment (Fable)                                                        | Full suite green, interpreter untouched; facts-snapshot + fragment tests green                                                                                                            |
 | M6.2 | Vertical slice: planner + unit classification, gated serializer, runtime `new Function` mode, trampoline glue, six exemplar `lower()`s, non-2020-12 fallback default, ESLint fences, injection exemplars                                                                            | judgment (Fable)                                                        | Smoke differential green over spike schemas + suite subset (incl. dynamicRef, infinite-loop-detection, one metaschema-$ref case); injection exemplars green                               |
 | M6.3 | Differential fuzz + injection harness in test-kit: seeded mutators, comparison policy (§7), divergence minimizer, full adversarial codegen corpus                                                                                                                                   | judgment (Opus)                                                         | 50k-case seeded run zero divergences over M6.2 keywords; minimizer reduces a planted bug; injection corpus green                                                                          |
@@ -395,7 +395,7 @@ the defaults (D9d — chains measured sufficient at suite scale), island
 re-entry (revisit trigger recorded in §7).
 
 **Status note (M7 + compiled list output, completed 2026-07-06):** M7
-formats delivered as @jse/formats: all 21 draft2020-12 optional formats
+formats delivered as @json-schema-engine/formats: all 21 draft2020-12 optional formats
 implemented from their defining RFCs (D15), including full IDNA2008
 idn-hostname/idn-email (RFC 3492 Punycode both directions, RFC 5892
 Appendix A context rules + §2.6 exceptions, RFC 5893 bidi rule, NFC,
@@ -417,7 +417,7 @@ module). Separately, compiled list/Basic output
 landed (D9e; commit 613ac51): compileList produces interpreter-exact flat
 error units — full-suite differential zero divergence, FUZZ_LIST leg.
 
-**Status note (M8 ajv-compat, completed 2026-07-07):** @jse/ajv-compat
+**Status note (M8 ajv-compat, completed 2026-07-07):** @json-schema-engine/ajv-compat
 delivers AJV v8's public surface over the engine, pinned end-to-end by
 EXECUTED-AJV fixtures (capture scripts in packages/ajv-compat/test/oracle;
 AJV source never read — D15). Prework M8.1 added the D13 structured error
@@ -447,7 +447,7 @@ capture; two documented divergences the fixpoint model entails —
 transform skips combiner branches, non-idempotent op composites
 converge).
 
-**Status note (M10 @jse/dialect-draft04, completed 2026-07-08):** done-
+**Status note (M10 @json-schema-engine/dialect-draft04, completed 2026-07-08):** done-
 signals green: official draft4 suite 618/618 cases zero-skip (interpreter
 tier) plus the optional id.json leg (3/3), optional/format leg 206/206
 under `FORMATS_DRAFT_04`/`assertFormats`, an in-package elision
@@ -632,7 +632,7 @@ leg included), csp-check.
 
 Owner-priority order and per-milestone contracts:
 
-1. **M10 — @jse/dialect-draft04 (top priority: the downstream project needs it).**
+1. **M10 — @json-schema-engine/dialect-draft04 (top priority: the downstream project needs it).**
    Separate workspace package per the amended D11. Build against the
    PUBLIC registry surface only: `registerVocabulary`/`registerDialect`
    with `DialectOptions.identifiers` (an `id`-based extractor: plain
@@ -714,9 +714,8 @@ Five local commits, every gate green per commit:
   through the custom `jse-source` condition (tsconfig
   `customConditions`, vitest `resolve.conditions`,
   `tsx --conditions=jse-source`). Inter-package ranges pinned to the
-  lockstep `0.0.0`. `private: true` + version `0.0.0` are the deliberate
-  not-published latch — flipping them plus the scope/name decision is
-  all that publication requires. `scripts/pack-check.ts` is the
+  lockstep version. `private: true` is the deliberate not-published
+  latch — flipping it is all that publication requires. `scripts/pack-check.ts` is the
   publication gate: tarballs installed into a tmpdir consumer with
   `npm install --offline` (registry contact = failure), runtime smoke
   across every package's installed dist, typed consumer resolved
@@ -726,7 +725,7 @@ Five local commits, every gate green per commit:
   promoted out of `@alpha` (the register item, pulled forward: sibling
   projects consume the packages ahead of publication).
 - **Bowtie, local + CI.** The harness image ships
-  `@jse/dialect-draft04`; inbound dialect URIs normalize fragment-free
+  `@json-schema-engine/dialect-draft04`; inbound dialect URIs normalize fragment-free
   (Bowtie sends legacy dialects as `…schema#`). `npm run bowtie`
   (scripts/bowtie-check.ts) builds the image, smokes it, and pins
   EXACT per-dialect counts with zero failures/errors/skips —
@@ -798,7 +797,7 @@ glob thresholds on ajv-compat index.ts/mutate.ts only; compiler files
 stay report-only by decision — their gates are the suite/differential/
 fuzz/census stack, so line thresholds there would be maintenance
 without signal); dedicated dialect/keyword authoring guide, using
-`@jse/dialect-draft04` as the end-to-end exemplar: document vocabulary and
+`@json-schema-engine/dialect-draft04` as the end-to-end exemplar: document vocabulary and
 dialect assembly, identifier extractors and reference options, behavior reuse,
 and the `analyze()`/`evaluate()`/`lower()` contract. Emphasize that
 `analyze().subschemas` and application/coverage facts are correctness-critical

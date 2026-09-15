@@ -11,7 +11,7 @@
 // select/selectCases/selectDefault need $data (excluded by design, see
 // AjvCompatUnsupportedError for $data elsewhere) and still raise it.
 
-import type { JsonValue } from "@jse/core";
+import type { JsonValue } from "@json-schema-engine/core";
 import type { Ajv, KeywordDefinition } from "./index.js";
 import { AjvCompatUnsupportedError } from "./index.js";
 

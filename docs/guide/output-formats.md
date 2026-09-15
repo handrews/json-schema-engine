@@ -41,7 +41,7 @@ definition; `verbose: false` on `verbose`; an unknown format name.
 
 ```ts
 import assert from "node:assert";
-import { createEngine, OutputOptionsError } from "@jse/core";
+import { createEngine, OutputOptionsError } from "@json-schema-engine/core";
 
 const engine = createEngine();
 const uri = engine.registerSchema({ type: "string" }, "https://example.com/r");
@@ -64,7 +64,7 @@ use the engine's own field names: `evaluationPath`, `schemaLocation`,
 `inputLocation`, and `error` or `keyword`/`vocabulary`/`annotation`. The
 controls `errorParams`, `positions`, and `trace` apply to this surface on any
 non-flag format; `outputDocument` always has exactly its source's structure.
-Compiled evaluators (`@jse/compiler`, [below](#compiled-evaluators)) render
+Compiled evaluators (`@json-schema-engine/compiler`, [below](#compiled-evaluators)) render
 every format, at either level, and the trace from one recorded application
 tree.
 
@@ -84,7 +84,7 @@ specifies.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
+import { createEngine } from "@json-schema-engine/core";
 
 const engine = createEngine();
 const uri = engine.registerSchema(
@@ -104,7 +104,7 @@ read errors or collect annotations.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
+import { createEngine } from "@json-schema-engine/core";
 
 const engine = createEngine();
 const uri = engine.registerSchema(
@@ -145,7 +145,7 @@ single child is replaced by that child. Nested results sit under `errors`
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
+import { createEngine } from "@json-schema-engine/core";
 
 const engine = createEngine();
 const uri = engine.registerSchema(
@@ -203,7 +203,7 @@ tells relevant results apart.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
+import { createEngine } from "@json-schema-engine/core";
 
 const engine = createEngine();
 const uri = engine.registerSchema(
@@ -274,7 +274,7 @@ an error or annotation. Errors and annotations are keyed by keyword name.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
+import { createEngine } from "@json-schema-engine/core";
 
 const engine = createEngine();
 const uri = engine.registerSchema(
@@ -303,7 +303,7 @@ identical units.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
+import { createEngine } from "@json-schema-engine/core";
 
 const engine = createEngine();
 const uri = engine.registerSchema(
@@ -336,8 +336,8 @@ evaluation. The result is the interpreter's, key for key.
 
 ```ts
 import assert from "node:assert";
-import { createEngine, OutputOptionsError } from "@jse/core";
-import { compileEvaluator } from "@jse/compiler";
+import { createEngine, OutputOptionsError } from "@json-schema-engine/core";
+import { compileEvaluator } from "@json-schema-engine/compiler";
 
 const engine = createEngine();
 const uri = engine.registerSchema(
@@ -410,7 +410,7 @@ the relevant level only reporting units and their ancestors appear; with
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
+import { createEngine } from "@json-schema-engine/core";
 
 const engine = createEngine();
 const uri = engine.registerSchema(

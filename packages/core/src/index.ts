@@ -1,4 +1,4 @@
-// @jse/core public API: sync evaluation over registered schemas (D7); the
+// @json-schema-engine/core public API: sync evaluation over registered schemas (D7); the
 // 2020-12 dialect preloaded; custom vocabularies/dialects via the same
 // registry the built-ins use. Resource I/O is the one async boundary:
 // load/loadSchema pull in referenced resources through caller-supplied
@@ -259,7 +259,7 @@ export interface EngineOptions {
    */
   maxDepth?: number;
   /**
-   * Format implementations (M7; \@jse/formats supplies standard tables).
+   * Format implementations (M7; \@json-schema-engine/formats supplies standard tables).
    * Enables the format-assertion vocabulary: a `$vocabulary` dialect
    * declaring it gets an asserting `format` that REFUSES unsupported
    * formats at registration ({@link UnknownFormatError}).
@@ -274,7 +274,7 @@ export interface EngineOptions {
 }
 
 /**
- * \@jse/core public API: synchronous evaluation over registered schemas,
+ * \@json-schema-engine/core public API: synchronous evaluation over registered schemas,
  * with the 2020-12 dialect preloaded and async resource loading for
  * `$ref` closures and `$vocabulary`-assembled dialects.
  */

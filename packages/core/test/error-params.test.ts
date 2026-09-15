@@ -4,7 +4,11 @@
 // compiled-list differential (compiler package) holds both tiers to it.
 
 import { describe, it, expect } from "vitest";
-import { createEngine, type JsonValue, type ErrorUnit } from "@jse/core";
+import {
+  createEngine,
+  type JsonValue,
+  type ErrorUnit,
+} from "@json-schema-engine/core";
 
 const failures = (
   schema: JsonValue,

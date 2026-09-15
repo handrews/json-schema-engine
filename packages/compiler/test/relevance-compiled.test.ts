@@ -5,8 +5,8 @@
 // unit and in order.
 
 import { describe, it, expect } from "vitest";
-import { createEngine, type JsonValue } from "@jse/core";
-import { compileList, compileValidator } from "@jse/compiler";
+import { createEngine, type JsonValue } from "@json-schema-engine/core";
+import { compileList, compileValidator } from "@json-schema-engine/compiler";
 
 const cases: { name: string; schema: JsonValue; instances: JsonValue[] }[] = [
   {

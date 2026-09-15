@@ -17,7 +17,7 @@ import {
   type OutputUnit,
   type RenderInput,
   type RenderNode,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 
 const PROTO = "__proto__";
 const ROOT = "https://proto.example/schema#";

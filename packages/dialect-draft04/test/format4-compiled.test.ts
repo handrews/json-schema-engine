@@ -14,9 +14,17 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createEngine, type Engine, type JsonValue } from "@jse/core";
-import { FORMATS_DRAFT_04 } from "@jse/formats";
-import { buildPlan, compileValidator, compileList } from "@jse/compiler";
+import {
+  createEngine,
+  type Engine,
+  type JsonValue,
+} from "@json-schema-engine/core";
+import { FORMATS_DRAFT_04 } from "@json-schema-engine/formats";
+import {
+  buildPlan,
+  compileValidator,
+  compileList,
+} from "@json-schema-engine/compiler";
 import { registerDraft04, DIALECT_DRAFT_04 } from "../src/index.js";
 
 const SUITE_DIR = join(

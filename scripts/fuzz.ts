@@ -21,9 +21,20 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createEngine, type Engine, type JsonValue } from "@jse/core";
-import { compileEvaluator, compileList, compileValidator } from "@jse/compiler";
-import { DIALECT_DRAFT_04, registerDraft04 } from "@jse/dialect-draft04";
+import {
+  createEngine,
+  type Engine,
+  type JsonValue,
+} from "@json-schema-engine/core";
+import {
+  compileEvaluator,
+  compileList,
+  compileValidator,
+} from "@json-schema-engine/compiler";
+import {
+  DIALECT_DRAFT_04,
+  registerDraft04,
+} from "@json-schema-engine/dialect-draft04";
 import {
   Prng,
   deriveSeed,
@@ -40,7 +51,7 @@ import {
   ANNOTATION_SEED_GROUPS,
   CONSUMER_SEED_GROUPS,
   type DifferentialFactory,
-} from "@jse/test-kit";
+} from "@json-schema-engine/test-kit";
 
 // FUZZ_CONSERVATIVE=1 referees the optimizations-off configuration (M6.5).
 const COMPILE_OPTS = {

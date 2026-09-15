@@ -13,7 +13,7 @@ it's needed.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
+import { createEngine } from "@json-schema-engine/core";
 
 const META = "https://example.com/meta/validation-only";
 const CORE = "https://json-schema.org/draft/2020-12/vocab/core";
@@ -50,7 +50,7 @@ skipped when unknown.
 
 ```ts
 import assert from "node:assert";
-import { createEngine, UnknownVocabularyError } from "@jse/core";
+import { createEngine, UnknownVocabularyError } from "@json-schema-engine/core";
 
 const META = "https://example.com/meta/needs-unknown";
 const CORE = "https://json-schema.org/draft/2020-12/vocab/core";
@@ -87,12 +87,12 @@ await assert.rejects(
 its dialect's metaschema, throwing `SchemaValidationError` on failure. The
 standard metaschemas for the four built-in dialects are bundled, so this
 works with no loader for documents using them. The draft-04 metaschema is
-bundled in `@jse/dialect-draft04`, not core — `registerDraft04(engine)`
+bundled in `@json-schema-engine/dialect-draft04`, not core — `registerDraft04(engine)`
 registers it, after which the same check covers draft-04 documents.
 
 ```ts
 import assert from "node:assert";
-import { createEngine, SchemaValidationError } from "@jse/core";
+import { createEngine, SchemaValidationError } from "@json-schema-engine/core";
 
 const engine = createEngine({ validateSchemas: true });
 
@@ -113,7 +113,11 @@ is available — through a loader or already registered.
 
 ```ts
 import assert from "node:assert";
-import { createEngine, SchemaValidationError, JsonValue } from "@jse/core";
+import {
+  createEngine,
+  SchemaValidationError,
+  JsonValue,
+} from "@json-schema-engine/core";
 
 const META = "https://example.com/meta/checked";
 const CORE = "https://json-schema.org/draft/2020-12/vocab/core";

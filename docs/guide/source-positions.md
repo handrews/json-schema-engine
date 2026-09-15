@@ -8,13 +8,13 @@ annotation units with a `source` field pointing back into that text.
 
 A `LoadedDocument` may include `getRange`, a function from a document-
 rooted JSON Pointer to a `SourceRange` (a value span, plus a key span for
-object members). `@jse/test-kit`'s `parseJsonWithRanges` is a reference
+object members). `@json-schema-engine/test-kit`'s `parseJsonWithRanges` is a reference
 implementation, useful in tests and as a model for a real one.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
-import { parseJsonWithRanges } from "@jse/test-kit";
+import { createEngine } from "@json-schema-engine/core";
+import { parseJsonWithRanges } from "@json-schema-engine/test-kit";
 
 const text = `{
   "$id": "https://example.com/root",
@@ -48,8 +48,8 @@ straight to source text.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
-import { parseJsonWithRanges } from "@jse/test-kit";
+import { createEngine } from "@json-schema-engine/core";
+import { parseJsonWithRanges } from "@json-schema-engine/test-kit";
 
 const text = `{
   "$id": "https://example.com/leaf",
@@ -81,7 +81,7 @@ absent.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
+import { createEngine } from "@json-schema-engine/core";
 
 const engine = createEngine();
 const uri = engine.registerSchema(

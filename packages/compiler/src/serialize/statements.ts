@@ -7,7 +7,7 @@ import {
   type LowerMessage,
   type LowerParams,
   type LowerStmt,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 import { type CodeChunk, id, join, js, num, json } from "../emit.js";
 import { EV, bindingVar, counterVar, foldVar } from "./names.js";
 import { UnitContext, SerializeError } from "./context.js";

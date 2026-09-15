@@ -123,7 +123,7 @@ compiler guide, E10). Items 1 and 7 are the owner's.
 In rough order; each package states compatibility, tests, benchmarks,
 completion criteria, and rollback/migration before implementation:
 
-1. `@jse/ajv-compat` follow-up release: adapt to the record model, fix A1–A6,
+1. `@json-schema-engine/ajv-compat` follow-up release: adapt to the record model, fix A1–A6,
    publish.
 2. Generic errors R1–R3.
 3. D1 and D3 (explicit dialect overrides, authoring guide), then the OAS

@@ -12,8 +12,16 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createEngine, type Engine, type JsonValue } from "@jse/core";
-import { compileEvaluator, compileList, compileValidator } from "@jse/compiler";
+import {
+  createEngine,
+  type Engine,
+  type JsonValue,
+} from "@json-schema-engine/core";
+import {
+  compileEvaluator,
+  compileList,
+  compileValidator,
+} from "@json-schema-engine/compiler";
 
 const DIR = join(dirname(fileURLToPath(import.meta.url)), "goldens", "codegen");
 

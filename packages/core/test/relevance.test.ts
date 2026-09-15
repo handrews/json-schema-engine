@@ -17,7 +17,7 @@ import {
   type ListOutputDocument,
   type OutputUnit,
   type Result,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 
 function engineFor(schema: JsonValue, name: string) {
   const engine = createEngine();

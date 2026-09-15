@@ -1,4 +1,4 @@
-// @jse/compiler public API (M6.2 vertical slice): compile a registered
+// @json-schema-engine/compiler public API (M6.2 vertical slice): compile a registered
 // schema into a specialized flag-mode validator. Static subschemas become
 // emitted JS; dynamic islands and every fallback cause trampoline to the
 // interpreter through core's evaluateFragment, so the compiled artifact is
@@ -19,7 +19,7 @@ import {
   type JsonValue,
   type Result,
   type ResultFor,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 import { buildPlan, type CompilationPlan } from "./plan.js";
 import { serializePlan } from "./serialize/index.js";
 import { finishTrace, makeRuntime } from "./runtime.js";

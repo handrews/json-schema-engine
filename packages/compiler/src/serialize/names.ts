@@ -1,6 +1,9 @@
 // Emitted identifier names and IR scans shared by the serializer's modules.
 
-import { type LowerProduceValue, type LowerStmt } from "@jse/core";
+import {
+  type LowerProduceValue,
+  type LowerStmt,
+} from "@json-schema-engine/core";
 import { type CodeChunk, id } from "../emit.js";
 import type { EmitOutput, UnitContext } from "./context.js";
 

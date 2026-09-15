@@ -3,7 +3,12 @@
 // field names — evaluationPath/schemaLocation per D6 — changed).
 
 import { describe, it, expect } from "vitest";
-import { createEngine, EvaluateOptions, JsonValue, Result } from "@jse/core";
+import {
+  createEngine,
+  EvaluateOptions,
+  JsonValue,
+  Result,
+} from "@json-schema-engine/core";
 
 function run(
   schema: JsonValue,

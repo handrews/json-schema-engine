@@ -18,7 +18,7 @@ later, and which gates run where.
   with local [Bowtie](https://bowtie.report/) harness runs; the public
   bowtie.report listing is pending submission (see
   [STATUS.md](STATUS.md)). draft-04 is available as a separately
-  packaged dialect ([@jse/dialect-draft04](packages/dialect-draft04))
+  packaged dialect ([@json-schema-engine/dialect-draft04](packages/dialect-draft04))
   with its own zero-skip suite leg, and coexists with every other draft
   in one registry.
 - **Annotation-first:** annotations are a primary output, not an
@@ -39,8 +39,8 @@ later, and which gates run where.
   exactly.
 - **Format assertions:** all standard formats implemented from their RFCs,
   including full IDNA2008 `idn-hostname`/`idn-email`
-  ([@jse/formats](packages/formats)).
-- **AJV migration:** `@jse/ajv-compat` emulates the AJV v8 surface for a
+  ([@json-schema-engine/formats](packages/formats)).
+- **AJV migration:** `@json-schema-engine/ajv-compat` emulates the AJV v8 surface for a
   documented subset, pinned against executed-AJV fixtures — see the
   [migration guide](docs/guide/ajv-migration.md) and
   [compatibility matrix](packages/ajv-compat/COMPAT.md).
@@ -49,7 +49,7 @@ later, and which gates run where.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
+import { createEngine } from "@json-schema-engine/core";
 
 const engine = createEngine();
 const uri = engine.registerSchema(
@@ -74,7 +74,7 @@ assert.equal(result.errors?.[0]?.inputLocation, "");
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
+import { createEngine } from "@json-schema-engine/core";
 
 const engine = createEngine();
 const uri = engine.registerSchema(

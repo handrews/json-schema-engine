@@ -64,7 +64,7 @@ combinations.
 - Draft-03 §12 (short-circuit conditions), §12.2 (relevance), §13.4
   (irrelevant units omitted unless the structure requires them; §13.4.4
   recommends `valid` per node so consumers can tell relevant units apart).
-- Probe (2026-09-05, built `@jse/core`): with
+- Probe (2026-09-05, built `@json-schema-engine/core`): with
   `anyOf: [{type:"string"}, {type:"number", title:"num"}]` and input `5`,
   `output:"list"` and `"hierarchical"` include the failing `/anyOf/0` error
   unit in a valid result; the `locations:"2020-12"` path omits it only

@@ -16,7 +16,7 @@ import {
   type JsonValue,
   type KeywordBehavior,
   type Result,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 
 const DEPENDENCY_PRODUCERS = [
   "properties",

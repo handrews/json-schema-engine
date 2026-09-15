@@ -19,14 +19,14 @@ import {
   createEngine,
   MaxDepthExceededError,
   type JsonValue,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 import {
   buildPlan,
   compileEvaluator,
   compileList,
   compileValidator,
   emitStandalone,
-} from "@jse/compiler";
+} from "@json-schema-engine/compiler";
 
 describe("static recursive chain: shared depth budget", () => {
   const SCHEMA = {

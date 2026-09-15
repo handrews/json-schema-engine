@@ -76,7 +76,7 @@ export type {
 
 /**
  * Serves the official suite's `remotes/` tree for the URIs the suite files
- * reference; no HTTP server involved. Shaped to satisfy \@jse/core's
+ * reference; no HTTP server involved. Shaped to satisfy \@json-schema-engine/core's
  * SchemaLoader structurally (test-kit stays dependency-free). A URI outside
  * the base or a missing file is a loader miss (undefined), not an error —
  * per the loader contract.
@@ -376,7 +376,7 @@ export async function runSuiteFiles(
 // an output-validating schema. The runner is evaluator-agnostic like
 // runSuiteFiles above — the caller supplies both the evaluate-to-document
 // step and the self-validate-the-document step, keeping test-kit dependency-
-// free of @jse/core.
+// free of @json-schema-engine/core.
 
 /** One official output-tests test case: an instance plus its expected document per output format. */
 export interface OutputTestCase {

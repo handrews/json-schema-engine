@@ -19,9 +19,9 @@ import {
   DIALECT_DRAFT_06,
   DIALECT_DRAFT_07,
   type JsonValue,
-} from "@jse/core";
-import { compileList } from "@jse/compiler";
-import { suiteRemotesLoader } from "@jse/test-kit";
+} from "@json-schema-engine/core";
+import { compileList } from "@json-schema-engine/compiler";
+import { suiteRemotesLoader } from "@json-schema-engine/test-kit";
 
 const SUITE_ROOT = join(
   dirname(fileURLToPath(import.meta.url)),

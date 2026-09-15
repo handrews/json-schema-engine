@@ -67,7 +67,7 @@ The Hyperjump compatibility shim is dropped, not merely deprioritized.
 | A6  | Discover `ajv-errors` across referenced resources   | Depends on E1; search the artifact snapshot, not later registrations.                                                                                                                                                                                        |
 | A7  | Retire the adapter's relevance re-filtering         | Core drops irrelevant errors (S2), so `makeSurvives`/`needsTrace` in `packages/ajv-compat/src/errors.ts` only remain for AJV quirks (the `contains` boolean-probe error, `propertyNames`); re-derive those from verbose `droppedErrors` and delete the rest. |
 
-A1–A6 belong to the `@jse/ajv-compat` follow-up release
+A1–A6 belong to the `@json-schema-engine/ajv-compat` follow-up release
 ([ADR 0001](decisions/0001-first-release-scope.md)) and are not on the first
 release path. Random AJV differential fuzzing and `ajv-i18n` have no current
 completion contract; they remain candidates pending an oracle strategy or

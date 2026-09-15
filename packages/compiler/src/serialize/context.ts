@@ -6,7 +6,7 @@ import {
   type RecordPredicate,
   type AnnotationSelection,
   type SchemaRegistry,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 import { type CodeChunk } from "../emit.js";
 import type { CompilationPlan, PlannedUnit } from "../plan.js";
 

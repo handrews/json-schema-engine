@@ -7,9 +7,9 @@
 import { describe, it, expect } from "vitest";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { runSuiteFilesVitest } from "@jse/test-kit";
-import { createEngine, DIALECT_DRAFT_06 } from "@jse/core";
-import { FORMATS_DRAFT_06 } from "@jse/formats";
+import { runSuiteFilesVitest } from "@json-schema-engine/test-kit";
+import { createEngine, DIALECT_DRAFT_06 } from "@json-schema-engine/core";
+import { FORMATS_DRAFT_06 } from "@json-schema-engine/formats";
 
 const SUITE_DIR = join(
   dirname(fileURLToPath(import.meta.url)),

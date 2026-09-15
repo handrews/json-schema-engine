@@ -7,10 +7,13 @@
 import { describe, it, expect } from "vitest";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { runSuiteFilesVitest } from "@jse/test-kit";
-import { createEngine } from "@jse/core";
-import { FORMATS_DRAFT_04 } from "@jse/formats";
-import { registerDraft04, DIALECT_DRAFT_04 } from "@jse/dialect-draft04";
+import { runSuiteFilesVitest } from "@json-schema-engine/test-kit";
+import { createEngine } from "@json-schema-engine/core";
+import { FORMATS_DRAFT_04 } from "@json-schema-engine/formats";
+import {
+  registerDraft04,
+  DIALECT_DRAFT_04,
+} from "@json-schema-engine/dialect-draft04";
 
 const SUITE_DIR = join(
   dirname(fileURLToPath(import.meta.url)),

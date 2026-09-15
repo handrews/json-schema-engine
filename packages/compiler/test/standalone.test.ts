@@ -18,9 +18,12 @@ import {
   jsonEqual,
   MaxDepthExceededError,
   type JsonValue,
-} from "@jse/core";
-import { emitStandalone, StandaloneUnsupportedError } from "@jse/compiler";
-import { FORMATS_2020_12 } from "@jse/formats";
+} from "@json-schema-engine/core";
+import {
+  emitStandalone,
+  StandaloneUnsupportedError,
+} from "@json-schema-engine/compiler";
+import { FORMATS_2020_12 } from "@json-schema-engine/formats";
 import { STANDALONE_PREAMBLE } from "../src/standalone.js";
 
 interface PreambleHelpers {

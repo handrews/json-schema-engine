@@ -1,7 +1,7 @@
 # Validation
 
 > Installation: TBD — the package is not yet published. Within this
-> repository, import from `@jse/core`.
+> repository, import from `@json-schema-engine/core`.
 
 ## Validate an instance
 
@@ -10,7 +10,7 @@ Evaluation is synchronous.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
+import { createEngine } from "@json-schema-engine/core";
 
 const engine = createEngine();
 const uri = engine.registerSchema(
@@ -42,7 +42,7 @@ keyword), and `inputLocation` (a JSON Pointer into the input).
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
+import { createEngine } from "@json-schema-engine/core";
 
 const engine = createEngine();
 const uri = engine.registerSchema(
@@ -74,7 +74,7 @@ keep `evaluationPath` / `schemaLocation` / `inputLocation`.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
+import { createEngine } from "@json-schema-engine/core";
 
 const engine = createEngine();
 const uri = engine.registerSchema(
@@ -95,7 +95,7 @@ Schemas declare their dialect with `$schema`. Without one, the engine's
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
+import { createEngine } from "@json-schema-engine/core";
 
 const engine = createEngine();
 const uri = engine.registerSchema(

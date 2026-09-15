@@ -14,7 +14,7 @@ instance is a multiple of a fixed value.
 
 ```ts
 import assert from "node:assert";
-import { createEngine, KeywordBehavior } from "@jse/core";
+import { createEngine, KeywordBehavior } from "@json-schema-engine/core";
 
 const VOCAB = "https://example.com/vocab/even";
 const DIALECT = "https://example.com/dialect/even";
@@ -55,7 +55,7 @@ so there is nothing to pass.
 
 ```ts
 import assert from "node:assert";
-import { createEngine, KeywordBehavior } from "@jse/core";
+import { createEngine, KeywordBehavior } from "@json-schema-engine/core";
 
 const VOCAB = "https://example.com/vocab/hint";
 const DIALECT = "https://example.com/dialect/hint";
@@ -110,7 +110,7 @@ then returned `true`.
 
 ```ts
 import assert from "node:assert";
-import { createEngine, KeywordBehavior } from "@jse/core";
+import { createEngine, KeywordBehavior } from "@json-schema-engine/core";
 
 const VOCAB = "https://example.com/vocab/seen";
 const DIALECT = "https://example.com/dialect/seen";
@@ -164,7 +164,7 @@ import {
   KeywordBehavior,
   UndeclaredConsumptionError,
   UndeclaredProductionError,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 
 const VOCAB = "https://example.com/vocab/undeclared";
 const DIALECT = "https://example.com/dialect/undeclared";
@@ -227,7 +227,7 @@ when a custom dialect's core vocabulary follows an older draft's syntax.
 
 ```ts
 import assert from "node:assert";
-import { createEngine, identifiersLegacy } from "@jse/core";
+import { createEngine, identifiersLegacy } from "@json-schema-engine/core";
 
 const DIALECT = "https://example.com/dialect/legacy-ids";
 

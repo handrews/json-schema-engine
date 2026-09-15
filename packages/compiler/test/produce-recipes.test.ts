@@ -1,5 +1,5 @@
 // Record-recipe gate (COMPILED-ANNOTATIONS.md §5 stage 1): an independent
-// reference evaluator (@jse/test-kit's evaluateProduceRecipes) runs each
+// reference evaluator (@json-schema-engine/test-kit's evaluateProduceRecipes) runs each
 // keyword's annotate/produce IR against a concrete instance and is
 // differentially compared against the interpreter's OWN records (annotations
 // and dependency data, in dialect order). A wrong recipe would otherwise be
@@ -30,16 +30,19 @@ import {
   type KeywordBehavior,
   type SchemaRef,
   type TraceNode,
-} from "@jse/core";
-import { buildPlan, type PlannedUnit } from "@jse/compiler";
-import { registerDraft04, DIALECT_DRAFT_04 } from "@jse/dialect-draft04";
-import { FORMATS_2020_12 } from "@jse/formats";
+} from "@json-schema-engine/core";
+import { buildPlan, type PlannedUnit } from "@json-schema-engine/compiler";
+import {
+  registerDraft04,
+  DIALECT_DRAFT_04,
+} from "@json-schema-engine/dialect-draft04";
+import { FORMATS_2020_12 } from "@json-schema-engine/formats";
 import {
   evaluateProduceRecipes,
   suiteRemotesLoader,
   type OracleUnit,
   type RecipeProduction,
-} from "@jse/test-kit";
+} from "@json-schema-engine/test-kit";
 
 const SUITE_ROOT = join(
   dirname(fileURLToPath(import.meta.url)),

@@ -80,7 +80,7 @@ the verbose level can show what was dropped:
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
+import { createEngine } from "@json-schema-engine/core";
 
 const engine = createEngine();
 const uri = engine.registerSchema(
@@ -125,7 +125,7 @@ readers may expect otherwise.
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
+import { createEngine } from "@json-schema-engine/core";
 
 const engine = createEngine();
 const uri = engine.registerSchema(
@@ -235,8 +235,8 @@ Tier parity is document-level identity, not verdict agreement:
 
 ```ts
 import assert from "node:assert";
-import { createEngine } from "@jse/core";
-import { compileEvaluator } from "@jse/compiler";
+import { createEngine } from "@json-schema-engine/core";
+import { compileEvaluator } from "@json-schema-engine/compiler";
 
 const engine = createEngine();
 const uri = engine.registerSchema(
@@ -260,7 +260,7 @@ And the verdict does not depend on how much output is requested:
 
 ```ts
 import assert from "node:assert";
-import { createEngine, type EvaluateOptions } from "@jse/core";
+import { createEngine, type EvaluateOptions } from "@json-schema-engine/core";
 
 const engine = createEngine();
 const uri = engine.registerSchema(
@@ -312,8 +312,8 @@ instead — see [Divergences and limits](#divergences-and-limits).
 
 ```ts
 import assert from "node:assert";
-import { createEngine, MaxDepthExceededError } from "@jse/core";
-import { compileValidator } from "@jse/compiler";
+import { createEngine, MaxDepthExceededError } from "@json-schema-engine/core";
+import { compileValidator } from "@json-schema-engine/compiler";
 
 const engine = createEngine({ maxDepth: 16 });
 const uri = engine.registerSchema(

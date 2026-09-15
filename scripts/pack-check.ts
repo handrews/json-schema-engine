@@ -55,8 +55,8 @@ if (tarballs.length !== PACKAGES.length) {
 
 const dependencies = Object.fromEntries(
   tarballs.map((t) => {
-    // npm pack names scoped tarballs jse-<pkg>-<version>.tgz
-    const name = `@jse/${t.replace(/^jse-/, "").replace(/-\d+\.\d+\.\d+\.tgz$/, "")}`;
+    // npm pack names scoped tarballs <scope>-<pkg>-<version>.tgz
+    const name = `@json-schema-engine/${t.replace(/^json-schema-engine-/, "").replace(/-\d+\.\d+\.\d+\.tgz$/, "")}`;
     return [name, `file:tarballs/${t}`];
   }),
 );
@@ -82,11 +82,11 @@ run(
 console.log("offline install OK");
 
 const SMOKE_JS = `
-import { createEngine, DIALECT_DRAFT_07 } from "@jse/core";
-import { compileValidator, compileList } from "@jse/compiler";
-import { FORMATS_2020_12 } from "@jse/formats";
-import { Ajv2020 } from "@jse/ajv-compat";
-import { registerDraft04, DIALECT_DRAFT_04 } from "@jse/dialect-draft04";
+import { createEngine, DIALECT_DRAFT_07 } from "@json-schema-engine/core";
+import { compileValidator, compileList } from "@json-schema-engine/compiler";
+import { FORMATS_2020_12 } from "@json-schema-engine/formats";
+import { Ajv2020 } from "@json-schema-engine/ajv-compat";
+import { registerDraft04, DIALECT_DRAFT_04 } from "@json-schema-engine/dialect-draft04";
 
 const assert = (cond, label) => {
   if (!cond) throw new Error("smoke failed: " + label);
@@ -133,11 +133,11 @@ console.log(run("node", ["smoke.mjs"], consumerDir).trim());
 
 // Typed consumer: same surface, resolved through the published d.ts graph.
 const SMOKE_TS = `
-import { createEngine, type Result, type TraceUnit } from "@jse/core";
-import { compileValidator, type CompiledArtifact } from "@jse/compiler";
-import { FORMATS_2020_12 } from "@jse/formats";
-import { Ajv2020, type ErrorObject } from "@jse/ajv-compat";
-import { registerDraft04 } from "@jse/dialect-draft04";
+import { createEngine, type Result, type TraceUnit } from "@json-schema-engine/core";
+import { compileValidator, type CompiledArtifact } from "@json-schema-engine/compiler";
+import { FORMATS_2020_12 } from "@json-schema-engine/formats";
+import { Ajv2020, type ErrorObject } from "@json-schema-engine/ajv-compat";
+import { registerDraft04 } from "@json-schema-engine/dialect-draft04";
 
 export async function typedSmoke(): Promise<Result> {
   const engine = createEngine({ formats: FORMATS_2020_12 });

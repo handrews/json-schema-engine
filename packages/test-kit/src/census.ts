@@ -3,7 +3,7 @@
 // behavioral gate; census tests pin exact per-dialect counts instead.
 // Validator-agnostic like the rest of test-kit: the caller injects
 // loadAndPlan (engine construction, remote loading, buildPlan, summary),
-// so this module carries no @jse/core or @jse/compiler dependency.
+// so this module carries no @json-schema-engine/core or @json-schema-engine/compiler dependency.
 
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";

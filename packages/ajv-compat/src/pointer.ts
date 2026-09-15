@@ -2,7 +2,11 @@
 // escaping — errors.ts, mutate.ts, and index.ts previously each carried
 // their own.
 
-import { escapeSegment, unescapeSegment, type JsonValue } from "@jse/core";
+import {
+  escapeSegment,
+  unescapeSegment,
+  type JsonValue,
+} from "@json-schema-engine/core";
 
 /** Decoded segments of a JSON Pointer (`""` → `[]`). */
 export const segments = (pointer: string): string[] =>

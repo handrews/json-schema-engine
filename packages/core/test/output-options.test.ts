@@ -15,7 +15,7 @@ import {
   type EvaluateOptions,
   type OutputFormat,
   type RenderNode,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 
 function engineFor() {
   const engine = createEngine();
@@ -150,7 +150,7 @@ describe("accepted combinations", () => {
 
 // result.ts's exports are what a compiled evaluator uses to build a Result
 // from a recorded tree instead of a live evaluation (compileEvaluator,
-// @jse/compiler) — both tiers share one owner for the demand-resolution and
+// @json-schema-engine/compiler) — both tiers share one owner for the demand-resolution and
 // assembly rules this file otherwise exercises only through Engine.evaluate.
 describe("resolveOutputDemand and assembleResult (shared with a compiled evaluator)", () => {
   it("resolveOutputDemand resolves a demand, and assembleResult reproduces Engine.evaluate's Result from a hand-built tree", () => {

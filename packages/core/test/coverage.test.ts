@@ -13,7 +13,7 @@ import {
   harvestCoverage,
   rootCursor,
   type DependencyRecord,
-} from "@jse/core";
+} from "@json-schema-engine/core";
 
 describe("foldNameCoverage", () => {
   const cases: { name: string; channel: unknown[]; expected: string[] }[] = [
