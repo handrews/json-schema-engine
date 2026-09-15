@@ -1,8 +1,8 @@
 {
-  "name": "@jse/ajv-compat",
-  "version": "0.0.0",
+  "name": "@json-schema-engine/ajv-compat",
+  "version": "0.0.1",
   "private": true,
-  "description": "AJV v8 migration adapter over @jse/core: emulated API surface for a documented subset, pinned against executed-AJV fixtures, with typed loud failures for the AJV-implementation-coupled surface (see COMPAT.md)",
+  "description": "AJV v8 migration adapter over @json-schema-engine/core: emulated API surface for a documented subset, pinned against executed-AJV fixtures, with typed loud failures for the AJV-implementation-coupled surface (see COMPAT.md)",
   "type": "module",
   "main": "./dist/index.js",
   "exports": {
@@ -14,9 +14,9 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@jse/compiler": "0.0.0",
-    "@jse/core": "0.0.0",
-    "@jse/formats": "0.0.0"
+    "@json-schema-engine/compiler": "^0.0.1",
+    "@json-schema-engine/core": "^0.0.1",
+    "@json-schema-engine/formats": "^0.0.1"
   },
   "devDependencies": {
     "@fastify/ajv-compiler": "^4.0.6",

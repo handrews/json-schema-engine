@@ -1,8 +1,8 @@
 {
-  "name": "@jse/dialect-draft04",
-  "version": "0.0.0",
+  "name": "@json-schema-engine/dialect-draft04",
+  "version": "0.0.1",
   "private": true,
-  "description": "JSON Schema draft-04 dialect for @jse/core, assembled through the public dialect-authoring surface (DESIGN.md M10, D11)",
+  "description": "JSON Schema draft-04 dialect for @json-schema-engine/core, assembled through the public dialect-authoring surface (DESIGN.md M10, D11)",
   "type": "module",
   "main": "./dist/index.js",
   "exports": {
@@ -14,12 +14,12 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@jse/core": "0.0.0"
+    "@json-schema-engine/core": "^0.0.1"
   },
   "devDependencies": {
-    "@jse/compiler": "0.0.0",
-    "@jse/formats": "0.0.0",
-    "@jse/test-kit": "0.0.0"
+    "@json-schema-engine/compiler": "^0.0.1",
+    "@json-schema-engine/formats": "^0.0.1",
+    "@json-schema-engine/test-kit": "^0.0.1"
   },
   "types": "./dist/index.d.ts",
   "files": [

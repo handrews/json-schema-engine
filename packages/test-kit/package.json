@@ -1,6 +1,6 @@
 {
-  "name": "@jse/test-kit",
-  "version": "0.0.0",
+  "name": "@json-schema-engine/test-kit",
+  "version": "0.0.1",
   "private": true,
   "description": "Reusable official JSON-Schema-Test-Suite runner (collect mode + vitest wrapper)",
   "type": "module",

@@ -1,8 +1,8 @@
 {
   "name": "json-schema-engine",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": true,
-  "description": "Annotation-first two-tier JSON Schema engine: spec-complete interpreter + compiled validators, all standard formats, AJV migration adapter (monorepo)",
+  "description": "High-performance feature-complete JSON Schema engine: compiled and interpreted validators with full annotation and error output support.",
   "type": "module",
   "license": "MIT",
   "workspaces": [
