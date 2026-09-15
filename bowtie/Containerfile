@@ -5,7 +5,7 @@
 # consumers execute anyway). Prerequisites are built by `npm run bowtie`
 # (scripts/bowtie-check.ts); to build by hand from the repo root:
 #   npm run build && npx tsc -p bowtie/tsconfig.build.json
-#   podman build -t localhost/jse-bowtie -f bowtie/Containerfile .
+#   podman build -t localhost/json-schema-engine-bowtie -f bowtie/Containerfile .
 FROM docker.io/library/node:24-alpine
 WORKDIR /app
 COPY bowtie/container-package.json package.json

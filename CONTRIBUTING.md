@@ -124,7 +124,7 @@ tool (podman or docker) and the bowtie CLI installed:
 npm run bowtie
 ```
 
-builds `localhost/jse-bowtie`, smokes it, runs every dialect's official
+builds `localhost/json-schema-engine-bowtie`, smokes it, runs every dialect's official
 suite directory through Bowtie, and pins EXACT per-dialect test counts
 with zero failures/errors/skips (1299/1259/927/839/618). CI runs the
 same script in its own job. macOS PATH note: the script also searches

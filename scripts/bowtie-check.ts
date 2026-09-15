@@ -4,7 +4,7 @@
 // failures/errors/skips — the exactRun discipline applied to the Bowtie
 // path, which exercises the engine through the IO-protocol harness rather
 // than the in-repo suite runners. A submodule bump is a deliberate pin
-// update. Local + CI only: the image stays localhost/jse-bowtie and no
+// update. Local + CI only: the image stays localhost/json-schema-engine-bowtie and no
 // results leave the machine (public bowtie.report listing is the
 // owner-gated M9b submission).
 //
@@ -19,7 +19,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const IMAGE = "localhost/jse-bowtie";
+const IMAGE = "localhost/json-schema-engine-bowtie";
 
 // Expected: every test in the dialect's suite directory runs and matches.
 const PINS: Record<string, number> = {
