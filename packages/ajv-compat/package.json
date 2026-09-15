@@ -13,6 +13,12 @@
     }
   },
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22"
+  },
   "dependencies": {
     "@json-schema-engine/compiler": "^0.0.1",
     "@json-schema-engine/core": "^0.0.1",
