@@ -90,8 +90,8 @@ combinations.
 
 `output`, `locations`, `verbose`, `collectAnnotations`, and `retention`
 change shape; migration notes are a release deliverable. The compiled
-`basic()` accessor and the draft-03 location fields that oaskit reads are
-kept or migrated in coordination with oaskit.
+`basic()` accessor and the draft-03 location fields that the downstream project reads are
+kept or migrated in coordination with the downstream project.
 
 ## Follow-up
 

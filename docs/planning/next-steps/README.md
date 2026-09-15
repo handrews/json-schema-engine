@@ -12,12 +12,12 @@ generic error post-processing, annotation processing and input transformation,
 and default filling. IETF draft-03's annotation, dependency-information, and
 output-relevance model is the semantic foundation beneath all of them. The
 plan covers interpreted and compiled evaluation and uses `@jse/ajv-compat` and
-oaskit as concrete consumers without allowing either consumer's compatibility
+the downstream project as concrete consumers without allowing either consumer's compatibility
 constraints to define generic JSE APIs.
 
 ## Scope
 
-In scope are deferred items, JSE-facing oaskit requirements, measurements and
+In scope are deferred items, JSE-facing downstream-project requirements, measurements and
 prototypes needed to choose designs, migration implications, and definitions
 of done. The first public release
 ([ADR 0001](decisions/0001-first-release-scope.md)) ships once the semantic
@@ -26,7 +26,7 @@ release evidence are solid. Mechanical publishing and external submissions
 remain owner-controlled actions.
 
 The Hyperjump compatibility shim previously mentioned in `DESIGN.md` is not
-planned. Oaskit has migrated, and remaining demand does not justify it.
+planned. The downstream project has migrated, and remaining demand does not justify it.
 
 ## Vocabulary and boundaries
 

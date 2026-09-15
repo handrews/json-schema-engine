@@ -1,5 +1,5 @@
 // Mixed registry (M10 gate): draft-04 and 2020-12 resources cross-reference
-// in ONE engine — the oaskit shape, where an OAS 3.0-era schema (draft-04
+// in ONE engine — the downstream OpenAPI-tooling shape, where an OAS 3.0-era schema (draft-04
 // based) and modern schemas must coexist. Each resource keeps its own
 // dialect's semantics across the $ref boundary in both directions.
 

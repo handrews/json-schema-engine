@@ -20,7 +20,7 @@ case. `Evidence` means it supplies fixtures or constraints.
 | Human error presentation                | Evidence | Required       | —                               | —        |
 | Applicator/branch grouping              | Required | Required       | —                               | —        |
 | AJV errors and `ajv-errors`             | Evidence | Required       | —                               | —        |
-| oaskit `SchemaViolation` grouping       | Required | Required       | —                               | —        |
+| downstream `SchemaViolation` grouping   | Required | Required       | —                               | —        |
 | SARIF/LSP source locations              | Required | Required       | —                               | —        |
 | Annotation collection for tooling       | Required | —              | Required                        | Evidence |
 | OAS annotation viewer                   | Required | —              | Required                        | —        |
@@ -35,7 +35,7 @@ case. `Evidence` means it supplies fixtures or constraints.
 | Compiled/interpreted parity             | Required | Evidence       | Required                        | Required |
 | Standalone artifacts                    | Required | Evidence       | Evidence                        | Evidence |
 | Full application-history diagnostics    | Required | Evidence       | Required                        | Evidence |
-| oaskit Overlay preprocessing            | —        | Evidence       | Evidence only                   | —        |
+| downstream Overlay preprocessing        | —        | Evidence       | Evidence only                   | —        |
 
 ## Information required at processing boundaries
 
@@ -114,7 +114,7 @@ which JSE does not produce
   `transform`, operation order, combiner interleaving, and divergences.
 - `fastify-poc.test.ts`: a concrete runtime-option consumer.
 
-### Oaskit
+### Downstream OpenAPI tooling
 
 - `packages/core/src/validation/validateOad.ts`: Basic/list consumption,
   grouping heuristics, and planned flag-to-list escalation.

@@ -104,8 +104,8 @@ emission remains flag-only (E3 post-release).
 3. P2 viability evidence: conformance fixtures, architecture explanation, tier
    parity, resource bounds, benchmark context.
 4. Migration notes.
-5. oaskit smoke: refresh the vendored tarballs from the candidate build and
-   run oaskit's validation tests unchanged (P3).
+5. downstream smoke: refresh the vendored tarballs from the candidate build and
+   run the downstream project's validation tests unchanged (P3).
 6. `npm run verify`, `npm run pack:check`, fuzz and differential budgets.
 7. Owner-controlled publication and Bowtie submission.
 
