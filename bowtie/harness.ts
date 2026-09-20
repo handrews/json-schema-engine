@@ -56,7 +56,7 @@ async function handle(line: string): Promise<void> {
         implementation: {
           language: "javascript",
           name: "json-schema-engine",
-          version: "0.0.1",
+          version: "0.0.2",
           dialects: DIALECTS,
           homepage: "https://github.com/handrews/json-schema-engine",
           issues: "https://github.com/handrews/json-schema-engine/issues",
