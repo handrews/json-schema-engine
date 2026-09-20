@@ -7,8 +7,9 @@ the current IETF draft and other proposals under consideration.
 
 Produced by Henry Andrews via Claude Code.
 
-**Status: 0.0.1.** _To be published as soon as issues with my long-dormant
-NPM account are sorted out._
+**Status: `@json-schema-engine/core`, `@json-schema-engine/compiler`,
+`@json-schema-engine/formats`, and `@json-schema-engine/dialect-draft04` are
+[published on npm](https://www.npmjs.com/org/json-schema-engine).**
 
 The `0.0.x` versions indicate that all documentation is AI-written and
 not yet audited against actual usage or human readability standards.

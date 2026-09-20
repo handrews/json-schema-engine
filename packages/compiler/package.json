@@ -1,6 +1,6 @@
 {
   "name": "@json-schema-engine/compiler",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Compiler tier: emits specialized validators from @json-schema-engine/core registrations, trampolining to the interpreter for dynamic islands (DESIGN.md M6)",
   "type": "module",
   "main": "./dist/index.js",
@@ -19,10 +19,10 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@json-schema-engine/core": "^0.0.2"
+    "@json-schema-engine/core": "^0.0.3"
   },
   "devDependencies": {
-    "@json-schema-engine/formats": "^0.0.2"
+    "@json-schema-engine/formats": "^0.0.3"
   },
   "types": "./dist/index.d.ts",
   "files": [

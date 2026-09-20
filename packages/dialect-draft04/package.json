@@ -1,6 +1,6 @@
 {
   "name": "@json-schema-engine/dialect-draft04",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "JSON Schema draft-04 dialect for @json-schema-engine/core, assembled through the public dialect-authoring surface (DESIGN.md M10, D11)",
   "type": "module",
   "main": "./dist/index.js",
@@ -19,12 +19,12 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@json-schema-engine/core": "^0.0.2"
+    "@json-schema-engine/core": "^0.0.3"
   },
   "devDependencies": {
-    "@json-schema-engine/compiler": "^0.0.2",
-    "@json-schema-engine/formats": "^0.0.2",
-    "@json-schema-engine/test-kit": "^0.0.2"
+    "@json-schema-engine/compiler": "^0.0.3",
+    "@json-schema-engine/formats": "^0.0.3",
+    "@json-schema-engine/test-kit": "^0.0.3"
   },
   "types": "./dist/index.d.ts",
   "files": [
