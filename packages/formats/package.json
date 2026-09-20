@@ -1,6 +1,6 @@
 {
   "name": "@json-schema-engine/formats",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Format implementations for @json-schema-engine/core's format-assertion vocabulary and assertFormats configuration (DESIGN.md M7)",
   "type": "module",
   "main": "./dist/index.js",
@@ -19,10 +19,10 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@json-schema-engine/core": "^0.0.2"
+    "@json-schema-engine/core": "^0.0.3"
   },
   "devDependencies": {
-    "@json-schema-engine/compiler": "^0.0.2"
+    "@json-schema-engine/compiler": "^0.0.3"
   },
   "types": "./dist/index.d.ts",
   "files": [
