@@ -43,6 +43,15 @@ run("npm", ["run", "build"], ROOT);
 // LICENSE and README whatever `files` says, but only from that directory,
 // so a missing copy would ship a bare tarball without any other gate
 // noticing.
+// `npm pack --json` reports an array of entries through npm 11 and, from
+// npm 12, an object keyed by package name.
+interface PackEntry {
+  files: { path: string }[];
+}
+type PackReport = PackEntry[] | Record<string, PackEntry>;
+const packEntries = (report: PackReport): PackEntry[] =>
+  Array.isArray(report) ? report : Object.values(report);
+
 const REQUIRED_FILES = [
   "LICENSE",
   "README.md",
@@ -63,8 +72,10 @@ for (const pkg of PACKAGES) {
       ],
       ROOT,
     ),
-  ) as { files: { path: string }[] }[];
-  const paths = new Set(report.flatMap((r) => r.files.map((f) => f.path)));
+  ) as PackReport;
+  const paths = new Set(
+    packEntries(report).flatMap((r) => r.files.map((f) => f.path)),
+  );
   const missing = REQUIRED_FILES.filter((f) => !paths.has(f));
   if (missing.length > 0) {
     throw new Error(`packages/${pkg} tarball lacks: ${missing.join(", ")}`);
