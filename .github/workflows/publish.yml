@@ -31,8 +31,9 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       # Trusted publishing needs npm 11.5.1 or later; Node 24's bundled npm
-      # may lag that.
-      - run: npm install -g npm@latest
+      # may lag that. Pinned to the major the gates run under, so a new npm
+      # major cannot change a release run's behavior unreviewed.
+      - run: npm install -g npm@11
       - run: npm ci
       - run: npm run verify
       - run: npm run pack:check

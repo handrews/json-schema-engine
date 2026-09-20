@@ -95,7 +95,9 @@ LICENSE and README, and type-check from a consumer.
 
 Every package carries the same version; a release bumps every
 `packages/*/package.json`, the inter-package ranges, the root
-`package.json`, and the lockfile together, in one commit. Tag the merged
+`package.json`, and the lockfile together, in one commit (a caret range on a
+0.0.x version admits only that exact version, so a range left behind
+resolves from the registry instead of the workspace). Tag the merged
 commit `v<version>`: the `Publish` workflow (`.github/workflows/publish.yml`)
 runs the gates and publishes the four public packages through npm trusted
 publishing, which attaches provenance. A package's first release is made
