@@ -51,6 +51,7 @@ import {
   ANNOTATION_SEED_GROUPS,
   CONSUMER_SEED_GROUPS,
   DYNAMIC_SEED_GROUPS,
+  RECURSIVE_SEED_GROUPS,
   type DifferentialFactory,
 } from "@json-schema-engine/test-kit";
 
@@ -317,6 +318,17 @@ function main(): void {
     registrable.push({
       file: "dynamic-seeds",
       fi: files.length + 2,
+      gi,
+      group,
+    });
+  });
+  // The `$recursiveRef` counterpart (2019-09), same contract.
+  RECURSIVE_SEED_GROUPS.forEach((group, gi) => {
+    const baseUri = `https://fuzz.example/recursive-seeds/${String(gi)}`;
+    if (factoryFor(baseUri).prepare(group.schema) === undefined) return;
+    registrable.push({
+      file: "recursive-seeds",
+      fi: files.length + 3,
       gi,
       group,
     });
