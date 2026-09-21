@@ -50,6 +50,49 @@ describe("cycle guard", () => {
     expect(engine.evaluate(uri, { child: { child: {} } }).valid).toBe(true);
     expect(engine.evaluate(uri, { child: { child: 3 } }).valid).toBe(false);
   });
+
+  // The guard is exact per (schema location, cursor object): a custom
+  // keyword may apply a schema at an ancestor cursor while the same schema
+  // is active at a descendant, and only a true re-entry at one cursor trips.
+  it("is exact per cursor when a keyword applies a schema at an ancestor", () => {
+    const VOCAB = "urn:jse:test:vocab:probe";
+    const DIALECT = "urn:jse:test:dialect:probe";
+    const probe: KeywordBehavior = {
+      id: `${VOCAB}#probe`,
+      evaluate: (value, cursor, ctx) => {
+        if (value === "parent") {
+          return cursor.parent === null || ctx.apply([], cursor.parent);
+        }
+        return ctx.apply([], cursor);
+      },
+    };
+    const engine = createEngine();
+    engine.registerVocabulary(VOCAB, { probe });
+    engine.registerDialect(DIALECT, [
+      "https://json-schema.org/draft/2020-12/vocab/core",
+      "https://json-schema.org/draft/2020-12/vocab/applicator",
+      VOCAB,
+    ]);
+    const up = engine.registerSchema(
+      {
+        $defs: { s: { probe: "parent" } },
+        properties: { a: { $ref: "#/$defs/s" } },
+      },
+      "https://cycle.example/ancestor",
+      DIALECT,
+    );
+    // s is active at /a and then at the root, on distinct cursors: allowed.
+    expect(engine.evaluate(up, { a: 1 }).valid).toBe(true);
+    const self = engine.registerSchema(
+      {
+        $defs: { s: { probe: "self" } },
+        properties: { a: { $ref: "#/$defs/s" } },
+      },
+      "https://cycle.example/self",
+      DIALECT,
+    );
+    expect(() => engine.evaluate(self, { a: 1 })).toThrow(InfiniteLoopError);
+  });
 });
 
 describe("source-position prefix table (D17)", () => {

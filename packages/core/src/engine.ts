@@ -181,8 +181,16 @@ export class EvalState {
   allDependencies: DependencyRecord[] | null = null;
   // Active schema-application nesting, bounded by maxDepth (see applySchema).
   depth = 0;
-  private traceStack: TraceNode[] = [];
-  private active = new Map<Cursor, Set<string>>();
+  private traceStack: TraceNode[] | null = null;
+  // The active applications, innermost last, as parallel stacks: a cycle
+  // is the same schema location already active at the same cursor object.
+  // Applications nest strictly, so enter/exit push and pop, and the scan
+  // from the top stops at the first entry shallower in the instance than
+  // the cursor being entered: no entry below it can be that cursor, and a
+  // cycle that runs through several cursors is still caught, at its
+  // shallowest one, because every entry of its previous turn lies above.
+  private activeKeys: string[] = [];
+  private activeCursors: Cursor[] = [];
 
   constructor(
     public registry: SchemaRegistry,
@@ -195,6 +203,7 @@ export class EvalState {
       this.allAnnotations = [];
       this.allDependencies = [];
       this.droppedErrors = [];
+      this.traceStack = [];
     }
   }
 
@@ -223,22 +232,24 @@ export class EvalState {
       keywords: [],
       children: [],
     };
-    const parent = this.traceStack[this.traceStack.length - 1];
+    const stack = this.traceStack!;
+    const parent = stack[stack.length - 1];
     if (parent) parent.children.push(node);
     else this.traceRoot = node;
-    this.traceStack.push(node);
+    stack.push(node);
     return node;
   }
 
   /** Closes the current trace node with its final validity. */
   traceExit(node: TraceNode, valid: boolean): void {
     node.valid = valid;
-    this.traceStack.pop();
+    this.traceStack!.pop();
   }
 
   /** Records one keyword evaluation's verdict on the current trace node. */
   traceKeyword(name: string, valid: boolean): void {
-    this.traceStack[this.traceStack.length - 1]?.keywords.push({ name, valid });
+    const stack = this.traceStack!;
+    stack[stack.length - 1]?.keywords.push({ name, valid });
   }
 
   /** The innermost open frame. */
@@ -259,24 +270,28 @@ export class EvalState {
    * @throws InfiniteLoopError if this schema is already active at this cursor.
    */
   enter(schemaRef: SchemaRef, cursor: Cursor): void {
-    const key = `${schemaRef.baseUri}#${schemaRef.pointer}`;
-    let keys = this.active.get(cursor);
-    if (keys === undefined) {
-      keys = new Set();
-      this.active.set(cursor, keys);
-    } else if (keys.has(key)) {
-      throw new InfiniteLoopError(
-        `schema '${key}' re-entered at the same instance location`,
-      );
+    const key = (schemaRef.key ??= `${schemaRef.baseUri}#${schemaRef.pointer}`);
+    const cursors = this.activeCursors;
+    const keys = this.activeKeys;
+    const depth = cursor.depth;
+    for (let i = cursors.length - 1; i >= 0; i--) {
+      const active = cursors[i]!;
+      if (active === cursor) {
+        if (keys[i] === key) {
+          throw new InfiniteLoopError(
+            `schema '${key}' re-entered at the same instance location`,
+          );
+        }
+      } else if (active.depth < depth) break;
     }
-    keys.add(key);
+    cursors.push(cursor);
+    keys.push(key);
   }
 
   /** Records exit from a schema application, releasing its cycle-detection entry. */
-  exit(schemaRef: SchemaRef, cursor: Cursor): void {
-    const keys = this.active.get(cursor)!;
-    keys.delete(`${schemaRef.baseUri}#${schemaRef.pointer}`);
-    if (keys.size === 0) this.active.delete(cursor);
+  exit(): void {
+    this.activeCursors.pop();
+    this.activeKeys.pop();
   }
 }
 
@@ -519,7 +534,12 @@ function applySchemaAtDepth(
   const refOnly = dialect.refIgnoresSiblings && Object.hasOwn(node, "$ref");
 
   state.enter(schemaRef, cursor);
-  state.dynamicScope.push(schemaRef.baseUri);
+  // Dynamic scope (D8): resolution takes the outermost hit, so an entry
+  // equal to the one on top can never change a resolution; skip it.
+  const scope = state.dynamicScope;
+  const baseUri = schemaRef.baseUri;
+  const pushed = scope[scope.length - 1] !== baseUri;
+  if (pushed) scope.push(baseUri);
   state.frames.push({ annotations: [], dependencies: [] });
   const traceNode = state.tracing
     ? state.traceEnter(schemaRef, pathNode, cursor)
@@ -567,8 +587,8 @@ function applySchemaAtDepth(
       appendAll(parent.dependencies, frame.dependencies);
     }
     if (traceNode) state.traceExit(traceNode, valid);
-    state.dynamicScope.pop();
-    state.exit(schemaRef, cursor);
+    if (pushed) scope.pop();
+    state.exit();
   }
   return valid;
 }
@@ -717,7 +737,9 @@ export function evaluateFragment(
     options.regexCache ?? new RegexCache(),
     maxDepth,
   );
-  state.dynamicScope.push(...(options.dynamicScope ?? []));
+  if (options.dynamicScope !== undefined) {
+    for (const uri of options.dynamicScope) state.dynamicScope.push(uri);
+  }
   state.depth = options.depth ?? 0;
   const valid = applyWithOverflowBackstop(
     state,

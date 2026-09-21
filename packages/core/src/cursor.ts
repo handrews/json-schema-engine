@@ -13,6 +13,8 @@ export interface Cursor {
   readonly value: JsonValue;
   readonly parent: Cursor | null;
   readonly segment: string | number | null;
+  /** Nesting depth from the root cursor (0 at the root). */
+  readonly depth: number;
   /** Lazily cached JSON Pointer; use {@link instancePointer}. */
   ptr?: string;
 }
@@ -22,6 +24,7 @@ export const rootCursor = (value: JsonValue): Cursor => ({
   value,
   parent: null,
   segment: null,
+  depth: 0,
 });
 
 /** Creates a cursor for a named or indexed child of `parent`. */
@@ -29,7 +32,7 @@ export const childCursor = (
   parent: Cursor,
   segment: string | number,
   value: JsonValue,
-): Cursor => ({ value, parent, segment });
+): Cursor => ({ value, parent, segment, depth: parent.depth + 1 });
 
 /** Computes the JSON Pointer for a cursor's instance location, caching the result. */
 export function instancePointer(cursor: Cursor): string {
