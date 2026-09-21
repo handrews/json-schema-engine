@@ -134,6 +134,7 @@ export class SchemaRegistry {
   private interned = new Map<string, Map<string, SchemaRef>>();
   private refMemo = new Map<string, Map<string, SchemaRef | RefMiss>>();
   private dynMemo = new Map<string, Map<string, DynamicReference>>();
+  private dialectCache = new Map<string, Dialect>(); // resource URI -> dialect
   private misses = 0;
   private dialectGeneration: number;
   // Snapshots share the indexes above copy-on-write: the source copies them
@@ -179,6 +180,7 @@ export class SchemaRegistry {
     this.syncDialects();
     view.refMemo = this.refMemo;
     view.dynMemo = this.dynMemo;
+    view.dialectCache = this.dialectCache;
     view.misses = this.misses;
     view.readOnly = true;
     this.shared = true;
@@ -197,6 +199,7 @@ export class SchemaRegistry {
   private resetMemos(): void {
     this.refMemo = new Map();
     this.dynMemo = new Map();
+    this.dialectCache = new Map();
     this.misses = 0;
   }
 
@@ -257,6 +260,7 @@ export class SchemaRegistry {
       pointer,
       key: `${baseUri}#${pointer}`,
       children: null,
+      table: null,
     };
     if (existing === undefined) byPointer.set(pointer, ref);
     return ref;
@@ -524,7 +528,13 @@ export class SchemaRegistry {
    * @throws UnresolvableRefError if the resource is not registered.
    */
   dialectFor(baseUri: string): Dialect {
-    return this.dialectRegistry.getDialect(this.dialectUriFor(baseUri));
+    this.syncDialects();
+    let dialect = this.dialectCache.get(baseUri);
+    if (dialect === undefined) {
+      dialect = this.dialectRegistry.getDialect(this.dialectUriFor(baseUri));
+      this.dialectCache.set(baseUri, dialect);
+    }
+    return dialect;
   }
 
   /**

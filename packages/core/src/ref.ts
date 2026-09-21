@@ -23,4 +23,9 @@ export interface SchemaRef {
   key?: string;
   /** Memoized child positions, one hop per segment (registry-owned). */
   children?: Map<string, SchemaRef> | null;
+  /**
+   * The engine's per-node keyword table (engine-owned; opaque here so this
+   * module stays dependency-free). Validated by dialect identity on use.
+   */
+  table?: object | null;
 }

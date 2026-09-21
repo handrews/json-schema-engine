@@ -10,7 +10,10 @@ import {
   JsonValue,
   KeywordBehavior,
   SchemaValidationError,
+  UnknownKeywordError,
   UnknownVocabularyError,
+  evaluateFragment,
+  rootCursor,
   identifiersLegacy,
   identifiers2019,
 } from "@json-schema-engine/core";
@@ -563,5 +566,70 @@ describe("custom vocabularies and dialects (D2)", () => {
     );
     expect(engine.evaluate(uri, 5).valid).toBe(true);
     expect(engine.evaluate(uri, "x").valid).toBe(false);
+  });
+});
+
+describe("per-node keyword table", () => {
+  const CORE = "https://json-schema.org/draft/2020-12/vocab/core";
+  const VALIDATION = "https://json-schema.org/draft/2020-12/vocab/validation";
+
+  it("names the first unknown keyword in key order when the dialect forbids them", () => {
+    const DIALECT = "urn:table:strict";
+    const engine = createEngine();
+    engine.registerDialect(DIALECT, [CORE, VALIDATION], {
+      allowUnknownKeywords: false,
+    });
+    const uri = engine.registerSchema(
+      { type: "integer", zeta: 1, alpha: 2 },
+      "https://table.example/strict",
+      DIALECT,
+    );
+    expect(() => engine.evaluate(uri, 1)).toThrow(UnknownKeywordError);
+    expect(() => engine.evaluate(uri, 1)).toThrow(/'zeta'/);
+    // Second evaluation goes through the cached table: same outcome.
+    expect(() => engine.evaluate(uri, "x")).toThrow(/'zeta'/);
+  });
+
+  it("rebuilds after a dialect re-registration on the live engine, not on a snapshot", () => {
+    const VOCAB = "urn:table:vocab";
+    const DIALECT = "urn:table:dialect";
+    const engine = createEngine();
+    const even: KeywordBehavior = {
+      id: `${VOCAB}#even`,
+      evaluate: (_value, cursor) =>
+        typeof cursor.value !== "number" || cursor.value % 2 === 0,
+    };
+    engine.registerVocabulary(VOCAB, { even });
+    engine.registerDialect(DIALECT, [CORE, VOCAB]);
+    const uri = engine.registerSchema(
+      { even: true },
+      "https://table.example/live",
+      DIALECT,
+    );
+    // Warm the table on the shared ref, then freeze a view.
+    expect(engine.evaluate(uri, 3).valid).toBe(false);
+    const view = engine.registry.snapshot();
+    const target = view.rootRef(uri);
+    expect(evaluateFragment(view, target, rootCursor(3)).valid).toBe(false);
+
+    // Same keyword, new behavior.
+    const odd: KeywordBehavior = {
+      id: `${VOCAB}#even`,
+      evaluate: (_value, cursor) =>
+        typeof cursor.value !== "number" || cursor.value % 2 === 1,
+    };
+    engine.registerVocabulary(VOCAB, { even: odd });
+    engine.registerDialect(DIALECT, [CORE, VOCAB]);
+    expect(engine.evaluate(uri, 3).valid).toBe(true);
+    expect(evaluateFragment(view, target, rootCursor(3)).valid).toBe(false);
+
+    // The keyword leaves the dialect: it becomes an unknown-keyword
+    // annotation on the live engine, while the view still evaluates it.
+    engine.registerDialect(DIALECT, [CORE]);
+    const r = engine.evaluate(uri, 3, { output: "list", annotations: true });
+    expect(r.valid).toBe(true);
+    expect(r.annotations?.map((a) => a.evaluationPath)).toEqual(["/even"]);
+    expect(evaluateFragment(view, target, rootCursor(3)).valid).toBe(false);
+    expect(evaluateFragment(view, target, rootCursor(4)).valid).toBe(true);
   });
 });

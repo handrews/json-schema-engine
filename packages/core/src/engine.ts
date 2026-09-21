@@ -302,12 +302,8 @@ class KeywordContextImpl implements KeywordContext {
   constructor(
     private state: EvalState,
     private schemaRef: SchemaRef,
-    private entry: {
-      name: string;
-      behaviorId: string;
-      vocabularyUri: string | null;
-      value: JsonValue;
-    },
+    private entry: DialectKeyword,
+    private value: JsonValue,
     public cursor: Cursor,
     private pathNode: PathNode | null,
   ) {}
@@ -379,19 +375,19 @@ class KeywordContextImpl implements KeywordContext {
     const record = this.state.shouldRecord;
     if (
       record &&
-      !record(this.entry.behaviorId, this.entry.name, this.entry.vocabularyUri)
+      !record(this.entry.behavior.id, this.entry.name, this.entry.vocabularyUri)
     ) {
       return;
     }
     const annotation: AnnotationRecord = {
       kind: "annotation",
-      behaviorId: this.entry.behaviorId,
+      behaviorId: this.entry.behavior.id,
       keywordName: this.entry.name,
       vocabularyUri: this.entry.vocabularyUri,
       schemaRef: this.schemaRef,
       pathNode: this.pathNode,
       cursor: this.cursor,
-      value: this.entry.value,
+      value: this.value,
     };
     this.state.frame.annotations.push(annotation);
     // Frames discard on failure; the trace keeps everything so verbose
@@ -404,21 +400,21 @@ class KeywordContextImpl implements KeywordContext {
     // compiler's channel routing — fail loud, not wrong. The check is per
     // behavior id: the registry unions every occurrence's declarations.
     const registry = this.state.registry;
-    if (!registry.producedIds().has(this.entry.behaviorId)) {
+    if (!registry.producedIds().has(this.entry.behavior.id)) {
       throw new UndeclaredProductionError(
-        `'${this.entry.behaviorId}' produces dependency data without declaring it in analyze().produces`,
+        `'${this.entry.behavior.id}' produces dependency data without declaring it in analyze().produces`,
       );
     }
     // Under elision, dependency data nobody consumes is never read.
     if (
       this.state.shouldRecord !== null &&
-      !registry.consumedIds().has(this.entry.behaviorId)
+      !registry.consumedIds().has(this.entry.behavior.id)
     ) {
       return;
     }
     const dependency: DependencyRecord = {
       kind: "dependency",
-      behaviorId: this.entry.behaviorId,
+      behaviorId: this.entry.behavior.id,
       keywordName: this.entry.name,
       schemaRef: this.schemaRef,
       pathNode: this.pathNode,
@@ -440,7 +436,7 @@ class KeywordContextImpl implements KeywordContext {
       for (const id of behaviorIds) {
         if (!consumed.has(id)) {
           throw new UndeclaredConsumptionError(
-            `'${this.entry.behaviorId}' reads '${id}' without declaring it in analyze().consumes`,
+            `'${this.entry.behavior.id}' reads '${id}' without declaring it in analyze().consumes`,
           );
         }
       }
@@ -495,6 +491,41 @@ export function applySchema(
   }
 }
 
+/**
+ * What one schema object holds, resolved once against its dialect and cached
+ * on the (interned) ref: the dialect entries present, in evaluation order,
+ * and the unknown keyword names, in the node's key order. A draft-07/06
+ * `$ref` sibling set (D18) precomputes to the `$ref` entry alone. Validated
+ * by dialect identity, so a re-registered dialect rebuilds it and a ref
+ * shared between a live registry and a snapshot is never served the wrong
+ * table.
+ */
+interface NodeTable {
+  dialect: Dialect;
+  present: readonly DialectKeyword[];
+  unknown: readonly string[];
+}
+
+function buildNodeTable(
+  node: Record<string, JsonValue>,
+  dialect: Dialect,
+): NodeTable {
+  // draft-07/06 (D18): a $ref makes every sibling keyword act as if absent.
+  if (dialect.refIgnoresSiblings && Object.hasOwn(node, "$ref")) {
+    const ref = dialect.keywords.get("$ref");
+    return { dialect, present: ref === undefined ? [] : [ref], unknown: [] };
+  }
+  const present: DialectKeyword[] = [];
+  for (const entry of dialect.ordered) {
+    if (Object.hasOwn(node, entry.name)) present.push(entry);
+  }
+  const unknown: string[] = [];
+  for (const name of Object.keys(node)) {
+    if (!dialect.keywords.has(name)) unknown.push(name);
+  }
+  return { dialect, present, unknown };
+}
+
 function applySchemaAtDepth(
   state: EvalState,
   schemaRef: SchemaRef,
@@ -529,9 +560,10 @@ function applySchemaAtDepth(
   }
 
   const dialect: Dialect = state.registry.dialectFor(schemaRef.baseUri);
-
-  // draft-07/06 (D18): a $ref makes every sibling keyword act as if absent.
-  const refOnly = dialect.refIgnoresSiblings && Object.hasOwn(node, "$ref");
+  let table = schemaRef.table as NodeTable | null | undefined;
+  if (table?.dialect !== dialect) {
+    table = schemaRef.table = buildNodeTable(node, dialect);
+  }
 
   state.enter(schemaRef, cursor);
   // Dynamic scope (D8): resolution takes the outermost hit, so an entry
@@ -546,15 +578,11 @@ function applySchemaAtDepth(
     : null;
   let valid = true;
   try {
-    for (const entry of dialect.ordered) {
-      if (refOnly && entry.name !== "$ref") continue;
-      if (!Object.hasOwn(node, entry.name)) continue;
+    for (const entry of table.present) {
       if (!evaluateKeyword(state, schemaRef, entry, cursor, pathNode))
         valid = false;
     }
-    for (const name of Object.keys(node)) {
-      if (refOnly) break;
-      if (dialect.keywords.has(name)) continue;
+    for (const name of table.unknown) {
       if (!dialect.allowUnknownKeywords) {
         throw new UnknownKeywordError(
           `dialect '${dialect.uri}' does not allow unknown keyword '${name}'`,
@@ -604,12 +632,8 @@ function evaluateKeyword(
   const ctx = new KeywordContextImpl(
     state,
     schemaRef,
-    {
-      name: entry.name,
-      behaviorId: entry.behavior.id,
-      vocabularyUri: entry.vocabularyUri,
-      value,
-    },
+    entry,
+    value,
     cursor,
     pathNode,
   );
