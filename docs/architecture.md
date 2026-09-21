@@ -86,16 +86,25 @@ rather than nesting compiled channel scopes.
 ## Dynamic scope and islands
 
 `$dynamicRef` resolution (D8) walks a stack of entered schema resources,
-outermost first. In compiled artifacts, everything whose evaluation depends
-on dynamic state — plus any unit the planner cannot or chooses not to
-compile — becomes an _interpreted unit_: compiled code calls
+outermost first. In a compiled artifact that stack at any compiled site is
+the chain of unit base URIs from the artifact root, because compiled sites
+are reached only through compiled ancestors, so the planner can resolve
+most sites at plan time ([ADR 0004](planning/next-steps/decisions/0004-static-dynamic-ref-resolution.md)):
+per anchor name it computes, by a forward dataflow over the unit graph, the
+set of resources that can be the outermost declarer when evaluation arrives
+at each unit, and a site whose set maps to a single target compiles as an
+ordinary static edge to that target. A site whose target could differ along
+different paths, `$recursiveRef`, and any unit the planner cannot or chooses
+not to compile become _interpreted units_: compiled code calls
 `evaluateFragment` with its constant dynamic-scope contribution, evaluation
 path prefix, consumed depth budget, and the instance cursor, and harvests
-`{valid, errors, annotations, dependencies}` back. The trampoline is one-way: interpreted
-code never re-enters compiled code. That invariant is what makes the channel
-analysis of compiled units tractable (an island can only feed its compiled
-_ancestors_, never siblings), and it is recorded as a revisit trigger in
-DESIGN.md should island-internal recompilation ever be attempted.
+`{valid, errors, annotations, dependencies}` back. The trampoline is
+one-way: interpreted code never re-enters compiled code. That invariant is
+what makes the channel analysis of compiled units tractable (an island can
+only feed its compiled _ancestors_, never siblings), and it is recorded as a
+revisit trigger in DESIGN.md should island-internal recompilation ever be
+attempted; a statically resolved `$dynamicRef` target is a static edge, so
+it neither enters nor leaves an island and does not touch that proof.
 
 ## Security posture
 

@@ -5,6 +5,7 @@
 // vitest can assert directly.
 
 import { describe, it, expect } from "vitest";
+import { DYNAMIC_SEEDS } from "@json-schema-engine/test-kit";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -214,13 +215,39 @@ describe("emitStandalone (M6.5)", () => {
   });
 
   it("refuses island plans, naming the interpreter as the CSP path", () => {
+    // An unstable $dynamicRef site (two declaring resources around one
+    // shared site) still islands, so the plan has a trampoline target.
     const engine = createEngine();
     const uri = engine.registerSchema(
-      { $dynamicAnchor: "n", items: { $dynamicRef: "#n" } },
+      DYNAMIC_SEEDS.unstableTwoPaths.schema,
       "https://standalone.example/dyn",
     );
     expect(() => emitStandalone(engine, uri)).toThrow(
       StandaloneUnsupportedError,
     );
+  });
+
+  it("emits a working module for a statically resolved $dynamicRef", async () => {
+    const engine = createEngine();
+    const group = DYNAMIC_SEEDS.stableSingle;
+    const uri = engine.registerSchema(
+      group.schema,
+      "https://standalone.example/dyn-static",
+    );
+    const source = emitStandalone(engine, uri);
+    expect(source).not.toContain("frag(");
+    const dir = mkdtempSync(join(tmpdir(), "jse-standalone-"));
+    try {
+      const file = join(dir, "artifact.mjs");
+      writeFileSync(file, source);
+      const { default: validate } = (await import(/* @vite-ignore */ file)) as {
+        default: (v: unknown) => boolean;
+      };
+      for (const t of group.tests) {
+        expect(validate(t.data), t.description).toBe(t.valid);
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

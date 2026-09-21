@@ -1,9 +1,19 @@
 # Investigation: static resolution of `$dynamicRef` in compiled artifacts
 
-**Recommendation:** proceed. This is the measured benefit that backlog item
-[E4 "Island re-entry"](../backlog-inventory.md) asks for, and the proposed
-design does not require island re-entry at all: it removes the island for the
-common case instead.
+**Status:** delivered 2026-09-21 as
+[ADR 0004](../decisions/0004-static-dynamic-ref-resolution.md). The
+implemented analysis is a per-root dataflow over the compiled unit graph
+(every path that can reach a site must agree on the target), which covers
+the "resolution-stable site" rule below and more: 19 of the 20 `$dynamicRef`
+groups in the official suite, both `$ref`-to-metaschema groups, and the
+OpenAPI 3.1 schema compile with no interpreted units. Measured on
+`oas-document`: compiled flag 45 → 4.0 µs per document (hot row), against
+the 2.0 µs ceiling below.
+
+**Original recommendation:** proceed. This is the measured benefit that
+backlog item [E4 "Island re-entry"](../backlog-inventory.md) asks for, and
+the proposed design does not require island re-entry at all: it removes the
+island for the common case instead.
 
 **Release relationship:** off the release path
 ([ADR 0001](../decisions/0001-first-release-scope.md)). No semantic change;
@@ -23,13 +33,14 @@ schema against a 2.5 KB OpenAPI document). The schema has four
 `$dynamicRef: "#meta"` sites and one `$dynamicAnchor: "meta"` on
 `/$defs/schema`, whose body is `{ type: ["object", "boolean"] }`.
 
-| Measurement                                                              | µs per evaluation |
-| ------------------------------------------------------------------------ | ----------------: |
-| Compiled artifact, flag mode, as is                                      |              22.2 |
-| Same schema with `$dynamicRef` → `$ref` and `$dynamicAnchor` → `$anchor` |               2.0 |
-| ata-validator 1.27.1 on the unmodified schema (its closure interpreter)  |              11.4 |
-| JSE interpreter on the unmodified schema                                 |               527 |
-| Compiled, with registry URI resolution memoized (experiment)             |              19.1 |
+| Measurement                                                                 | µs per evaluation |
+| --------------------------------------------------------------------------- | ----------------: |
+| Compiled artifact, flag mode, as is                                         |              22.2 |
+| Same schema with `$dynamicRef` → `$ref` and `$dynamicAnchor` → `$anchor`    |               2.0 |
+| ata-validator 1.27.1 on the unmodified schema (its closure interpreter)     |              11.4 |
+| JSE interpreter on the unmodified schema                                    |               527 |
+| Compiled, with registry URI resolution memoized (experiment)                |              19.1 |
+| Compiled, after ADR 0004 (sites resolved at plan time; hot row, 2026-09-21) |               4.0 |
 
 The rewrite changes no verdict on this corpus: nothing rebinds `meta`, so the
 dynamic resolution and the static one coincide. It is the ceiling for a

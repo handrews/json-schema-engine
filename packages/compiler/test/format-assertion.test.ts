@@ -55,27 +55,30 @@ interface CensusPin {
   causes: Record<string, number>;
   trackingUnits: number;
   regionUnits: number;
+  resolvedDynamicSites: number;
 }
 
 const CENSUS: Record<"flag" | "list", CensusPin> = {
   flag: {
     groups: 383,
-    totalUnits: 1338,
-    interpretedUnits: 59,
-    causes: { dynamic: 59 },
+    totalUnits: 1370,
+    interpretedUnits: 1,
+    causes: { dynamic: 1 },
     trackingUnits: 20,
     regionUnits: 50,
+    resolvedDynamicSites: 58,
   },
   // The 7 unlowerable units are the nested tracked consumers the region
   // fixpoint islands (plan-census.test.ts documents them); none is format-
   // caused, which the deep-equal against the plain plan asserts directly.
   list: {
     groups: 383,
-    totalUnits: 1338,
-    interpretedUnits: 66,
-    causes: { dynamic: 59, unlowerable: 7 },
-    trackingUnits: 76,
-    regionUnits: 64,
+    totalUnits: 1370,
+    interpretedUnits: 8,
+    causes: { dynamic: 1, unlowerable: 7 },
+    trackingUnits: 78,
+    regionUnits: 66,
+    resolvedDynamicSites: 58,
   },
 };
 
@@ -107,6 +110,7 @@ async function census(
     causes: r.causes,
     trackingUnits: r.trackingUnits,
     regionUnits: r.regionUnits,
+    resolvedDynamicSites: r.resolvedDynamicSites,
   };
 }
 

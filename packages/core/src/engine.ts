@@ -316,21 +316,20 @@ class KeywordContextImpl implements KeywordContext {
 
   resolveDynamic(ref: string): SchemaRef {
     const registry = this.state.registry;
-    // Lexical resolution first (spec: the initial target must exist); the
-    // rebinding below only applies to plain-name fragments minted by a
-    // dynamic anchor — pointer fragments behave exactly like $ref.
-    const target = registry.resolveRef(ref, this.schemaRef.baseUri);
-    const { resource, fragment } = splitFragment(
-      resolveUri(ref, this.schemaRef.baseUri),
+    // The scope-independent steps (lexical target must exist; plain-name
+    // fragments minted by a dynamic anchor rebind, pointer fragments behave
+    // exactly like $ref) live on the registry so the compiler's plan-time
+    // analysis shares them; only the outermost-first scope walk is here.
+    const { lexical, anchor } = registry.dynamicReference(
+      ref,
+      this.schemaRef.baseUri,
     );
-    if (fragment === null || fragment === "" || fragment.startsWith("/"))
-      return target;
-    if (registry.dynamicAnchor(resource, fragment) === undefined) return target;
+    if (anchor === null) return lexical;
     for (const scopeUri of this.state.dynamicScope) {
-      const hit = registry.dynamicAnchor(scopeUri, fragment);
+      const hit = registry.dynamicAnchor(scopeUri, anchor);
       if (hit !== undefined) return hit;
     }
-    return target;
+    return lexical;
   }
 
   resolveRecursive(ref: string): SchemaRef {

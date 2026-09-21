@@ -31,7 +31,11 @@ import {
   type SchemaRef,
   type TraceNode,
 } from "@json-schema-engine/core";
-import { buildPlan, type PlannedUnit } from "@json-schema-engine/compiler";
+import {
+  buildPlan,
+  type CompilationPlan,
+  type PlannedUnit,
+} from "@json-schema-engine/compiler";
 import {
   registerDraft04,
   DIALECT_DRAFT_04,
@@ -609,8 +613,8 @@ const SWEEP: Record<string, SweepPin> = {
     dir: "draft2020-12",
     // 2113: a rejecting `items` communicates no coverage (Appendix D), so
     // unevaluatedItems.json#6 applies its subschema to three more positions.
-    pairs: 2113,
-    productions: 750,
+    pairs: 2300,
+    productions: 858,
     skippedTracked: 40,
   },
   "draft2019-09": {
@@ -648,6 +652,22 @@ interface SuiteGroup {
   description: string;
   schema: JsonValue;
   tests: { description: string; data: JsonValue }[];
+}
+
+/** The oracle's view of a planned unit: its resolved `$dynamicRef` targets. */
+function withDynamicTargets(
+  plan: CompilationPlan,
+  unit: PlannedUnit,
+): OracleUnit {
+  const dynamicTargets = new Map<string, SchemaRef>();
+  for (const edge of unit.edges) {
+    if (edge.dynamic === undefined || edge.app.ref === undefined) continue;
+    dynamicTargets.set(
+      `${edge.keyword}|${edge.app.ref}`,
+      plan.units.get(edge.targetKey)!.ref,
+    );
+  }
+  return dynamicTargets.size === 0 ? unit : { ...unit, dynamicTargets };
 }
 
 function walkTrace(node: TraceNode, visit: (n: TraceNode) => void): void {
@@ -690,11 +710,13 @@ async function sweepDialect(
         continue;
       }
       // Self-contained static subtrees only: their apply verdicts cannot
-      // depend on dynamic scope, so the standalone oracle is sound.
-      const staticUnits = new Map<string, PlannedUnit>();
+      // depend on runtime dynamic scope, so the standalone oracle is sound.
+      // A statically resolved `$dynamicRef` (ADR 0004) is handed to the
+      // oracle as the plan's target, so it applies what the artifact applies.
+      const staticUnits = new Map<string, OracleUnit>();
       for (const unit of plan.units.values()) {
         if (unit.kind === "static" && !unit.reachesInterpreted) {
-          staticUnits.set(unit.key, unit);
+          staticUnits.set(unit.key, withDynamicTargets(plan, unit));
         }
       }
       const registry = engine.registry;

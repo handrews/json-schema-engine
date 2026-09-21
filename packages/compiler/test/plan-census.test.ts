@@ -42,6 +42,8 @@ interface Expected {
   trackingUnits?: number;
   /** Units in a tracked unit's coverage region (phase B); default 0. */
   regionUnits?: number;
+  /** `$dynamicRef` sites resolved at plan time (ADR 0004); default 0. */
+  resolvedDynamicSites?: number;
 }
 
 // Transcribed from a local run (deterministic — two runs hash-identical).
@@ -53,24 +55,34 @@ interface Expected {
 // planned), and the remaining `unlowerable` units are exactly the nested
 // tracked consumers islanded by the region fixpoint. The flag pins must not
 // move under a list-only change (their own rows assert that).
+//
+// draft2020-12's one `dynamic` unit is dynamicRef.json's "multiple dynamic
+// paths to the $dynamicRef keyword" (genericList reached from numberList and
+// stringList, which declare different anchors); every other `$dynamicRef`
+// site — the rest of dynamicRef.json, the two `$ref`-to-metaschema groups,
+// unevaluated*'s dynamic cases — resolves statically (ADR 0004), which is
+// also why totalUnits exceeds the pre-ADR count (islanded subtrees are now
+// planned). 2019-09's `$recursiveRef` sites are deliberately not resolved.
 const PINS: Record<string, DialectPin> = {
   "draft2020-12": {
     dir: "draft2020-12",
     flag: {
       groups: 383,
-      totalUnits: 1338,
-      interpretedUnits: 59,
-      causes: { dynamic: 59 },
+      totalUnits: 1370,
+      interpretedUnits: 1,
+      causes: { dynamic: 1 },
       trackingUnits: 20,
       regionUnits: 50,
+      resolvedDynamicSites: 58,
     },
     list: {
       groups: 383,
-      totalUnits: 1338,
-      interpretedUnits: 66,
-      causes: { dynamic: 59, unlowerable: 7 },
-      trackingUnits: 76,
-      regionUnits: 64,
+      totalUnits: 1370,
+      interpretedUnits: 8,
+      causes: { dynamic: 1, unlowerable: 7 },
+      trackingUnits: 78,
+      regionUnits: 66,
+      resolvedDynamicSites: 58,
     },
   },
   "draft2019-09": {
@@ -150,6 +162,9 @@ function assertPinned(
   expect(result.totalUnits, diagnosis).toBe(expected.totalUnits);
   expect(result.interpretedUnits, diagnosis).toBe(expected.interpretedUnits);
   expect(result.causes, diagnosis).toEqual(expected.causes);
+  expect(result.resolvedDynamicSites, diagnosis).toBe(
+    expected.resolvedDynamicSites ?? 0,
+  );
   expect(result.trackingUnits, `${label}: tracking units`).toBe(
     expected.trackingUnits ?? 0,
   );

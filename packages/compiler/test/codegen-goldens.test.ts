@@ -5,11 +5,13 @@
 // deliberate codegen change re-pins them the way plan-census pins are
 // updated. The fixture schemas: the three bench spike schemas, a
 // static-coverage consumer, a runtime-tracked consumer (anyOf contributors),
-// and a $dynamicRef island. The `trace` mode is the evaluator's emission:
-// list mode plus the recorded application tree.
+// a $dynamicRef island (an unstable site, ADR 0004), and a $dynamicRef
+// resolved statically. The `trace` mode is the evaluator's emission: list
+// mode plus the recorded application tree. UPDATE_GOLDENS=1 rewrites every
+// golden from the current emitter instead of asserting; review the diff.
 
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -32,7 +34,16 @@ const CASES = [
   "static-consumer",
   "tracked-consumer",
   "island",
+  "dynamic-static",
 ];
+
+const UPDATE = process.env.UPDATE_GOLDENS === "1";
+
+/** Compares against the golden, or rewrites it under UPDATE_GOLDENS=1. */
+function expectGolden(actual: string, file: string): void {
+  if (UPDATE) writeFileSync(file, actual);
+  expect(actual).toBe(readFileSync(file, "utf8"));
+}
 
 const MODES: Record<string, (engine: Engine, uri: string) => string> = {
   flag: (engine, uri) => compileValidator(engine, uri).source,
@@ -56,9 +67,7 @@ describe("codegen goldens", () => {
           schema,
           `https://codegen.example/${name}`,
         );
-        expect(run(engine, uri)).toBe(
-          readFileSync(join(DIR, `${name}.${mode}.js`), "utf8"),
-        );
+        expectGolden(run(engine, uri), join(DIR, `${name}.${mode}.js`));
       });
     }
 

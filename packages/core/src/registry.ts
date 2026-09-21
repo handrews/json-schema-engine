@@ -14,6 +14,16 @@ import { Dialect, DialectRegistry, ReadOnlyRegistryError } from "./dialect.js";
 import { SourceRange } from "./loader.js";
 
 /**
+ * A `$dynamicRef` after its scope-independent resolution steps
+ * ({@link SchemaRegistry.dynamicReference}): the lexical target, and the
+ * anchor name to walk the dynamic scope for, or `null` when no walk applies.
+ */
+export interface DynamicReference {
+  lexical: SchemaRef;
+  anchor: string | null;
+}
+
+/**
  * Where a schema resource physically lives: the registered document
  * containing it and the JSON Pointer from that document's root to the
  * resource's root (D17 bridge; see loader.ts).
@@ -334,6 +344,28 @@ export class SchemaRegistry {
   /** The `$dynamicAnchor` target for a name in a resource, if one was registered (D8). */
   dynamicAnchor(resourceUri: string, name: string): SchemaRef | undefined {
     return this.dynamicAnchors.get(`${this.canonical(resourceUri)}#${name}`);
+  }
+
+  /**
+   * The scope-independent part of `$dynamicRef` resolution (D8), shared by
+   * the interpreter and the compiler's plan-time analysis so the two tiers
+   * cannot drift: the lexical target (which must exist, as for `$ref`), and
+   * the anchor name the dynamic scope is walked for — `null` when the
+   * reference behaves exactly like `$ref`, because its fragment is absent,
+   * empty, or a JSON Pointer, or because the lexical target's resource
+   * declares no `$dynamicAnchor` of that name (the bookending requirement).
+   * @throws UnresolvableRefError if the lexical target does not exist.
+   */
+  dynamicReference(ref: string, currentBase: string): DynamicReference {
+    const lexical = this.resolveRef(ref, currentBase);
+    const { resource, fragment } = splitFragment(resolveUri(ref, currentBase));
+    if (fragment === null || fragment === "" || fragment.startsWith("/")) {
+      return { lexical, anchor: null };
+    }
+    if (this.dynamicAnchor(resource, fragment) === undefined) {
+      return { lexical, anchor: null };
+    }
+    return { lexical, anchor: fragment };
   }
 
   /** True if a resource's root carries 2019-09 `$recursiveAnchor: true`. */

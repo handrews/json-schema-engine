@@ -791,3 +791,269 @@ export function instancePool(
   }
   return pool;
 }
+
+/**
+ * Suite-shaped seed groups for `$dynamicRef` resolution (ADR 0004). The
+ * compiler resolves a site at plan time when every path that can reach it
+ * yields the same target, and islands it otherwise; `classification` says
+ * which the planner must choose for the group's sites. The differential
+ * legs append these like {@link CONSUMER_SEED_GROUPS}, so both the static
+ * path (resolved targets, including recursion through them) and the island
+ * path (unstable sites through the trampoline) stay under fuzz pressure.
+ */
+export interface DynamicSeedGroup {
+  description: string;
+  schema: JsonValue;
+  tests: { description: string; data: JsonValue; valid: boolean }[];
+  /** what the planner must do with every `$dynamicRef` site in the group */
+  classification: "static" | "island";
+}
+
+const DYNAMIC_DIALECT = "https://json-schema.org/draft/2020-12/schema";
+
+export const DYNAMIC_SEEDS = {
+  /** the root declares the anchor; the site recurses through it */
+  stableSingle: {
+    description: "$dynamicRef: root anchor, recursion through the target",
+    classification: "static",
+    schema: {
+      $schema: DYNAMIC_DIALECT,
+      $id: "https://dyn.example/stable-single",
+      $dynamicAnchor: "node",
+      type: "object",
+      properties: { child: { $dynamicRef: "#node" } },
+    },
+    tests: [
+      {
+        description: "nested objects",
+        data: { child: { child: {} } },
+        valid: true,
+      },
+      { description: "empty root", data: {}, valid: true },
+      {
+        description: "non-object leaf",
+        data: { child: { child: "x" } },
+        valid: false,
+      },
+    ],
+  },
+  /** one bookended site reached along two paths that agree on the winner */
+  stableTwoPaths: {
+    description: "$dynamicRef: same site under two scopes, same resolution",
+    classification: "static",
+    schema: {
+      $schema: DYNAMIC_DIALECT,
+      $id: "https://dyn.example/stable-two-paths",
+      $defs: {
+        item: { $dynamicAnchor: "item", type: "number" },
+        shared: {
+          $id: "shared",
+          $defs: { bookend: { $dynamicAnchor: "item" } },
+          type: "array",
+          items: { $dynamicRef: "#item" },
+        },
+        a: { $id: "a", $ref: "shared" },
+        b: { $id: "b", $ref: "shared" },
+      },
+      anyOf: [{ $ref: "a" }, { $ref: "b" }],
+    },
+    tests: [
+      { description: "numbers", data: [1, 2], valid: true },
+      { description: "empty", data: [], valid: true },
+      { description: "a string", data: ["x"], valid: false },
+    ],
+  },
+  /** the resolved target itself carries a `$dynamicRef` */
+  chained: {
+    description: "$dynamicRef: resolved target carries another $dynamicRef",
+    classification: "static",
+    schema: {
+      $schema: DYNAMIC_DIALECT,
+      $id: "https://dyn.example/chained",
+      $defs: {
+        mid: {
+          $dynamicAnchor: "mid",
+          type: "object",
+          properties: { b: { $dynamicRef: "#inner" } },
+        },
+        inner: { $dynamicAnchor: "inner", type: "integer" },
+      },
+      properties: { a: { $dynamicRef: "#mid" } },
+    },
+    tests: [
+      { description: "integer leaf", data: { a: { b: 1 } }, valid: true },
+      { description: "empty", data: {}, valid: true },
+      { description: "string leaf", data: { a: { b: "x" } }, valid: false },
+      { description: "non-object mid", data: { a: 1 }, valid: false },
+    ],
+  },
+  /** no bookending `$dynamicAnchor` at the lexical target: plain `$ref` */
+  bookendAbsent: {
+    description: "$dynamicRef: no bookending anchor, resolves lexically",
+    classification: "static",
+    schema: {
+      $schema: DYNAMIC_DIALECT,
+      $id: "https://dyn.example/bookend-absent",
+      $ref: "list",
+      $defs: {
+        foo: { $dynamicAnchor: "items", type: "string" },
+        list: {
+          $id: "list",
+          type: "array",
+          items: { $dynamicRef: "#items" },
+          $defs: { items: { $anchor: "items", type: "number" } },
+        },
+      },
+    },
+    tests: [
+      { description: "number (lexical target)", data: [1], valid: true },
+      {
+        description: "string (root anchor ignored)",
+        data: ["a"],
+        valid: false,
+      },
+    ],
+  },
+  /** a non-declaring root that references the 2020-12 metaschema */
+  metaschemaWrapper: {
+    description:
+      "$dynamicRef: $ref to the 2020-12 metaschema from a plain root",
+    classification: "static",
+    schema: {
+      $schema: DYNAMIC_DIALECT,
+      $id: "https://dyn.example/metaschema-wrapper",
+      $ref: "https://json-schema.org/draft/2020-12/schema",
+    },
+    tests: [
+      { description: "a valid schema", data: { type: "string" }, valid: true },
+      { description: "bad type value", data: { type: 12 }, valid: false },
+      {
+        description: "bad nested keyword",
+        data: { properties: { a: { minimum: "x" } } },
+        valid: false,
+      },
+    ],
+  },
+  /** the official suite's "multiple dynamic paths" shape: two declarers */
+  unstableTwoPaths: {
+    description:
+      "$dynamicRef: same site under two scopes, different resolutions",
+    classification: "island",
+    schema: {
+      $schema: DYNAMIC_DIALECT,
+      $id: "https://dyn.example/unstable-two-paths",
+      if: { properties: { kind: { const: "numbers" } }, required: ["kind"] },
+      then: { $ref: "numbers" },
+      else: { $ref: "strings" },
+      $defs: {
+        generic: {
+          $id: "generic",
+          $defs: { bookend: { $dynamicAnchor: "item" } },
+          type: "object",
+          properties: {
+            list: { type: "array", items: { $dynamicRef: "#item" } },
+          },
+        },
+        numbers: {
+          $id: "numbers",
+          $defs: { item: { $dynamicAnchor: "item", type: "number" } },
+          $ref: "generic",
+        },
+        strings: {
+          $id: "strings",
+          $defs: { item: { $dynamicAnchor: "item", type: "string" } },
+          $ref: "generic",
+        },
+      },
+    },
+    tests: [
+      {
+        description: "numbers with numbers",
+        data: { kind: "numbers", list: [1] },
+        valid: true,
+      },
+      {
+        description: "numbers with a string",
+        data: { kind: "numbers", list: ["a"] },
+        valid: false,
+      },
+      {
+        description: "strings with strings",
+        data: { list: ["a"] },
+        valid: true,
+      },
+      {
+        description: "strings with a number",
+        data: { list: [1] },
+        valid: false,
+      },
+    ],
+  },
+  /** two declarers around a shared recursive resource: an island that recurses */
+  unstableRecursive: {
+    description: "$dynamicRef: unstable site recursing through the trampoline",
+    classification: "island",
+    schema: {
+      $schema: DYNAMIC_DIALECT,
+      $id: "https://dyn.example/unstable-recursive",
+      if: { properties: { kind: { const: "strict" } }, required: ["kind"] },
+      then: { $ref: "strict" },
+      else: { $ref: "loose" },
+      $defs: {
+        tree: {
+          $id: "tree",
+          $dynamicAnchor: "node",
+          type: "object",
+          properties: { child: { $dynamicRef: "#node" } },
+        },
+        strict: {
+          $id: "strict",
+          $dynamicAnchor: "node",
+          title: "node-title",
+          $ref: "tree",
+          properties: { data: { type: "integer" } },
+        },
+        loose: {
+          $id: "loose",
+          $dynamicAnchor: "node",
+          title: "node-title",
+          $ref: "tree",
+          properties: { data: { type: "string" } },
+        },
+      },
+    },
+    tests: [
+      {
+        description: "strict tree",
+        data: { kind: "strict", data: 1, child: { data: 2 } },
+        valid: true,
+      },
+      {
+        description: "strict tree, string leaf",
+        data: { kind: "strict", child: { data: "x" } },
+        valid: false,
+      },
+      {
+        description: "loose tree",
+        data: { data: "s", child: { data: "t" } },
+        valid: true,
+      },
+      {
+        description: "loose tree, integer leaf",
+        data: { child: { data: 3 } },
+        valid: false,
+      },
+      {
+        description: "non-object child",
+        data: { child: { child: "x" } },
+        valid: false,
+      },
+    ],
+  },
+} as const satisfies Record<string, DynamicSeedGroup>;
+
+export type DynamicSeedName = keyof typeof DYNAMIC_SEEDS;
+
+/** {@link DYNAMIC_SEEDS} in a fixed order, for the differential corpora. */
+export const DYNAMIC_SEED_GROUPS: readonly DynamicSeedGroup[] =
+  Object.values(DYNAMIC_SEEDS);

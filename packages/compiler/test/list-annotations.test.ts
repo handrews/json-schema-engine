@@ -7,6 +7,7 @@
 // falls out of mark/truncate), so equality is strict and deep.
 
 import { describe, it, expect } from "vitest";
+import { DYNAMIC_SEEDS } from "@json-schema-engine/test-kit";
 import {
   createEngine,
   type AnnotationSelection,
@@ -116,7 +117,7 @@ describe("compiled annotations vs interpreter", () => {
     expectMatch(schema, "x"); // if fails -> else
   });
 
-  it("harvests annotations from an interpreted $dynamicRef island", () => {
+  it("collects annotations through a statically resolved $dynamicRef", () => {
     const schema = {
       $id: "https://ann.example/dyn",
       $defs: {
@@ -130,9 +131,35 @@ describe("compiled annotations vs interpreter", () => {
     const engine = createEngine();
     const uri = engine.registerSchema(schema, "https://ann.example/dyn-root");
     const artifact = compileList(engine, uri, { annotations: true });
+    // The site resolves at plan time (ADR 0004): no trampoline target.
+    expect(artifact.plan.targets).toHaveLength(0);
+    const instance = { child: {} };
+    const compiled = artifact.evaluateList(instance);
+    const interpreted = engine.evaluate(uri, instance, {
+      output: "list",
+      annotations: true,
+    });
+    expect(compiled.valid).toBe(interpreted.valid);
+    expect(compiled.annotations).toStrictEqual(interpreted.annotations);
+    expect(
+      (compiled.annotations ?? []).some(
+        (u) =>
+          (u as { annotation: unknown }).annotation === "node-title" &&
+          (u as { inputLocation: string }).inputLocation === "/child",
+      ),
+    ).toBe(true);
+  });
+
+  it("harvests annotations from an interpreted $dynamicRef island", () => {
+    // An unstable site keeps islanding; its target's title comes back
+    // through the trampoline's harvest.
+    const schema = DYNAMIC_SEEDS.unstableRecursive.schema;
+    const engine = createEngine();
+    const uri = engine.registerSchema(schema, "https://ann.example/dyn-island");
+    const artifact = compileList(engine, uri, { annotations: true });
     // The island must actually be interpreted (a trampoline target exists).
     expect(artifact.plan.targets.length).toBeGreaterThan(0);
-    const instance = { child: {} };
+    const instance = { kind: "strict", child: {} };
     const compiled = artifact.evaluateList(instance);
     const interpreted = engine.evaluate(uri, instance, {
       output: "list",

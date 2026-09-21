@@ -227,7 +227,10 @@ first slice.
   OAS 3.1 plan to a single interpreted unit, ~230–400× behind AJV on
   dynamic-coverage shapes).
 - **Dynamic islands, cycles, unlowerables, non-schema refs**: exactly
-  the current fallback causes.
+  the current fallback causes. (Since ADR 0004, 2026-09-21, a
+  `$dynamicRef` site whose target is the same on every reaching path is
+  resolved at plan time and compiled; only unstable sites and
+  `$recursiveRef` remain dynamic islands.)
 - **Trace-shaped outputs**: hierarchical/verbose/modern LIST documents
   and `trace: true` remain interpreter renderings over `allProductions`
   and the trace tree; nothing here changes them.

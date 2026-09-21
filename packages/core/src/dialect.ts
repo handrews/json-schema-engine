@@ -41,6 +41,15 @@ export interface SubschemaApplication {
   sibling?: string;
   /** for reference keywords: the reference value, resolved against the lexical base at plan time (path is ignored) */
   ref?: string;
+  /**
+   * How `ref` resolves. Absent: lexically, like `$ref`. `"dynamic"`: 2020-12
+   * dynamic-scope rebinding by anchor name (`KeywordContext.resolveDynamic`);
+   * the compiler discharges such a site at plan time when every path that can
+   * reach it resolves to the same target, and islands it otherwise.
+   * `"recursive"`: 2019-09 `$recursiveRef` (`KeywordContext.resolveRecursive`),
+   * which the compiler has no static resolver for.
+   */
+  resolution?: "dynamic" | "recursive";
   mode:
     | "inPlace" // same cursor (allOf/anyOf/oneOf/not/if/$ref)
     | "childByKey" // fixed property name (properties entries)
@@ -93,7 +102,12 @@ export interface StaticFacts {
    * under the refuse-unknown posture (see keywords/format.ts)
    */
   formats?: readonly string[];
-  /** participates in dynamic scope resolution ($dynamicRef and friends) */
+  /**
+   * participates in dynamic scope resolution ($dynamicRef and friends). The
+   * compiler islands the schema object unless every application the keyword
+   * declares carries a `resolution` it can discharge statically
+   * (`SubschemaApplication.resolution`).
+   */
   dynamicScopeSensitive?: boolean;
   /** static evaluated-name contribution (D9a; see {@link NameCoverage}) */
   evaluatesNames?: NameCoverage;

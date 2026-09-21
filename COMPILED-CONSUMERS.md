@@ -27,7 +27,9 @@ nested tracked consumers island rather than nest channels. Measured
 outcomes against §1's baselines: the §1.1 dynamic rows recover from
 1/229 and 1/391 of AJV to **0.39×/0.73× AJV** (the §1.3 "AJV-class,
 spec-correct" target); the OAS 3.1 corpus plans as **367 units with
-only the 4 `$dynamicRef` islands interpreted** (was 1 interpreted unit)
+only the 4 `$dynamicRef` islands interpreted** (was 1 interpreted unit;
+since ADR 0004, 2026-09-21, those four sites resolve at plan time and the
+corpus plans with zero interpreted units, compiled flag ~250k ops/s)
 and compiled flag reaches **~40.6k ops/s** — ~19× the §1.2 baseline,
 exceeding the consumers-stripped bound measured there and ~13× ahead of
 Hyperjump. Stage 3 lifts the list-mode demotion: list plans never
@@ -238,8 +240,8 @@ the compiled calling convention:
    after ~20k honest fuzz cases. Assume the first design here is
    subtly wrong somewhere and budget for the fuzzer to find it.
 
-5. **Islands inside consumer regions.** A `$dynamicRef` (or cycle)
-   island applied in-place under a consumer must contribute coverage.
+5. **Islands inside consumer regions.** An unstable `$dynamicRef` (ADR 0004) or cycle island applied in-place under a consumer must
+   contribute coverage.
    `evaluateFragment` already returns root-frame surviving productions
    with cursor identity, and `makeRuntime`'s flag predicate already
    records consumed ids for exactly this reason (runtime.ts:96–99) —

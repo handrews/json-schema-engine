@@ -50,6 +50,7 @@ import {
   subjectFromFactory,
   ANNOTATION_SEED_GROUPS,
   CONSUMER_SEED_GROUPS,
+  DYNAMIC_SEED_GROUPS,
   type DifferentialFactory,
 } from "@json-schema-engine/test-kit";
 
@@ -303,6 +304,19 @@ function main(): void {
     registrable.push({
       file: "consumer-seeds",
       fi: files.length + 1,
+      gi,
+      group,
+    });
+  });
+  // `$dynamicRef` corpus (ADR 0004): statically resolved sites (recursion
+  // through resolved targets included) and unstable sites through the
+  // trampoline, in every mode.
+  DYNAMIC_SEED_GROUPS.forEach((group, gi) => {
+    const baseUri = `https://fuzz.example/dynamic-seeds/${String(gi)}`;
+    if (factoryFor(baseUri).prepare(group.schema) === undefined) return;
+    registrable.push({
+      file: "dynamic-seeds",
+      fi: files.length + 2,
       gi,
       group,
     });

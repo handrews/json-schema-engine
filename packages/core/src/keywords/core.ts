@@ -64,7 +64,10 @@ export const notImplemented = (
   },
 });
 
-const referenceFacts = (value: JsonValue): StaticFacts =>
+const referenceFacts = (
+  value: JsonValue,
+  resolution?: "dynamic" | "recursive",
+): StaticFacts =>
   typeof value === "string"
     ? {
         references: [value],
@@ -73,6 +76,7 @@ const referenceFacts = (value: JsonValue): StaticFacts =>
           {
             path: [],
             ref: value,
+            ...(resolution === undefined ? {} : { resolution }),
             mode: "inPlace",
             conditional: false,
             asserts: true,
@@ -82,37 +86,51 @@ const referenceFacts = (value: JsonValue): StaticFacts =>
     : {};
 
 /**
+ * The compiled form of a reference keyword: one in-place apply carrying the
+ * reference string. The plan, not the IR, holds the target — the compiler
+ * resolves `$ref` lexically and a stable `$dynamicRef` by its dynamic-scope
+ * analysis, and matches this apply to the planned edge by keyword and `ref`.
+ */
+const lowerReference: NonNullable<KeywordBehavior["lower"]> = (value, lctx) => {
+  lctx.emit({
+    kind: "apply",
+    apply: {
+      path: [],
+      ref: value as string,
+      cursor: { kind: "here" },
+      fold: "allMustPass",
+    },
+  });
+};
+
+/**
  * EXEMPLAR (reference class): resolve against the lexical base, apply the
  * target at the same cursor. The engine owns the evaluation-path extension
  * and the frame, so a reference behavior is one line.
  */
 export const $ref: KeywordBehavior = {
   id: `${VOCAB_CORE}#$ref`,
-  analyze: referenceFacts,
+  analyze: (value) => referenceFacts(value),
   evaluate: (value, _cursor, ctx) =>
     ctx.applyResolved(ctx.resolveRef(value as string)),
-  lower: (value, lctx) => {
-    lctx.emit({
-      kind: "apply",
-      apply: {
-        path: [],
-        ref: value as string,
-        cursor: { kind: "here" },
-        fold: "allMustPass",
-      },
-    });
-  },
+  lower: lowerReference,
 };
 
-/** `$dynamicRef` (D8): resolves with dynamic-scope rebinding. */
+/**
+ * `$dynamicRef` (D8): resolves with dynamic-scope rebinding. Lowers exactly
+ * like `$ref`: the compiler either proves the site's resolution the same on
+ * every reaching path and plans the target as a static edge, or islands the
+ * schema object (`dynamicScopeSensitive`).
+ */
 export const $dynamicRef: KeywordBehavior = {
   id: `${VOCAB_CORE}#$dynamicRef`,
   analyze: (value) => ({
-    ...referenceFacts(value),
+    ...referenceFacts(value, "dynamic"),
     dynamicScopeSensitive: true,
   }),
   evaluate: (value, _cursor, ctx) =>
     ctx.applyResolved(ctx.resolveDynamic(value as string)),
+  lower: lowerReference,
 };
 
 // 2019-09 core vocabulary: $recursiveRef/$recursiveAnchor are D8's degenerate
@@ -127,7 +145,7 @@ export const VOCAB_CORE_2019 =
 export const $recursiveRef: KeywordBehavior = {
   id: `${VOCAB_CORE_2019}#$recursiveRef`,
   analyze: (value) => ({
-    ...referenceFacts(value),
+    ...referenceFacts(value, "recursive"),
     dynamicScopeSensitive: true,
   }),
   evaluate: (value, _cursor, ctx) =>

@@ -6,6 +6,21 @@
 
 import type { CompilationPlan, FallbackCause } from "./plan.js";
 
+/** One `$dynamicRef` site the planner resolved statically (ADR 0004). */
+export interface ResolvedDynamicSite {
+  /** canonical key of the unit holding the keyword */
+  unit: string;
+  keyword: string;
+  ref: string;
+  /** canonical key of the resolved target */
+  target: string;
+  /**
+   * the resource whose `$dynamicAnchor` wins on every reaching path, or
+   * `null` when the site resolves lexically (`DynamicResolution.winner`)
+   */
+  winner: string | null;
+}
+
 /** Aggregate view of one {@link CompilationPlan}'s unit classification. */
 export interface CompilationExplanation {
   /** Every planned unit, static or not. */
@@ -29,6 +44,12 @@ export interface CompilationExplanation {
   trackingUnits: number;
   /** Static units in some tracked unit's in-place coverage region (phase B). */
   regionUnits: number;
+  /**
+   * `$dynamicRef` sites discharged at plan time and compiled as static edges
+   * — the "why did this site not island" answer. Sorted by unit key, then
+   * keyword, then reference.
+   */
+  resolvedDynamicSites: ResolvedDynamicSite[];
 }
 
 /** Summarizes a plan's classification for census gates and diagnostics. */
@@ -41,9 +62,21 @@ export function explainCompilation(
   let reachesInterpretedCount = 0;
   let trackingUnits = 0;
   let regionUnits = 0;
+  const resolvedDynamicSites: ResolvedDynamicSite[] = [];
   for (const unit of plan.units.values()) {
-    if (unit.kind === "static") staticUnits++;
-    else {
+    if (unit.kind === "static") {
+      staticUnits++;
+      for (const edge of unit.edges) {
+        if (edge.dynamic === undefined) continue;
+        resolvedDynamicSites.push({
+          unit: unit.key,
+          keyword: edge.keyword,
+          ref: edge.app.ref ?? "",
+          target: edge.targetKey,
+          winner: edge.dynamic.winner,
+        });
+      }
+    } else {
       interpretedKeys.push(unit.key);
       if (unit.cause !== undefined) {
         causes[unit.cause] = (causes[unit.cause] ?? 0) + 1;
@@ -54,6 +87,12 @@ export function explainCompilation(
     if (unit.inRegion) regionUnits++;
   }
   interpretedKeys.sort();
+  resolvedDynamicSites.sort(
+    (a, b) =>
+      a.unit.localeCompare(b.unit) ||
+      a.keyword.localeCompare(b.keyword) ||
+      a.ref.localeCompare(b.ref),
+  );
   return {
     totalUnits: plan.units.size,
     staticUnits,
@@ -63,5 +102,6 @@ export function explainCompilation(
     reachesInterpretedCount,
     trackingUnits,
     regionUnits,
+    resolvedDynamicSites,
   };
 }
