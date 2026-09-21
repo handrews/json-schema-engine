@@ -263,3 +263,22 @@ describe("surface semantics", () => {
     expect(fn([1])).toBe(false);
   });
 });
+
+describe("unicodeRegExp (AJV default true)", () => {
+  // AJV compiles patterns with the `u` flag and no fallback (docs:
+  // unicodeRegExp default true), so a pattern only the non-unicode grammar
+  // accepts fails at compile; `false` restores the legacy grammar.
+  const schema = { type: "string", pattern: "^\\a$" };
+
+  it("rejects a legacy-only pattern at compile by default", () => {
+    const ajv = new Ajv2020({ logger: false });
+    expect(() => ajv.compile(schema)).toThrow(/unicode mode/);
+  });
+
+  it("compiles it under unicodeRegExp: false, matching the letter a", () => {
+    const ajv = new Ajv2020({ logger: false, unicodeRegExp: false });
+    const validate = ajv.compile(schema);
+    expect(validate("a")).toBe(true);
+    expect(validate("b")).toBe(false);
+  });
+});

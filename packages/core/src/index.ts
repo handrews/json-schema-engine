@@ -261,12 +261,12 @@ export interface EngineOptions {
   /**
    * Reject a schema at registration when a `pattern`/`patternProperties`
    * regex is not valid under ECMA-262 unicode mode (the `u` flag), throwing
-   * {@link NonUnicodeRegexError}. Off by default: such a pattern otherwise
-   * compiles through the non-unicode grammar's Annex B extensions
-   * ({@link classifyRegex} reports it as `"legacy"`), which is lenient
-   * toward existing schemas but not what JSON Schema specifies and not
-   * portable to other implementations. A pattern invalid under both
-   * grammars is rejected as well.
+   * {@link NonUnicodeRegexError}; a pattern invalid under both grammars is
+   * rejected as well. On by default: that is the grammar JSON Schema
+   * specifies and the one AJV compiles with. `false` lets such a pattern
+   * compile through the non-unicode grammar's Annex B extensions instead
+   * ({@link classifyRegex} reports it as `"legacy"`) — a compatibility
+   * setting for schemas that other validators would also reject.
    */
   strictUnicodeRegex?: boolean;
   /**
@@ -375,7 +375,7 @@ export class Engine {
         }
       });
     }
-    if (options.strictUnicodeRegex) {
+    if (options.strictUnicodeRegex !== false) {
       screens.push((pattern, location) => {
         const kind = classifyRegex(pattern);
         if (kind === "legacy") {

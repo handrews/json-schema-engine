@@ -115,12 +115,17 @@ export interface Options {
   discriminator?: boolean;
   // Loud failure.
   $data?: boolean;
+  /**
+   * AJV's default (`true`) compiles patterns in ECMA-262 unicode mode with no
+   * fallback; maps onto the engine's `strictUnicodeRegex`, whose default is
+   * the same. `false` restores the non-unicode grammar's Annex B extensions.
+   */
+  unicodeRegExp?: boolean;
   // Accepted-and-ignored codegen/perf hints.
   inlineRefs?: boolean | number;
   loopRequired?: number;
   loopEnum?: number;
   ownProperties?: boolean;
-  unicodeRegExp?: boolean;
   multipleOfPrecision?: number;
   code?: Record<string, unknown>;
   meta?: boolean;
@@ -320,6 +325,7 @@ export class Ajv {
       const engine = createEngine({
         defaultDialect: this.dialectUri(),
         validateSchemas: true,
+        strictUnicodeRegex: this.opts.unicodeRegExp !== false,
       });
       for (const [key, doc] of this.metaDocs) engine.registerSchema(doc, key);
       engine.registerSchema(
@@ -568,6 +574,7 @@ export class Ajv {
             assertFormats: this.opts.validateFormats !== false,
           }),
       ...(this.opts.validateSchema === false ? {} : { validateSchemas: true }),
+      strictUnicodeRegex: this.opts.unicodeRegExp !== false,
       ...(extraLoaders.length > 0 ? { loaders: extraLoaders } : {}),
     });
     for (const [key, doc] of this.metaDocs) engine.registerSchema(doc, key);

@@ -1,7 +1,8 @@
 // `strictUnicodeRegex` (EngineOptions): a `pattern`/`patternProperties`
 // regex that only the non-unicode (Annex B) grammar accepts is rejected at
-// registration instead of compiling through schemaRegExp's fallback. The
-// default stays lenient, and the screen composes with `rejectUnsafeRegex`.
+// registration instead of compiling through schemaRegExp's fallback. On by
+// default (the grammar the spec cites and AJV's default); `false` restores
+// the fallback; the screen composes with `rejectUnsafeRegex`.
 
 import { describe, it, expect } from "vitest";
 import {
@@ -28,8 +29,15 @@ describe("classifyRegex", () => {
 });
 
 describe("strictUnicodeRegex", () => {
-  it("is off by default: a legacy-only pattern compiles through the fallback", () => {
+  it("is on by default: a legacy-only pattern is rejected at registration", () => {
     const engine = createEngine();
+    expect(() =>
+      engine.registerSchema({ pattern: LEGACY }, "https://rx.example/default"),
+    ).toThrow(NonUnicodeRegexError);
+  });
+
+  it("with `false`, a legacy-only pattern compiles through the fallback", () => {
+    const engine = createEngine({ strictUnicodeRegex: false });
     const uri = engine.registerSchema(
       { pattern: LEGACY },
       "https://rx.example/lenient",

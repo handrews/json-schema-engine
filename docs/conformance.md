@@ -416,16 +416,17 @@ alternation such as `(a|a)*`. A linear-time engine injected through
 `regexEngine` is the only hard guarantee. Built-in metaschemas are
 deliberately not screened.
 
-**`pattern` falls back to the non-unicode regex grammar.** JSON Schema
-specifies ECMA-262 regular expressions with Unicode semantics; JSE compiles
-`pattern` and `patternProperties` in unicode mode and, when the unicode
-grammar rejects the pattern, retries under the non-unicode grammar with its
-Annex B extensions (identity escapes such as `\a`). That leniency keeps
-existing schemas working and is what the official `pattern` cases exercise;
-`strictUnicodeRegex` makes it a registration error
+**Regular expressions are unicode-mode only, with an opt-out.** JSON Schema
+cites the ECMA-262 §21.2.1 grammar and the `u` flag; JSE compiles `pattern`
+and `patternProperties` in unicode mode and, by default, rejects at
+registration a pattern only the non-unicode grammar's Annex B extensions
+accept (identity escapes such as `\a`). No official-suite group and no
+schema in the SchemaStore catalog (1 181 distinct patterns, surveyed
+2026-09-21) needs the legacy grammar, and AJV has compiled with `u` and no
+fallback since v7. `strictUnicodeRegex: false` restores the fallback
 ([security guide](guide/security.md#unicode-mode-regular-expressions)). The
-`regex` format has no such fallback: it accepts exactly the unicode grammar,
-which is what `optional/format/ecmascript-regex.json` requires.
+`regex` format never falls back, which is what
+`optional/format/ecmascript-regex.json` requires.
 
 **The CSP check skips island-bearing schemas.** Only fully-static schemas emit
 standalone modules; schemas needing the interpreter at runtime are counted and

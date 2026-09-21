@@ -295,9 +295,10 @@ describe("codegen injection corpus (M6.3)", () => {
   });
 
   it("hostile patternProperties keys and subschemas stay data", () => {
-    // patternProperties keys are regex sources — must be valid regexes that
-    // still carry code-hostile characters.
-    for (const key of ['a`${x}"', "/\\*x\\*/", "[\"'`]", "k k"]) {
+    // patternProperties keys are regex sources — must be valid regexes (in
+    // unicode mode, the engine's default) that still carry code-hostile
+    // characters; lone `{` and `}` are SyntaxErrors there, hence the escapes.
+    for (const key of ['a`$\\{x\\}"', "/\\*x\\*/", "[\"'`]", "k k"]) {
       const guard = guardGlobals();
       const { source: emitted, evaluatorSource } = checkAgreement(
         { patternProperties: { [key]: { type: "string" } } },
