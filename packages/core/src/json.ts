@@ -99,7 +99,9 @@ export function schemaRegExp(pattern: string): RegExp {
 
 /** Escapes a JSON Pointer segment (RFC 6901). */
 export const escapeSegment = (s: string): string =>
-  s.replace(/~/g, "~0").replace(/\//g, "~1");
+  s.includes("~") || s.includes("/")
+    ? s.replace(/~/g, "~0").replace(/\//g, "~1")
+    : s;
 
 /** Unescapes a JSON Pointer segment (RFC 6901). */
 export const unescapeSegment = (s: string): string =>

@@ -363,10 +363,15 @@ function serializeUnit(
 
   const body: CodeChunk[] = [];
   if (unit.reachesInterpreted) {
-    // Dynamic-scope contribution: appended once per application, duplicates
-    // harmless (outermost-first resolution). Only threaded where a fragment
-    // can consume it.
-    body.push(js`${S} = [...${S}, ${str(unit.ref.baseUri)}];`);
+    // Dynamic-scope contribution, only threaded where a fragment can
+    // consume it. Resolution takes the outermost hit, so a unit whose
+    // resource is already on top contributes nothing: the copy is made only
+    // when the resource changes (one per resource boundary on the path,
+    // instead of one per application).
+    const uri = str(unit.ref.baseUri);
+    body.push(
+      js`${S} = ${S}[${S}.length - 1] === ${uri} ? ${S} : [...${S}, ${uri}];`,
+    );
   }
   if (trace) body.push(enterNode);
 

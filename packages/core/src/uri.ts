@@ -26,10 +26,21 @@ export interface SplitUri {
 /** Splits a URI into its resource and decoded fragment parts. */
 export function splitFragment(uri: string): SplitUri {
   const i = uri.indexOf("#");
-  return i === -1
-    ? { resource: uri, fragment: null }
-    : {
-        resource: uri.slice(0, i),
-        fragment: decodeURIComponent(uri.slice(i + 1)),
-      };
+  if (i === -1) return { resource: uri, fragment: null };
+  const raw = uri.slice(i + 1);
+  // Percent-decoding is the identity on a `%`-free string; skip the call
+  // (and its per-call allocation) on the common case.
+  return {
+    resource: uri.slice(0, i),
+    fragment: raw.includes("%") ? decodeURIComponent(raw) : raw,
+  };
+}
+
+/**
+ * Resolves a reference against a base and splits the result: the one parse
+ * every reference lookup needs.
+ * @throws UnresolvableRefError if the pair does not form a valid URI.
+ */
+export function resolveSplit(ref: string, base: string): SplitUri {
+  return splitFragment(resolveUri(ref, base));
 }

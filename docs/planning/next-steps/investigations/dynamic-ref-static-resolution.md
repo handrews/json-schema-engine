@@ -176,6 +176,49 @@ interpreter improvement, and they are worth doing only after the proposal,
 which makes the interpreter irrelevant to the compiled tier's hot path on
 this class of schema.
 
+### Delivered (2026-09-21, after ADR 0004)
+
+All six items landed as one commit each, in this order, every one green
+under the full gate (verify, the fuzz legs, the harness's document-equality
+oracles, the spike gate):
+
+| Item | What landed                                                                                                                                                                                                                                                                                       |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | `resolveRef` and `dynamicReference` memoized per (base, reference); one parse per lookup; `%`-free fragments skip decoding. Invalidated by `register()` and by a dialect registration (`DialectRegistry.generation`); a snapshot keeps its memo. Only `UnresolvableRefError` is memoized, capped. |
+| 3    | One interned `SchemaRef` per location with its `key` built once; the cycle guard is two parallel stacks scanned from the top and stopped at the first entry shallower in the instance (cursors carry `depth`); trace stack allocated only when tracing; adjacent duplicate scope pushes skipped.  |
+| 4    | A per-node keyword table on the interned ref (present entries in evaluation order, unknown names in key order, the draft-07 `$ref` rule precomputed), validated by dialect identity; `dialectFor` cached per resource; the keyword context takes the dialect entry directly.                      |
+| 5    | `registry.child` memoized one hop per segment on the interned ref, under the identifier extractor in force; misses and stale refs are never memoized; own-property indexing only.                                                                                                                 |
+| 6    | `createFragmentRunner`: a flag-mode `EvalState` reset and reused per call, re-entrant with a fallback state, discarded after a throw; used by the compiled `frag` trampoline and by `Engine.evaluate`'s flag output.                                                                              |
+| 2    | Compiled units guard the scope push on the top entry, so the copy happens once per resource boundary instead of once per unit.                                                                                                                                                                    |
+
+Harness, this branch versus `main` at `6430363` (ops/s ratio; the same
+machine and Node as the measurements above):
+
+| Corpus          | interpreter flag, hot | interpreter list+annotations, hot | compile+first, interpreter | compiled flag, hot |
+| --------------- | --------------------: | --------------------------------: | -------------------------: | -----------------: |
+| api-payload     |   5.91× (31 → 5.3 µs) |                             3.55× |                      1.34× |      0.94× (noise) |
+| oas-document    |  4.79× (514 → 107 µs) |                             3.56× |                      1.67× |              0.97× |
+| migration       |  5.03× (9.0 → 1.8 µs) |                             2.85× |                      1.21× |              1.01× |
+| records-uniform |   3.57× (24 → 6.7 ms) |                             2.93× |                      3.51× |              1.06× |
+| records-sparse  |   3.57× (27 → 7.6 ms) |                             2.78× |                      3.44× |              0.99× |
+
+No jse row fell below 0.92× of `main`; run-to-run noise on the same tree is
+about 5%. The api-payload profile went from `applySchemaAtDepth` 35% /
+`enter`+`exit` 27% / `escapeSegment` 10% to keyword evaluation itself
+(applicator and validation behaviors) as the top entries. One island entry
+(a 2019-09 `$recursiveRef` root) costs 0.62 µs compiled after item 6, from
+0.64 before it: the state allocation was already cheap once the rest of
+the per-entry work was gone.
+
+Decided against: a `#`-fragment fast path around `new URL`. It is not
+exactly equivalent (`new URL` strips control characters and normalizes the
+base, so a document registered at `https://a` fails `#`-refs today and
+would start succeeding), and once resolution is memoized the parse happens
+once per (base, reference) per registry generation. Not done either: a
+hoisted constant scope for single-resource artifacts, which would save one
+small array per evaluation and would need a standalone-preamble variant.
+The external comparison document's interpreter rows predate this work.
+
 ## Validation
 
 - Full-suite differentials for the compiled tier (flag, list, annotations,

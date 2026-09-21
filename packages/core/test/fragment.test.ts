@@ -5,6 +5,7 @@
 import { describe, it, expect } from "vitest";
 import {
   createEngine,
+  createFragmentRunner,
   evaluateFragment,
   materializePath,
   MaxDepthExceededError,
@@ -179,5 +180,165 @@ describe("evaluateFragment with tracing", () => {
     expect(r.traceRoot).toBeNull();
     expect(r.droppedErrors).toEqual([]);
     expect(r.allAnnotations).toEqual([]);
+  });
+});
+
+describe("createFragmentRunner (flag-mode state reuse)", () => {
+  it("gives independent verdicts across calls: nothing accumulates", () => {
+    const engine = createEngine();
+    const uri = engine.registerSchema(
+      { $defs: { name: { type: "string", minLength: 2 } } },
+      "https://frag.example/runner",
+    );
+    const target = engine.registry.resolveRef(`${uri}#/$defs/name`, uri);
+    const runner = createFragmentRunner(engine.registry);
+    expect(runner.valid(target, rootCursor("a"), undefined, 0)).toBe(false);
+    expect(runner.valid(target, rootCursor("ab"), undefined, 0)).toBe(true);
+    expect(runner.valid(target, rootCursor(1), undefined, 0)).toBe(false);
+    expect(runner.valid(target, rootCursor("abc"), undefined, 0)).toBe(true);
+  });
+
+  it("resolves $dynamicRef through the passed-in scope, per call", () => {
+    const engine = createEngine();
+    const base = engine.registerSchema(
+      {
+        $defs: { item: { $dynamicAnchor: "item", type: "number" } },
+        items: { $dynamicRef: "#item" },
+      },
+      "https://frag.example/runner-base",
+    );
+    const ext = engine.registerSchema(
+      {
+        $defs: { item: { $dynamicAnchor: "item", type: "string" } },
+        $ref: base,
+      },
+      "https://frag.example/runner-ext",
+    );
+    const target = engine.registry.resolveRef(`${base}#/items`, base);
+    const runner = createFragmentRunner(engine.registry);
+    expect(runner.valid(target, rootCursor("x"), [ext, base], 0)).toBe(true);
+    expect(runner.valid(target, rootCursor("x"), [base], 0)).toBe(false);
+    expect(runner.valid(target, rootCursor(1), [ext, base], 0)).toBe(false);
+    expect(runner.valid(target, rootCursor(1), [base], 0)).toBe(true);
+  });
+
+  it("is re-entrant: a keyword calling back in gets its own state", () => {
+    const VOCAB = "urn:frag:vocab";
+    const DIALECT = "urn:frag:dialect";
+    const engine = createEngine();
+    const box: {
+      runner?: ReturnType<typeof createFragmentRunner>;
+      inner?: ReturnType<typeof engine.registry.rootRef>;
+    } = {};
+    // `nested`: valid iff the runner says the `inner` member validates.
+    engine.registerVocabulary(VOCAB, {
+      nested: {
+        id: `${VOCAB}#nested`,
+        evaluate: (_value, cursor) => {
+          const v = cursor.value;
+          if (typeof v !== "object" || v === null || Array.isArray(v)) {
+            return true;
+          }
+          return box.runner!.valid(
+            box.inner!,
+            rootCursor(v.inner ?? null),
+            undefined,
+            0,
+          );
+        },
+      },
+    });
+    engine.registerDialect(DIALECT, [
+      "https://json-schema.org/draft/2020-12/vocab/core",
+      "https://json-schema.org/draft/2020-12/vocab/validation",
+      VOCAB,
+    ]);
+    const uri = engine.registerSchema(
+      { $defs: { inner: { type: "integer", minimum: 1 } }, nested: true },
+      "https://frag.example/reenter",
+      DIALECT,
+    );
+    box.inner = engine.registry.resolveRef("#/$defs/inner", uri);
+    const runner = createFragmentRunner(engine.registry);
+    box.runner = runner;
+    const outer = engine.registry.rootRef(uri);
+    expect(runner.valid(outer, rootCursor({ inner: 2 }), undefined, 0)).toBe(
+      true,
+    );
+    expect(runner.valid(outer, rootCursor({ inner: 0 }), undefined, 0)).toBe(
+      false,
+    );
+    expect(runner.valid(outer, rootCursor({ inner: "x" }), undefined, 0)).toBe(
+      false,
+    );
+    expect(runner.valid(outer, rootCursor({ inner: 5 }), undefined, 0)).toBe(
+      true,
+    );
+  });
+
+  it("stays usable after a keyword throws", () => {
+    const VOCAB = "urn:frag:boom";
+    const DIALECT = "urn:frag:boom-dialect";
+    const engine = createEngine();
+    engine.registerVocabulary(VOCAB, {
+      boom: {
+        id: `${VOCAB}#boom`,
+        evaluate: (_value, cursor) => {
+          if (cursor.value === "boom") throw new Error("boom");
+          return true;
+        },
+      },
+    });
+    engine.registerDialect(DIALECT, [
+      "https://json-schema.org/draft/2020-12/vocab/core",
+      "https://json-schema.org/draft/2020-12/vocab/validation",
+      VOCAB,
+    ]);
+    const uri = engine.registerSchema(
+      { boom: true, type: "string", minLength: 2 },
+      "https://frag.example/boom",
+      DIALECT,
+    );
+    const target = engine.registry.rootRef(uri);
+    const runner = createFragmentRunner(engine.registry);
+    expect(() =>
+      runner.valid(target, rootCursor("boom"), undefined, 0),
+    ).toThrow("boom");
+    expect(runner.valid(target, rootCursor("ok"), undefined, 0)).toBe(true);
+    expect(runner.valid(target, rootCursor("k"), undefined, 0)).toBe(false);
+  });
+
+  it("backs Engine.evaluate's flag output, re-entrantly", () => {
+    const VOCAB = "urn:frag:engine";
+    const DIALECT = "urn:frag:engine-dialect";
+    const engine = createEngine();
+    engine.registerVocabulary(VOCAB, {
+      viaEngine: {
+        id: `${VOCAB}#viaEngine`,
+        evaluate: (value, cursor) =>
+          typeof value === "string"
+            ? engine.evaluate(value, cursor.value).valid
+            : true,
+      },
+    });
+    engine.registerDialect(DIALECT, [
+      "https://json-schema.org/draft/2020-12/vocab/core",
+      "https://json-schema.org/draft/2020-12/vocab/validation",
+      VOCAB,
+    ]);
+    const leaf = engine.registerSchema(
+      { type: "integer" },
+      "https://frag.example/engine-leaf",
+    );
+    const uri = engine.registerSchema(
+      { viaEngine: leaf, minimum: 1 },
+      "https://frag.example/engine-root",
+      DIALECT,
+    );
+    expect(engine.evaluate(uri, 3).valid).toBe(true);
+    expect(engine.evaluate(uri, 0).valid).toBe(false);
+    expect(engine.evaluate(uri, 1.5).valid).toBe(false);
+    expect(engine.evaluate(uri, 2).valid).toBe(true);
+    expect(engine.evaluate(uri, 0, { output: "list" }).errors).toHaveLength(1);
   });
 });

@@ -4,7 +4,7 @@ const h_maxd = R.maxDepth;
 const h_s0 = [];
 const h_hop = Object.prototype.hasOwnProperty;
 function u0(v, d, s, ep, ip, errs) { if (d >= h_maxd) h_deep(); d++;
-s = [...s, "https://codegen.example/island"];
+s = s[s.length - 1] === "https://codegen.example/island" ? s : [...s, "https://codegen.example/island"];
 let ok = true;
  const m1 = errs.length; const m0 = u1(v, d, s, ep + "/if", ip, errs); errs.length = m1; if (m0) { if (!u3(v, d, s, ep + "/then", ip, errs)) { ok = false; } } else { if (!u7(v, d, s, ep + "/else", ip, errs)) { ok = false; } }
 return ok; }
@@ -19,12 +19,12 @@ function u2(v, d, s, ep, ip, errs) { let ok = true;
 if (!((v === "strict"))) { ok = false; errs.push({ evaluationPath: ep + "/const", schemaLocation: "https://codegen.example/island#/if/properties/kind/const", inputLocation: ip, error: "does not equal the required constant", keyword: "const", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "allowedValue": "strict" } }); }
 return ok; }
 function u3(v, d, s, ep, ip, errs) { if (d >= h_maxd) h_deep(); d++;
-s = [...s, "https://codegen.example/island"];
+s = s[s.length - 1] === "https://codegen.example/island" ? s : [...s, "https://codegen.example/island"];
 let ok = true;
 if (!u4(v, d, s, ep + "/$ref", ip, errs)) { ok = false; }
 return ok; }
 function u4(v, d, s, ep, ip, errs) { if (d >= h_maxd) h_deep(); d++;
-s = [...s, "https://codegen.example/strict"];
+s = s[s.length - 1] === "https://codegen.example/strict" ? s : [...s, "https://codegen.example/strict"];
 const g0 = (typeof v === "object" && v !== null && !Array.isArray(v));
 let ok = true;
 if (!u5(v, d, s, ep + "/$ref", ip, errs)) { ok = false; }
@@ -32,7 +32,7 @@ if ((g0 && ("data" in v))) { if (!u6(v["data"], d, s, ep + "/properties/data", i
 if (g0) {  }
 return ok; }
 function u5(v, d, s, ep, ip, errs) { if (d >= h_maxd) h_deep(); d++;
-s = [...s, "https://codegen.example/tree"];
+s = s[s.length - 1] === "https://codegen.example/tree" ? s : [...s, "https://codegen.example/tree"];
 const g0 = (typeof v === "object" && v !== null && !Array.isArray(v));
 let ok = true;
 if ((g0 && ("child" in v))) { if (!h_fragl(T[0], v["child"], s, d, ep + "/properties/child", ip + "/child", errs)) { ok = false; } }
@@ -43,12 +43,12 @@ function u6(v, d, s, ep, ip, errs) { let ok = true;
 if (!((typeof v === "number" && Number.isInteger(v)))) { ok = false; errs.push({ evaluationPath: ep + "/type", schemaLocation: "https://codegen.example/strict#/properties/data/type", inputLocation: ip, error: "expected type \"integer\"", keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": "integer" } }); }
 return ok; }
 function u7(v, d, s, ep, ip, errs) { if (d >= h_maxd) h_deep(); d++;
-s = [...s, "https://codegen.example/island"];
+s = s[s.length - 1] === "https://codegen.example/island" ? s : [...s, "https://codegen.example/island"];
 let ok = true;
 if (!u8(v, d, s, ep + "/$ref", ip, errs)) { ok = false; }
 return ok; }
 function u8(v, d, s, ep, ip, errs) { if (d >= h_maxd) h_deep(); d++;
-s = [...s, "https://codegen.example/loose"];
+s = s[s.length - 1] === "https://codegen.example/loose" ? s : [...s, "https://codegen.example/loose"];
 const g0 = (typeof v === "object" && v !== null && !Array.isArray(v));
 let ok = true;
 if (!u5(v, d, s, ep + "/$ref", ip, errs)) { ok = false; }

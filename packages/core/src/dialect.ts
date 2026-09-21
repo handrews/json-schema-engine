@@ -343,6 +343,16 @@ export class DialectRegistry {
   // its first registration after a snapshot, so views stay frozen for free.
   private shared = false;
   private readOnly = false;
+  private gen = 0;
+
+  /**
+   * Counts registrations: any cache keyed on a dialect lookup (the schema
+   * registry's resolution memos) is stale once this changes. A snapshot
+   * carries the value it was taken with and never advances it.
+   */
+  get generation(): number {
+    return this.gen;
+  }
 
   /**
    * A read-only view of the current registrations. Later registrations on
@@ -354,6 +364,7 @@ export class DialectRegistry {
     const view = new DialectRegistry();
     view.vocabularies = this.vocabularies;
     view.dialects = this.dialects;
+    view.gen = this.gen;
     view.readOnly = true;
     this.shared = true;
     return view;
@@ -375,6 +386,7 @@ export class DialectRegistry {
     keywords: Readonly<Record<string, KeywordBehavior>>,
   ): void {
     this.mutable();
+    this.gen++;
     this.vocabularies.set(uri, keywords);
   }
 
@@ -388,6 +400,7 @@ export class DialectRegistry {
     options: DialectOptions = {},
   ): void {
     this.mutable();
+    this.gen++;
     const keywords = new Map<string, DialectKeyword>();
     for (const vocabularyUri of vocabularyUris) {
       const vocab = this.vocabularies.get(vocabularyUri);

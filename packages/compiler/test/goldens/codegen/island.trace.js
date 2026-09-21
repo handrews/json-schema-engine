@@ -5,7 +5,7 @@ const h_s0 = [];
 const h_hop = Object.prototype.hasOwnProperty;
 const { traceState: h_tstate, traceNode: h_tnode, traceError: h_err, traceAnn: h_ann, cutErrors: h_cutE, cutAnns: h_cutA, fragTrace: h_fragt } = R;
 function u0(v, d, s, ep, ip, st, tp) { if (d >= h_maxd) h_deep(); d++;
-s = [...s, "https://codegen.example/island"];
+s = s[s.length - 1] === "https://codegen.example/island" ? s : [...s, "https://codegen.example/island"];
 const tn = h_tnode(tp, ep, "https://codegen.example/island#", ip);
 let ok = true;
 let k0 = true, k1 = true, k2 = true;
@@ -35,7 +35,7 @@ tn.keywords.push({ name: "const", valid: k0 });
 tn.valid = ok;
 return ok; }
 function u3(v, d, s, ep, ip, st, tp) { if (d >= h_maxd) h_deep(); d++;
-s = [...s, "https://codegen.example/island"];
+s = s[s.length - 1] === "https://codegen.example/island" ? s : [...s, "https://codegen.example/island"];
 const tn = h_tnode(tp, ep, "https://codegen.example/island#/then", ip);
 let ok = true;
 let k0 = true;
@@ -44,7 +44,7 @@ tn.keywords.push({ name: "$ref", valid: k0 });
 tn.valid = ok;
 return ok; }
 function u4(v, d, s, ep, ip, st, tp) { if (d >= h_maxd) h_deep(); d++;
-s = [...s, "https://codegen.example/strict"];
+s = s[s.length - 1] === "https://codegen.example/strict" ? s : [...s, "https://codegen.example/strict"];
 const tn = h_tnode(tp, ep, "https://codegen.example/strict#", ip);
 const g4 = (typeof v === "object" && v !== null && !Array.isArray(v));
 let ok = true;
@@ -57,7 +57,7 @@ tn.keywords.push({ name: "properties", valid: k1 });
 tn.valid = ok;
 return ok; }
 function u5(v, d, s, ep, ip, st, tp) { if (d >= h_maxd) h_deep(); d++;
-s = [...s, "https://codegen.example/tree"];
+s = s[s.length - 1] === "https://codegen.example/tree" ? s : [...s, "https://codegen.example/tree"];
 const tn = h_tnode(tp, ep, "https://codegen.example/tree#", ip);
 const g3 = (typeof v === "object" && v !== null && !Array.isArray(v));
 let ok = true;
@@ -77,7 +77,7 @@ tn.keywords.push({ name: "type", valid: k0 });
 tn.valid = ok;
 return ok; }
 function u7(v, d, s, ep, ip, st, tp) { if (d >= h_maxd) h_deep(); d++;
-s = [...s, "https://codegen.example/island"];
+s = s[s.length - 1] === "https://codegen.example/island" ? s : [...s, "https://codegen.example/island"];
 const tn = h_tnode(tp, ep, "https://codegen.example/island#/else", ip);
 let ok = true;
 let k0 = true;
@@ -86,7 +86,7 @@ tn.keywords.push({ name: "$ref", valid: k0 });
 tn.valid = ok;
 return ok; }
 function u8(v, d, s, ep, ip, st, tp) { if (d >= h_maxd) h_deep(); d++;
-s = [...s, "https://codegen.example/loose"];
+s = s[s.length - 1] === "https://codegen.example/loose" ? s : [...s, "https://codegen.example/loose"];
 const tn = h_tnode(tp, ep, "https://codegen.example/loose#", ip);
 const g4 = (typeof v === "object" && v !== null && !Array.isArray(v));
 let ok = true;

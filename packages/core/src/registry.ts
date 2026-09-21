@@ -8,7 +8,13 @@
 // registry gets correct identifier handling for free.
 
 import { JsonValue, isObject, escapeSegment, unescapeSegment } from "./json.js";
-import { resolveUri, splitFragment, UnresolvableRefError } from "./uri.js";
+import {
+  resolveSplit,
+  resolveUri,
+  splitFragment,
+  SplitUri,
+  UnresolvableRefError,
+} from "./uri.js";
 import { SchemaRef } from "./ref.js";
 import { Dialect, DialectRegistry, ReadOnlyRegistryError } from "./dialect.js";
 import { SourceRange } from "./loader.js";
@@ -69,6 +75,19 @@ export function describeNonSchema(node: JsonValue): string {
   return Array.isArray(node) ? "array" : typeof node;
 }
 
+// A memoized resolution failure: the message to re-throw (a fresh error per
+// call keeps stack traces honest). Only UnresolvableRefError is memoized; a
+// URIError from a bad escape or an UnknownDialectError is not a fact about
+// the registry's contents.
+class RefMiss {
+  constructor(readonly message: string) {}
+}
+
+// Bound on memoized failures per registry: a custom keyword may hand
+// ctx.resolveRef instance-derived strings, and each distinct miss would
+// otherwise be a permanent entry.
+const MAX_MEMOIZED_MISSES = 1024;
+
 /** Schema registration, identifier indexing, and reference resolution. */
 export class SchemaRegistry {
   private documents = new Map<string, JsonValue>(); // resource URI -> schema node
@@ -103,6 +122,21 @@ export class SchemaRegistry {
    * its trusted metaschemas) to enforce `rejectUnsafeRegex`.
    */
   onRegex?: (pattern: string, location: string) => void;
+  // Resolution memos, keyed by referring base then reference value. An
+  // entry can point into any resource, so register() replaces them
+  // wholesale (a snapshot keeps the maps it was handed: its answers never
+  // change), as does a dialect registration, since pointer navigation
+  // rebases per the target dialect's identifier syntax.
+  // One SchemaRef object per (canonical base URI, pointer): identity that
+  // the engine's caches key on. Keyed by resource so a (re)registration
+  // evicts exactly that resource's refs; a stale ref that user code still
+  // holds keeps working, it just stops being the interned one.
+  private interned = new Map<string, Map<string, SchemaRef>>();
+  private refMemo = new Map<string, Map<string, SchemaRef | RefMiss>>();
+  private dynMemo = new Map<string, Map<string, DynamicReference>>();
+  private dialectCache = new Map<string, Dialect>(); // resource URI -> dialect
+  private misses = 0;
+  private dialectGeneration: number;
   // Snapshots share the indexes above copy-on-write: the source copies them
   // before its first registration after a snapshot, so a view stays frozen
   // at no cost until the source changes.
@@ -113,7 +147,9 @@ export class SchemaRegistry {
     private dialectRegistry: DialectRegistry,
     private defaultDialectUri: string,
     private maxDepth: number = DEFAULT_MAX_DEPTH,
-  ) {}
+  ) {
+    this.dialectGeneration = dialectRegistry.generation;
+  }
 
   /**
    * A read-only view of the registry's current contents, over a view of the
@@ -140,9 +176,31 @@ export class SchemaRegistry {
     view.resourceLocations = this.resourceLocations;
     view.aliases = this.aliases;
     view.documentRanges = this.documentRanges;
+    view.interned = this.interned;
+    this.syncDialects();
+    view.refMemo = this.refMemo;
+    view.dynMemo = this.dynMemo;
+    view.dialectCache = this.dialectCache;
+    view.misses = this.misses;
     view.readOnly = true;
     this.shared = true;
     return view;
+  }
+
+  // Drops the memos when the dialect registry has changed underneath us.
+  private syncDialects(): void {
+    const gen = this.dialectRegistry.generation;
+    if (gen !== this.dialectGeneration) {
+      this.dialectGeneration = gen;
+      this.resetMemos();
+    }
+  }
+
+  private resetMemos(): void {
+    this.refMemo = new Map();
+    this.dynMemo = new Map();
+    this.dialectCache = new Map();
+    this.misses = 0;
   }
 
   private mutable(): void {
@@ -162,7 +220,51 @@ export class SchemaRegistry {
     this.resourceLocations = new Map(this.resourceLocations);
     this.aliases = new Map(this.aliases);
     this.documentRanges = new Map(this.documentRanges);
+    // The inner maps stay shared: an insert there is the same node under
+    // the same unchanged document. Eviction replaces an outer entry.
+    this.interned = new Map(this.interned);
     this.shared = false;
+  }
+
+  // The one SchemaRef for a location. Interned only when the node is the
+  // one the registered document holds there (`current`): navigation from a
+  // ref that predates a re-registration, or a schema object whose $id
+  // another registered document owns, gets a fresh uncached ref, exactly
+  // the object a lookup returned before interning. A position indexed past
+  // the document (`undefined`) is never interned either: the throw comes
+  // later, in application, and caching instance-derived misses would only
+  // grow the map.
+  private intern(
+    node: JsonValue | undefined,
+    baseUri: string,
+    pointer: string,
+    current = true,
+  ): SchemaRef {
+    if (
+      node === undefined ||
+      !current ||
+      (pointer === "" && this.documents.get(baseUri) !== node)
+    ) {
+      return { node: node as JsonValue, baseUri, pointer };
+    }
+    let byPointer = this.interned.get(baseUri);
+    if (byPointer === undefined) {
+      byPointer = new Map();
+      this.interned.set(baseUri, byPointer);
+    }
+    const existing = byPointer.get(pointer);
+    if (existing?.node === node) return existing;
+    const ref: SchemaRef = {
+      node,
+      baseUri,
+      pointer,
+      key: `${baseUri}#${pointer}`,
+      children: null,
+      childrenBy: null,
+      table: null,
+    };
+    if (existing === undefined) byPointer.set(pointer, ref);
+    return ref;
   }
 
   /**
@@ -177,6 +279,7 @@ export class SchemaRegistry {
     getRange?: (pointer: string) => SourceRange | undefined,
   ): string {
     this.mutable();
+    this.resetMemos();
     // Dialect URIs are compared fragment-free: "…/draft-07/schema#" (the
     // canonical in-the-wild $schema spelling) names the same dialect.
     let effectiveDialect = splitFragment(
@@ -198,6 +301,7 @@ export class SchemaRegistry {
     if (baseUri !== retrievalResource)
       this.aliases.set(retrievalResource, baseUri);
     this.documents.set(baseUri, schema);
+    this.interned.delete(baseUri);
     this.documentDialects.set(baseUri, effectiveDialect);
     this.resourceLocations.set(baseUri, { documentUri: baseUri, pointer: "" });
     if (getRange) this.documentRanges.set(baseUri, getRange);
@@ -233,16 +337,20 @@ export class SchemaRegistry {
       baseUri = splitFragment(resolveUri(ids.baseId, baseUri)).resource;
       pointer = "";
       this.documents.set(baseUri, node);
+      this.interned.delete(baseUri);
       this.documentDialects.set(baseUri, dialect.uri);
       this.resourceLocations.set(baseUri, { documentUri, pointer: docPointer });
     }
     for (const anchor of ids.anchors ?? []) {
-      this.anchors.set(`${baseUri}#${anchor}`, { node, baseUri, pointer });
+      this.anchors.set(
+        `${baseUri}#${anchor}`,
+        this.intern(node, baseUri, pointer),
+      );
     }
     // A dynamic anchor is also a plain anchor for $ref purposes; only the
     // dynamic-anchor index participates in $dynamicRef rebinding (D8).
     if (ids.dynamicAnchor !== undefined) {
-      const ref = { node, baseUri, pointer };
+      const ref = this.intern(node, baseUri, pointer);
       this.anchors.set(`${baseUri}#${ids.dynamicAnchor}`, ref);
       this.dynamicAnchors.set(`${baseUri}#${ids.dynamicAnchor}`, ref);
     }
@@ -357,15 +465,28 @@ export class SchemaRegistry {
    * @throws UnresolvableRefError if the lexical target does not exist.
    */
   dynamicReference(ref: string, currentBase: string): DynamicReference {
-    const lexical = this.resolveRef(ref, currentBase);
-    const { resource, fragment } = splitFragment(resolveUri(ref, currentBase));
-    if (fragment === null || fragment === "" || fragment.startsWith("/")) {
-      return { lexical, anchor: null };
+    this.syncDialects();
+    let byRef = this.dynMemo.get(currentBase);
+    if (byRef === undefined) {
+      byRef = new Map();
+      this.dynMemo.set(currentBase, byRef);
     }
-    if (this.dynamicAnchor(resource, fragment) === undefined) {
-      return { lexical, anchor: null };
-    }
-    return { lexical, anchor: fragment };
+    const memo = byRef.get(ref);
+    if (memo !== undefined) return memo;
+
+    const resolved = resolveSplit(ref, currentBase);
+    const lexical = this.resolveMemo(ref, currentBase, resolved);
+    const { resource, fragment } = resolved;
+    const anchor =
+      fragment === null ||
+      fragment === "" ||
+      fragment.startsWith("/") ||
+      this.dynamicAnchor(resource, fragment) === undefined
+        ? null
+        : fragment;
+    const result: DynamicReference = { lexical, anchor };
+    byRef.set(ref, result);
+    return result;
   }
 
   /** True if a resource's root carries 2019-09 `$recursiveAnchor: true`. */
@@ -408,7 +529,13 @@ export class SchemaRegistry {
    * @throws UnresolvableRefError if the resource is not registered.
    */
   dialectFor(baseUri: string): Dialect {
-    return this.dialectRegistry.getDialect(this.dialectUriFor(baseUri));
+    this.syncDialects();
+    let dialect = this.dialectCache.get(baseUri);
+    if (dialect === undefined) {
+      dialect = this.dialectRegistry.getDialect(this.dialectUriFor(baseUri));
+      this.dialectCache.set(baseUri, dialect);
+    }
+    return dialect;
   }
 
   /**
@@ -424,7 +551,7 @@ export class SchemaRegistry {
     const node = this.documents.get(resource);
     if (node === undefined)
       throw new UnresolvableRefError(`unknown schema '${resource}'`);
-    return { node, baseUri: resource, pointer: "" };
+    return this.intern(node, resource, "");
   }
 
   /**
@@ -433,7 +560,46 @@ export class SchemaRegistry {
    * does not exist.
    */
   resolveRef(ref: string, currentBase: string): SchemaRef {
-    const resolved = splitFragment(resolveUri(ref, currentBase));
+    this.syncDialects();
+    return this.resolveMemo(ref, currentBase, null);
+  }
+
+  // The memo around locate(): `resolved` is the already-parsed reference
+  // when the caller has it, else it is parsed on a miss.
+  private resolveMemo(
+    ref: string,
+    currentBase: string,
+    resolved: SplitUri | null,
+  ): SchemaRef {
+    let byRef = this.refMemo.get(currentBase);
+    if (byRef === undefined) {
+      byRef = new Map();
+      this.refMemo.set(currentBase, byRef);
+    }
+    const memo = byRef.get(ref);
+    if (memo !== undefined) {
+      if (memo instanceof RefMiss) throw new UnresolvableRefError(memo.message);
+      return memo;
+    }
+    try {
+      const found = this.locate(resolved ?? resolveSplit(ref, currentBase));
+      byRef.set(ref, found);
+      return found;
+    } catch (err) {
+      if (
+        err instanceof UnresolvableRefError &&
+        this.misses < MAX_MEMOIZED_MISSES
+      ) {
+        this.misses++;
+        byRef.set(ref, new RefMiss(err.message));
+      }
+      throw err;
+    }
+  }
+
+  // Resolution proper: anchor lookup, or JSON Pointer navigation from the
+  // resource root.
+  private locate(resolved: SplitUri): SchemaRef {
     const resource = this.canonical(resolved.resource);
     const fragment = resolved.fragment;
 
@@ -450,7 +616,7 @@ export class SchemaRegistry {
     if (root === undefined)
       throw new UnresolvableRefError(`unknown schema '${resource}'`);
     if (fragment === null || fragment === "") {
-      return { node: root, baseUri: resource, pointer: "" };
+      return this.intern(root, resource, "");
     }
 
     // JSON Pointer navigation, tracking identifier-induced base changes on
@@ -459,6 +625,7 @@ export class SchemaRegistry {
     let node: JsonValue | undefined = root;
     let baseUri = resource;
     let pointer = "";
+    let current = true;
     for (const rawSeg of fragment.slice(1).split("/")) {
       const seg = unescapeSegment(rawSeg);
       if (Array.isArray(node)) {
@@ -479,10 +646,11 @@ export class SchemaRegistry {
         if (baseId !== undefined) {
           baseUri = splitFragment(resolveUri(baseId, baseUri)).resource;
           pointer = "";
+          current &&= this.documents.get(baseUri) === node;
         }
       }
     }
-    return { node, baseUri, pointer };
+    return this.intern(node, baseUri, pointer, current);
   }
 
   /**
@@ -490,24 +658,56 @@ export class SchemaRegistry {
    * canonical location and lexical base.
    */
   child(ref: SchemaRef, segments: readonly (string | number)[]): SchemaRef {
+    // One extractor per call, the starting position's (as before): each
+    // hop is memoized on its parent ref under that extractor, so a dialect
+    // re-registration with another identifier syntax rebuilds the hops.
     const identifiers = this.dialectFor(ref.baseUri).identifiers;
-    let node: JsonValue = ref.node;
-    let { baseUri, pointer } = ref;
-    for (const seg of segments) {
-      node = (
-        Array.isArray(node)
-          ? node[seg as number]
-          : (node as Record<string, JsonValue>)[seg as string]
-      ) as JsonValue;
+    let at = ref;
+    let i = 0;
+    for (; i < segments.length; i++) {
+      if (at.childrenBy !== identifiers) break;
+      const hit = at.children?.get(String(segments[i]));
+      if (hit === undefined) break;
+      at = hit;
+    }
+    if (i === segments.length) return at;
+
+    // Slow path from the last memoized position. Children of the interned
+    // ref for a location are that location's current nodes, and only those
+    // are interned and memoized; children of any other ref (stale, or
+    // consumer-built) are neither.
+    let node: JsonValue | undefined = at.node;
+    let { baseUri, pointer } = at;
+    let current = this.interned.get(baseUri)?.get(pointer) === at;
+    for (; i < segments.length; i++) {
+      const seg = segments[i]!;
+      // Own properties only: a missing name must not surface a prototype
+      // member (`__proto__`, `length`, ...) as a schema.
+      node =
+        node !== undefined &&
+        (Array.isArray(node) || isObject(node)) &&
+        Object.hasOwn(node, seg)
+          ? (node as Record<string, JsonValue>)[seg as string]
+          : undefined;
       pointer += "/" + escapeSegment(String(seg));
       if (isObject(node)) {
         const baseId = identifiers(node).baseId;
         if (baseId !== undefined) {
           baseUri = splitFragment(resolveUri(baseId, baseUri)).resource;
           pointer = "";
+          current &&= this.documents.get(baseUri) === node;
         }
       }
+      const next = this.intern(node, baseUri, pointer, current);
+      if (current && node !== undefined) {
+        if (at.childrenBy !== identifiers) {
+          at.children = new Map();
+          at.childrenBy = identifiers;
+        }
+        at.children!.set(String(seg), next);
+      }
+      at = next;
     }
-    return { node, baseUri, pointer };
+    return at;
   }
 }
