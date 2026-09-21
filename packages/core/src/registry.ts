@@ -12,6 +12,7 @@ import {
   resolveSplit,
   resolveUri,
   splitFragment,
+  SplitUri,
   UnresolvableRefError,
 } from "./uri.js";
 import { SchemaRef } from "./ref.js";
@@ -74,6 +75,19 @@ export function describeNonSchema(node: JsonValue): string {
   return Array.isArray(node) ? "array" : typeof node;
 }
 
+// A memoized resolution failure: the message to re-throw (a fresh error per
+// call keeps stack traces honest). Only UnresolvableRefError is memoized; a
+// URIError from a bad escape or an UnknownDialectError is not a fact about
+// the registry's contents.
+class RefMiss {
+  constructor(readonly message: string) {}
+}
+
+// Bound on memoized failures per registry: a custom keyword may hand
+// ctx.resolveRef instance-derived strings, and each distinct miss would
+// otherwise be a permanent entry.
+const MAX_MEMOIZED_MISSES = 1024;
+
 /** Schema registration, identifier indexing, and reference resolution. */
 export class SchemaRegistry {
   private documents = new Map<string, JsonValue>(); // resource URI -> schema node
@@ -108,6 +122,15 @@ export class SchemaRegistry {
    * its trusted metaschemas) to enforce `rejectUnsafeRegex`.
    */
   onRegex?: (pattern: string, location: string) => void;
+  // Resolution memos, keyed by referring base then reference value. An
+  // entry can point into any resource, so register() replaces them
+  // wholesale (a snapshot keeps the maps it was handed: its answers never
+  // change), as does a dialect registration, since pointer navigation
+  // rebases per the target dialect's identifier syntax.
+  private refMemo = new Map<string, Map<string, SchemaRef | RefMiss>>();
+  private dynMemo = new Map<string, Map<string, DynamicReference>>();
+  private misses = 0;
+  private dialectGeneration: number;
   // Snapshots share the indexes above copy-on-write: the source copies them
   // before its first registration after a snapshot, so a view stays frozen
   // at no cost until the source changes.
@@ -118,7 +141,9 @@ export class SchemaRegistry {
     private dialectRegistry: DialectRegistry,
     private defaultDialectUri: string,
     private maxDepth: number = DEFAULT_MAX_DEPTH,
-  ) {}
+  ) {
+    this.dialectGeneration = dialectRegistry.generation;
+  }
 
   /**
    * A read-only view of the registry's current contents, over a view of the
@@ -145,9 +170,28 @@ export class SchemaRegistry {
     view.resourceLocations = this.resourceLocations;
     view.aliases = this.aliases;
     view.documentRanges = this.documentRanges;
+    this.syncDialects();
+    view.refMemo = this.refMemo;
+    view.dynMemo = this.dynMemo;
+    view.misses = this.misses;
     view.readOnly = true;
     this.shared = true;
     return view;
+  }
+
+  // Drops the memos when the dialect registry has changed underneath us.
+  private syncDialects(): void {
+    const gen = this.dialectRegistry.generation;
+    if (gen !== this.dialectGeneration) {
+      this.dialectGeneration = gen;
+      this.resetMemos();
+    }
+  }
+
+  private resetMemos(): void {
+    this.refMemo = new Map();
+    this.dynMemo = new Map();
+    this.misses = 0;
   }
 
   private mutable(): void {
@@ -182,6 +226,7 @@ export class SchemaRegistry {
     getRange?: (pointer: string) => SourceRange | undefined,
   ): string {
     this.mutable();
+    this.resetMemos();
     // Dialect URIs are compared fragment-free: "…/draft-07/schema#" (the
     // canonical in-the-wild $schema spelling) names the same dialect.
     let effectiveDialect = splitFragment(
@@ -362,15 +407,28 @@ export class SchemaRegistry {
    * @throws UnresolvableRefError if the lexical target does not exist.
    */
   dynamicReference(ref: string, currentBase: string): DynamicReference {
-    const lexical = this.resolveRef(ref, currentBase);
-    const { resource, fragment } = resolveSplit(ref, currentBase);
-    if (fragment === null || fragment === "" || fragment.startsWith("/")) {
-      return { lexical, anchor: null };
+    this.syncDialects();
+    let byRef = this.dynMemo.get(currentBase);
+    if (byRef === undefined) {
+      byRef = new Map();
+      this.dynMemo.set(currentBase, byRef);
     }
-    if (this.dynamicAnchor(resource, fragment) === undefined) {
-      return { lexical, anchor: null };
-    }
-    return { lexical, anchor: fragment };
+    const memo = byRef.get(ref);
+    if (memo !== undefined) return memo;
+
+    const resolved = resolveSplit(ref, currentBase);
+    const lexical = this.resolveMemo(ref, currentBase, resolved);
+    const { resource, fragment } = resolved;
+    const anchor =
+      fragment === null ||
+      fragment === "" ||
+      fragment.startsWith("/") ||
+      this.dynamicAnchor(resource, fragment) === undefined
+        ? null
+        : fragment;
+    const result: DynamicReference = { lexical, anchor };
+    byRef.set(ref, result);
+    return result;
   }
 
   /** True if a resource's root carries 2019-09 `$recursiveAnchor: true`. */
@@ -438,7 +496,46 @@ export class SchemaRegistry {
    * does not exist.
    */
   resolveRef(ref: string, currentBase: string): SchemaRef {
-    const resolved = resolveSplit(ref, currentBase);
+    this.syncDialects();
+    return this.resolveMemo(ref, currentBase, null);
+  }
+
+  // The memo around locate(): `resolved` is the already-parsed reference
+  // when the caller has it, else it is parsed on a miss.
+  private resolveMemo(
+    ref: string,
+    currentBase: string,
+    resolved: SplitUri | null,
+  ): SchemaRef {
+    let byRef = this.refMemo.get(currentBase);
+    if (byRef === undefined) {
+      byRef = new Map();
+      this.refMemo.set(currentBase, byRef);
+    }
+    const memo = byRef.get(ref);
+    if (memo !== undefined) {
+      if (memo instanceof RefMiss) throw new UnresolvableRefError(memo.message);
+      return memo;
+    }
+    try {
+      const found = this.locate(resolved ?? resolveSplit(ref, currentBase));
+      byRef.set(ref, found);
+      return found;
+    } catch (err) {
+      if (
+        err instanceof UnresolvableRefError &&
+        this.misses < MAX_MEMOIZED_MISSES
+      ) {
+        this.misses++;
+        byRef.set(ref, new RefMiss(err.message));
+      }
+      throw err;
+    }
+  }
+
+  // Resolution proper: anchor lookup, or JSON Pointer navigation from the
+  // resource root.
+  private locate(resolved: SplitUri): SchemaRef {
     const resource = this.canonical(resolved.resource);
     const fragment = resolved.fragment;
 
