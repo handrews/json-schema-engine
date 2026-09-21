@@ -127,6 +127,11 @@ export class SchemaRegistry {
   // wholesale (a snapshot keeps the maps it was handed: its answers never
   // change), as does a dialect registration, since pointer navigation
   // rebases per the target dialect's identifier syntax.
+  // One SchemaRef object per (canonical base URI, pointer): identity that
+  // the engine's caches key on. Keyed by resource so a (re)registration
+  // evicts exactly that resource's refs; a stale ref that user code still
+  // holds keeps working, it just stops being the interned one.
+  private interned = new Map<string, Map<string, SchemaRef>>();
   private refMemo = new Map<string, Map<string, SchemaRef | RefMiss>>();
   private dynMemo = new Map<string, Map<string, DynamicReference>>();
   private misses = 0;
@@ -170,6 +175,7 @@ export class SchemaRegistry {
     view.resourceLocations = this.resourceLocations;
     view.aliases = this.aliases;
     view.documentRanges = this.documentRanges;
+    view.interned = this.interned;
     this.syncDialects();
     view.refMemo = this.refMemo;
     view.dynMemo = this.dynMemo;
@@ -211,7 +217,49 @@ export class SchemaRegistry {
     this.resourceLocations = new Map(this.resourceLocations);
     this.aliases = new Map(this.aliases);
     this.documentRanges = new Map(this.documentRanges);
+    // The inner maps stay shared: an insert there is the same node under
+    // the same unchanged document. Eviction replaces an outer entry.
+    this.interned = new Map(this.interned);
     this.shared = false;
+  }
+
+  // The one SchemaRef for a location. Interned only when the node is the
+  // one the registered document holds there (`current`): navigation from a
+  // ref that predates a re-registration, or a schema object whose $id
+  // another registered document owns, gets a fresh uncached ref, exactly
+  // the object a lookup returned before interning. A position indexed past
+  // the document (`undefined`) is never interned either: the throw comes
+  // later, in application, and caching instance-derived misses would only
+  // grow the map.
+  private intern(
+    node: JsonValue | undefined,
+    baseUri: string,
+    pointer: string,
+    current = true,
+  ): SchemaRef {
+    if (
+      node === undefined ||
+      !current ||
+      (pointer === "" && this.documents.get(baseUri) !== node)
+    ) {
+      return { node: node as JsonValue, baseUri, pointer };
+    }
+    let byPointer = this.interned.get(baseUri);
+    if (byPointer === undefined) {
+      byPointer = new Map();
+      this.interned.set(baseUri, byPointer);
+    }
+    const existing = byPointer.get(pointer);
+    if (existing?.node === node) return existing;
+    const ref: SchemaRef = {
+      node,
+      baseUri,
+      pointer,
+      key: `${baseUri}#${pointer}`,
+      children: null,
+    };
+    if (existing === undefined) byPointer.set(pointer, ref);
+    return ref;
   }
 
   /**
@@ -248,6 +296,7 @@ export class SchemaRegistry {
     if (baseUri !== retrievalResource)
       this.aliases.set(retrievalResource, baseUri);
     this.documents.set(baseUri, schema);
+    this.interned.delete(baseUri);
     this.documentDialects.set(baseUri, effectiveDialect);
     this.resourceLocations.set(baseUri, { documentUri: baseUri, pointer: "" });
     if (getRange) this.documentRanges.set(baseUri, getRange);
@@ -283,16 +332,20 @@ export class SchemaRegistry {
       baseUri = splitFragment(resolveUri(ids.baseId, baseUri)).resource;
       pointer = "";
       this.documents.set(baseUri, node);
+      this.interned.delete(baseUri);
       this.documentDialects.set(baseUri, dialect.uri);
       this.resourceLocations.set(baseUri, { documentUri, pointer: docPointer });
     }
     for (const anchor of ids.anchors ?? []) {
-      this.anchors.set(`${baseUri}#${anchor}`, { node, baseUri, pointer });
+      this.anchors.set(
+        `${baseUri}#${anchor}`,
+        this.intern(node, baseUri, pointer),
+      );
     }
     // A dynamic anchor is also a plain anchor for $ref purposes; only the
     // dynamic-anchor index participates in $dynamicRef rebinding (D8).
     if (ids.dynamicAnchor !== undefined) {
-      const ref = { node, baseUri, pointer };
+      const ref = this.intern(node, baseUri, pointer);
       this.anchors.set(`${baseUri}#${ids.dynamicAnchor}`, ref);
       this.dynamicAnchors.set(`${baseUri}#${ids.dynamicAnchor}`, ref);
     }
@@ -487,7 +540,7 @@ export class SchemaRegistry {
     const node = this.documents.get(resource);
     if (node === undefined)
       throw new UnresolvableRefError(`unknown schema '${resource}'`);
-    return { node, baseUri: resource, pointer: "" };
+    return this.intern(node, resource, "");
   }
 
   /**
@@ -552,7 +605,7 @@ export class SchemaRegistry {
     if (root === undefined)
       throw new UnresolvableRefError(`unknown schema '${resource}'`);
     if (fragment === null || fragment === "") {
-      return { node: root, baseUri: resource, pointer: "" };
+      return this.intern(root, resource, "");
     }
 
     // JSON Pointer navigation, tracking identifier-induced base changes on
@@ -561,6 +614,7 @@ export class SchemaRegistry {
     let node: JsonValue | undefined = root;
     let baseUri = resource;
     let pointer = "";
+    let current = true;
     for (const rawSeg of fragment.slice(1).split("/")) {
       const seg = unescapeSegment(rawSeg);
       if (Array.isArray(node)) {
@@ -581,10 +635,11 @@ export class SchemaRegistry {
         if (baseId !== undefined) {
           baseUri = splitFragment(resolveUri(baseId, baseUri)).resource;
           pointer = "";
+          current &&= this.documents.get(baseUri) === node;
         }
       }
     }
-    return { node, baseUri, pointer };
+    return this.intern(node, baseUri, pointer, current);
   }
 
   /**
@@ -595,6 +650,10 @@ export class SchemaRegistry {
     const identifiers = this.dialectFor(ref.baseUri).identifiers;
     let node: JsonValue = ref.node;
     let { baseUri, pointer } = ref;
+    // Children of the interned ref for a location are that location's
+    // current nodes; children of any other ref (stale, or consumer-built)
+    // are not interned.
+    let current = this.interned.get(baseUri)?.get(pointer) === ref;
     for (const seg of segments) {
       node = (
         Array.isArray(node)
@@ -607,9 +666,10 @@ export class SchemaRegistry {
         if (baseId !== undefined) {
           baseUri = splitFragment(resolveUri(baseId, baseUri)).resource;
           pointer = "";
+          current &&= this.documents.get(baseUri) === node;
         }
       }
     }
-    return { node, baseUri, pointer };
+    return this.intern(node, baseUri, pointer, current);
   }
 }
