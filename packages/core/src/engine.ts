@@ -19,7 +19,7 @@
 //     transition for a rejecting schema object's accepting sub-evaluations.
 
 import { JsonValue, isObject, escapeSegment } from "./json.js";
-import { resolveUri, splitFragment } from "./uri.js";
+import { resolveSplit } from "./uri.js";
 import { Cursor, rootCursor } from "./cursor.js";
 import { SchemaRef } from "./ref.js";
 import {
@@ -338,9 +338,7 @@ class KeywordContextImpl implements KeywordContext {
     // behaves like $ref. Rebinding is all-or-nothing on the root-level
     // $recursiveAnchor flag rather than a named anchor.
     const target = registry.resolveRef(ref, this.schemaRef.baseUri);
-    const { resource, fragment } = splitFragment(
-      resolveUri(ref, this.schemaRef.baseUri),
-    );
+    const { resource, fragment } = resolveSplit(ref, this.schemaRef.baseUri);
     if (fragment !== null && fragment !== "") return target;
     if (!registry.hasRecursiveRoot(resource)) return target;
     for (const scopeUri of this.state.dynamicScope) {

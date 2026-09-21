@@ -8,7 +8,12 @@
 // registry gets correct identifier handling for free.
 
 import { JsonValue, isObject, escapeSegment, unescapeSegment } from "./json.js";
-import { resolveUri, splitFragment, UnresolvableRefError } from "./uri.js";
+import {
+  resolveSplit,
+  resolveUri,
+  splitFragment,
+  UnresolvableRefError,
+} from "./uri.js";
 import { SchemaRef } from "./ref.js";
 import { Dialect, DialectRegistry, ReadOnlyRegistryError } from "./dialect.js";
 import { SourceRange } from "./loader.js";
@@ -358,7 +363,7 @@ export class SchemaRegistry {
    */
   dynamicReference(ref: string, currentBase: string): DynamicReference {
     const lexical = this.resolveRef(ref, currentBase);
-    const { resource, fragment } = splitFragment(resolveUri(ref, currentBase));
+    const { resource, fragment } = resolveSplit(ref, currentBase);
     if (fragment === null || fragment === "" || fragment.startsWith("/")) {
       return { lexical, anchor: null };
     }
@@ -433,7 +438,7 @@ export class SchemaRegistry {
    * does not exist.
    */
   resolveRef(ref: string, currentBase: string): SchemaRef {
-    const resolved = splitFragment(resolveUri(ref, currentBase));
+    const resolved = resolveSplit(ref, currentBase);
     const resource = this.canonical(resolved.resource);
     const fragment = resolved.fragment;
 
