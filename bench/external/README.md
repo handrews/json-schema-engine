@@ -34,9 +34,9 @@ harness.
 - **Lazy results are forced**: ata-validator's failure result builds
   `errors` on first access, so the `validate+errors` rows read
   `errors.length` inside the timed call.
-- **Corpora are duplicated** from `bench/harness.ts` (the generators for
-  the two records corpora and the payload set) because the harness runs on
-  import. Keep them in sync if the harness changes.
+- **Corpora are shared** with `bench/harness.ts` through
+  `bench/corpora/index.ts`, so both benchmarks always measure the same
+  inputs.
 
 ## Updating the document
 
