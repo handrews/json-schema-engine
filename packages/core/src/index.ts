@@ -5,6 +5,7 @@
 // loaders and assemble dialects from metaschema $vocabulary declarations.
 
 import { JsonValue, isObject } from "./json.js";
+import { rootCursor } from "./cursor.js";
 import { resolveUri, splitFragment, UnresolvableRefError } from "./uri.js";
 import {
   DialectRegistry,
@@ -14,7 +15,11 @@ import {
   UnknownVocabularyError,
 } from "./dialect.js";
 import { DEFAULT_MAX_DEPTH, SchemaRegistry } from "./registry.js";
-import { runEvaluation } from "./engine.js";
+import {
+  createFragmentRunner,
+  runEvaluation,
+  type FragmentRunner,
+} from "./engine.js";
 import {
   RegexCache,
   RegexEngine,
@@ -105,6 +110,7 @@ export {
   UndeclaredConsumptionError,
   UndeclaredProductionError,
   UnknownKeywordError,
+  createFragmentRunner,
   evaluateFragment,
   materializePath,
   runEvaluation,
@@ -116,6 +122,8 @@ export type {
   EvalState,
   Frame,
   FragmentOptions,
+  FragmentRunner,
+  FragmentRunnerOptions,
   KeywordTrace,
   PathNode,
   RecordPredicate,
@@ -305,6 +313,8 @@ export class Engine {
   private regexCache: RegexCache;
   private maxDepth: number;
   private formatTable: FormatTable | undefined;
+  // Flag output reuses one evaluation state across calls (re-entrancy safe).
+  private flagRunner: FragmentRunner;
   // Dialect URIs whose assembly is in progress, to fail metaschema cycles.
   private assembling = new Set<string>();
 
@@ -344,6 +354,11 @@ export class Engine {
       this.defaultDialect,
       this.maxDepth,
     );
+    this.flagRunner = createFragmentRunner(this.schemas, {
+      regexCache: this.regexCache,
+      maxDepth: this.maxDepth,
+      shouldRecord: makeRecordPredicate(false),
+    });
     this.loaders = [...(options.loaders ?? [])];
     this.validateSchemas = options.validateSchemas ?? false;
     // Standard metaschemas are registered as ordinary schema resources so
@@ -546,6 +561,16 @@ export class Engine {
     options: EvaluateOptions = {},
   ): Result {
     const demand = resolveOutputDemand(options);
+    if (demand.format === "flag") {
+      return {
+        valid: this.flagRunner.valid(
+          this.schemas.rootRef(schemaUri),
+          rootCursor(instance),
+          undefined,
+          0,
+        ),
+      };
+    }
     const { valid, state } = runEvaluation(
       this.schemas,
       schemaUri,
@@ -555,8 +580,6 @@ export class Engine {
       this.regexCache,
       this.maxDepth,
     );
-    if (demand.format === "flag") return { valid };
-
     // The flat surface first; its record arrays stay paired with the unit
     // arrays so the located tree can index the units.
     const params = options.errorParams ?? false;

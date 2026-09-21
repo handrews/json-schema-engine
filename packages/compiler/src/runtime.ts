@@ -15,6 +15,7 @@ import {
   canonicalKey,
   codePointLength,
   escapeSegment,
+  createFragmentRunner,
   evaluateFragment,
   firstDuplicatePair,
   foldIndexCoverage,
@@ -323,6 +324,12 @@ export function makeRuntime(
   // by the engine's produce()), so unevaluated* inside fragments sees its
   // channel.
   const shouldRecord = makeRecordPredicate(false);
+  // The flag trampoline reuses one evaluation state across islands.
+  const flagRunner = createFragmentRunner(registry, {
+    regexCache,
+    maxDepth,
+    shouldRecord,
+  });
   // Captured once: the coverage producers a consumer would observe, for the
   // coverage harvests (COMPILED-CONSUMERS.md §5).
   const coverageIds = registry.coverageIds();
@@ -351,17 +358,8 @@ export function makeRuntime(
         `compiled evaluation exceeds maxDepth (${maxDepth})`,
       );
     },
-    frag: (target, value, scope, depth) => {
-      const options: FragmentOptions = {
-        dynamicScope: scope,
-        depth,
-        regexCache,
-        maxDepth,
-        shouldRecord,
-      };
-      return evaluateFragment(registry, target, rootCursor(value), options)
-        .valid;
-    },
+    frag: (target, value, scope, depth) =>
+      flagRunner.valid(target, rootCursor(value), scope, depth),
     fragCov: (target, value, scope, depth, ev) => {
       // The SAME cursor object must reach harvestCoverage: it filters root
       // records by cursor identity (coverage.ts), so a second rootCursor()

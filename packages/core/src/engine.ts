@@ -212,6 +212,27 @@ export class EvalState {
     return this.allAnnotations !== null;
   }
 
+  /**
+   * Returns a non-tracing state to its initial shape for another run whose
+   * records nobody reads (flag mode): one empty root frame, no errors, an
+   * empty dynamic scope and cycle guard, and the given starting depth.
+   */
+  reset(depth: number): void {
+    // Truncation is a runtime call per array; a completed run leaves the
+    // frame and guard stacks balanced, so test before truncating.
+    const root = this.frames[0]!;
+    if (root.annotations.length !== 0) root.annotations.length = 0;
+    if (root.dependencies.length !== 0) root.dependencies.length = 0;
+    if (this.frames.length !== 1) this.frames.length = 1;
+    if (this.errors.length !== 0) this.errors.length = 0;
+    if (this.dynamicScope.length !== 0) this.dynamicScope.length = 0;
+    if (this.activeKeys.length !== 0) {
+      this.activeKeys.length = 0;
+      this.activeCursors.length = 0;
+    }
+    this.depth = depth;
+  }
+
   /** Removes the errors pushed since `mark`: rejecting sub-evaluations of a keyword that accepted (rule 6). */
   dropErrorsFrom(mark: number): void {
     const dropped = this.errors.splice(mark);
@@ -705,6 +726,91 @@ function applyWithOverflowBackstop(
     }
     throw err;
   }
+}
+
+/** Options for {@link createFragmentRunner}. */
+export interface FragmentRunnerOptions {
+  /** annotation elision predicate (D5); null records everything */
+  shouldRecord?: RecordPredicate | null;
+  regexCache?: RegexCache;
+  maxDepth?: number;
+}
+
+/**
+ * A flag-mode evaluator over one registry that reuses its evaluation state
+ * across calls (see {@link createFragmentRunner}).
+ */
+export interface FragmentRunner {
+  /**
+   * The verdict of applying `target` at `cursor`, with the caller's dynamic
+   * scope (outermost first, D8) and the depth it has already consumed (D20).
+   */
+  valid(
+    target: SchemaRef,
+    cursor: Cursor,
+    dynamicScope: readonly string[] | undefined,
+    depth: number,
+  ): boolean;
+}
+
+/**
+ * Builds a {@link FragmentRunner}: the flag-mode counterpart of
+ * {@link evaluateFragment} for callers that only need the verdict — a
+ * compiled artifact's island trampoline, or the engine's own flag output.
+ * One evaluation state is reset and reused per call instead of allocated.
+ * The runner is re-entrant: user code that runs inside an evaluation (a
+ * format test, a custom keyword, a regex engine) may call it again, and
+ * that nested call gets a state of its own; a call that throws discards
+ * the reused state so nothing half-torn is ever reused.
+ */
+export function createFragmentRunner(
+  registry: SchemaRegistry,
+  options: FragmentRunnerOptions = {},
+): FragmentRunner {
+  const maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH;
+  const regexCache = options.regexCache ?? new RegexCache();
+  const shouldRecord = options.shouldRecord ?? null;
+  const fresh = (): EvalState =>
+    new EvalState(registry, false, shouldRecord, regexCache, maxDepth);
+  let pooled: EvalState | null = null;
+  let inUse = false;
+  const seed = (
+    state: EvalState,
+    dynamicScope: readonly string[] | undefined,
+  ): void => {
+    if (dynamicScope !== undefined) {
+      for (const uri of dynamicScope) state.dynamicScope.push(uri);
+    }
+  };
+  return {
+    valid(target, cursor, dynamicScope, depth) {
+      if (inUse) {
+        const state = fresh();
+        state.depth = depth;
+        seed(state, dynamicScope);
+        return applyWithOverflowBackstop(state, target, cursor, null, maxDepth);
+      }
+      const state = pooled ?? (pooled = fresh());
+      inUse = true;
+      let completed = false;
+      try {
+        state.reset(depth);
+        seed(state, dynamicScope);
+        const valid = applyWithOverflowBackstop(
+          state,
+          target,
+          cursor,
+          null,
+          maxDepth,
+        );
+        completed = true;
+        return valid;
+      } finally {
+        inUse = false;
+        if (!completed) pooled = null;
+      }
+    },
+  };
 }
 
 /** Options for {@link evaluateFragment}: state pre-seeded by a compiled caller. */
