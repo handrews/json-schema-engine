@@ -47,7 +47,8 @@ export interface SubschemaApplication {
    * the compiler discharges such a site at plan time when every path that can
    * reach it resolves to the same target, and islands it otherwise.
    * `"recursive"`: 2019-09 `$recursiveRef` (`KeywordContext.resolveRecursive`),
-   * which the compiler has no static resolver for.
+   * the degenerate case — rebinding on a root-level `$recursiveAnchor` flag
+   * instead of a name — which the compiler discharges the same way.
    */
   resolution?: "dynamic" | "recursive";
   mode:

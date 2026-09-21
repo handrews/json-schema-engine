@@ -19,7 +19,6 @@
 //     transition for a rejecting schema object's accepting sub-evaluations.
 
 import { JsonValue, isObject, escapeSegment } from "./json.js";
-import { resolveSplit } from "./uri.js";
 import { Cursor, rootCursor } from "./cursor.js";
 import { SchemaRef } from "./ref.js";
 import {
@@ -366,18 +365,20 @@ class KeywordContextImpl implements KeywordContext {
 
   resolveRecursive(ref: string): SchemaRef {
     const registry = this.state.registry;
-    // 2019-09: the reference is "#"; anything with a non-empty fragment
-    // behaves like $ref. Rebinding is all-or-nothing on the root-level
-    // $recursiveAnchor flag rather than a named anchor.
-    const target = registry.resolveRef(ref, this.schemaRef.baseUri);
-    const { resource, fragment } = resolveSplit(ref, this.schemaRef.baseUri);
-    if (fragment !== null && fragment !== "") return target;
-    if (!registry.hasRecursiveRoot(resource)) return target;
+    // 2019-09: rebinding is all-or-nothing on the root-level $recursiveAnchor
+    // flag rather than a named anchor. The scope-independent steps live on
+    // the registry (shared with the compiler's plan-time analysis); only
+    // the outermost-first scope walk is here.
+    const { lexical, rebinds } = registry.recursiveReference(
+      ref,
+      this.schemaRef.baseUri,
+    );
+    if (!rebinds) return lexical;
     for (const scopeUri of this.state.dynamicScope) {
       if (registry.hasRecursiveRoot(scopeUri))
         return registry.rootRef(scopeUri);
     }
-    return target;
+    return lexical;
   }
 
   applyResolved(target: SchemaRef): boolean {

@@ -6,6 +6,7 @@
 import { describe, it, expect } from "vitest";
 import {
   createEngine,
+  DIALECT_2019_09,
   identifiersLegacy,
   UnresolvableRefError,
 } from "@json-schema-engine/core";
@@ -166,5 +167,84 @@ describe("dynamicReference memo", () => {
       "https://memo.example/j",
     );
     expect(engine.registry.dynamicReference("#x", uri).anchor).toBe("x");
+  });
+});
+
+describe("recursiveReference memo", () => {
+  const engine2019 = () => createEngine({ defaultDialect: DIALECT_2019_09 });
+
+  it("rebinds only for an empty fragment into a recursive-anchored root", () => {
+    const engine = engine2019();
+    const uri = engine.registerSchema(
+      {
+        $recursiveAnchor: true,
+        $defs: { x: { type: "string" }, a: { $anchor: "a" } },
+      },
+      "https://memo.example/rec-a",
+    );
+    const reg = engine.registry;
+    expect(reg.recursiveReference("#", uri)).toEqual({
+      lexical: reg.rootRef(uri),
+      rebinds: true,
+    });
+    expect(reg.recursiveReference(uri, uri).rebinds).toBe(true);
+    expect(reg.recursiveReference("#/$defs/x", uri).rebinds).toBe(false);
+    expect(reg.recursiveReference("#/$defs/x", uri).lexical).toBe(
+      reg.resolveRef("#/$defs/x", uri),
+    );
+    expect(reg.recursiveReference("#a", uri).rebinds).toBe(false);
+    expect(reg.recursiveReference("#a", uri).lexical.pointer).toBe("/$defs/a");
+  });
+
+  it("does not rebind into a root without $recursiveAnchor: true", () => {
+    const engine = engine2019();
+    const plain = engine.registerSchema({}, "https://memo.example/rec-plain");
+    const off = engine.registerSchema(
+      { $recursiveAnchor: false },
+      "https://memo.example/rec-off",
+    );
+    const reg = engine.registry;
+    expect(reg.recursiveReference("#", plain).rebinds).toBe(false);
+    expect(reg.recursiveReference("#", off).rebinds).toBe(false);
+    expect(reg.recursiveReference("rec-plain", off).rebinds).toBe(false);
+  });
+
+  it("answers a repeat lookup with the same object", () => {
+    const engine = engine2019();
+    const uri = engine.registerSchema(
+      { $recursiveAnchor: true },
+      "https://memo.example/rec-b",
+    );
+    const first = engine.registry.recursiveReference("#", uri);
+    expect(engine.registry.recursiveReference("#", uri)).toBe(first);
+  });
+
+  it("sees a $recursiveAnchor added or removed by re-registration", () => {
+    const engine = engine2019();
+    const uri = engine.registerSchema({}, "https://memo.example/rec-c");
+    expect(engine.registry.recursiveReference("#", uri).rebinds).toBe(false);
+    engine.registerSchema(
+      { $recursiveAnchor: true },
+      "https://memo.example/rec-c",
+    );
+    expect(engine.registry.recursiveReference("#", uri).rebinds).toBe(true);
+    const view = engine.registry.snapshot();
+    engine.registerSchema({}, "https://memo.example/rec-c");
+    expect(engine.registry.recursiveReference("#", uri).rebinds).toBe(false);
+    expect(view.recursiveReference("#", uri).rebinds).toBe(true);
+  });
+
+  it("propagates an unresolvable lexical target", () => {
+    const engine = engine2019();
+    const uri = engine.registerSchema(
+      { $recursiveAnchor: true },
+      "https://memo.example/rec-d",
+    );
+    expect(() => engine.registry.recursiveReference("#/nope", uri)).toThrow(
+      UnresolvableRefError,
+    );
+    expect(() => engine.registry.recursiveReference("#/nope", uri)).toThrow(
+      UnresolvableRefError,
+    );
   });
 });

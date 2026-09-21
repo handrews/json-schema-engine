@@ -30,6 +30,18 @@ export interface DynamicReference {
 }
 
 /**
+ * A `$recursiveRef` after its scope-independent resolution steps
+ * ({@link SchemaRegistry.recursiveReference}): the lexical target, and
+ * whether the reference rebinds through the dynamic scope at all — only
+ * when its fragment is absent or empty and the lexical target's resource
+ * carries `$recursiveAnchor: true` at its root (D8's degenerate case).
+ */
+export interface RecursiveReference {
+  lexical: SchemaRef;
+  rebinds: boolean;
+}
+
+/**
  * Where a schema resource physically lives: the registered document
  * containing it and the JSON Pointer from that document's root to the
  * resource's root (D17 bridge; see loader.ts).
@@ -134,6 +146,7 @@ export class SchemaRegistry {
   private interned = new Map<string, Map<string, SchemaRef>>();
   private refMemo = new Map<string, Map<string, SchemaRef | RefMiss>>();
   private dynMemo = new Map<string, Map<string, DynamicReference>>();
+  private recMemo = new Map<string, Map<string, RecursiveReference>>();
   private dialectCache = new Map<string, Dialect>(); // resource URI -> dialect
   private misses = 0;
   private dialectGeneration: number;
@@ -180,6 +193,7 @@ export class SchemaRegistry {
     this.syncDialects();
     view.refMemo = this.refMemo;
     view.dynMemo = this.dynMemo;
+    view.recMemo = this.recMemo;
     view.dialectCache = this.dialectCache;
     view.misses = this.misses;
     view.readOnly = true;
@@ -199,6 +213,7 @@ export class SchemaRegistry {
   private resetMemos(): void {
     this.refMemo = new Map();
     this.dynMemo = new Map();
+    this.recMemo = new Map();
     this.dialectCache = new Map();
     this.misses = 0;
   }
@@ -302,6 +317,8 @@ export class SchemaRegistry {
       this.aliases.set(retrievalResource, baseUri);
     this.documents.set(baseUri, schema);
     this.interned.delete(baseUri);
+    // A re-registered resource declares its root anchor afresh.
+    this.recursiveRoots.delete(baseUri);
     this.documentDialects.set(baseUri, effectiveDialect);
     this.resourceLocations.set(baseUri, { documentUri: baseUri, pointer: "" });
     if (getRange) this.documentRanges.set(baseUri, getRange);
@@ -338,6 +355,7 @@ export class SchemaRegistry {
       pointer = "";
       this.documents.set(baseUri, node);
       this.interned.delete(baseUri);
+      this.recursiveRoots.delete(baseUri);
       this.documentDialects.set(baseUri, dialect.uri);
       this.resourceLocations.set(baseUri, { documentUri, pointer: docPointer });
     }
@@ -485,6 +503,36 @@ export class SchemaRegistry {
         ? null
         : fragment;
     const result: DynamicReference = { lexical, anchor };
+    byRef.set(ref, result);
+    return result;
+  }
+
+  /**
+   * The scope-independent steps of `$recursiveRef` resolution, shared by
+   * the interpreter and the compiler's plan-time analysis: the lexical
+   * target, and whether the dynamic scope is consulted at all. A non-empty
+   * fragment (pointer or plain name) behaves like `$ref`; so does an empty
+   * one whose target resource has no root-level `$recursiveAnchor: true`.
+   * Otherwise the scope's outermost resource with such a root wins, which
+   * is the caller's walk.
+   * @throws UnresolvableRefError if the lexical target does not exist.
+   */
+  recursiveReference(ref: string, currentBase: string): RecursiveReference {
+    this.syncDialects();
+    let byRef = this.recMemo.get(currentBase);
+    if (byRef === undefined) {
+      byRef = new Map();
+      this.recMemo.set(currentBase, byRef);
+    }
+    const memo = byRef.get(ref);
+    if (memo !== undefined) return memo;
+
+    const resolved = resolveSplit(ref, currentBase);
+    const lexical = this.resolveMemo(ref, currentBase, resolved);
+    const { resource, fragment } = resolved;
+    const rebinds =
+      (fragment === null || fragment === "") && this.hasRecursiveRoot(resource);
+    const result: RecursiveReference = { lexical, rebinds };
     byRef.set(ref, result);
     return result;
   }
