@@ -4,9 +4,26 @@ The scripts behind
 [docs/comparisons/ata-validator-and-json-schema-library.md](../../docs/comparisons/ata-validator-and-json-schema-library.md).
 They run [ata-validator](https://github.com/ata-core/ata-validator) and
 [json-schema-library](https://github.com/sagold/json-schema-library)
-(dev dependencies of the root package) alongside jse, ajv, and
-`@hyperjump/json-schema`, so the comparison can be re-run as any of them
-change. Nothing here is a gate; `bench/harness.ts` remains the enforced
+alongside jse, ajv, and `@hyperjump/json-schema`, so the comparison can be
+re-run as any of them change. The two third-party validators are installed
+here, not in the root package: this directory has its own `package.json`
+and lockfile and is not a workspace, so a root `npm ci` never pulls them
+in. ajv and hyperjump stay in the root install because `spike/bench.ts`,
+`bench/harness.ts`, and the ajv-compat tests use them.
+
+```sh
+npm ci --prefix bench/external
+```
+
+Because the root type-check and lint would fail without that install, the
+root `tsconfig.json` and `eslint.config.js` exclude this directory; check
+it from here instead:
+
+```sh
+npm run check --prefix bench/external
+```
+
+`prettier` still covers it from the root. Nothing here is a gate; `bench/harness.ts` remains the enforced
 performance report and `bench/results/results.json` its record.
 
 | Script            | npm script            | What it does                                                                                                                                         |

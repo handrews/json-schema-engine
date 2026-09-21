@@ -571,8 +571,9 @@ The others are ahead in these areas:
 
 ## Reproduction
 
-The harness is committed under [`bench/external`](../../bench/external/README.md),
-with both libraries as dev dependencies of the root package:
+The harness is committed under [`bench/external`](../../bench/external/README.md).
+Both libraries are dev dependencies of that directory's own `package.json`,
+not of the root, so run `npm ci --prefix bench/external` once first:
 
 - `npm run compare:conformance [-- jse|ata|jsl]` walks
   `test-suite/tests/<draft>/`, `optional/`, and `optional/format/`, builds

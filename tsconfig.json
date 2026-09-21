@@ -19,5 +19,5 @@
     "scripts",
     "vitest.config.ts"
   ],
-  "exclude": ["**/.snippets"]
+  "exclude": ["**/.snippets", "bench/external"]
 }
