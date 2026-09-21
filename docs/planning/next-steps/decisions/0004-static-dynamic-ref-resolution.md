@@ -124,6 +124,8 @@ is at zero divergence. Public additions only: `SubschemaApplication.resolution`,
 - The interpreter-side items in the investigation note: memoized reference
   resolution, elided scope-array copies, cached cycle keys, per-node
   present-keyword lists, memoized `child`, fragment state reuse.
+  Delivered 2026-09-21 (see the note's "Delivered" section): interpreter
+  flag rows 3.6–5.9× faster than at this decision, compiled rows unchanged.
 - Per-site dispatch for unstable sites if a real schema needs it.
 - Re-run `bench/external` against ata-validator and json-schema-library
   and refresh the comparison document's `oas-document` rows.
