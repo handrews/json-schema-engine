@@ -1,0 +1,3739 @@
+{
+  "subject": "ata",
+  "generatedAt": "2026-09-21T18:25:15.437Z",
+  "node": "v24.13.0",
+  "tallies": {
+    "draft2020-12/required": {
+      "run": 1299,
+      "pass": 1299,
+      "fail": 0,
+      "error": 0
+    },
+    "draft2020-12/optional": {
+      "run": 162,
+      "pass": 133,
+      "fail": 29,
+      "error": 0
+    },
+    "draft2020-12/format": {
+      "run": 655,
+      "pass": 577,
+      "fail": 78,
+      "error": 0
+    },
+    "draft2019-09/required": {
+      "run": 1259,
+      "pass": 1215,
+      "fail": 44,
+      "error": 0
+    },
+    "draft2019-09/optional": {
+      "run": 158,
+      "pass": 131,
+      "fail": 27,
+      "error": 0
+    },
+    "draft2019-09/format": {
+      "run": 647,
+      "pass": 569,
+      "fail": 78,
+      "error": 0
+    },
+    "draft7/required": {
+      "run": 927,
+      "pass": 927,
+      "fail": 0,
+      "error": 0
+    },
+    "draft7/optional": {
+      "run": 118,
+      "pass": 102,
+      "fail": 16,
+      "error": 0
+    },
+    "draft7/format": {
+      "run": 579,
+      "pass": 501,
+      "fail": 78,
+      "error": 0
+    },
+    "draft6/required": {
+      "run": 839,
+      "pass": 800,
+      "fail": 39,
+      "error": 0
+    },
+    "draft6/optional": {
+      "run": 106,
+      "pass": 94,
+      "fail": 12,
+      "error": 0
+    },
+    "draft6/format": {
+      "run": 273,
+      "pass": 273,
+      "fail": 0,
+      "error": 0
+    },
+    "draft4/required": {
+      "run": 618,
+      "pass": 578,
+      "fail": 40,
+      "error": 0
+    },
+    "draft4/optional": {
+      "run": 100,
+      "pass": 86,
+      "fail": 14,
+      "error": 0
+    },
+    "draft4/format": {
+      "run": 206,
+      "pass": 206,
+      "fail": 0,
+      "error": 0
+    }
+  },
+  "failures": [
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "cross-draft.json",
+      "group": "refs to historic drafts are processed as historic drafts",
+      "test": "first item not a string is valid",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "single dependency",
+      "test": "missing dependency",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "multiple dependents required",
+      "test": "missing dependency",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "multiple dependents required",
+      "test": "missing other dependency",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "multiple dependents required",
+      "test": "missing both dependencies",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "dependencies with escaped characters",
+      "test": "CRLF missing dependent",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "dependencies with escaped characters",
+      "test": "quoted quotes missing dependent",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "single schema dependency",
+      "test": "wrong type",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "single schema dependency",
+      "test": "wrong type other",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "single schema dependency",
+      "test": "wrong type both",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "boolean subschemas",
+      "test": "object with property having schema false is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "boolean subschemas",
+      "test": "object with both properties is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "schema dependencies with escaped characters",
+      "test": "quoted quote",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "schema dependencies with escaped characters",
+      "test": "quoted tab invalid under dependent schema",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "schema dependencies with escaped characters",
+      "test": "quoted quote invalid under dependent schema",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 regex escapes control codes with \\c and upper letter",
+      "test": "matches",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 regex escapes control codes with \\c and lower letter",
+      "test": "matches",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\s matches whitespace",
+      "test": "zero-width whitespace matches",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\s matches whitespace",
+      "test": "paragraph separator matches (line terminator)",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\s matches whitespace",
+      "test": "EM SPACE matches (Space_Separator)",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\S matches everything but whitespace",
+      "test": "zero-width whitespace does not match",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\S matches everything but whitespace",
+      "test": "paragraph separator does not match (line terminator)",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\S matches everything but whitespace",
+      "test": "EM SPACE does not match (Space_Separator)",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "float-overflow.json",
+      "group": "all integers are multiples of 0.5, if overflow is handled",
+      "test": "valid if optional overflow handling is implemented",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "format-assertion.json",
+      "group": "schema that uses custom metaschema with format-assertion: false",
+      "test": "format-assertion: false: invalid string",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "format-assertion.json",
+      "group": "schema that uses custom metaschema with format-assertion: true",
+      "test": "format-assertion: true: invalid string",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "non-bmp-regex.json",
+      "group": "Proper UTF-16 surrogate pair handling: pattern",
+      "test": "matches empty",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "non-bmp-regex.json",
+      "group": "Proper UTF-16 surrogate pair handling: pattern",
+      "test": "matches two",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "non-bmp-regex.json",
+      "group": "Proper UTF-16 surrogate pair handling: patternProperties",
+      "test": "doesn't match two",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "invalid Punycode",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "contains illegal char U+302E Hangul single dot tone mark",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Begins with a Spacing Combining Mark",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Begins with a Nonspacing Mark",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Begins with an Enclosing Mark",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Exceptions that are DISALLOWED, right-to-left chars",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Exceptions that are DISALLOWED, left-to-right chars",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "MIDDLE DOT with no preceding 'l'",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "MIDDLE DOT with nothing preceding",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "MIDDLE DOT with no following 'l'",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "MIDDLE DOT with nothing following",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Greek KERAIA not followed by Greek",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Greek KERAIA not followed by anything",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Hebrew GERESH not preceded by Hebrew",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Hebrew GERESH not preceded by anything",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Hebrew GERSHAYIM not preceded by Hebrew",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Hebrew GERSHAYIM not preceded by anything",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "KATAKANA MIDDLE DOT with no Hiragana, Katakana, or Han",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "KATAKANA MIDDLE DOT with no other characters",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Arabic-Indic digits mixed with Extended Arabic-Indic digits",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "ZERO WIDTH JOINER not preceded by Virama",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "ZERO WIDTH JOINER not preceded by anything",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "contains \"--\" in the 3rd and 4th position",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-email.json",
+      "group": "validation of an internationalized e-mail addresses",
+      "test": "a local part with a lone UTF-16 surrogate is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "illegal first char U+302E Hangul single dot tone mark",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "contains illegal char U+302E Hangul single dot tone mark",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "a single label of 64 characters is too long",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "invalid label, correct Punycode",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "invalid Punycode",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "U-label contains \"--\" in the 3rd and 4th position",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "U-label starts with a dash",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "U-label ends with a dash",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "U-label starts and ends with a dash",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Begins with a Spacing Combining Mark",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Begins with a Nonspacing Mark",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Begins with an Enclosing Mark",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Exceptions that are DISALLOWED, right-to-left chars",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Exceptions that are DISALLOWED, left-to-right chars",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "MIDDLE DOT with no preceding 'l'",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "MIDDLE DOT with nothing preceding",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "MIDDLE DOT with no following 'l'",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "MIDDLE DOT with nothing following",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Greek KERAIA not followed by Greek",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Greek KERAIA not followed by anything",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Hebrew GERESH not preceded by Hebrew",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Hebrew GERESH not preceded by anything",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Hebrew GERSHAYIM not preceded by Hebrew",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Hebrew GERSHAYIM not preceded by anything",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "KATAKANA MIDDLE DOT with no Hiragana, Katakana, or Han",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "KATAKANA MIDDLE DOT with no other characters",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Arabic-Indic digits mixed with Extended Arabic-Indic digits",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "ZERO WIDTH JOINER not preceded by Virama",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "ZERO WIDTH JOINER not preceded by anything",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "empty string",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "zero width non-joiner must pass at every occurrence",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Bidi domain name with a digit-first label is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "label starting with a digit before a right-to-left letter is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "left-to-right label containing a right-to-left letter is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "right-to-left label mixing both digit types is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "A-label that decodes to a disallowed code point is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "A-label that decodes to a Bidi rule violation is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "a U-label whose A-label form is longer than 63 octets is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "empty label between two dots is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "a name longer than 253 characters is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "A-label that decodes to only ASCII is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "non-canonical Punycode that does not re-encode to itself is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "single dot",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "single ideographic full stop",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "single fullwidth full stop",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "single halfwidth ideographic full stop",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "leading dot",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "leading ideographic full stop",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "leading fullwidth full stop",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "leading halfwidth ideographic full stop",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "trailing dot",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "trailing ideographic full stop",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "trailing fullwidth full stop",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "trailing halfwidth ideographic full stop",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "additionalItems.json",
+      "group": "additionalItems as schema",
+      "test": "additional items do not match schema",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "additionalItems.json",
+      "group": "array of items with no additionalItems permitted",
+      "test": "additional items are not permitted",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "additionalItems.json",
+      "group": "additionalItems does not look in applicators, invalid case",
+      "test": "items defined in allOf are not examined",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "additionalItems.json",
+      "group": "items validation adjusts the starting index for additionalItems",
+      "test": "wrong type of second item",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "additionalItems.json",
+      "group": "additionalItems with heterogeneous array",
+      "test": "heterogeneous invalid instance",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "defs.json",
+      "group": "validate definition against metaschema",
+      "test": "valid definition schema",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "items.json",
+      "group": "an array of schemas for items",
+      "test": "wrong types",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "items.json",
+      "group": "items with boolean schemas",
+      "test": "array with two items is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "items.json",
+      "group": "items and subitems",
+      "test": "too many items",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "items.json",
+      "group": "items and subitems",
+      "test": "too many sub-items",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "items.json",
+      "group": "items and subitems",
+      "test": "wrong item",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "items.json",
+      "group": "items and subitems",
+      "test": "wrong sub-item",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "recursiveRef.json",
+      "group": "$recursiveRef without $recursiveAnchor works like $ref",
+      "test": "recursive mismatch",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "recursiveRef.json",
+      "group": "$recursiveRef without using nesting",
+      "test": "integer does not match as a property value",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "recursiveRef.json",
+      "group": "$recursiveRef without using nesting",
+      "test": "two levels, no match",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "recursiveRef.json",
+      "group": "$recursiveRef with $recursiveAnchor: false works like $ref",
+      "test": "integer does not match as a property value",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "recursiveRef.json",
+      "group": "$recursiveRef with $recursiveAnchor: false works like $ref",
+      "test": "two levels, integer does not match as a property value",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "recursiveRef.json",
+      "group": "$recursiveRef with no $recursiveAnchor works like $ref",
+      "test": "integer does not match as a property value",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "recursiveRef.json",
+      "group": "$recursiveRef with no $recursiveAnchor works like $ref",
+      "test": "two levels, integer does not match as a property value",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "recursiveRef.json",
+      "group": "$recursiveRef with no $recursiveAnchor in the initial target schema resource",
+      "test": "leaf node does not match: recursion uses the inner schema",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "recursiveRef.json",
+      "group": "$recursiveRef with no $recursiveAnchor in the outer schema resource",
+      "test": "leaf node does not match: recursion only uses inner schema",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "recursiveRef.json",
+      "group": "multiple dynamic paths to the $recursiveRef keyword",
+      "test": "recurse to integerNode - floats are not allowed",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "recursiveRef.json",
+      "group": "dynamic $recursiveRef destination (not predictable at schema compile time)",
+      "test": "integer node",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "ref.json",
+      "group": "relative pointer ref to array",
+      "test": "mismatch array",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "ref.json",
+      "group": "remote ref, containing refs itself",
+      "test": "remote ref valid",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "ref.json",
+      "group": "$ref with $recursiveAnchor",
+      "test": "extra items disallowed for root",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "unevaluatedItems.json",
+      "group": "unevaluatedItems with tuple",
+      "test": "with unevaluated items",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "unevaluatedItems.json",
+      "group": "unevaluatedItems with nested tuple",
+      "test": "with unevaluated items",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "unevaluatedItems.json",
+      "group": "unevaluatedItems with anyOf",
+      "test": "when one schema matches and has unevaluated items",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "unevaluatedItems.json",
+      "group": "unevaluatedItems with anyOf",
+      "test": "when two schemas match and has unevaluated items",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "unevaluatedItems.json",
+      "group": "unevaluatedItems with oneOf",
+      "test": "with no unevaluated items",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "unevaluatedItems.json",
+      "group": "unevaluatedItems with not",
+      "test": "with unevaluated items",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "unevaluatedItems.json",
+      "group": "unevaluatedItems with if/then/else",
+      "test": "when if matches and it has unevaluated items",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "unevaluatedItems.json",
+      "group": "unevaluatedItems with if/then/else",
+      "test": "when if doesn't match and it has unevaluated items",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "unevaluatedItems.json",
+      "group": "unevaluatedItems with $ref",
+      "test": "with unevaluated items",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "unevaluatedItems.json",
+      "group": "unevaluatedItems before $ref",
+      "test": "with unevaluated items",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "unevaluatedItems.json",
+      "group": "unevaluatedItems with $recursiveRef",
+      "test": "with unevaluated items",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "unevaluatedItems.json",
+      "group": "item is evaluated in an uncle schema to unevaluatedItems",
+      "test": "uncle keyword evaluation is not significant",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "unevaluatedItems.json",
+      "group": "unevaluatedItems can see annotations from if without then and else",
+      "test": "valid in case if is evaluated",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "unevaluatedItems.json",
+      "group": "Evaluated items collection needs to consider instance location",
+      "test": "with an unevaluated item that exists at another location",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "unevaluatedProperties.json",
+      "group": "unevaluatedProperties with $recursiveRef",
+      "test": "with no unevaluated properties",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "uniqueItems.json",
+      "group": "uniqueItems with an array of items and additionalItems=false",
+      "test": "extra items are invalid even if unique",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "uniqueItems.json",
+      "group": "uniqueItems=false with an array of items and additionalItems=false",
+      "test": "extra items are invalid even if unique",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "required",
+      "file": "vocabulary.json",
+      "group": "schema that uses custom metaschema with with no validation vocabulary",
+      "test": "no validation: invalid number, but it still validates",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "cross-draft.json",
+      "group": "refs to historic drafts are processed as historic drafts",
+      "test": "missing bar is valid",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "single dependency",
+      "test": "missing dependency",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "multiple dependents required",
+      "test": "missing dependency",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "multiple dependents required",
+      "test": "missing other dependency",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "multiple dependents required",
+      "test": "missing both dependencies",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "dependencies with escaped characters",
+      "test": "CRLF missing dependent",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "dependencies with escaped characters",
+      "test": "quoted quotes missing dependent",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "single schema dependency",
+      "test": "wrong type",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "single schema dependency",
+      "test": "wrong type other",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "single schema dependency",
+      "test": "wrong type both",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "boolean subschemas",
+      "test": "object with property having schema false is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "boolean subschemas",
+      "test": "object with both properties is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "schema dependencies with escaped characters",
+      "test": "quoted quote",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "schema dependencies with escaped characters",
+      "test": "quoted tab invalid under dependent schema",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "schema dependencies with escaped characters",
+      "test": "quoted quote invalid under dependent schema",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 regex escapes control codes with \\c and upper letter",
+      "test": "matches",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 regex escapes control codes with \\c and lower letter",
+      "test": "matches",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\s matches whitespace",
+      "test": "zero-width whitespace matches",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\s matches whitespace",
+      "test": "paragraph separator matches (line terminator)",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\s matches whitespace",
+      "test": "EM SPACE matches (Space_Separator)",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\S matches everything but whitespace",
+      "test": "zero-width whitespace does not match",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\S matches everything but whitespace",
+      "test": "paragraph separator does not match (line terminator)",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\S matches everything but whitespace",
+      "test": "EM SPACE does not match (Space_Separator)",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "float-overflow.json",
+      "group": "all integers are multiples of 0.5, if overflow is handled",
+      "test": "valid if optional overflow handling is implemented",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "non-bmp-regex.json",
+      "group": "Proper UTF-16 surrogate pair handling: pattern",
+      "test": "matches empty",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "non-bmp-regex.json",
+      "group": "Proper UTF-16 surrogate pair handling: pattern",
+      "test": "matches two",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "non-bmp-regex.json",
+      "group": "Proper UTF-16 surrogate pair handling: patternProperties",
+      "test": "doesn't match two",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "invalid Punycode",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "contains illegal char U+302E Hangul single dot tone mark",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Begins with a Spacing Combining Mark",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Begins with a Nonspacing Mark",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Begins with an Enclosing Mark",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Exceptions that are DISALLOWED, right-to-left chars",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Exceptions that are DISALLOWED, left-to-right chars",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "MIDDLE DOT with no preceding 'l'",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "MIDDLE DOT with nothing preceding",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "MIDDLE DOT with no following 'l'",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "MIDDLE DOT with nothing following",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Greek KERAIA not followed by Greek",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Greek KERAIA not followed by anything",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Hebrew GERESH not preceded by Hebrew",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Hebrew GERESH not preceded by anything",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Hebrew GERSHAYIM not preceded by Hebrew",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Hebrew GERSHAYIM not preceded by anything",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "KATAKANA MIDDLE DOT with no Hiragana, Katakana, or Han",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "KATAKANA MIDDLE DOT with no other characters",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Arabic-Indic digits mixed with Extended Arabic-Indic digits",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "ZERO WIDTH JOINER not preceded by Virama",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "ZERO WIDTH JOINER not preceded by anything",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "contains \"--\" in the 3rd and 4th position",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-email.json",
+      "group": "validation of an internationalized e-mail addresses",
+      "test": "a local part with a lone UTF-16 surrogate is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "illegal first char U+302E Hangul single dot tone mark",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "contains illegal char U+302E Hangul single dot tone mark",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "a single label of 64 characters is too long",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "invalid label, correct Punycode",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "invalid Punycode",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "U-label contains \"--\" in the 3rd and 4th position",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "U-label starts with a dash",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "U-label ends with a dash",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "U-label starts and ends with a dash",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Begins with a Spacing Combining Mark",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Begins with a Nonspacing Mark",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Begins with an Enclosing Mark",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Exceptions that are DISALLOWED, right-to-left chars",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Exceptions that are DISALLOWED, left-to-right chars",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "MIDDLE DOT with no preceding 'l'",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "MIDDLE DOT with nothing preceding",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "MIDDLE DOT with no following 'l'",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "MIDDLE DOT with nothing following",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Greek KERAIA not followed by Greek",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Greek KERAIA not followed by anything",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Hebrew GERESH not preceded by Hebrew",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Hebrew GERESH not preceded by anything",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Hebrew GERSHAYIM not preceded by Hebrew",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Hebrew GERSHAYIM not preceded by anything",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "KATAKANA MIDDLE DOT with no Hiragana, Katakana, or Han",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "KATAKANA MIDDLE DOT with no other characters",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Arabic-Indic digits mixed with Extended Arabic-Indic digits",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "ZERO WIDTH JOINER not preceded by Virama",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "ZERO WIDTH JOINER not preceded by anything",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "empty string",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "zero width non-joiner must pass at every occurrence",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Bidi domain name with a digit-first label is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "label starting with a digit before a right-to-left letter is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "left-to-right label containing a right-to-left letter is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "right-to-left label mixing both digit types is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "A-label that decodes to a disallowed code point is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "A-label that decodes to a Bidi rule violation is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "a U-label whose A-label form is longer than 63 octets is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "empty label between two dots is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "a name longer than 253 characters is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "A-label that decodes to only ASCII is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "non-canonical Punycode that does not re-encode to itself is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "single dot",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "single ideographic full stop",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "single fullwidth full stop",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "single halfwidth ideographic full stop",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "leading dot",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "leading ideographic full stop",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "leading fullwidth full stop",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "leading halfwidth ideographic full stop",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "trailing dot",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "trailing ideographic full stop",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "trailing fullwidth full stop",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "trailing halfwidth ideographic full stop",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "optional",
+      "file": "content.json",
+      "group": "validation of string-encoded content based on media type",
+      "test": "an invalid JSON document",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "optional",
+      "file": "content.json",
+      "group": "validation of binary string-encoding",
+      "test": "an invalid base64 string (% is not a valid character)",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "optional",
+      "file": "content.json",
+      "group": "validation of binary-encoded media type documents",
+      "test": "a validly-encoded invalid JSON document",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "optional",
+      "file": "content.json",
+      "group": "validation of binary-encoded media type documents",
+      "test": "an invalid base64 string that is valid JSON",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 regex escapes control codes with \\c and upper letter",
+      "test": "matches",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft7",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 regex escapes control codes with \\c and lower letter",
+      "test": "matches",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft7",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\s matches whitespace",
+      "test": "zero-width whitespace matches",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft7",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\s matches whitespace",
+      "test": "paragraph separator matches (line terminator)",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft7",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\s matches whitespace",
+      "test": "EM SPACE matches (Space_Separator)",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft7",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\S matches everything but whitespace",
+      "test": "zero-width whitespace does not match",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\S matches everything but whitespace",
+      "test": "paragraph separator does not match (line terminator)",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\S matches everything but whitespace",
+      "test": "EM SPACE does not match (Space_Separator)",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "optional",
+      "file": "float-overflow.json",
+      "group": "all integers are multiples of 0.5, if overflow is handled",
+      "test": "valid if optional overflow handling is implemented",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft7",
+      "category": "optional",
+      "file": "non-bmp-regex.json",
+      "group": "Proper UTF-16 surrogate pair handling: pattern",
+      "test": "matches empty",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft7",
+      "category": "optional",
+      "file": "non-bmp-regex.json",
+      "group": "Proper UTF-16 surrogate pair handling: pattern",
+      "test": "matches two",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft7",
+      "category": "optional",
+      "file": "non-bmp-regex.json",
+      "group": "Proper UTF-16 surrogate pair handling: patternProperties",
+      "test": "doesn't match two",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "invalid Punycode",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "contains illegal char U+302E Hangul single dot tone mark",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Begins with a Spacing Combining Mark",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Begins with a Nonspacing Mark",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Begins with an Enclosing Mark",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Exceptions that are DISALLOWED, right-to-left chars",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Exceptions that are DISALLOWED, left-to-right chars",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "MIDDLE DOT with no preceding 'l'",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "MIDDLE DOT with nothing preceding",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "MIDDLE DOT with no following 'l'",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "MIDDLE DOT with nothing following",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Greek KERAIA not followed by Greek",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Greek KERAIA not followed by anything",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Hebrew GERESH not preceded by Hebrew",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Hebrew GERESH not preceded by anything",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Hebrew GERSHAYIM not preceded by Hebrew",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Hebrew GERSHAYIM not preceded by anything",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "KATAKANA MIDDLE DOT with no Hiragana, Katakana, or Han",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "KATAKANA MIDDLE DOT with no other characters",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "Arabic-Indic digits mixed with Extended Arabic-Indic digits",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "ZERO WIDTH JOINER not preceded by Virama",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "ZERO WIDTH JOINER not preceded by anything",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "hostname.json",
+      "group": "validation of A-label (punycode) host names",
+      "test": "contains \"--\" in the 3rd and 4th position",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-email.json",
+      "group": "validation of an internationalized e-mail addresses",
+      "test": "a local part with a lone UTF-16 surrogate is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "illegal first char U+302E Hangul single dot tone mark",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "contains illegal char U+302E Hangul single dot tone mark",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "a single label of 64 characters is too long",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "invalid label, correct Punycode",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "invalid Punycode",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "U-label contains \"--\" in the 3rd and 4th position",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "U-label starts with a dash",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "U-label ends with a dash",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "U-label starts and ends with a dash",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Begins with a Spacing Combining Mark",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Begins with a Nonspacing Mark",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Begins with an Enclosing Mark",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Exceptions that are DISALLOWED, right-to-left chars",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Exceptions that are DISALLOWED, left-to-right chars",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "MIDDLE DOT with no preceding 'l'",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "MIDDLE DOT with nothing preceding",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "MIDDLE DOT with no following 'l'",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "MIDDLE DOT with nothing following",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Greek KERAIA not followed by Greek",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Greek KERAIA not followed by anything",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Hebrew GERESH not preceded by Hebrew",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Hebrew GERESH not preceded by anything",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Hebrew GERSHAYIM not preceded by Hebrew",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Hebrew GERSHAYIM not preceded by anything",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "KATAKANA MIDDLE DOT with no Hiragana, Katakana, or Han",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "KATAKANA MIDDLE DOT with no other characters",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Arabic-Indic digits mixed with Extended Arabic-Indic digits",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "ZERO WIDTH JOINER not preceded by Virama",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "ZERO WIDTH JOINER not preceded by anything",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "empty string",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "zero width non-joiner must pass at every occurrence",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "Bidi domain name with a digit-first label is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "label starting with a digit before a right-to-left letter is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "left-to-right label containing a right-to-left letter is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "right-to-left label mixing both digit types is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "A-label that decodes to a disallowed code point is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "A-label that decodes to a Bidi rule violation is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "a U-label whose A-label form is longer than 63 octets is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "empty label between two dots is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "a name longer than 253 characters is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "A-label that decodes to only ASCII is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of internationalized host names",
+      "test": "non-canonical Punycode that does not re-encode to itself is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "single dot",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "single ideographic full stop",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "single fullwidth full stop",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "single halfwidth ideographic full stop",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "leading dot",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "leading ideographic full stop",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "leading fullwidth full stop",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "leading halfwidth ideographic full stop",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "trailing dot",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "trailing ideographic full stop",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "trailing fullwidth full stop",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "format",
+      "file": "idn-hostname.json",
+      "group": "validation of separators in internationalized host names",
+      "test": "trailing halfwidth ideographic full stop",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "additionalItems.json",
+      "group": "additionalItems as schema",
+      "test": "additional items do not match schema",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "additionalItems.json",
+      "group": "array of items with no additionalItems permitted",
+      "test": "additional items are not permitted",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "additionalItems.json",
+      "group": "additionalItems does not look in applicators, invalid case",
+      "test": "items defined in allOf are not examined",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "additionalItems.json",
+      "group": "items validation adjusts the starting index for additionalItems",
+      "test": "wrong type of second item",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "additionalItems.json",
+      "group": "additionalItems with heterogeneous array",
+      "test": "heterogeneous invalid instance",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "definitions.json",
+      "group": "validate definition against metaschema",
+      "test": "valid definition schema",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "dependencies",
+      "test": "missing dependency",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "multiple dependencies",
+      "test": "missing dependency",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "multiple dependencies",
+      "test": "missing other dependency",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "multiple dependencies",
+      "test": "missing both dependencies",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "multiple dependencies subschema",
+      "test": "wrong type",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "multiple dependencies subschema",
+      "test": "wrong type other",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "multiple dependencies subschema",
+      "test": "wrong type both",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "dependencies with boolean subschemas",
+      "test": "object with property having schema false is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "dependencies with boolean subschemas",
+      "test": "object with both properties is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "dependencies with escaped characters",
+      "test": "invalid object 1",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "dependencies with escaped characters",
+      "test": "invalid object 2",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "dependencies with escaped characters",
+      "test": "invalid object 3",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "dependencies with escaped characters",
+      "test": "invalid object 4",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "dependent subschema incompatible with root",
+      "test": "matches root",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "dependent subschema incompatible with root",
+      "test": "matches both",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "items.json",
+      "group": "an array of schemas for items",
+      "test": "wrong types",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "items.json",
+      "group": "items with boolean schemas",
+      "test": "array with two items is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "items.json",
+      "group": "items and subitems",
+      "test": "too many items",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "items.json",
+      "group": "items and subitems",
+      "test": "too many sub-items",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "items.json",
+      "group": "items and subitems",
+      "test": "wrong item",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "items.json",
+      "group": "items and subitems",
+      "test": "wrong sub-item",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "ref.json",
+      "group": "relative pointer ref to array",
+      "test": "mismatch array",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "ref.json",
+      "group": "ref overrides any sibling keywords",
+      "test": "ref valid, maxItems ignored",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "ref.json",
+      "group": "$ref prevents a sibling $id from changing the base uri",
+      "test": "$ref resolves to /definitions/base_foo, data does not validate",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "ref.json",
+      "group": "$ref prevents a sibling $id from changing the base uri",
+      "test": "$ref resolves to /definitions/base_foo, data validates",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "ref.json",
+      "group": "remote ref, containing refs itself",
+      "test": "remote ref valid",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "ref.json",
+      "group": "Reference an anchor with a non-relative URI",
+      "test": "match",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "ref.json",
+      "group": "Location-independent identifier with base URI change in subschema",
+      "test": "match",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "ref.json",
+      "group": "URN base URI with URN and anchor ref",
+      "test": "a string is valid",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "refRemote.json",
+      "group": "Location-independent identifier in remote ref",
+      "test": "integer is valid",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "refRemote.json",
+      "group": "$ref to $ref finds location-independent $id",
+      "test": "number is valid",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "uniqueItems.json",
+      "group": "uniqueItems with an array of items and additionalItems=false",
+      "test": "extra items are invalid even if unique",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "required",
+      "file": "uniqueItems.json",
+      "group": "uniqueItems=false with an array of items and additionalItems=false",
+      "test": "extra items are invalid even if unique",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 regex escapes control codes with \\c and upper letter",
+      "test": "matches",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft6",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 regex escapes control codes with \\c and lower letter",
+      "test": "matches",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft6",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\s matches whitespace",
+      "test": "zero-width whitespace matches",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft6",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\s matches whitespace",
+      "test": "paragraph separator matches (line terminator)",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft6",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\s matches whitespace",
+      "test": "EM SPACE matches (Space_Separator)",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft6",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\S matches everything but whitespace",
+      "test": "zero-width whitespace does not match",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\S matches everything but whitespace",
+      "test": "paragraph separator does not match (line terminator)",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\S matches everything but whitespace",
+      "test": "EM SPACE does not match (Space_Separator)",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft6",
+      "category": "optional",
+      "file": "float-overflow.json",
+      "group": "all integers are multiples of 0.5, if overflow is handled",
+      "test": "valid if optional overflow handling is implemented",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft6",
+      "category": "optional",
+      "file": "non-bmp-regex.json",
+      "group": "Proper UTF-16 surrogate pair handling: pattern",
+      "test": "matches empty",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft6",
+      "category": "optional",
+      "file": "non-bmp-regex.json",
+      "group": "Proper UTF-16 surrogate pair handling: pattern",
+      "test": "matches two",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft6",
+      "category": "optional",
+      "file": "non-bmp-regex.json",
+      "group": "Proper UTF-16 surrogate pair handling: patternProperties",
+      "test": "doesn't match two",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "additionalItems.json",
+      "group": "additionalItems as schema",
+      "test": "additional items do not match schema",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "additionalItems.json",
+      "group": "array of items with no additionalItems permitted",
+      "test": "additional items are not permitted",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "additionalItems.json",
+      "group": "additionalItems does not look in applicators, invalid case",
+      "test": "items defined in allOf are not examined",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "additionalItems.json",
+      "group": "items validation adjusts the starting index for additionalItems",
+      "test": "wrong type of second item",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "additionalItems.json",
+      "group": "additionalItems with heterogeneous array",
+      "test": "heterogeneous invalid instance",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "definitions.json",
+      "group": "validate definition against metaschema",
+      "test": "valid definition schema",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "dependencies",
+      "test": "missing dependency",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "multiple dependencies",
+      "test": "missing dependency",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "multiple dependencies",
+      "test": "missing other dependency",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "multiple dependencies",
+      "test": "missing both dependencies",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "multiple dependencies subschema",
+      "test": "wrong type",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "multiple dependencies subschema",
+      "test": "wrong type other",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "multiple dependencies subschema",
+      "test": "wrong type both",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "dependencies with escaped characters",
+      "test": "invalid object 1",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "dependencies with escaped characters",
+      "test": "invalid object 2",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "dependencies with escaped characters",
+      "test": "invalid object 3",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "dependencies with escaped characters",
+      "test": "invalid object 4",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "dependent subschema incompatible with root",
+      "test": "matches root",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "dependencies.json",
+      "group": "dependent subschema incompatible with root",
+      "test": "matches both",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "items.json",
+      "group": "an array of schemas for items",
+      "test": "wrong types",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "items.json",
+      "group": "items and subitems",
+      "test": "too many items",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "items.json",
+      "group": "items and subitems",
+      "test": "too many sub-items",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "items.json",
+      "group": "items and subitems",
+      "test": "wrong item",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "items.json",
+      "group": "items and subitems",
+      "test": "wrong sub-item",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "ref.json",
+      "group": "relative pointer ref to array",
+      "test": "mismatch array",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "ref.json",
+      "group": "ref overrides any sibling keywords",
+      "test": "ref valid, maxItems ignored",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "ref.json",
+      "group": "$ref prevents a sibling id from changing the base uri",
+      "test": "$ref resolves to /definitions/base_foo, data validates",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "ref.json",
+      "group": "remote ref, containing refs itself",
+      "test": "remote ref valid",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "ref.json",
+      "group": "Recursive references between schemas",
+      "test": "valid tree",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "ref.json",
+      "group": "Location-independent identifier",
+      "test": "match",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "ref.json",
+      "group": "Location-independent identifier with base URI change in subschema",
+      "test": "match",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "ref.json",
+      "group": "id must be resolved against nearest parent, not just immediate parent",
+      "test": "number is valid",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "refRemote.json",
+      "group": "base URI change",
+      "test": "base URI change ref valid",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "refRemote.json",
+      "group": "base URI change - change folder",
+      "test": "number is valid",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "refRemote.json",
+      "group": "base URI change - change folder in subschema",
+      "test": "number is valid",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "refRemote.json",
+      "group": "root ref in remote ref",
+      "test": "string is valid",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "refRemote.json",
+      "group": "root ref in remote ref",
+      "test": "null is valid",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "refRemote.json",
+      "group": "Location-independent identifier in remote ref",
+      "test": "integer is valid",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "uniqueItems.json",
+      "group": "uniqueItems with an array of items and additionalItems=false",
+      "test": "extra items are invalid even if unique",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "required",
+      "file": "uniqueItems.json",
+      "group": "uniqueItems=false with an array of items and additionalItems=false",
+      "test": "extra items are invalid even if unique",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 regex escapes control codes with \\c and upper letter",
+      "test": "matches",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft4",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 regex escapes control codes with \\c and lower letter",
+      "test": "matches",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft4",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\s matches whitespace",
+      "test": "zero-width whitespace matches",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft4",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\s matches whitespace",
+      "test": "paragraph separator matches (line terminator)",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft4",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\s matches whitespace",
+      "test": "EM SPACE matches (Space_Separator)",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft4",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\S matches everything but whitespace",
+      "test": "zero-width whitespace does not match",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\S matches everything but whitespace",
+      "test": "paragraph separator does not match (line terminator)",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "optional",
+      "file": "ecmascript-regex.json",
+      "group": "ECMA 262 \\S matches everything but whitespace",
+      "test": "EM SPACE does not match (Space_Separator)",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "optional",
+      "file": "float-overflow.json",
+      "group": "all integers are multiples of 0.5, if overflow is handled",
+      "test": "valid if optional overflow handling is implemented",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft4",
+      "category": "optional",
+      "file": "id.json",
+      "group": "id inside an enum is not a real identifier",
+      "test": "match $ref to id",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft4",
+      "category": "optional",
+      "file": "non-bmp-regex.json",
+      "group": "Proper UTF-16 surrogate pair handling: pattern",
+      "test": "matches empty",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft4",
+      "category": "optional",
+      "file": "non-bmp-regex.json",
+      "group": "Proper UTF-16 surrogate pair handling: pattern",
+      "test": "matches two",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft4",
+      "category": "optional",
+      "file": "non-bmp-regex.json",
+      "group": "Proper UTF-16 surrogate pair handling: patternProperties",
+      "test": "doesn't match two",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft4",
+      "category": "optional",
+      "file": "zeroTerminatedFloats.json",
+      "group": "some languages do not distinguish between different types of numeric value",
+      "test": "a float is not an integer even without fractional part",
+      "detail": "expected false, got true"
+    }
+  ]
+}

@@ -1,0 +1,411 @@
+{
+  "subject": "jse",
+  "generatedAt": "2026-09-21T18:25:14.826Z",
+  "node": "v24.13.0",
+  "tallies": {
+    "draft2020-12/required": {
+      "run": 1299,
+      "pass": 1299,
+      "fail": 0,
+      "error": 0
+    },
+    "draft2020-12/optional": {
+      "run": 162,
+      "pass": 147,
+      "fail": 15,
+      "error": 0
+    },
+    "draft2020-12/format": {
+      "run": 655,
+      "pass": 654,
+      "fail": 1,
+      "error": 0
+    },
+    "draft2019-09/required": {
+      "run": 1259,
+      "pass": 1259,
+      "fail": 0,
+      "error": 0
+    },
+    "draft2019-09/optional": {
+      "run": 158,
+      "pass": 143,
+      "fail": 15,
+      "error": 0
+    },
+    "draft2019-09/format": {
+      "run": 647,
+      "pass": 647,
+      "fail": 0,
+      "error": 0
+    },
+    "draft7/required": {
+      "run": 927,
+      "pass": 927,
+      "fail": 0,
+      "error": 0
+    },
+    "draft7/optional": {
+      "run": 118,
+      "pass": 113,
+      "fail": 5,
+      "error": 0
+    },
+    "draft7/format": {
+      "run": 579,
+      "pass": 579,
+      "fail": 0,
+      "error": 0
+    },
+    "draft6/required": {
+      "run": 839,
+      "pass": 839,
+      "fail": 0,
+      "error": 0
+    },
+    "draft6/optional": {
+      "run": 106,
+      "pass": 105,
+      "fail": 1,
+      "error": 0
+    },
+    "draft6/format": {
+      "run": 273,
+      "pass": 273,
+      "fail": 0,
+      "error": 0
+    },
+    "draft4/required": {
+      "run": 618,
+      "pass": 618,
+      "fail": 0,
+      "error": 0
+    },
+    "draft4/optional": {
+      "run": 100,
+      "pass": 98,
+      "fail": 2,
+      "error": 0
+    },
+    "draft4/format": {
+      "run": 206,
+      "pass": 206,
+      "fail": 0,
+      "error": 0
+    }
+  },
+  "failures": [
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "single dependency",
+      "test": "missing dependency",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "multiple dependents required",
+      "test": "missing dependency",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "multiple dependents required",
+      "test": "missing other dependency",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "multiple dependents required",
+      "test": "missing both dependencies",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "dependencies with escaped characters",
+      "test": "CRLF missing dependent",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "dependencies with escaped characters",
+      "test": "quoted quotes missing dependent",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "single schema dependency",
+      "test": "wrong type",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "single schema dependency",
+      "test": "wrong type other",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "single schema dependency",
+      "test": "wrong type both",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "boolean subschemas",
+      "test": "object with property having schema false is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "boolean subschemas",
+      "test": "object with both properties is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "schema dependencies with escaped characters",
+      "test": "quoted quote",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "schema dependencies with escaped characters",
+      "test": "quoted tab invalid under dependent schema",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "schema dependencies with escaped characters",
+      "test": "quoted quote invalid under dependent schema",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "optional",
+      "file": "float-overflow.json",
+      "group": "all integers are multiples of 0.5, if overflow is handled",
+      "test": "valid if optional overflow handling is implemented",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft2020-12",
+      "category": "format",
+      "file": "ecmascript-regex.json",
+      "group": "\\a is not an ECMA 262 control escape",
+      "test": "when used as a pattern",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "single dependency",
+      "test": "missing dependency",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "multiple dependents required",
+      "test": "missing dependency",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "multiple dependents required",
+      "test": "missing other dependency",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "multiple dependents required",
+      "test": "missing both dependencies",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "dependencies with escaped characters",
+      "test": "CRLF missing dependent",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "dependencies with escaped characters",
+      "test": "quoted quotes missing dependent",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "single schema dependency",
+      "test": "wrong type",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "single schema dependency",
+      "test": "wrong type other",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "single schema dependency",
+      "test": "wrong type both",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "boolean subschemas",
+      "test": "object with property having schema false is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "boolean subschemas",
+      "test": "object with both properties is invalid",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "schema dependencies with escaped characters",
+      "test": "quoted quote",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "schema dependencies with escaped characters",
+      "test": "quoted tab invalid under dependent schema",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "dependencies-compatibility.json",
+      "group": "schema dependencies with escaped characters",
+      "test": "quoted quote invalid under dependent schema",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft2019-09",
+      "category": "optional",
+      "file": "float-overflow.json",
+      "group": "all integers are multiples of 0.5, if overflow is handled",
+      "test": "valid if optional overflow handling is implemented",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft7",
+      "category": "optional",
+      "file": "content.json",
+      "group": "validation of string-encoded content based on media type",
+      "test": "an invalid JSON document",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "optional",
+      "file": "content.json",
+      "group": "validation of binary string-encoding",
+      "test": "an invalid base64 string (% is not a valid character)",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "optional",
+      "file": "content.json",
+      "group": "validation of binary-encoded media type documents",
+      "test": "a validly-encoded invalid JSON document",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "optional",
+      "file": "content.json",
+      "group": "validation of binary-encoded media type documents",
+      "test": "an invalid base64 string that is valid JSON",
+      "detail": "expected false, got true"
+    },
+    {
+      "draft": "draft7",
+      "category": "optional",
+      "file": "float-overflow.json",
+      "group": "all integers are multiples of 0.5, if overflow is handled",
+      "test": "valid if optional overflow handling is implemented",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft6",
+      "category": "optional",
+      "file": "float-overflow.json",
+      "group": "all integers are multiples of 0.5, if overflow is handled",
+      "test": "valid if optional overflow handling is implemented",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft4",
+      "category": "optional",
+      "file": "float-overflow.json",
+      "group": "all integers are multiples of 0.5, if overflow is handled",
+      "test": "valid if optional overflow handling is implemented",
+      "detail": "expected true, got false"
+    },
+    {
+      "draft": "draft4",
+      "category": "optional",
+      "file": "zeroTerminatedFloats.json",
+      "group": "some languages do not distinguish between different types of numeric value",
+      "test": "a float is not an integer even without fractional part",
+      "detail": "expected false, got true"
+    }
+  ]
+}
