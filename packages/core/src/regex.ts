@@ -54,6 +54,33 @@ export class RegexCache {
 /** A pattern was rejected by {@link EngineOptions.rejectUnsafeRegex}. */
 export class UnsafeRegexError extends Error {}
 
+/** A pattern was rejected by {@link EngineOptions.strictUnicodeRegex}. */
+export class NonUnicodeRegexError extends Error {}
+
+/**
+ * Classifies a pattern against the ECMA-262 regular-expression grammar:
+ * `"unicode"` when it compiles in unicode mode (the `u` flag) — the grammar
+ * JSON Schema specifies; `"legacy"` when only the non-unicode grammar, with
+ * its Annex B web-compatibility extensions (identity escapes such as `\a`,
+ * unescaped `-` inside a class, `\c` before a digit), accepts it — the case
+ * the built-in engine falls back on; `"invalid"` when neither does.
+ */
+export function classifyRegex(
+  pattern: string,
+): "unicode" | "legacy" | "invalid" {
+  try {
+    new RegExp(pattern, "u");
+    return "unicode";
+  } catch {
+    try {
+      new RegExp(pattern);
+      return "legacy";
+    } catch {
+      return "invalid";
+    }
+  }
+}
+
 /**
  * Flags regular expressions whose structure admits exponential-time
  * backtracking (ReDoS). The test is star height: a repetition applied to a

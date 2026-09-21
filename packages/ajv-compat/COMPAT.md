@@ -17,18 +17,19 @@ are silent).
 
 ### Mapped onto the engine
 
-| Option                | Notes                                                                                                                                                                                                           |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `allErrors`           | Default `false` = exactly one reported error (**docs**: "return after the first error"). Synthesized companion errors stay with their primary (**oracle**: propertyNames pairs survive first-error truncation). |
-| `verbose`             | Adds `schema`, `parentSchema`, `data` to errors.                                                                                                                                                                |
-| `messages`            | `false` omits `message`.                                                                                                                                                                                        |
-| `validateFormats`     | Default `true`; formats assert when a format table is present.                                                                                                                                                  |
-| `validateSchema`      | Metaschema validation on registration.                                                                                                                                                                          |
-| `schemas`, `meta`     | Registered through the config ledger.                                                                                                                                                                           |
-| `formats`, `keywords` | Routed through `addFormat`/`addKeyword`.                                                                                                                                                                        |
-| `loadSchema`          | Powers `compileAsync` via an engine loader adapter.                                                                                                                                                             |
-| `logger`              | `log`/`warn`/`error` trio or `false`.                                                                                                                                                                           |
-| `code.regExp`         | Maps to the engine's pluggable regex engine.                                                                                                                                                                    |
+| Option                | Notes                                                                                                                                                                                                                                             |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `allErrors`           | Default `false` = exactly one reported error (**docs**: "return after the first error"). Synthesized companion errors stay with their primary (**oracle**: propertyNames pairs survive first-error truncation).                                   |
+| `verbose`             | Adds `schema`, `parentSchema`, `data` to errors.                                                                                                                                                                                                  |
+| `messages`            | `false` omits `message`.                                                                                                                                                                                                                          |
+| `validateFormats`     | Default `true`; formats assert when a format table is present.                                                                                                                                                                                    |
+| `validateSchema`      | Metaschema validation on registration.                                                                                                                                                                                                            |
+| `schemas`, `meta`     | Registered through the config ledger.                                                                                                                                                                                                             |
+| `formats`, `keywords` | Routed through `addFormat`/`addKeyword`.                                                                                                                                                                                                          |
+| `loadSchema`          | Powers `compileAsync` via an engine loader adapter.                                                                                                                                                                                               |
+| `logger`              | `log`/`warn`/`error` trio or `false`.                                                                                                                                                                                                             |
+| `code.regExp`         | Maps to the engine's pluggable regex engine.                                                                                                                                                                                                      |
+| `unicodeRegExp`       | Default `true` = patterns compile in ECMA-262 unicode mode only (**docs**); maps to the engine's `strictUnicodeRegex`, so a legacy-only pattern such as `\a` is rejected at compile. `false` restores the non-unicode grammar's Annex B fallback. |
 
 ### Implemented in the adapter
 
@@ -46,7 +47,7 @@ are silent).
 `inlineRefs`, `loopRequired`, `loopEnum`, `code.{es5,esm,lines,optimize,
 process}`, `addUsedSchema` (partially honored for `$id` retention),
 `ownProperties` (see plain-data caveat in the migration guide),
-`unicodeRegExp` (patterns compile per spec with `u`), `uriResolver`.
+`uriResolver`.
 
 ### Refused (typed `AjvCompatUnsupportedError`)
 

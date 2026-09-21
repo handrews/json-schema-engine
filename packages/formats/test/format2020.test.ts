@@ -35,6 +35,7 @@ const FILES = [
   "json-pointer",
   "relative-json-pointer",
   "regex",
+  "ecmascript-regex",
   "uri",
   "uri-reference",
   "uri-template",

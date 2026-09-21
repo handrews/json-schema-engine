@@ -19,6 +19,8 @@ import {
   RegexCache,
   RegexEngine,
   UnsafeRegexError,
+  NonUnicodeRegexError,
+  classifyRegex,
   detectUnsafeRegex,
 } from "./regex.js";
 import {
@@ -89,7 +91,12 @@ export {
   SchemaRegistry,
 } from "./registry.js";
 export type { DocumentLocation } from "./registry.js";
-export { UnsafeRegexError, detectUnsafeRegex } from "./regex.js";
+export {
+  UnsafeRegexError,
+  NonUnicodeRegexError,
+  detectUnsafeRegex,
+  classifyRegex,
+} from "./regex.js";
 export type { RegexEngine, CompiledRegex } from "./regex.js";
 export { UnresolvableRefError } from "./uri.js";
 export {
@@ -252,6 +259,17 @@ export interface EngineOptions {
    */
   rejectUnsafeRegex?: boolean;
   /**
+   * Reject a schema at registration when a `pattern`/`patternProperties`
+   * regex is not valid under ECMA-262 unicode mode (the `u` flag), throwing
+   * {@link NonUnicodeRegexError}; a pattern invalid under both grammars is
+   * rejected as well. On by default: that is the grammar JSON Schema
+   * specifies and the one AJV compiles with. `false` lets such a pattern
+   * compile through the non-unicode grammar's Annex B extensions instead
+   * ({@link classifyRegex} reports it as `"legacy"`) — a compatibility
+   * setting for schemas that other validators would also reject.
+   */
+  strictUnicodeRegex?: boolean;
+  /**
    * Maximum schema-nesting (registration) and schema-application
    * (evaluation) depth before {@link MaxDepthExceededError}. Bounds otherwise
    * unbounded recursion on adversarial input; default
@@ -344,16 +362,38 @@ export class Engine {
     for (const [uri, doc] of METASCHEMAS_DRAFT_06) {
       this.schemas.register(doc, uri);
     }
-    // Installed after the trusted metaschemas register, so the screen applies
+    // Installed after the trusted metaschemas register, so the screens apply
     // only to caller schemas (D20).
+    const screens: ((pattern: string, location: string) => void)[] = [];
     if (options.rejectUnsafeRegex) {
-      this.schemas.onRegex = (pattern, location) => {
+      screens.push((pattern, location) => {
         const verdict = detectUnsafeRegex(pattern);
         if (!verdict.safe) {
           throw new UnsafeRegexError(
             `unsafe regex at '${location}': ${verdict.reason}`,
           );
         }
+      });
+    }
+    if (options.strictUnicodeRegex !== false) {
+      screens.push((pattern, location) => {
+        const kind = classifyRegex(pattern);
+        if (kind === "legacy") {
+          throw new NonUnicodeRegexError(
+            `regex at '${location}' is not valid in ECMA-262 unicode mode ` +
+              `and would compile only through the legacy (Annex B) grammar`,
+          );
+        }
+        if (kind === "invalid") {
+          throw new NonUnicodeRegexError(
+            `regex at '${location}' is not a valid ECMA-262 regular expression`,
+          );
+        }
+      });
+    }
+    if (screens.length > 0) {
+      this.schemas.onRegex = (pattern, location) => {
+        for (const screen of screens) screen(pattern, location);
       };
     }
   }

@@ -92,6 +92,49 @@ assert.equal(detectUnsafeRegex("(a+)+$").safe, false);
 assert.equal(detectUnsafeRegex("^[a-z]+$").safe, true);
 ```
 
+## Unicode-mode regular expressions
+
+JSON Schema specifies ECMA-262 regular expressions with Unicode semantics,
+which is the native `RegExp` in unicode mode (the `u` flag). The non-unicode
+grammar carries Annex B web-compatibility extensions the unicode grammar
+rejects: identity escapes such as `\a`, an unescaped `-` inside a character
+class, `\c` before a digit. The engine compiles `pattern` and
+`patternProperties` in unicode mode, and by default a pattern the unicode
+grammar rejects is a registration error, `NonUnicodeRegexError` (as is a
+pattern invalid under both grammars). That matches AJV, which has compiled
+with the `u` flag and no fallback since v7, so schemas in circulation are
+already written to it. `strictUnicodeRegex: false` restores the non-unicode
+fallback for a schema that other validators would also reject.
+`classifyRegex` reports which case a pattern is, for a build-time lint.
+
+```ts
+import assert from "node:assert";
+import {
+  createEngine,
+  classifyRegex,
+  NonUnicodeRegexError,
+} from "@json-schema-engine/core";
+
+// `\a` is a SyntaxError in unicode mode and the letter "a" under Annex B.
+assert.equal(classifyRegex("^\\a$"), "legacy");
+
+const strict = createEngine();
+assert.throws(
+  () => strict.registerSchema({ pattern: "^\\a$" }, "https://ex/strict"),
+  NonUnicodeRegexError,
+);
+
+const lenient = createEngine({ strictUnicodeRegex: false });
+const uri = lenient.registerSchema({ pattern: "^\\a$" }, "https://ex/legacy");
+assert.equal(lenient.evaluate(uri, "a").valid, true);
+```
+
+The `regex` format in `@json-schema-engine/formats` always uses the unicode
+grammar: a string that only Annex B accepts is not a valid `format: "regex"`
+value, regardless of this option. The screen judges a pattern by the native
+`RegExp` grammar even when a custom `regexEngine` is installed; the option
+is about the grammar the specification names, not about the engine.
+
 ## Recursion depth
 
 A self-referencing schema over deeply nested data, or a deeply nested schema

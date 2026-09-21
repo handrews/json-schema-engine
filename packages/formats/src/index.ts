@@ -202,9 +202,12 @@ export const relativeJsonPointer: FormatDefinition = {
 // sufficient here: the suite's only invalid case is unclosed parens
 // (rejected in any mode), so there is no case forcing the `u`-mode retry
 // core's `schemaRegExp` uses for `\p{...}` property escapes.
+// ECMA-262 unicode mode: the grammar JSON Schema specifies. The non-unicode
+// grammar's Annex B extensions (identity escapes such as `\a`) would accept
+// strings that are not regular expressions elsewhere.
 function isRegex(value: string): boolean {
   try {
-    new RegExp(value);
+    new RegExp(value, "u");
     return true;
   } catch {
     return false;
