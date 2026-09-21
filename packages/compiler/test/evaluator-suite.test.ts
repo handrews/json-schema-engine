@@ -43,7 +43,10 @@ import {
   registerDraft04,
   DIALECT_DRAFT_04,
 } from "@json-schema-engine/dialect-draft04";
-import { suiteRemotesLoader } from "@json-schema-engine/test-kit";
+import {
+  suiteRemotesLoader,
+  DYNAMIC_SEEDS,
+} from "@json-schema-engine/test-kit";
 
 const SUITE_ROOT = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -1026,7 +1029,13 @@ describe("Leg 7 — curated ordering across every option set", () => {
   });
 
   runCurated({
-    name: "$dynamicRef island, standalone",
+    name: "$dynamicRef island (unstable site)",
+    schema: DYNAMIC_SEEDS.unstableRecursive.schema,
+    instances: DYNAMIC_SEEDS.unstableRecursive.tests.map((t) => t.data),
+  });
+
+  runCurated({
+    name: "$dynamicRef resolved statically, standalone",
     schema: {
       $id: "https://eval-suite.example/leg7/dyn-standalone",
       $defs: {
@@ -1038,7 +1047,7 @@ describe("Leg 7 — curated ordering across every option set", () => {
   });
 
   runCurated({
-    name: "$dynamicRef island, nested under properties",
+    name: "$dynamicRef resolved statically, nested under properties",
     schema: {
       $id: "https://eval-suite.example/leg7/dyn-nested",
       $defs: {
@@ -1054,7 +1063,7 @@ describe("Leg 7 — curated ordering across every option set", () => {
   });
 
   runCurated({
-    name: "$dynamicRef island, whole schema root",
+    name: "$dynamicRef resolved statically, whole schema root",
     schema: {
       $id: "https://eval-suite.example/leg7/dyn-root",
       $defs: {

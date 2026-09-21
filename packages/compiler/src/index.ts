@@ -31,10 +31,16 @@ import {
   type CompiledValidate,
 } from "./runtime-compile.js";
 
-export type { CompilationPlan, PlannedUnit, FallbackCause } from "./plan.js";
+export type {
+  CompilationPlan,
+  PlannedUnit,
+  PlannedApplication,
+  DynamicResolution,
+  FallbackCause,
+} from "./plan.js";
 export { buildPlan } from "./plan.js";
 export { explainCompilation } from "./explain.js";
-export type { CompilationExplanation } from "./explain.js";
+export type { CompilationExplanation, ResolvedDynamicSite } from "./explain.js";
 export { serializePlan } from "./serialize/index.js";
 export { emitStandalone, StandaloneUnsupportedError } from "./standalone.js";
 export type { StandaloneOptions } from "./standalone.js";

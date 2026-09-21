@@ -4,6 +4,7 @@
 // multiset AND order match Engine.evaluate(..., { output: "list" }).
 
 import { describe, it, expect } from "vitest";
+import { DYNAMIC_SEEDS } from "@json-schema-engine/test-kit";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -112,20 +113,15 @@ describe("compiled list output ≡ interpreter (full local suite)", () => {
   });
 
   it("islands report errors through the list trampoline with full prefixes", () => {
+    // An unstable $dynamicRef site (ADR 0004) is what still islands.
     const engine = createEngine();
     const uri = engine.registerSchema(
-      {
-        $id: "https://list.example/dyn",
-        $dynamicAnchor: "n",
-        type: "object",
-        properties: {
-          children: { type: "array", items: { $dynamicRef: "#n" } },
-        },
-      },
+      DYNAMIC_SEEDS.unstableRecursive.schema,
       "https://list.example/dyn",
     );
     const artifact = compileList(engine, uri);
-    const bad = { children: [{ children: "not-an-array" }] } as JsonValue;
+    expect(artifact.plan.targets.length).toBeGreaterThan(0);
+    const bad = { child: { child: "not-an-object" } } as JsonValue;
     const expected = engine.evaluate(uri, bad, { output: "list" });
     const got = artifact.evaluateList(bad);
     expect(got.valid).toBe(false);
@@ -135,18 +131,12 @@ describe("compiled list output ≡ interpreter (full local suite)", () => {
   it("island errors carry params through the list trampoline", () => {
     const engine = createEngine();
     const uri = engine.registerSchema(
-      {
-        $id: "https://list.example/dynp",
-        $dynamicAnchor: "n",
-        type: "object",
-        properties: {
-          children: { type: "array", items: { $dynamicRef: "#n" } },
-        },
-      },
+      DYNAMIC_SEEDS.unstableRecursive.schema,
       "https://list.example/dynp",
     );
     const artifact = compileList(engine, uri, { errorParams: true });
-    const bad = { children: [{ children: "not-an-array" }] } as JsonValue;
+    expect(artifact.plan.targets.length).toBeGreaterThan(0);
+    const bad = { child: { child: "not-an-object" } } as JsonValue;
     const expected = engine.evaluate(uri, bad, {
       output: "list",
       errorParams: true,

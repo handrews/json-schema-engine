@@ -226,9 +226,15 @@ new schemas, compile a new one.
 
 ## What compiled, and what fell back
 
-`$dynamicRef`/`$recursiveRef` resolve against the dynamic scope of the
-evaluation, which is not known at compile time, so those subschemas stay
-interpreted islands. `explainCompilation` reports the split.
+`$dynamicRef` resolves against the dynamic scope of the evaluation. The
+compiler knows every path an artifact can take to a `$dynamicRef` site, so
+when all of them resolve the reference to the same target it resolves the
+site at compile time and compiles the target like a `$ref` (a fragment-free
+or pointer reference, a target with no bookending `$dynamicAnchor`, a root
+that declares the anchor, or a `$ref` into the 2020-12 metaschema all
+qualify). A site whose target could differ along different paths, and
+`$recursiveRef`, stay interpreted islands. `explainCompilation` reports the
+split and lists the resolved sites.
 
 ```ts
 import assert from "node:assert";
@@ -248,6 +254,29 @@ const uri = engine.registerSchema(
 const explanation = explainCompilation(buildPlan(engine, uri));
 assert.equal(explanation.interpretedUnits, 0);
 assert.ok(explanation.staticUnits > 0);
+
+// A tree whose nodes re-enter the root through $dynamicRef compiles fully:
+// the root declares the anchor, so every path resolves the site to it.
+const treeUri = engine.registerSchema(
+  {
+    $id: "https://example.com/tree",
+    $dynamicAnchor: "node",
+    type: "object",
+    properties: { children: { items: { $dynamicRef: "#node" } } },
+  },
+  "https://example.com/tree",
+);
+const tree = explainCompilation(buildPlan(engine, treeUri));
+assert.equal(tree.interpretedUnits, 0);
+assert.deepEqual(tree.resolvedDynamicSites, [
+  {
+    unit: "https://example.com/tree#/properties/children/items",
+    keyword: "$dynamicRef",
+    ref: "#node",
+    target: "https://example.com/tree#",
+    winner: "https://example.com/tree",
+  },
+]);
 ```
 
 Islands are a performance characteristic, not a correctness one: the artifact
@@ -279,12 +308,30 @@ const uri = engine.registerSchema(
 const source = emitStandalone(engine, uri);
 assert.ok(source.includes("export default"));
 
-// Standalone emission covers fully static schemas only.
+// Standalone emission covers fully static schemas only. This $dynamicRef
+// site resolves differently under `numbers` and `strings`, so it stays an
+// interpreted island and the schema is refused.
 const dynamicUri = engine.registerSchema(
   {
     $id: "https://example.com/dynamic",
-    $defs: { item: { $dynamicAnchor: "T", type: "string" } },
-    items: { $dynamicRef: "#T" },
+    $defs: {
+      generic: {
+        $id: "generic",
+        $defs: { bookend: { $dynamicAnchor: "item" } },
+        items: { $dynamicRef: "#item" },
+      },
+      numbers: {
+        $id: "numbers",
+        $defs: { item: { $dynamicAnchor: "item", type: "number" } },
+        $ref: "generic",
+      },
+      strings: {
+        $id: "strings",
+        $defs: { item: { $dynamicAnchor: "item", type: "string" } },
+        $ref: "generic",
+      },
+    },
+    anyOf: [{ $ref: "numbers" }, { $ref: "strings" }],
   },
   "https://example.com/dynamic",
 );

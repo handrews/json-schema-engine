@@ -5,11 +5,15 @@
 // designed, not a gap.
 
 import { describe, it, expect } from "vitest";
+import { DYNAMIC_SEEDS } from "@json-schema-engine/test-kit";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
 import { createEngine, type JsonValue } from "@json-schema-engine/core";
-import { compileValidator } from "@json-schema-engine/compiler";
+import {
+  compileValidator,
+  explainCompilation,
+} from "@json-schema-engine/compiler";
 
 const SUITE_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -119,7 +123,7 @@ describe("compiled ≡ interpreted (M6.2 smoke differential)", () => {
     expect(validate({ name: "NOPE" })).toBe(false);
   });
 
-  it("classifies $dynamicRef islands and still agrees", () => {
+  it("resolves a root-anchored $dynamicRef statically and still agrees", () => {
     const engine = createEngine();
     const uri = engine.registerSchema(
       {
@@ -137,13 +141,39 @@ describe("compiled ≡ interpreted (M6.2 smoke differential)", () => {
       "https://smoke.example/dyn-tree",
     );
     const { plan, validate } = compileValidator(engine, uri);
-    expect(plan.targets.length).toBeGreaterThan(0);
+    expect(plan.targets).toHaveLength(0);
+    expect(explainCompilation(plan).resolvedDynamicSites).toEqual([
+      {
+        unit: "https://smoke.example/dyn-tree#/properties/children/items",
+        keyword: "$dynamicRef",
+        ref: "#node",
+        target: "https://smoke.example/dyn-tree#",
+        winner: "https://smoke.example/dyn-tree",
+      },
+    ]);
     const ok = { data: 1, children: [{ data: 2, children: [] }] };
     const bad = { data: 1, children: [{ data: 2, children: [3] }] };
     expect(validate(ok)).toBe(engine.evaluate(uri, ok).valid);
     expect(validate(bad)).toBe(engine.evaluate(uri, bad).valid);
     expect(validate(ok)).toBe(true);
     expect(validate(bad)).toBe(false);
+  });
+
+  it("classifies an unstable $dynamicRef site as an island and still agrees", () => {
+    const engine = createEngine();
+    const group = DYNAMIC_SEEDS.unstableTwoPaths;
+    const uri = engine.registerSchema(
+      group.schema,
+      "https://smoke.example/unstable",
+    );
+    const { plan, validate } = compileValidator(engine, uri);
+    expect(plan.targets.length).toBeGreaterThan(0);
+    for (const t of group.tests) {
+      expect(validate(t.data), t.description).toBe(t.valid);
+      expect(validate(t.data), t.description).toBe(
+        engine.evaluate(uri, t.data).valid,
+      );
+    }
   });
 
   it("static unevaluatedProperties lowers with own-trio coverage", () => {

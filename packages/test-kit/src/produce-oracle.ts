@@ -58,6 +58,13 @@ export interface OracleUnit {
    * lowering, which the oracle does not model).
    */
   tracking?: boolean;
+  /**
+   * `$dynamicRef` applications the planner resolved statically (ADR 0004),
+   * keyed `${keyword}|${ref}`: the oracle applies the plan's target instead
+   * of resolving the reference lexically, since a resolved site's winner may
+   * be an ancestor resource the lexical walk never sees.
+   */
+  dynamicTargets?: ReadonlyMap<string, SchemaRef>;
 }
 
 /** One keyword's rendered record: an annotation's value or its dependency data. */
@@ -140,6 +147,7 @@ export function evaluateProduceRecipes(
       registry,
       regexCache,
       unit.ref,
+      unit.dynamicTargets,
       entry.name,
       instance,
       bindings,
@@ -158,6 +166,7 @@ class RecipeExecutor {
     private registry: SchemaRegistry,
     private regexCache: RegexCache,
     private unitRef: SchemaRef,
+    private dynamicTargets: ReadonlyMap<string, SchemaRef> | undefined,
     private keyword: string,
     private instance: JsonValue,
     private bindings: Map<number, string | number>,
@@ -288,7 +297,10 @@ class RecipeExecutor {
 
   private resolveTarget(apply: LowerApply): SchemaRef {
     if (apply.ref !== undefined) {
-      return this.registry.resolveRef(apply.ref, this.unitRef.baseUri);
+      return (
+        this.dynamicTargets?.get(`${this.keyword}|${apply.ref}`) ??
+        this.registry.resolveRef(apply.ref, this.unitRef.baseUri)
+      );
     }
     const first = apply.sibling ?? this.keyword;
     const path = apply.path.map((seg) => {

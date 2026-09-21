@@ -21,6 +21,11 @@ export interface PlanCensusSummary {
   trackingUnits?: number;
   /** Units in some tracked unit's coverage region (phase B). */
   regionUnits?: number;
+  /**
+   * `$dynamicRef` sites resolved at plan time and compiled statically (ADR
+   * 0004): a count, or the explanation's own list (its length is counted).
+   */
+  resolvedDynamicSites?: number | readonly unknown[];
 }
 
 /** Aggregated census over every group of every file in a suite directory. */
@@ -38,6 +43,8 @@ export interface PlanCensusResult {
   trackingUnits: number;
   /** Units in some tracked unit's coverage region (phase B). */
   regionUnits: number;
+  /** `$dynamicRef` sites resolved at plan time and compiled statically (ADR 0004). */
+  resolvedDynamicSites: number;
 }
 
 /**
@@ -63,6 +70,7 @@ export async function runPlanCensus(options: {
     interpretedKeys: [],
     trackingUnits: 0,
     regionUnits: 0,
+    resolvedDynamicSites: 0,
   };
   const files = readdirSync(options.suiteDir)
     .filter((f) => f.endsWith(".json"))
@@ -87,6 +95,9 @@ export async function runPlanCensus(options: {
       result.interpretedUnits += summary.interpretedUnits;
       result.trackingUnits += summary.trackingUnits ?? 0;
       result.regionUnits += summary.regionUnits ?? 0;
+      const resolved = summary.resolvedDynamicSites ?? 0;
+      result.resolvedDynamicSites +=
+        typeof resolved === "number" ? resolved : resolved.length;
       for (const [cause, count] of Object.entries(summary.causes)) {
         if (count === undefined || count === 0) continue;
         result.causes[cause] = (result.causes[cause] ?? 0) + count;

@@ -9,6 +9,7 @@ import {
   type Engine,
   type JsonValue,
   type SchemaRef,
+  type SchemaRegistry,
   type StaticFacts,
   type SubschemaApplication,
 } from "@json-schema-engine/core";
@@ -29,11 +30,28 @@ export interface StaticNameCoverage {
   coversAllIndexes: boolean;
 }
 
+/**
+ * A `$dynamicRef` application discharged at plan time: its target was the
+ * same under every dynamic scope that can reach the site, so it compiles as
+ * a static edge (ADR 0004).
+ */
+export interface DynamicResolution {
+  /**
+   * The resource whose `$dynamicAnchor` wins the outermost-first scope walk
+   * on every reaching path, or `null` when the reference resolves lexically
+   * (its fragment is absent, empty, or a pointer, or the lexical target's
+   * resource declares no bookending anchor).
+   */
+  winner: string | null;
+}
+
 /** One application edge out of a unit, resolved at plan time. */
 export interface PlannedApplication {
   keyword: string;
   app: SubschemaApplication;
   targetKey: string;
+  /** present when `app.resolution === "dynamic"` was discharged statically */
+  dynamic?: DynamicResolution;
 }
 
 export interface PlannedUnit {
@@ -85,6 +103,209 @@ const unitKey = (ref: SchemaRef): string => `${ref.baseUri}#${ref.pointer}`;
 const isObj = (v: JsonValue): v is Record<string, JsonValue> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
+// --- Dynamic-reference sites (ADR 0004) --------------------------------
+//
+// A `$dynamicRef` whose fragment names a bookended `$dynamicAnchor` resolves
+// to the outermost resource in the dynamic scope declaring that anchor. In
+// an artifact the scope at a compiled site is the chain of unit base URIs
+// from the artifact root (the trampoline is one-way, so compiled sites are
+// reached only through compiled ancestors), which is a per-root dataflow
+// over the unit graph: settleDynamicSites computes, per anchor name, the set
+// of possible outermost declarers on arrival at each unit, and a site whose
+// set maps to one target compiles as a static edge. Resolving a site adds
+// its target's subtree — new paths that can reach other sites — so the plan
+// is built in rounds: each round rebuilds from scratch under the current
+// site decisions, then re-settles; decisions move only unknown → resolved →
+// unstable, so the loop ends within (#sites + 1) rounds.
+
+/** A site's decision, carried across rounds. */
+type SiteState =
+  | { kind: "resolved"; target: SchemaRef; winner: string | null }
+  | { kind: "unstable" };
+
+/** A dynamic site seen in a round: what settling needs to decide it. */
+interface RoundSite {
+  key: string;
+  /** the unit holding the keyword: the scope walk starts from its arrival set */
+  unit: string;
+  anchor: string;
+  lexical: SchemaRef;
+}
+
+const siteKey = (unit: string, keyword: string, ref: string): string =>
+  `${unit}|${keyword}|${ref}`;
+
+type EdgeResolution =
+  | {
+      kind: "resolved";
+      target: SchemaRef;
+      dynamic?: DynamicResolution;
+      site?: RoundSite;
+    }
+  | { kind: "unresolvable" } // UnresolvableRefError: lazy-failure parity
+  | { kind: "unstable" } // dynamic site not provably scope-independent
+  | { kind: "pending"; site: RoundSite }; // dynamic site not yet decided this build
+
+/**
+ * Resolves one application's target the way the interpreter would: lexically
+ * for `$ref` and child positions, and for a `$dynamicRef` through the shared
+ * registry prelude plus the current round's site decisions. `$recursiveRef`
+ * and any dynamic-scope keyword without a `resolution` fact are always
+ * `unstable` (islanded).
+ */
+function resolveEdge(
+  registry: SchemaRegistry,
+  from: SchemaRef,
+  keyword: string,
+  app: SubschemaApplication,
+  sites: ReadonlyMap<string, SiteState>,
+): EdgeResolution {
+  try {
+    if (app.ref === undefined) {
+      return {
+        kind: "resolved",
+        target: registry.child(from, [app.sibling ?? keyword, ...app.path]),
+      };
+    }
+    if (app.resolution === undefined) {
+      return {
+        kind: "resolved",
+        target: registry.resolveRef(app.ref, from.baseUri),
+      };
+    }
+    if (app.resolution !== "dynamic") return { kind: "unstable" };
+    const { lexical, anchor } = registry.dynamicReference(
+      app.ref,
+      from.baseUri,
+    );
+    if (anchor === null) {
+      return { kind: "resolved", target: lexical, dynamic: { winner: null } };
+    }
+    const unit = unitKey(from);
+    const site: RoundSite = {
+      key: siteKey(unit, keyword, app.ref),
+      unit,
+      anchor,
+      lexical,
+    };
+    const state = sites.get(site.key);
+    if (state === undefined) return { kind: "pending", site };
+    if (state.kind === "unstable") return { kind: "unstable" };
+    return {
+      kind: "resolved",
+      target: state.target,
+      dynamic: { winner: state.winner },
+      site,
+    };
+  } catch (err) {
+    if (err instanceof UnresolvableRefError) return { kind: "unresolvable" };
+    throw err;
+  }
+}
+
+/**
+ * The per-anchor dataflow: for every unit, the set of resources that can be
+ * the outermost declarer of `anchor` when evaluation arrives at it (`null`
+ * = none so far). Seeded at the root, propagated along every static edge
+ * (in-place or child, conditional or not — an over-approximation of real
+ * paths, so it only ever errs toward "unstable"), joined by union, to a
+ * fixpoint.
+ */
+function outermostDeclarers(
+  registry: SchemaRegistry,
+  plan: CompilationPlan,
+  anchor: string,
+): Map<string, Set<string | null>> {
+  const decl = (u: PlannedUnit): string | null =>
+    registry.dynamicAnchor(u.ref.baseUri, anchor) !== undefined
+      ? u.ref.baseUri
+      : null;
+  const arrival = new Map<string, Set<string | null>>();
+  const root = plan.units.get(plan.rootKey)!;
+  arrival.set(root.key, new Set([decl(root)]));
+  const work = [root.key];
+  while (work.length > 0) {
+    const u = plan.units.get(work.pop()!)!;
+    if (u.kind !== "static") continue;
+    const here = arrival.get(u.key)!;
+    for (const edge of u.edges) {
+      const v = plan.units.get(edge.targetKey)!;
+      let there = arrival.get(v.key);
+      if (there === undefined) {
+        there = new Set();
+        arrival.set(v.key, there);
+      }
+      const own = decl(v);
+      let grew = false;
+      for (const w of here) {
+        const c = w ?? own;
+        if (!there.has(c)) {
+          there.add(c);
+          grew = true;
+        }
+      }
+      if (grew) work.push(v.key);
+    }
+  }
+  return arrival;
+}
+
+/**
+ * Decides every dynamic site the round saw. Returns whether any decision
+ * changed (another round is needed). A site whose arrival set maps to one
+ * target resolves to it; two or more targets, or a change to an
+ * already-resolved site, is unstable — permanently, which is what bounds
+ * the round loop.
+ */
+function settleDynamicSites(
+  registry: SchemaRegistry,
+  plan: CompilationPlan,
+  seen: ReadonlyMap<string, RoundSite>,
+  sites: Map<string, SiteState>,
+): boolean {
+  if (seen.size === 0) return false;
+  const byAnchor = new Map<string, RoundSite[]>();
+  for (const site of seen.values()) {
+    const list = byAnchor.get(site.anchor) ?? [];
+    list.push(site);
+    byAnchor.set(site.anchor, list);
+  }
+  let changed = false;
+  for (const [anchor, list] of byAnchor) {
+    const arrival = outermostDeclarers(registry, plan, anchor);
+    for (const site of list) {
+      const set = arrival.get(site.unit);
+      // Unreachable through static edges this round (an ancestor islanded
+      // after the unit was planned): nothing depends on the decision.
+      if (set === undefined || set.size === 0) continue;
+      const targets = new Map<string, SiteState & { kind: "resolved" }>();
+      for (const winner of set) {
+        const target =
+          winner === null
+            ? site.lexical
+            : registry.dynamicAnchor(winner, anchor)!;
+        targets.set(unitKey(target), { kind: "resolved", target, winner });
+      }
+      const prev = sites.get(site.key);
+      if (prev?.kind === "unstable") continue;
+      if (targets.size === 1) {
+        const [only] = targets.values();
+        if (prev === undefined) {
+          sites.set(site.key, only!);
+          changed = true;
+        } else if (unitKey(prev.target) !== unitKey(only!.target)) {
+          sites.set(site.key, { kind: "unstable" });
+          changed = true;
+        }
+      } else {
+        sites.set(site.key, { kind: "unstable" });
+        changed = true;
+      }
+    }
+  }
+  return changed;
+}
+
 /**
  * Build the compilation plan for one registered root schema. The walk mirrors
  * the registration walk's position logic by construction: descent uses the
@@ -114,11 +335,28 @@ export function buildPlan(
   options: PlanOptions = {},
 ): CompilationPlan {
   const registry = engine.registry;
+  const rootRef = registry.rootRef(schemaUri);
+  // Rounds: see "Dynamic-reference sites" above. A schema without dynamic
+  // sites settles in one round.
+  const sites = new Map<string, SiteState>();
+  for (;;) {
+    const round = planRound(registry, rootRef, options, sites);
+    if (!settleDynamicSites(registry, round.plan, round.sites, sites)) {
+      return round.plan;
+    }
+  }
+}
+
+function planRound(
+  registry: SchemaRegistry,
+  rootRef: SchemaRef,
+  options: PlanOptions,
+  sites: ReadonlyMap<string, SiteState>,
+): { plan: CompilationPlan; sites: Map<string, RoundSite> } {
   const units = new Map<string, PlannedUnit>();
   const patterns = new Set<string>();
   const formats = new Set<string>();
-
-  const rootRef = registry.rootRef(schemaUri);
+  const roundSites = new Map<string, RoundSite>();
 
   // inPlaceChain: units connected to the current edge via consecutive
   // in-place applications — a back-edge into this chain is an in-place
@@ -175,6 +413,10 @@ export function buildPlan(
       facts: StaticFacts;
     }
     const present: KeywordPlan[] = [];
+    // Dynamic applications are resolved here, before any child is planned,
+    // so an unstable site islands the node at the same point the old
+    // unconditional island did — never with half-planned children.
+    const preResolved = new Map<SubschemaApplication, EdgeResolution>();
     let consumerPresent = false;
     for (const entry of dialect.ordered) {
       if (refOnly && entry.name !== "$ref") continue;
@@ -183,9 +425,33 @@ export function buildPlan(
       const value = node[entry.name]!;
       const facts = behavior.analyze?.(value, { schema: node }) ?? {};
       if (facts.dynamicScopeSensitive) {
-        unit.kind = "interpreted";
-        unit.cause = "dynamic";
-        return unit;
+        const apps = facts.applications ?? [];
+        if (
+          apps.length === 0 ||
+          apps.some((a) => a.ref === undefined || a.resolution !== "dynamic")
+        ) {
+          // $recursiveRef, or a dynamic-scope keyword the planner has no
+          // static resolver for: the island it always was.
+          unit.kind = "interpreted";
+          unit.cause = "dynamic";
+          return unit;
+        }
+        for (const app of apps) {
+          const r = resolveEdge(registry, ref, entry.name, app, sites);
+          if (r.kind === "unstable") {
+            unit.kind = "interpreted";
+            unit.cause = "dynamic";
+            return unit;
+          }
+          if (r.kind === "unresolvable") {
+            // Lazy-failure parity, as for an unresolvable $ref below.
+            unit.kind = "interpreted";
+            unit.cause = "unlowerable";
+            return unit;
+          }
+          if (r.site !== undefined) roundSites.set(r.site.key, r.site);
+          preResolved.set(app, r);
+        }
       }
       if (typeof behavior.lower !== "function") {
         unit.kind = "interpreted";
@@ -230,7 +496,7 @@ export function buildPlan(
       } else {
         // Flag mode: static-coverage licensing is sound (verdict-only), so a
         // consumer whose coverage kind is statically known keeps the fast path.
-        const halves = coverageHalves(registry, ref, new Set(), true);
+        const halves = coverageHalves(registry, ref, new Set(), true, sites);
         const needsNames = present.some(
           (k) => (k.facts.consumes?.length ?? 0) > 0 && k.facts.evaluatesNames,
         );
@@ -265,27 +531,30 @@ export function buildPlan(
     // Resolve application edges; plan children.
     for (const { name, facts } of present) {
       for (const app of facts.applications ?? []) {
-        let target: SchemaRef;
-        try {
-          if (app.ref !== undefined) {
-            target = registry.resolveRef(app.ref, ref.baseUri);
-          } else if (app.sibling !== undefined) {
-            target = registry.child(ref, [app.sibling, ...app.path]);
-          } else {
-            target = registry.child(ref, [name, ...app.path]);
-          }
-        } catch (err) {
-          if (err instanceof UnresolvableRefError) {
-            // Lazy-failure parity: the interpreter throws only when the
-            // reference is actually followed, so the whole node falls back.
-            unit.kind = "interpreted";
-            unit.cause = "unlowerable";
-            unit.edges = [];
-            return unit;
-          }
-          throw err;
+        const r =
+          preResolved.get(app) ?? resolveEdge(registry, ref, name, app, sites);
+        if (r.kind === "pending") continue; // decided by settling; no edge yet
+        if (r.kind === "unresolvable" || r.kind === "unstable") {
+          // Lazy-failure parity: the interpreter throws only when the
+          // reference is actually followed, so the whole node falls back.
+          // (An unstable dynamic site was islanded above; this arm is the
+          // unresolvable $ref/child case.)
+          unit.kind = "interpreted";
+          unit.cause = r.kind === "unstable" ? "dynamic" : "unlowerable";
+          unit.edges = [];
+          return unit;
         }
-        const targetKey = unitKey(target);
+        const target = r.target;
+        const edge: PlannedApplication =
+          r.dynamic === undefined
+            ? { keyword: name, app, targetKey: unitKey(target) }
+            : {
+                keyword: name,
+                app,
+                targetKey: unitKey(target),
+                dynamic: r.dynamic,
+              };
+        const targetKey = edge.targetKey;
         if (app.mode === "inPlace") {
           if (inPlaceChain.includes(targetKey) || targetKey === key) {
             // In-place cycle: same-cursor re-entry. The interpreter's
@@ -295,14 +564,14 @@ export function buildPlan(
             t.kind = "interpreted";
             t.cause = "cycle";
             t.edges = [];
-            unit.edges.push({ keyword: name, app, targetKey });
+            unit.edges.push(edge);
             continue;
           }
           plan(target, [...inPlaceChain, key]);
         } else {
           plan(target, []);
         }
-        unit.edges.push({ keyword: name, app, targetKey });
+        unit.edges.push(edge);
       }
     }
     return unit;
@@ -376,11 +645,14 @@ export function buildPlan(
 
   const targets = [...units.values()].filter((u) => u.kind === "interpreted");
   return {
-    rootKey: root.key,
-    units,
-    patterns: [...patterns],
-    formats: [...formats],
-    targets,
+    plan: {
+      rootKey: root.key,
+      units,
+      patterns: [...patterns],
+      formats: [...formats],
+      targets,
+    },
+    sites: roundSites,
   };
 }
 
@@ -400,10 +672,11 @@ interface CoverageHalves {
  * evaluates the target, so contribution is independent of compilability.
  */
 function coverageHalves(
-  registry: import("@json-schema-engine/core").SchemaRegistry,
+  registry: SchemaRegistry,
   ref: SchemaRef,
   visiting: Set<string>,
   excludeConsumers: boolean,
+  sites: ReadonlyMap<string, SiteState>,
 ): CoverageHalves {
   const key = unitKey(ref);
   if (visiting.has(key)) return { name: null, index: null }; // cycle
@@ -446,7 +719,6 @@ function coverageHalves(
       if (!Object.hasOwn(node, entry.name)) continue;
       const value = node[entry.name]!;
       const facts = entry.behavior.analyze?.(value, { schema: node }) ?? {};
-      if (facts.dynamicScopeSensitive) return { name: null, index: null };
       const isConsumer = (facts.consumes?.length ?? 0) > 0;
       if (!(excludeConsumers && isConsumer)) {
         if (acc.name && facts.evaluatesNames) {
@@ -476,16 +748,11 @@ function coverageHalves(
           // merging only on its own success): statically unknowable.
           return { name: null, index: null };
         }
-        let target: SchemaRef;
-        try {
-          target =
-            app.ref !== undefined
-              ? registry.resolveRef(app.ref, ref.baseUri)
-              : registry.child(ref, [app.sibling ?? entry.name, ...app.path]);
-        } catch {
-          return { name: null, index: null };
-        }
-        fold(coverageHalves(registry, target, visiting, false));
+        // A dynamic site resolves the way the plan resolves it — a pending
+        // or unstable site is statically unknowable, like an unresolvable ref.
+        const r = resolveEdge(registry, ref, entry.name, app, sites);
+        if (r.kind !== "resolved") return { name: null, index: null };
+        fold(coverageHalves(registry, r.target, visiting, false, sites));
       }
       if (!acc.name && !acc.index) return acc; // both dynamic already
     }

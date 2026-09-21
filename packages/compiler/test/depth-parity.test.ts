@@ -11,6 +11,7 @@
 // last describe pins what is actually available there.
 
 import { describe, it, expect } from "vitest";
+import { DYNAMIC_SEEDS } from "@json-schema-engine/test-kit";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -94,19 +95,42 @@ describe("static recursive chain: shared depth budget", () => {
   });
 });
 
-describe("$dynamicRef island: shared depth budget through the frag trampoline", () => {
-  // Same island shape as list-output.test.ts's dynamic-scope tests: a
-  // $dynamicAnchor root whose own property re-enters through $dynamicRef,
-  // so nested instances recurse through the interpreter's evaluateFragment
-  // depth counter (runtime.ts's frag/fragList), not the compiled tier's own.
-  const SCHEMA = {
-    $id: "https://depth.example/island",
-    $dynamicAnchor: "n",
-    type: "object",
-    properties: { child: { $dynamicRef: "#n" } },
-  };
+describe("$dynamicRef resolved statically: the compiled tier's own depth budget", () => {
+  // A root-anchored $dynamicRef resolves at plan time (ADR 0004), so the
+  // recursion below runs entirely on compiled units and their `d` counter —
+  // no trampoline is involved, and the bound must still be the interpreter's.
+  const SCHEMA = DYNAMIC_SEEDS.stableSingle.schema;
 
-  it("plans a non-empty island (a $dynamicRef unit is always interpreted)", () => {
+  it("plans no island and exhausts a small budget at the same bound", () => {
+    const engine = createEngine({ maxDepth: 20 });
+    const uri = engine.registerSchema(SCHEMA, "https://depth.example/static");
+    const plan = buildPlan(engine, uri);
+    expect(plan.targets).toHaveLength(0);
+    let deep: JsonValue = {};
+    for (let i = 0; i < 40; i++) deep = { child: deep };
+    expect(() => engine.evaluate(uri, deep)).toThrow(MaxDepthExceededError);
+    expect(() =>
+      compileValidator(engine, uri, { maxDepth: 20 }).validate(deep),
+    ).toThrow(MaxDepthExceededError);
+    expect(() =>
+      compileList(engine, uri, { maxDepth: 20 }).evaluateList(deep),
+    ).toThrow(MaxDepthExceededError);
+    let shallow: JsonValue = {};
+    for (let i = 0; i < 10; i++) shallow = { child: shallow };
+    expect(
+      compileValidator(engine, uri, { maxDepth: 20 }).validate(shallow),
+    ).toBe(true);
+  });
+});
+
+describe("$dynamicRef island: shared depth budget through the frag trampoline", () => {
+  // An UNSTABLE site (two declaring resources around a shared recursive one)
+  // still islands, so nested instances recurse through the interpreter's
+  // evaluateFragment depth counter (runtime.ts's frag/fragList), not the
+  // compiled tier's own.
+  const SCHEMA = DYNAMIC_SEEDS.unstableRecursive.schema;
+
+  it("plans a non-empty island (an unstable $dynamicRef site is interpreted)", () => {
     const engine = createEngine({ maxDepth: 20 });
     const uri = engine.registerSchema(
       SCHEMA,

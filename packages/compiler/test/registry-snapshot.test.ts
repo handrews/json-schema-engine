@@ -69,8 +69,8 @@ describe("artifacts bind to a registry snapshot", () => {
   it("keeps the resource it was compiled against when the source re-registers it", () => {
     const engine = createEngine();
     engine.registerSchema({ type: "string" }, "https://snap.example/t");
-    // $dynamicRef keeps the reference an interpreted island, resolved at
-    // evaluation time against the artifact's view.
+    // A $dynamicRef with no anchor fragment resolves lexically at plan time
+    // (ADR 0004): a static edge that binds to the snapshot like a $ref.
     const uri = engine.registerSchema(
       { properties: { p: { $dynamicRef: "https://snap.example/t" } } },
       "https://snap.example/root2",
@@ -78,7 +78,7 @@ describe("artifacts bind to a registry snapshot", () => {
     const flag = compileValidator(engine, uri);
     const list = compileList(engine, uri);
     const evaluator = compileEvaluator(engine, uri);
-    expect(flag.plan.targets.length).toBeGreaterThan(0);
+    expect(flag.plan.targets).toHaveLength(0);
     expect(flag.validate({ p: "s" })).toBe(true);
     expect(flag.validate({ p: 1 })).toBe(false);
     expect(evaluator.evaluate({ p: "s" }, { output: "list" }).valid).toBe(true);
@@ -104,6 +104,64 @@ describe("artifacts bind to a registry snapshot", () => {
       false,
     );
     expect(evaluator2.evaluate({ p: 1 }, { output: "list" }).valid).toBe(true);
+  });
+
+  it("an unstable $dynamicRef island binds to the snapshot too", () => {
+    // Two declaring resources around a shared site: the site islands and
+    // resolves at evaluation time, against the artifact's frozen view.
+    const engine = createEngine();
+    engine.registerSchema(
+      {
+        $id: "https://snap.example/n-a",
+        $dynamicAnchor: "n",
+        $ref: "https://snap.example/n-shared",
+        $defs: { item: { $dynamicAnchor: "n", type: "string" } },
+      },
+      "https://snap.example/n-a",
+    );
+    engine.registerSchema(
+      {
+        $id: "https://snap.example/n-b",
+        $ref: "https://snap.example/n-shared",
+        $defs: { item: { $dynamicAnchor: "n", type: "null" } },
+      },
+      "https://snap.example/n-b",
+    );
+    engine.registerSchema(
+      {
+        $id: "https://snap.example/n-shared",
+        $defs: { bookend: { $dynamicAnchor: "n" } },
+        items: { $dynamicRef: "#n" },
+      },
+      "https://snap.example/n-shared",
+    );
+    const uri = engine.registerSchema(
+      {
+        anyOf: [
+          { $ref: "https://snap.example/n-a" },
+          { $ref: "https://snap.example/n-b" },
+        ],
+      },
+      "https://snap.example/root3",
+    );
+    const flag = compileValidator(engine, uri);
+    expect(flag.plan.targets.length).toBeGreaterThan(0);
+    expect(flag.validate(["s"])).toBe(true);
+    expect(flag.validate([1])).toBe(false);
+    engine.registerSchema(
+      {
+        $id: "https://snap.example/n-a",
+        $dynamicAnchor: "n",
+        $ref: "https://snap.example/n-shared",
+        $defs: { item: { $dynamicAnchor: "n", type: "integer" } },
+      },
+      "https://snap.example/n-a",
+    );
+    expect(flag.validate(["s"])).toBe(true);
+    expect(flag.validate([1])).toBe(false);
+    const flag2 = compileValidator(engine, uri);
+    expect(flag2.validate(["s"])).toBe(false);
+    expect(flag2.validate([1])).toBe(true);
   });
 
   it("keeps the dialect it was compiled against when the source re-registers it", () => {

@@ -32,7 +32,10 @@ import {
   registerDraft04,
   DIALECT_DRAFT_04,
 } from "@json-schema-engine/dialect-draft04";
-import { suiteRemotesLoader } from "@json-schema-engine/test-kit";
+import {
+  suiteRemotesLoader,
+  DYNAMIC_SEEDS,
+} from "@json-schema-engine/test-kit";
 
 const SUITE_ROOT = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -510,7 +513,12 @@ const CURATED: CuratedCase[] = [
     instances: [{ a: 1 }, {}, 7, [3]],
   },
   {
-    name: "$dynamicRef island",
+    name: "$dynamicRef island (unstable site)",
+    schema: DYNAMIC_SEEDS.unstableRecursive.schema,
+    instances: DYNAMIC_SEEDS.unstableRecursive.tests.map((t) => t.data),
+  },
+  {
+    name: "$dynamicRef resolved statically",
     schema: {
       $id: "https://ann-suite.example/leg3/dyn",
       $defs: {

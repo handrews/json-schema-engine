@@ -35,7 +35,10 @@ export {
   POINTER_ESCAPE_KEYS,
   ANNOTATION_SEED_GROUPS,
   CONSUMER_SEED_GROUPS,
+  DYNAMIC_SEEDS,
+  DYNAMIC_SEED_GROUPS,
 } from "./fuzz.js";
+export type { DynamicSeedGroup, DynamicSeedName } from "./fuzz.js";
 export {
   runSide,
   runListSide,

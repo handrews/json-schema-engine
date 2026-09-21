@@ -94,7 +94,8 @@ describe('2019-09: $recursiveRef island (cause "dynamic")', () => {
   // it is dynamic-scope-sensitive by construction (core.ts), so this pin is
   // mostly about proving the legacy dialect actually reaches that
   // classification through the planner's per-keyword dialect.ordered walk,
-  // not a special case in the planner itself.
+  // not a special case in the planner itself. It also guards ADR 0004's
+  // exclusion: `$recursiveRef` is deliberately NOT resolved statically.
   const SCHEMA = {
     $recursiveAnchor: true,
     type: "object",
