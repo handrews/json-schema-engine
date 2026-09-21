@@ -31,16 +31,19 @@ export interface StaticNameCoverage {
 }
 
 /**
- * A `$dynamicRef` application discharged at plan time: its target was the
- * same under every dynamic scope that can reach the site, so it compiles as
- * a static edge (ADR 0004).
+ * A `$dynamicRef` or `$recursiveRef` application discharged at plan time:
+ * its target was the same under every dynamic scope that can reach the
+ * site, so it compiles as a static edge (ADR 0004).
  */
 export interface DynamicResolution {
   /**
-   * The resource whose `$dynamicAnchor` wins the outermost-first scope walk
-   * on every reaching path, or `null` when the reference resolves lexically
-   * (its fragment is absent, empty, or a pointer, or the lexical target's
-   * resource declares no bookending anchor).
+   * The resource that wins the outermost-first scope walk on every reaching
+   * path — the one declaring the `$dynamicAnchor`, or the one whose root
+   * declares `$recursiveAnchor: true` — or `null` when the reference
+   * resolves lexically (for `$dynamicRef`: its fragment is absent, empty, or
+   * a pointer, or the lexical target's resource declares no bookending
+   * anchor; for `$recursiveRef`: its fragment is non-empty, or the lexical
+   * target's root has no recursive anchor).
    */
   winner: string | null;
 }
@@ -50,7 +53,7 @@ export interface PlannedApplication {
   keyword: string;
   app: SubschemaApplication;
   targetKey: string;
-  /** present when `app.resolution === "dynamic"` was discharged statically */
+  /** present when `app.resolution` (dynamic or recursive) was discharged statically */
   dynamic?: DynamicResolution;
 }
 
@@ -106,12 +109,15 @@ const isObj = (v: JsonValue): v is Record<string, JsonValue> =>
 // --- Dynamic-reference sites (ADR 0004) --------------------------------
 //
 // A `$dynamicRef` whose fragment names a bookended `$dynamicAnchor` resolves
-// to the outermost resource in the dynamic scope declaring that anchor. In
-// an artifact the scope at a compiled site is the chain of unit base URIs
-// from the artifact root (the trampoline is one-way, so compiled sites are
-// reached only through compiled ancestors), which is a per-root dataflow
-// over the unit graph: settleDynamicSites computes, per anchor name, the set
-// of possible outermost declarers on arrival at each unit, and a site whose
+// to the outermost resource in the dynamic scope declaring that anchor; a
+// 2019-09 `$recursiveRef` that rebinds resolves to the root of the outermost
+// resource whose root declares `$recursiveAnchor: true` (the same walk with
+// one unnamed anchor). In an artifact the scope at a compiled site is the
+// chain of unit base URIs from the artifact root (the trampoline is one-way,
+// so compiled sites are reached only through compiled ancestors), which is a
+// per-root dataflow over the unit graph: settleDynamicSites computes, per
+// anchor (each `$dynamicAnchor` name, and the recursive flag), the set of
+// possible outermost declarers on arrival at each unit, and a site whose
 // set maps to one target compiles as a static edge. Resolving a site adds
 // its target's subtree — new paths that can reach other sites — so the plan
 // is built in rounds: each round rebuilds from scratch under the current
@@ -123,14 +129,39 @@ type SiteState =
   | { kind: "resolved"; target: SchemaRef; winner: string | null }
   | { kind: "unstable" };
 
-/** A dynamic site seen in a round: what settling needs to decide it. */
-interface RoundSite {
+/** A dynamic-scope site seen in a round: what settling needs to decide it. */
+type RoundSite = {
   key: string;
   /** the unit holding the keyword: the scope walk starts from its arrival set */
   unit: string;
-  anchor: string;
   lexical: SchemaRef;
-}
+} & ({ kind: "dynamic"; anchor: string } | { kind: "recursive" });
+
+/** The dataflow a site belongs to: one per anchor name, one for recursion. */
+const siteBucket = (site: RoundSite): string =>
+  site.kind === "dynamic" ? `d:${site.anchor}` : "r";
+
+/** Whether a unit's resource declares the site's anchor. */
+const declarerOf =
+  (registry: SchemaRegistry, site: RoundSite) =>
+  (u: PlannedUnit): string | null => {
+    const base = u.ref.baseUri;
+    const declares =
+      site.kind === "dynamic"
+        ? registry.dynamicAnchor(base, site.anchor) !== undefined
+        : registry.hasRecursiveRoot(base);
+    return declares ? base : null;
+  };
+
+/** The target a winning declarer yields for a site. */
+const targetOf = (
+  registry: SchemaRegistry,
+  site: RoundSite,
+  winner: string,
+): SchemaRef =>
+  site.kind === "dynamic"
+    ? registry.dynamicAnchor(winner, site.anchor)!
+    : registry.rootRef(winner);
 
 const siteKey = (unit: string, keyword: string, ref: string): string =>
   `${unit}|${keyword}|${ref}`;
@@ -148,10 +179,10 @@ type EdgeResolution =
 
 /**
  * Resolves one application's target the way the interpreter would: lexically
- * for `$ref` and child positions, and for a `$dynamicRef` through the shared
- * registry prelude plus the current round's site decisions. `$recursiveRef`
- * and any dynamic-scope keyword without a `resolution` fact are always
- * `unstable` (islanded).
+ * for `$ref` and child positions, and for a `$dynamicRef` or `$recursiveRef`
+ * through the shared registry prelude plus the current round's site
+ * decisions. A dynamic-scope keyword without a `resolution` fact never gets
+ * here: the planner islands it first.
  */
 function resolveEdge(
   registry: SchemaRegistry,
@@ -173,21 +204,38 @@ function resolveEdge(
         target: registry.resolveRef(app.ref, from.baseUri),
       };
     }
-    if (app.resolution !== "dynamic") return { kind: "unstable" };
-    const { lexical, anchor } = registry.dynamicReference(
-      app.ref,
-      from.baseUri,
-    );
-    if (anchor === null) {
-      return { kind: "resolved", target: lexical, dynamic: { winner: null } };
-    }
     const unit = unitKey(from);
-    const site: RoundSite = {
-      key: siteKey(unit, keyword, app.ref),
-      unit,
-      anchor,
-      lexical,
-    };
+    let site: RoundSite;
+    if (app.resolution === "dynamic") {
+      const { lexical, anchor } = registry.dynamicReference(
+        app.ref,
+        from.baseUri,
+      );
+      if (anchor === null) {
+        return { kind: "resolved", target: lexical, dynamic: { winner: null } };
+      }
+      site = {
+        kind: "dynamic",
+        key: siteKey(unit, keyword, app.ref),
+        unit,
+        anchor,
+        lexical,
+      };
+    } else {
+      const { lexical, rebinds } = registry.recursiveReference(
+        app.ref,
+        from.baseUri,
+      );
+      if (!rebinds) {
+        return { kind: "resolved", target: lexical, dynamic: { winner: null } };
+      }
+      site = {
+        kind: "recursive",
+        key: siteKey(unit, keyword, app.ref),
+        unit,
+        lexical,
+      };
+    }
     const state = sites.get(site.key);
     if (state === undefined) return { kind: "pending", site };
     if (state.kind === "unstable") return { kind: "unstable" };
@@ -205,21 +253,16 @@ function resolveEdge(
 
 /**
  * The per-anchor dataflow: for every unit, the set of resources that can be
- * the outermost declarer of `anchor` when evaluation arrives at it (`null`
+ * the outermost declarer (per `decl`) when evaluation arrives at it (`null`
  * = none so far). Seeded at the root, propagated along every static edge
  * (in-place or child, conditional or not — an over-approximation of real
  * paths, so it only ever errs toward "unstable"), joined by union, to a
  * fixpoint.
  */
 function outermostDeclarers(
-  registry: SchemaRegistry,
   plan: CompilationPlan,
-  anchor: string,
+  decl: (u: PlannedUnit) => string | null,
 ): Map<string, Set<string | null>> {
-  const decl = (u: PlannedUnit): string | null =>
-    registry.dynamicAnchor(u.ref.baseUri, anchor) !== undefined
-      ? u.ref.baseUri
-      : null;
   const arrival = new Map<string, Set<string | null>>();
   const root = plan.units.get(plan.rootKey)!;
   arrival.set(root.key, new Set([decl(root)]));
@@ -264,15 +307,17 @@ function settleDynamicSites(
   sites: Map<string, SiteState>,
 ): boolean {
   if (seen.size === 0) return false;
-  const byAnchor = new Map<string, RoundSite[]>();
+  const buckets = new Map<string, RoundSite[]>();
   for (const site of seen.values()) {
-    const list = byAnchor.get(site.anchor) ?? [];
+    const bucket = siteBucket(site);
+    const list = buckets.get(bucket) ?? [];
     list.push(site);
-    byAnchor.set(site.anchor, list);
+    buckets.set(bucket, list);
   }
   let changed = false;
-  for (const [anchor, list] of byAnchor) {
-    const arrival = outermostDeclarers(registry, plan, anchor);
+  for (const list of buckets.values()) {
+    // Every site in a bucket shares the declarer predicate.
+    const arrival = outermostDeclarers(plan, declarerOf(registry, list[0]!));
     for (const site of list) {
       const set = arrival.get(site.unit);
       // Unreachable through static edges this round (an ancestor islanded
@@ -281,9 +326,7 @@ function settleDynamicSites(
       const targets = new Map<string, SiteState & { kind: "resolved" }>();
       for (const winner of set) {
         const target =
-          winner === null
-            ? site.lexical
-            : registry.dynamicAnchor(winner, anchor)!;
+          winner === null ? site.lexical : targetOf(registry, site, winner);
         targets.set(unitKey(target), { kind: "resolved", target, winner });
       }
       const prev = sites.get(site.key);
@@ -428,10 +471,10 @@ function planRound(
         const apps = facts.applications ?? [];
         if (
           apps.length === 0 ||
-          apps.some((a) => a.ref === undefined || a.resolution !== "dynamic")
+          apps.some((a) => a.ref === undefined || a.resolution === undefined)
         ) {
-          // $recursiveRef, or a dynamic-scope keyword the planner has no
-          // static resolver for: the island it always was.
+          // A dynamic-scope keyword whose applications carry no
+          // `resolution` the planner can discharge: the island it always was.
           unit.kind = "interpreted";
           unit.cause = "dynamic";
           return unit;

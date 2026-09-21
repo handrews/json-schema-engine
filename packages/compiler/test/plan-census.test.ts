@@ -62,7 +62,12 @@ interface Expected {
 // site — the rest of dynamicRef.json, the two `$ref`-to-metaschema groups,
 // unevaluated*'s dynamic cases — resolves statically (ADR 0004), which is
 // also why totalUnits exceeds the pre-ADR count (islanded subtrees are now
-// planned). 2019-09's `$recursiveRef` sites are deliberately not resolved.
+// planned). 2019-09's two `dynamic` units are recursiveRef.json's "multiple
+// dynamic paths" and "dynamic destination" groups (the same two-declarer
+// shape); its other 47 `$recursiveRef` sites — the rest of recursiveRef.json,
+// the 19 sites of the 2019-09 metaschema reached by its two `$ref`-to-
+// metaschema groups, unevaluated*'s recursive cases — resolve statically
+// through the same analysis (ADR 0004's amendment).
 const PINS: Record<string, DialectPin> = {
   "draft2020-12": {
     dir: "draft2020-12",
@@ -90,19 +95,21 @@ const PINS: Record<string, DialectPin> = {
     defaultDialect: "https://json-schema.org/draft/2019-09/schema",
     flag: {
       groups: 372,
-      totalUnits: 1297,
-      interpretedUnits: 49,
-      causes: { dynamic: 49 },
+      totalUnits: 1299,
+      interpretedUnits: 2,
+      causes: { dynamic: 2 },
       trackingUnits: 16,
       regionUnits: 43,
+      resolvedDynamicSites: 47,
     },
     list: {
       groups: 372,
-      totalUnits: 1297,
-      interpretedUnits: 56,
-      causes: { dynamic: 49, unlowerable: 7 },
-      trackingUnits: 73,
-      regionUnits: 58,
+      totalUnits: 1299,
+      interpretedUnits: 9,
+      causes: { dynamic: 2, unlowerable: 7 },
+      trackingUnits: 75,
+      regionUnits: 62,
+      resolvedDynamicSites: 47,
     },
   },
   draft7: {

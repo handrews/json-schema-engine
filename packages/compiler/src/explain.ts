@@ -6,7 +6,7 @@
 
 import type { CompilationPlan, FallbackCause } from "./plan.js";
 
-/** One `$dynamicRef` site the planner resolved statically (ADR 0004). */
+/** One `$dynamicRef` or `$recursiveRef` site the planner resolved statically (ADR 0004). */
 export interface ResolvedDynamicSite {
   /** canonical key of the unit holding the keyword */
   unit: string;
@@ -15,8 +15,9 @@ export interface ResolvedDynamicSite {
   /** canonical key of the resolved target */
   target: string;
   /**
-   * the resource whose `$dynamicAnchor` wins on every reaching path, or
-   * `null` when the site resolves lexically (`DynamicResolution.winner`)
+   * the resource whose `$dynamicAnchor` (or root `$recursiveAnchor`) wins on
+   * every reaching path, or `null` when the site resolves lexically
+   * (`DynamicResolution.winner`)
    */
   winner: string | null;
 }
@@ -45,9 +46,9 @@ export interface CompilationExplanation {
   /** Static units in some tracked unit's in-place coverage region (phase B). */
   regionUnits: number;
   /**
-   * `$dynamicRef` sites discharged at plan time and compiled as static edges
-   * — the "why did this site not island" answer. Sorted by unit key, then
-   * keyword, then reference.
+   * `$dynamicRef` and `$recursiveRef` sites discharged at plan time and
+   * compiled as static edges — the "why did this site not island" answer.
+   * Sorted by unit key, then keyword, then reference.
    */
   resolvedDynamicSites: ResolvedDynamicSite[];
 }
