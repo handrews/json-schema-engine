@@ -93,9 +93,11 @@ most sites at plan time ([ADR 0004](planning/next-steps/decisions/0004-static-dy
 per anchor name it computes, by a forward dataflow over the unit graph, the
 set of resources that can be the outermost declarer when evaluation arrives
 at each unit, and a site whose set maps to a single target compiles as an
-ordinary static edge to that target. A site whose target could differ along
-different paths, `$recursiveRef`, and any unit the planner cannot or chooses
-not to compile become _interpreted units_: compiled code calls
+ordinary static edge to that target; 2019-09's `$recursiveRef` goes through
+the same analysis with "the resource's root declares `$recursiveAnchor`" as
+the declarer test. A site whose target could differ along different paths,
+and any unit the planner cannot or chooses not to compile, become
+_interpreted units_: compiled code calls
 `evaluateFragment` with its constant dynamic-scope contribution, evaluation
 path prefix, consumed depth budget, and the instance cursor, and harvests
 `{valid, errors, annotations, dependencies}` back. The trampoline is
