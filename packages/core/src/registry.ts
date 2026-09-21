@@ -260,6 +260,7 @@ export class SchemaRegistry {
       pointer,
       key: `${baseUri}#${pointer}`,
       children: null,
+      childrenBy: null,
       table: null,
     };
     if (existing === undefined) byPointer.set(pointer, ref);
@@ -657,19 +658,37 @@ export class SchemaRegistry {
    * canonical location and lexical base.
    */
   child(ref: SchemaRef, segments: readonly (string | number)[]): SchemaRef {
+    // One extractor per call, the starting position's (as before): each
+    // hop is memoized on its parent ref under that extractor, so a dialect
+    // re-registration with another identifier syntax rebuilds the hops.
     const identifiers = this.dialectFor(ref.baseUri).identifiers;
-    let node: JsonValue = ref.node;
-    let { baseUri, pointer } = ref;
-    // Children of the interned ref for a location are that location's
-    // current nodes; children of any other ref (stale, or consumer-built)
-    // are not interned.
-    let current = this.interned.get(baseUri)?.get(pointer) === ref;
-    for (const seg of segments) {
-      node = (
-        Array.isArray(node)
-          ? node[seg as number]
-          : (node as Record<string, JsonValue>)[seg as string]
-      ) as JsonValue;
+    let at = ref;
+    let i = 0;
+    for (; i < segments.length; i++) {
+      if (at.childrenBy !== identifiers) break;
+      const hit = at.children?.get(String(segments[i]));
+      if (hit === undefined) break;
+      at = hit;
+    }
+    if (i === segments.length) return at;
+
+    // Slow path from the last memoized position. Children of the interned
+    // ref for a location are that location's current nodes, and only those
+    // are interned and memoized; children of any other ref (stale, or
+    // consumer-built) are neither.
+    let node: JsonValue | undefined = at.node;
+    let { baseUri, pointer } = at;
+    let current = this.interned.get(baseUri)?.get(pointer) === at;
+    for (; i < segments.length; i++) {
+      const seg = segments[i]!;
+      // Own properties only: a missing name must not surface a prototype
+      // member (`__proto__`, `length`, ...) as a schema.
+      node =
+        node !== undefined &&
+        (Array.isArray(node) || isObject(node)) &&
+        Object.hasOwn(node, seg)
+          ? (node as Record<string, JsonValue>)[seg as string]
+          : undefined;
       pointer += "/" + escapeSegment(String(seg));
       if (isObject(node)) {
         const baseId = identifiers(node).baseId;
@@ -679,7 +698,16 @@ export class SchemaRegistry {
           current &&= this.documents.get(baseUri) === node;
         }
       }
+      const next = this.intern(node, baseUri, pointer, current);
+      if (current && node !== undefined) {
+        if (at.childrenBy !== identifiers) {
+          at.children = new Map();
+          at.childrenBy = identifiers;
+        }
+        at.children!.set(String(seg), next);
+      }
+      at = next;
     }
-    return this.intern(node, baseUri, pointer, current);
+    return at;
   }
 }

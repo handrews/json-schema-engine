@@ -143,3 +143,98 @@ describe("SchemaRef interning", () => {
     );
   });
 });
+
+describe("child memo", () => {
+  it("returns the same object on repeat, hop by hop or at once", () => {
+    const engine = createEngine();
+    const uri = engine.registerSchema(
+      { properties: { a: { items: { type: "string" } } } },
+      "https://intern.example/trie",
+    );
+    const reg = engine.registry;
+    const root = reg.rootRef(uri);
+    const items = reg.child(root, ["properties", "a", "items"]);
+    expect(reg.child(root, ["properties", "a", "items"])).toBe(items);
+    expect(reg.child(reg.child(root, ["properties"]), ["a", "items"])).toBe(
+      items,
+    );
+    expect(reg.resolveRef("#/properties/a/items", uri)).toBe(items);
+    expect(items.pointer).toBe("/properties/a/items");
+  });
+
+  it("keeps segments distinct: ['a b'] is not ['a', 'b'], 0 is '0'", () => {
+    const engine = createEngine();
+    const uri = engine.registerSchema(
+      {
+        properties: { "a b": { type: "string" }, a: { properties: { b: {} } } },
+        prefixItems: [{ type: "integer" }],
+      },
+      "https://intern.example/segments",
+    );
+    const reg = engine.registry;
+    const root = reg.rootRef(uri);
+    const spaced = reg.child(root, ["properties", "a b"]);
+    const nested = reg.child(root, ["properties", "a", "properties", "b"]);
+    expect(spaced).not.toBe(nested);
+    expect(spaced.pointer).toBe("/properties/a b");
+    expect(nested.pointer).toBe("/properties/a/properties/b");
+    expect(reg.child(root, ["prefixItems", 0])).toBe(
+      reg.child(root, ["prefixItems", "0"]),
+    );
+  });
+
+  it("does not memoize a missing position, which still fails on application", () => {
+    const engine = createEngine();
+    const uri = engine.registerSchema(
+      { properties: { a: true } },
+      "https://intern.example/miss",
+    );
+    const reg = engine.registry;
+    const root = reg.rootRef(uri);
+    const missing = reg.child(root, ["properties", "zzz"]);
+    expect(missing.node).toBeUndefined();
+    expect(reg.child(root, ["properties", "zzz"])).not.toBe(missing);
+    expect(
+      root.children?.get("properties")?.children?.has("zzz") ?? false,
+    ).toBe(false);
+  });
+
+  it("treats __proto__ as an ordinary segment", () => {
+    const engine = createEngine();
+    const uri = engine.registerSchema(
+      { properties: { a: true } },
+      "https://intern.example/proto",
+    );
+    const reg = engine.registry;
+    const props = reg.child(reg.rootRef(uri), ["properties"]);
+    const proto = reg.child(props, ["__proto__"]);
+    expect(proto.node).toBeUndefined();
+    expect(proto.pointer).toBe("/properties/__proto__");
+    expect(reg.child(props, ["a"]).node).toBe(true);
+  });
+
+  it("rebuilds the hops when the dialect's identifier syntax changes", () => {
+    const CORE = "https://json-schema.org/draft/2020-12/vocab/core";
+    const APPLICATOR = "https://json-schema.org/draft/2020-12/vocab/applicator";
+    const DIALECT = "urn:intern:dialect";
+    const engine = createEngine();
+    engine.registerDialect(DIALECT, [CORE, APPLICATOR]);
+    const uri = engine.registerSchema(
+      { properties: { n: { $id: "https://intern.example/nested" } } },
+      "https://intern.example/rebase",
+      DIALECT,
+    );
+    const reg = engine.registry;
+    const root = reg.rootRef(uri);
+    expect(reg.child(root, ["properties", "n"]).baseUri).toBe(
+      "https://intern.example/nested",
+    );
+    engine.registerDialect(DIALECT, [CORE, APPLICATOR], {
+      identifiers: () => ({}),
+    });
+    const flat = reg.child(root, ["properties", "n"]);
+    expect(flat.baseUri).toBe(uri);
+    expect(flat.pointer).toBe("/properties/n");
+    expect(reg.child(root, ["properties", "n"])).toBe(flat);
+  });
+});

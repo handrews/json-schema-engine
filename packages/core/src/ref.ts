@@ -24,6 +24,11 @@ export interface SchemaRef {
   /** Memoized child positions, one hop per segment (registry-owned). */
   children?: Map<string, SchemaRef> | null;
   /**
+   * The identifier extractor `children` was built under (registry-owned;
+   * opaque here). A dialect re-registration with another syntax rebuilds.
+   */
+  childrenBy?: object | null;
+  /**
    * The engine's per-node keyword table (engine-owned; opaque here so this
    * module stays dependency-free). Validated by dialect identity on use.
    */
