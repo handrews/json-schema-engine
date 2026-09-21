@@ -130,4 +130,5 @@ output-model work.
 - [Output model](investigations/output-model.md)
 - [Generic error processing](investigations/generic-error-processing.md)
 - [Annotation and transformation](investigations/annotation-and-transformation.md)
+- [Static resolution of `$dynamicRef` in compiled artifacts](investigations/dynamic-ref-static-resolution.md)
 - [Default filling](investigations/default-filling.md)

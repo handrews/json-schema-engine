@@ -23,6 +23,9 @@ export default defineConfig(
       "test-suite/",
       "docs/",
       "coverage/",
+      // Its own install and its own check (bench/external/README.md): the
+      // third-party validators it imports are not in the root install.
+      "bench/external/",
       "**/.snippets/",
       "**/.cache/",
       "**/dist/",

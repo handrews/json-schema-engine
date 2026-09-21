@@ -1,8 +1,10 @@
 # Benchmark corpora
 
 Vendored, license-documented inputs for the bench harness
-([`bench/harness.ts`](../harness.ts)). Nothing is fetched at run time — the
-harness reads these files directly, so a benchmark run is reproducible
+([`bench/harness.ts`](../harness.ts)) and the external comparison
+([`bench/external/bench.ts`](../external/bench.ts)), assembled by
+[`index.ts`](index.ts) in this directory. Nothing is fetched at run time —
+the module reads these files directly, so a benchmark run is reproducible
 offline.
 
 Per ANALYSIS.md §9, the draft-04-era public benchmarks
@@ -13,14 +15,14 @@ real-world meta-schema, an API-payload schema, and the AJV-migration path.
 
 ## Provenance and licensing
 
-| File                          | Source                                                                                                         | License    |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------- |
-| `oas-3.1-schema.json`         | Official OpenAPI 3.1 JSON Schema, `spec.openapis.org/oas/3.1/schema/2025-09-15`                                | Apache-2.0 |
-| `openapi-document.json`       | Hand-authored OpenAPI 3.1 description (this repo)                                                              | MIT (repo) |
-| `api-payload-schema.json`     | Hand-authored API-payload schema (this repo)                                                                   | MIT (repo) |
-| `migration-schema.json`       | Hand-authored draft-07 schema (this repo)                                                                      | MIT (repo) |
-| _(generated)_ records-uniform | `recordsSchema()` in `bench/harness.ts`: 150 typed properties × 2000 eight-field records                       | MIT (repo) |
-| _(generated)_ records-sparse  | `recordsSchema()` in `bench/harness.ts`: 150 typed properties × 2000 records with 8 core + 0–3 optional fields | MIT (repo) |
+| File                          | Source                                                                                                               | License    |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `oas-3.1-schema.json`         | Official OpenAPI 3.1 JSON Schema, `spec.openapis.org/oas/3.1/schema/2025-09-15`                                      | Apache-2.0 |
+| `openapi-document.json`       | Hand-authored OpenAPI 3.1 description (this repo)                                                                    | MIT (repo) |
+| `api-payload-schema.json`     | Hand-authored API-payload schema (this repo)                                                                         | MIT (repo) |
+| `migration-schema.json`       | Hand-authored draft-07 schema (this repo)                                                                            | MIT (repo) |
+| _(generated)_ records-uniform | `recordsSchema()` in `bench/corpora/index.ts`: 150 typed properties × 2000 eight-field records                       | MIT (repo) |
+| _(generated)_ records-sparse  | `recordsSchema()` in `bench/corpora/index.ts`: 150 typed properties × 2000 records with 8 core + 0–3 optional fields | MIT (repo) |
 
 The OpenAPI Initiative publishes the 3.1 schema under Apache-2.0; the file
 is vendored verbatim. All hand-authored inputs are original to this
