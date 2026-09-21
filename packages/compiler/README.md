@@ -1,6 +1,6 @@
 # @json-schema-engine/compiler
 
-Compiler tier for JSON Schema: turns a schema registered with `@json-schema-engine/core` into a specialized validator, trampolining to the interpreter for the dynamic islands it cannot emit statically. Add this package once interpreted evaluation shows up in a profile — a compiled artifact is exactly as correct as `Engine.evaluate` and never less complete, so switching tiers is a performance decision, not a semantic one. Needs `@json-schema-engine/core` installed alongside.
+Compiler tier for JSON Schema: turns a schema registered with `@json-schema-engine/core` into a specialized validator, resolving `$dynamicRef` at compile time wherever every path agrees on the target and trampolining to the interpreter only for what it cannot emit statically. Add this package once interpreted evaluation shows up in a profile — a compiled artifact is exactly as correct as `Engine.evaluate` and never less complete, so switching tiers is a performance decision, not a semantic one. Needs `@json-schema-engine/core` installed alongside.
 
 ## Install
 

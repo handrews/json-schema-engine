@@ -76,6 +76,15 @@ three subjects saw the same cases.
   output model, annotation selection, dependency data for custom keywords,
   source positions, loaders, and the ajv-compat layer.
 
+**Update, 2026-09-21.** The `oas-document` rows below predate
+[ADR 0004](../planning/next-steps/decisions/0004-static-dynamic-ref-resolution.md),
+which resolves `$dynamicRef` at compile time wherever every path agrees on
+the target. With it, JSE's compiled flag verdict on the same corpus measures
+4.0 µs per document (the harness's hot row; 45 µs before), against
+ata-validator's 11.4 µs, and the statement that ata-validator's interpreter
+beats JSE's compiled tier on that schema no longer holds. The other rows and
+the conformance results are unaffected.
+
 ## Conformance
 
 ### Method

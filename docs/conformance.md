@@ -224,7 +224,11 @@ Parity between the tiers is checked at four increasing strengths:
   a subschema that silently stops compiling passes every other gate.
   `packages/compiler/test/plan-census.test.ts` pins the split: draft-07,
   draft-06, and draft-04 compile with zero interpreted units, and draft2020-12
-  flag mode has 59, every one of them caused by dynamic references.
+  flag mode has one: the `$dynamicRef` site of "multiple dynamic paths to
+  the $dynamicRef keyword", whose target differs by path. The other 58
+  `$dynamicRef` sites in that directory resolve at plan time
+  ([ADR 0004](planning/next-steps/decisions/0004-static-dynamic-ref-resolution.md))
+  and the census counts them.
 - **Gate self-tests.** `packages/compiler/test/differential-planted.test.ts`
   plants divergences to prove each comparison detects what it claims — and
   records the blindness each one has, such as a corrupted error param slipping
@@ -306,7 +310,9 @@ the native overflow is converted rather than leaked.
 `packages/compiler/test/depth-parity.test.ts` asserts the same
 `MaxDepthExceededError` at the same `maxDepth` from the interpreter,
 `compileValidator`, `compileList`, and `compileEvaluator` — including through
-a dynamic island that trampolines back into the interpreter's counter.
+an unstable `$dynamicRef` island that trampolines back into the interpreter's
+counter, and through a statically resolved `$dynamicRef` recursion that runs
+on the compiled tier's own counter.
 Standalone modules, which cannot import that class, reach structural parity
 instead — see [Divergences and limits](#divergences-and-limits).
 
@@ -338,8 +344,8 @@ evaluations.
 
 Compiled artifacts are built with `new Function`, confined to four call sites
 with a repo-wide lint ban elsewhere. `npm run csp:check` emits every
-fully-static suite schema as a standalone module and runs 332 modules over
-1164 verdicts under `node --disallow-code-generation-from-strings`, with the
+fully-static suite schema as a standalone module and runs 350 modules over
+1197 verdicts under `node --disallow-code-generation-from-strings`, with the
 interpreter as the oracle and a corpus of hostile schema-derived strings —
 quote-escapes, template syntax, comment terminators, line separators.
 

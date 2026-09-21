@@ -54,6 +54,13 @@ deterministically inside the harness (seeded, no third-party data).
   the own-check forms (`hasOwnProperty.call`, `Object.hasOwn`) reach
   ~2.8 ms on sparse but cost ~1.7 ms on uniform, a ~50× regression there.
   Hyperjump, which iterates instance keys, is ~6 ms on sparse either way.
+- **`$dynamicRef` islands were the compiled tier's cost on `oas-document`
+  (ADR 0004, 2026-09-21).** Each of the four `$dynamicRef: "#meta"` sites
+  islanded its schema object, and thirteen trampoline entries per document
+  (a fresh `EvalState`, two interpreted schema applications, two URL parses)
+  evaluated a target that is one `type` check. Resolving the sites at plan
+  time took compiled flag from 45 µs to 4.0 µs per document (22 µs to 4.0
+  µs on the valid instance), with the interpreter unchanged at ~530 µs.
 - **tinybench's iteration floors are pinned** (5 samples, 2 warmup): the
   defaults (64 and 16) would run every records task for seconds regardless
   of `BENCH_BUDGET`, since one evaluation there costs 20–50 ms.
@@ -63,8 +70,9 @@ deterministically inside the harness (seeded, no third-party data).
 
 - **oas-document** — the OAS 3.1 meta-schema (draft 2020-12, `$dynamicRef`,
   ~135 `$ref`s) validating a real OpenAPI description. The large-schema,
-  reference-heavy, dynamic case: this is where the interpreter tier earns
-  its keep and where compilation has the most to prove.
+  reference-heavy, dynamic case. Since ADR 0004 its four `$dynamicRef` sites
+  resolve at plan time and the whole schema compiles; before that the
+  islands cost 20 of the compiled tier's 22 µs per document.
 - **api-payload** — a moderate object schema over generated request
   payloads (valid and invalid mixes). The hot-path throughput case.
 - **migration** — a draft-07 schema run natively and through
