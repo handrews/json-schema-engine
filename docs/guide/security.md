@@ -92,6 +92,46 @@ assert.equal(detectUnsafeRegex("(a+)+$").safe, false);
 assert.equal(detectUnsafeRegex("^[a-z]+$").safe, true);
 ```
 
+## Unicode-mode regular expressions
+
+JSON Schema specifies ECMA-262 regular expressions with Unicode semantics,
+which is the native `RegExp` in unicode mode (the `u` flag). The non-unicode
+grammar carries Annex B web-compatibility extensions the unicode grammar
+rejects: identity escapes such as `\a`, an unescaped `-` inside a character
+class, `\c` before a digit. By default the engine compiles `pattern` and
+`patternProperties` in unicode mode and, when that fails, falls back to the
+non-unicode grammar so existing schemas keep working. `strictUnicodeRegex`
+turns the fallback into a registration error, `NonUnicodeRegexError`, for
+callers who want patterns that every conforming implementation will read the
+same way; a pattern invalid under both grammars is rejected too.
+`classifyRegex` reports which case a pattern is, for a build-time lint.
+
+```ts
+import assert from "node:assert";
+import {
+  createEngine,
+  classifyRegex,
+  NonUnicodeRegexError,
+} from "@json-schema-engine/core";
+
+// `\a` is a SyntaxError in unicode mode and the letter "a" under Annex B.
+assert.equal(classifyRegex("^\\a$"), "legacy");
+
+const lenient = createEngine();
+const uri = lenient.registerSchema({ pattern: "^\\a$" }, "https://ex/legacy");
+assert.equal(lenient.evaluate(uri, "a").valid, true);
+
+const strict = createEngine({ strictUnicodeRegex: true });
+assert.throws(
+  () => strict.registerSchema({ pattern: "^\\a$" }, "https://ex/strict"),
+  NonUnicodeRegexError,
+);
+```
+
+The `regex` format in `@json-schema-engine/formats` always uses the unicode
+grammar: a string that only Annex B accepts is not a valid `format: "regex"`
+value, regardless of this option.
+
 ## Recursion depth
 
 A self-referencing schema over deeply nested data, or a deeply nested schema

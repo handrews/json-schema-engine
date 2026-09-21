@@ -416,6 +416,17 @@ alternation such as `(a|a)*`. A linear-time engine injected through
 `regexEngine` is the only hard guarantee. Built-in metaschemas are
 deliberately not screened.
 
+**`pattern` falls back to the non-unicode regex grammar.** JSON Schema
+specifies ECMA-262 regular expressions with Unicode semantics; JSE compiles
+`pattern` and `patternProperties` in unicode mode and, when the unicode
+grammar rejects the pattern, retries under the non-unicode grammar with its
+Annex B extensions (identity escapes such as `\a`). That leniency keeps
+existing schemas working and is what the official `pattern` cases exercise;
+`strictUnicodeRegex` makes it a registration error
+([security guide](guide/security.md#unicode-mode-regular-expressions)). The
+`regex` format has no such fallback: it accepts exactly the unicode grammar,
+which is what `optional/format/ecmascript-regex.json` requires.
+
 **The CSP check skips island-bearing schemas.** Only fully-static schemas emit
 standalone modules; schemas needing the interpreter at runtime are counted and
 skipped, because under CSP they run on the interpreter by design. The skip
