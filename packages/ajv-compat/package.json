@@ -1,6 +1,6 @@
 {
   "name": "@json-schema-engine/ajv-compat",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "private": true,
   "description": "AJV v8 migration adapter over @json-schema-engine/core: emulated API surface for a documented subset, pinned against executed-AJV fixtures, with typed loud failures for the AJV-implementation-coupled surface (see COMPAT.md)",
   "type": "module",
@@ -20,9 +20,9 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@json-schema-engine/compiler": "^0.0.3",
-    "@json-schema-engine/core": "^0.0.3",
-    "@json-schema-engine/formats": "^0.0.3"
+    "@json-schema-engine/compiler": "^0.0.4",
+    "@json-schema-engine/core": "^0.0.4",
+    "@json-schema-engine/formats": "^0.0.4"
   },
   "devDependencies": {
     "@fastify/ajv-compiler": "^4.0.6",
