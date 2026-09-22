@@ -5,7 +5,9 @@ for later, and which quality gates run where. Prose elsewhere (README,
 DESIGN.md milestone notes, guide pages) defers to this page when they
 disagree — and a disagreement is a bug worth filing.
 
-Last updated: 2026-09-21 (ADR 0004, static `$dynamicRef` resolution in the compiled tier, on top of 0.0.1 publication readiness, on top of M9a plus the IETF draft-03 semantic
+Last updated: 2026-09-21 (ADR 0004, static `$dynamicRef` resolution in
+the compiled tier, on top of 0.0.1 publication readiness,
+on top of M9a plus the IETF draft-03 semantic
 reconciliation, the output model, and the compiled tier's registry
 snapshot: two-kind record channel, keyword relevance, accept-only
 dependency data, formats by name with levels and orthogonal controls,
@@ -28,8 +30,8 @@ The evidence for the draft-03 claim — fixtures, suite and parity results,
 resource posture, benchmark context, and the known divergences — is collected
 in [docs/conformance.md](docs/conformance.md).
 
-Version `0.0.1` of `@json-schema-engine/core`, `compiler`, `formats`, and
-`dialect-draft04` is published for initial public feedback on both the
+`0.0.x` versions of `@json-schema-engine/core`, `compiler`, `formats`, and
+`dialect-draft04` are being published for initial public feedback on both the
 functionality and the documentation; APIs may change before 1.0 ([ADR
 0001](docs/planning/next-steps/decisions/0001-first-release-scope.md)). The
 downstream-project smoke (P3) passed unchanged against `65de809` on
