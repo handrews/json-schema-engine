@@ -134,8 +134,10 @@ export const $dynamicRef: KeywordBehavior = {
 };
 
 // 2019-09 core vocabulary: $recursiveRef/$recursiveAnchor are D8's degenerate
-// case — resolution lives in the engine, anchor indexing in the registry's
-// identifier extractor, so both behaviors are one-liners.
+// case — resolution lives in the engine and the registry, anchor indexing in
+// the registry's identifier extractor, so both behaviors are one-liners. The
+// compiler resolves a site statically through the same analysis as
+// $dynamicRef (ADR 0004), so the keyword lowers like a reference.
 
 /** 2019-09 core vocabulary URI. */
 export const VOCAB_CORE_2019 =
@@ -150,6 +152,7 @@ export const $recursiveRef: KeywordBehavior = {
   }),
   evaluate: (value, _cursor, ctx) =>
     ctx.applyResolved(ctx.resolveRecursive(value as string)),
+  lower: lowerReference,
 };
 
 /** `$recursiveAnchor`: structural only, indexed by the registration walk. */

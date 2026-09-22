@@ -232,9 +232,10 @@ when all of them resolve the reference to the same target it resolves the
 site at compile time and compiles the target like a `$ref` (a fragment-free
 or pointer reference, a target with no bookending `$dynamicAnchor`, a root
 that declares the anchor, or a `$ref` into the 2020-12 metaschema all
-qualify). A site whose target could differ along different paths, and
-`$recursiveRef`, stay interpreted islands. `explainCompilation` reports the
-split and lists the resolved sites.
+qualify), and 2019-09's `$recursiveRef` is resolved the same way. A site
+whose target could differ along different paths stays an interpreted
+island. `explainCompilation` reports the split and lists the resolved
+sites.
 
 ```ts
 import assert from "node:assert";

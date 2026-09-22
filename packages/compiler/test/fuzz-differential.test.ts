@@ -30,12 +30,13 @@ import {
   ANNOTATION_SEED_GROUPS,
   CONSUMER_SEED_GROUPS,
   DYNAMIC_SEED_GROUPS,
+  RECURSIVE_SEED_GROUPS,
   type DifferentialFactory,
 } from "@json-schema-engine/test-kit";
 
 // Seed corpora that run in full on every leg: the compiled-consumer corpus
-// (COMPILED-CONSUMERS.md phase B) and the `$dynamicRef` corpus (ADR 0004:
-// statically resolved sites and unstable islands). `extra` keeps each
+// (COMPILED-CONSUMERS.md phase B) and the `$dynamicRef` / `$recursiveRef`
+// corpora (ADR 0004: statically resolved sites and unstable islands). `extra` keeps each
 // corpus's per-group seed streams distinct.
 const SEED_CORPORA: readonly [
   name: string,
@@ -44,6 +45,7 @@ const SEED_CORPORA: readonly [
 ][] = [
   ["consumer-seeds", CONSUMER_SEED_GROUPS, 0],
   ["dynamic-seeds", DYNAMIC_SEED_GROUPS, 1],
+  ["recursive-seeds", RECURSIVE_SEED_GROUPS, 2],
 ];
 
 const SUITE_DIR = join(

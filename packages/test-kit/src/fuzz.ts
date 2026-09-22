@@ -805,7 +805,7 @@ export interface DynamicSeedGroup {
   description: string;
   schema: JsonValue;
   tests: { description: string; data: JsonValue; valid: boolean }[];
-  /** what the planner must do with every `$dynamicRef` site in the group */
+  /** what the planner must do with every dynamic-scope site in the group */
   classification: "static" | "island";
 }
 
@@ -1057,3 +1057,473 @@ export type DynamicSeedName = keyof typeof DYNAMIC_SEEDS;
 /** {@link DYNAMIC_SEEDS} in a fixed order, for the differential corpora. */
 export const DYNAMIC_SEED_GROUPS: readonly DynamicSeedGroup[] =
   Object.values(DYNAMIC_SEEDS);
+
+const RECURSIVE_DIALECT = "https://json-schema.org/draft/2019-09/schema";
+const META_2019 = "https://json-schema.org/draft/2019-09/schema";
+
+/**
+ * The `$recursiveRef` counterpart of {@link DYNAMIC_SEEDS} (ADR 0004's
+ * amendment): 2019-09's degenerate case rebinds on a root-level
+ * `$recursiveAnchor: true` flag instead of a name, and the target is always
+ * the winning resource's root. Same shape and classification contract.
+ */
+export const RECURSIVE_SEEDS = {
+  /** the root declares the anchor; the site recurses through it */
+  stableSingle: {
+    description: "$recursiveRef: root anchor, recursion through the root",
+    classification: "static",
+    schema: {
+      $schema: RECURSIVE_DIALECT,
+      $id: "https://rec.example/stable-single",
+      $recursiveAnchor: true,
+      type: "object",
+      properties: { child: { $recursiveRef: "#" } },
+    },
+    tests: [
+      {
+        description: "nested objects",
+        data: { child: { child: {} } },
+        valid: true,
+      },
+      { description: "empty root", data: {}, valid: true },
+      {
+        description: "non-object leaf",
+        data: { child: { child: "x" } },
+        valid: false,
+      },
+    ],
+  },
+  /** an extension re-enters itself through the base's site: target ≠ lexical */
+  stableExtension: {
+    description: "$recursiveRef: extension rebinds the base's recursion",
+    classification: "static",
+    schema: {
+      $schema: RECURSIVE_DIALECT,
+      $id: "https://rec.example/stable-extension",
+      $recursiveAnchor: true,
+      $ref: "stable-extension-base",
+      properties: { data: { type: "string" } },
+      $defs: {
+        base: {
+          $id: "stable-extension-base",
+          $recursiveAnchor: true,
+          type: "object",
+          properties: {
+            data: true,
+            children: { type: "array", items: { $recursiveRef: "#" } },
+          },
+        },
+      },
+    },
+    tests: [
+      {
+        description: "string data all the way down",
+        data: { data: "a", children: [{ data: "b", children: [] }] },
+        valid: true,
+      },
+      {
+        description: "nested data must be a string too (rebinding)",
+        data: { children: [{ data: 42 }] },
+        valid: false,
+      },
+      {
+        description: "top-level data must be a string",
+        data: { data: 1 },
+        valid: false,
+      },
+      {
+        description: "children must be objects",
+        data: { children: [1] },
+        valid: false,
+      },
+    ],
+  },
+  /** two paths to one site, both under the same outermost declarer */
+  stableTwoPaths: {
+    description: "$recursiveRef: same site under two paths, one resolution",
+    classification: "static",
+    schema: {
+      $schema: RECURSIVE_DIALECT,
+      $id: "https://rec.example/stable-two-paths",
+      $recursiveAnchor: true,
+      type: "object",
+      properties: { left: { $ref: "inner" }, right: { $ref: "inner" } },
+      $defs: {
+        inner: {
+          $id: "inner",
+          $recursiveAnchor: true,
+          type: "object",
+          properties: { child: { $recursiveRef: "#" } },
+        },
+      },
+    },
+    tests: [
+      {
+        description: "child rebinds to the root, which accepts objects",
+        data: { left: { child: { right: { child: {} } } } },
+        valid: true,
+      },
+      {
+        description: "child rebinds to the root: left must be an object",
+        data: { right: { child: { left: "x" } } },
+        valid: false,
+      },
+      {
+        description: "non-object child",
+        data: { left: { child: 3 } },
+        valid: false,
+      },
+    ],
+  },
+  /** the site sits in a subschema the root reaches in place */
+  chained: {
+    description: "$recursiveRef: site under an in-place $ref from the root",
+    classification: "static",
+    schema: {
+      $schema: RECURSIVE_DIALECT,
+      $id: "https://rec.example/chained",
+      $recursiveAnchor: true,
+      type: "object",
+      $ref: "#/$defs/shape",
+      $defs: {
+        shape: {
+          properties: {
+            next: { $recursiveRef: "#" },
+            leaf: { type: "string" },
+          },
+        },
+      },
+    },
+    tests: [
+      {
+        description: "chain of shapes",
+        data: { next: { next: { leaf: "x" } } },
+        valid: true,
+      },
+      {
+        description: "leaf constraint applies at depth",
+        data: { next: { leaf: 1 } },
+        valid: false,
+      },
+      {
+        description: "next must be an object",
+        data: { next: "x" },
+        valid: false,
+      },
+    ],
+  },
+  /** no anchor anywhere: the site is a plain root reference */
+  noAnchor: {
+    description: "$recursiveRef: no $recursiveAnchor, behaves like $ref",
+    classification: "static",
+    schema: {
+      $schema: RECURSIVE_DIALECT,
+      $id: "https://rec.example/no-anchor",
+      type: "object",
+      properties: { child: { $recursiveRef: "#" } },
+    },
+    tests: [
+      {
+        description: "nested objects",
+        data: { child: { child: {} } },
+        valid: true,
+      },
+      { description: "non-object child", data: { child: 1 }, valid: false },
+    ],
+  },
+  /** `$recursiveAnchor: false` is no anchor */
+  anchorFalse: {
+    description: "$recursiveRef: $recursiveAnchor false, behaves like $ref",
+    classification: "static",
+    schema: {
+      $schema: RECURSIVE_DIALECT,
+      $id: "https://rec.example/anchor-false",
+      $recursiveAnchor: false,
+      type: "object",
+      properties: { child: { $recursiveRef: "#" } },
+    },
+    tests: [
+      {
+        description: "nested objects",
+        data: { child: { child: {} } },
+        valid: true,
+      },
+      { description: "non-object child", data: { child: 1 }, valid: false },
+    ],
+  },
+  /** the lexical target's resource has no anchor: no rebinding (suite shape) */
+  initialTargetNoAnchor: {
+    description:
+      "$recursiveRef: no $recursiveAnchor in the initial target resource",
+    classification: "static",
+    schema: {
+      $schema: RECURSIVE_DIALECT,
+      $id: "https://rec.example/initial-target",
+      $recursiveAnchor: true,
+      $ref: "initial-target-inner",
+      properties: { extra: { type: "string" } },
+      $defs: {
+        inner: {
+          $id: "initial-target-inner",
+          type: "object",
+          properties: { child: { $recursiveRef: "#" } },
+        },
+      },
+    },
+    tests: [
+      {
+        description: "root constraint applies at the top",
+        data: { extra: 1 },
+        valid: false,
+      },
+      {
+        description: "recursion stays lexical: no root constraint below",
+        data: { child: { extra: 1 } },
+        valid: true,
+      },
+      {
+        description: "non-object child",
+        data: { child: { child: 1 } },
+        valid: false,
+      },
+    ],
+  },
+  /** a pointer fragment is a plain $ref */
+  pointerFragment: {
+    description: "$recursiveRef: pointer fragment behaves like $ref",
+    classification: "static",
+    schema: {
+      $schema: RECURSIVE_DIALECT,
+      $id: "https://rec.example/pointer-fragment",
+      $recursiveAnchor: true,
+      properties: { x: { $recursiveRef: "#/$defs/str" } },
+      $defs: { str: { type: "string" } },
+    },
+    tests: [
+      { description: "string", data: { x: "a" }, valid: true },
+      { description: "number", data: { x: 1 }, valid: false },
+    ],
+  },
+  /** a plain-name fragment is a plain $ref too (unlike $dynamicRef) */
+  plainNameFragment: {
+    description: "$recursiveRef: plain-name fragment behaves like $ref",
+    classification: "static",
+    schema: {
+      $schema: RECURSIVE_DIALECT,
+      $id: "https://rec.example/plain-name-fragment",
+      $recursiveAnchor: true,
+      properties: { x: { $recursiveRef: "#num" } },
+      $defs: { num: { $anchor: "num", type: "number" } },
+    },
+    tests: [
+      { description: "number", data: { x: 1 }, valid: true },
+      { description: "string", data: { x: "a" }, valid: false },
+    ],
+  },
+  /** a fragment-less reference to another anchored resource rebinds to the outermost declarer: the root */
+  externalRebinds: {
+    description:
+      "$recursiveRef: external target, root declares, rebinds to root",
+    classification: "static",
+    schema: {
+      $schema: RECURSIVE_DIALECT,
+      $id: "https://rec.example/external-rebinds",
+      $recursiveAnchor: true,
+      type: "object",
+      properties: { tag: { type: "string" }, item: { $recursiveRef: "other" } },
+      $defs: {
+        other: {
+          $id: "other",
+          $recursiveAnchor: true,
+          type: "object",
+          properties: { tag: { type: "number" }, item: { $recursiveRef: "#" } },
+        },
+      },
+    },
+    tests: [
+      {
+        description: "item rebinds to the root: string tag",
+        data: { item: { tag: "s" } },
+        valid: true,
+      },
+      {
+        description: "item rebinds to the root: number tag rejected",
+        data: { item: { tag: 1 } },
+        valid: false,
+      },
+      {
+        description: "deep",
+        data: { item: { item: { tag: "s" } } },
+        valid: true,
+      },
+    ],
+  },
+  /** the same, from a root that does not declare: lexical target */
+  externalLexical: {
+    description: "$recursiveRef: external target, root silent, stays lexical",
+    classification: "static",
+    schema: {
+      $schema: RECURSIVE_DIALECT,
+      $id: "https://rec.example/external-lexical",
+      type: "object",
+      properties: { tag: { type: "string" }, item: { $recursiveRef: "other" } },
+      $defs: {
+        other: {
+          $id: "other",
+          $recursiveAnchor: true,
+          type: "object",
+          properties: { tag: { type: "number" }, item: { $recursiveRef: "#" } },
+        },
+      },
+    },
+    tests: [
+      {
+        description: "item is other: number tag",
+        data: { item: { tag: 1 } },
+        valid: true,
+      },
+      {
+        description: "item is other: string tag rejected",
+        data: { item: { tag: "s" } },
+        valid: false,
+      },
+      {
+        description: "other recurses into other",
+        data: { item: { item: { tag: 2 } } },
+        valid: true,
+      },
+    ],
+  },
+  /** a plain root $ref-ing the 2019-09 metaschema: 18 sites, one winner */
+  metaschemaWrapper: {
+    description: "$recursiveRef: plain root $ref-ing the 2019-09 metaschema",
+    classification: "static",
+    schema: {
+      $schema: RECURSIVE_DIALECT,
+      $id: "https://rec.example/meta-wrapper",
+      $ref: META_2019,
+    },
+    tests: [
+      { description: "a schema", data: { type: "string" }, valid: true },
+      { description: "bad type", data: { type: 12 }, valid: false },
+      {
+        description: "bad nested schema (recursion through the metaschema)",
+        data: { properties: { a: { type: "nope" } } },
+        valid: false,
+      },
+    ],
+  },
+  /** the official suite's "multiple dynamic paths" shape: two declarers */
+  unstableTwoPaths: {
+    description:
+      "$recursiveRef: same site under two scopes, different resolutions",
+    classification: "island",
+    schema: {
+      $schema: RECURSIVE_DIALECT,
+      $id: "https://rec.example/unstable-two-paths",
+      if: { properties: { kind: { const: "numbers" } }, required: ["kind"] },
+      then: { $ref: "numbers" },
+      else: { $ref: "strings" },
+      $defs: {
+        generic: {
+          $id: "generic",
+          $recursiveAnchor: true,
+          type: "object",
+          properties: {
+            list: { type: "array", items: { $recursiveRef: "#" } },
+          },
+        },
+        numbers: {
+          $id: "numbers",
+          $recursiveAnchor: true,
+          $ref: "generic",
+          properties: { value: { type: "number" } },
+        },
+        strings: {
+          $id: "strings",
+          $recursiveAnchor: true,
+          $ref: "generic",
+          properties: { value: { type: "string" } },
+        },
+      },
+    },
+    tests: [
+      {
+        description: "numbers with numbers",
+        data: { kind: "numbers", list: [{ value: 1 }] },
+        valid: true,
+      },
+      {
+        description: "numbers with a string",
+        data: { kind: "numbers", list: [{ value: "a" }] },
+        valid: false,
+      },
+      {
+        description: "strings with strings",
+        data: { list: [{ value: "a" }] },
+        valid: true,
+      },
+      {
+        description: "strings with a number",
+        data: { list: [{ value: 1 }] },
+        valid: false,
+      },
+    ],
+  },
+  /** two declarers around a shared recursive resource, chosen by anyOf */
+  unstableRecursive: {
+    description: "$recursiveRef: shared recursive resource under two declarers",
+    classification: "island",
+    schema: {
+      $schema: RECURSIVE_DIALECT,
+      $id: "https://rec.example/unstable-recursive",
+      anyOf: [{ $ref: "numbers" }, { $ref: "strings" }],
+      $defs: {
+        generic: {
+          $id: "generic",
+          $recursiveAnchor: true,
+          type: "object",
+          properties: {
+            list: { type: "array", items: { $recursiveRef: "#" } },
+          },
+        },
+        numbers: {
+          $id: "numbers",
+          $recursiveAnchor: true,
+          $ref: "generic",
+          properties: { value: { type: "number" } },
+        },
+        strings: {
+          $id: "strings",
+          $recursiveAnchor: true,
+          $ref: "generic",
+          properties: { value: { type: "string" } },
+        },
+      },
+    },
+    tests: [
+      {
+        description: "all numbers",
+        data: { list: [{ value: 1 }, { value: 2, list: [{ value: 3 }] }] },
+        valid: true,
+      },
+      {
+        description: "all strings",
+        data: { list: [{ value: "a" }, { value: "b" }] },
+        valid: true,
+      },
+      {
+        description: "mixed: neither branch",
+        data: { list: [{ value: 1 }, { value: "a" }] },
+        valid: false,
+      },
+      { description: "empty list", data: { list: [] }, valid: true },
+    ],
+  },
+} as const satisfies Record<string, DynamicSeedGroup>;
+
+export type RecursiveSeedName = keyof typeof RECURSIVE_SEEDS;
+
+/** {@link RECURSIVE_SEEDS} in a fixed order, for the differential corpora. */
+export const RECURSIVE_SEED_GROUPS: readonly DynamicSeedGroup[] =
+  Object.values(RECURSIVE_SEEDS);

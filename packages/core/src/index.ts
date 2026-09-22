@@ -95,7 +95,11 @@ export {
   MaxDepthExceededError,
   SchemaRegistry,
 } from "./registry.js";
-export type { DocumentLocation, DynamicReference } from "./registry.js";
+export type {
+  DocumentLocation,
+  DynamicReference,
+  RecursiveReference,
+} from "./registry.js";
 export {
   UnsafeRegexError,
   NonUnicodeRegexError,

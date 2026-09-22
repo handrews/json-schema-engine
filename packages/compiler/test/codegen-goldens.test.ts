@@ -35,6 +35,7 @@ const CASES = [
   "tracked-consumer",
   "island",
   "dynamic-static",
+  "recursive-static",
 ];
 
 const UPDATE = process.env.UPDATE_GOLDENS === "1";

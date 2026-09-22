@@ -218,6 +218,8 @@ once per (base, reference) per registry generation. Not done either: a
 hoisted constant scope for single-resource artifacts, which would save one
 small array per evaluation and would need a standalone-preamble variant.
 The external comparison document's interpreter rows predate this work.
+`$recursiveRef` followed the same day through the same analysis (ADR 0004's
+amendment): 2019-09 plan census dynamic islands 49 → 2, 47 sites resolved.
 
 ## Validation
 

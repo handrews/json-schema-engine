@@ -1,7 +1,8 @@
 # 0004: Static resolution of `$dynamicRef` in compiled artifacts
 
 **Status:** accepted 2026-09-21 (owner decision, on the evidence in
-[the investigation](../investigations/dynamic-ref-static-resolution.md)).
+[the investigation](../investigations/dynamic-ref-static-resolution.md));
+amended 2026-09-21 to cover `$recursiveRef` (see the amendment below).
 
 ## Context
 
@@ -47,13 +48,50 @@ stable island as before.
   `$recursiveRef`); `$dynamicRef` lowers exactly like `$ref`, the plan
   holding the target. A dynamic-scope keyword whose applications carry no
   `resolution` the planner can discharge still islands.
-- **`$recursiveRef` is excluded.** 2019-09's degenerate form keeps
-  islanding; the same analysis with `hasRecursiveRoot` in place of
-  `dynamicAnchor` is a follow-up, not part of this decision.
+- **`$recursiveRef` was excluded at first.** 2019-09's degenerate form
+  kept islanding under the original decision; the amendment below brings
+  it through the same analysis with `hasRecursiveRoot` in place of
+  `dynamicAnchor`.
 - **Diagnostics.** `explainCompilation` lists every resolved site
   (`resolvedDynamicSites`: unit, keyword, reference, target, winning
   resource) and the plan census counts them, so a regression back to
   islands is as loud as any other classification change.
+
+## Amendment (2026-09-21): `$recursiveRef`
+
+2019-09's `$recursiveRef` is the degenerate case of `$dynamicRef` (D8):
+one unnamed flag per resource root (`$recursiveAnchor: true`) instead of a
+name-keyed anchor set, and the rebinding target is always the winning
+resource's root. It now goes through the same analysis:
+
+- The scope-independent steps live on the registry
+  (`SchemaRegistry.recursiveReference`: the lexical target, and whether the
+  reference rebinds at all — only for an absent or empty fragment whose
+  target resource has a recursive root), shared by the interpreter's
+  `resolveRecursive` and the planner, so the tiers cannot drift.
+- The planner's sites carry a kind: a `$dynamicRef` site keys its dataflow
+  on the anchor name with `dynamicAnchor` as the declarer predicate; every
+  `$recursiveRef` site shares one dataflow with `hasRecursiveRoot` as the
+  predicate, and a winner maps to `rootRef(winner)`. Seeding, joining,
+  rounds, and the monotone unknown → resolved → unstable decisions are
+  unchanged. `$recursiveRef` lowers like `$ref`; the serializer is untouched.
+- Evidence: 2019-09 plan census dynamic islands 49 → 2 (the suite's
+  "multiple dynamic paths" and "dynamic destination" groups, the same
+  two-declarer shape as 2020-12's one remaining island), 47 sites resolved,
+  among them all 19 `$recursiveRef: "#"` sites of the 2019-09 metaschema;
+  list-mode islands 56 → 9 (7 `unlowerable` nested consumers, as before).
+  A recursive seed corpus (`RECURSIVE_SEEDS`) mirrors the dynamic one in the
+  differential and fuzz legs; `recursive-resolution.test.ts` checks every
+  planned target against the interpreter's traced target over
+  `recursiveRef.json` and `unevaluated*`'s recursive groups; the 2019-09
+  suite legs, the fuzz legs (2019-09 flag/list/annotations/evaluator and
+  the 2020-12 legs), the produce-recipe sweep, and the spike gate are green.
+- Measured: the D8 tree fixture (an extension re-entering its base's
+  recursion, a three-level instance) compiled flag 2.40 → 0.034 µs per
+  evaluation, the island's trampoline entries gone.
+- Not changed: a resolved recursive site adds its target's subtree, so the
+  2019-09 `totalUnits` and the produce-recipe sweep totals rose, exactly as
+  2020-12's did under the original decision.
 
 ## Alternatives
 
@@ -119,8 +157,8 @@ is at zero divergence. Public additions only: `SubschemaApplication.resolution`,
 
 ## Follow-up work
 
-- `$recursiveRef` through the same analysis (2019-09 metaschemas and
-  `recursiveRef.json` are the remaining 49 dynamic islands in that census).
+- `$recursiveRef` through the same analysis: delivered 2026-09-21 (the
+  amendment above); 2019-09 dynamic islands 49 → 2.
 - The interpreter-side items in the investigation note: memoized reference
   resolution, elided scope-array copies, cached cycle keys, per-node
   present-keyword lists, memoized `child`, fragment state reuse.

@@ -37,8 +37,14 @@ export {
   CONSUMER_SEED_GROUPS,
   DYNAMIC_SEEDS,
   DYNAMIC_SEED_GROUPS,
+  RECURSIVE_SEEDS,
+  RECURSIVE_SEED_GROUPS,
 } from "./fuzz.js";
-export type { DynamicSeedGroup, DynamicSeedName } from "./fuzz.js";
+export type {
+  DynamicSeedGroup,
+  DynamicSeedName,
+  RecursiveSeedName,
+} from "./fuzz.js";
 export {
   runSide,
   runListSide,

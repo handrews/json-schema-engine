@@ -91,15 +91,39 @@ describe.each([
 
 describe('2019-09: $recursiveRef island (cause "dynamic")', () => {
   // $recursiveRef is 2019-09's degenerate $dynamicRef: any unit that carries
-  // it is dynamic-scope-sensitive by construction (core.ts), so this pin is
-  // mostly about proving the legacy dialect actually reaches that
-  // classification through the planner's per-keyword dialect.ordered walk,
-  // not a special case in the planner itself. It also guards ADR 0004's
-  // exclusion: `$recursiveRef` is deliberately NOT resolved statically.
+  // it is dynamic-scope-sensitive by construction (core.ts), and the planner
+  // resolves a site statically when every path yields the same target (ADR
+  // 0004, amended for $recursiveRef). This pin is the unstable shape — the
+  // suite's "multiple dynamic paths": the site inside `generic` is reached
+  // under `numbers` and under `strings`, whose roots both declare the
+  // anchor, so the trampoline stays covered for the legacy dialect.
   const SCHEMA = {
-    $recursiveAnchor: true,
-    type: "object",
-    properties: { child: { $recursiveRef: "#" } },
+    $id: "https://legacy-islands.example/recursive",
+    if: { properties: { kind: { const: "numbers" } }, required: ["kind"] },
+    then: { $ref: "numbers" },
+    else: { $ref: "strings" },
+    $defs: {
+      generic: {
+        $id: "generic",
+        $recursiveAnchor: true,
+        type: "object",
+        properties: {
+          child: { $recursiveRef: "#" },
+        },
+      },
+      numbers: {
+        $id: "numbers",
+        $recursiveAnchor: true,
+        $ref: "generic",
+        properties: { value: { type: "number" } },
+      },
+      strings: {
+        $id: "strings",
+        $recursiveAnchor: true,
+        $ref: "generic",
+        properties: { value: { type: "string" } },
+      },
+    },
   };
 
   it('plans an interpreted unit with cause "dynamic"', () => {
@@ -111,6 +135,33 @@ describe('2019-09: $recursiveRef island (cause "dynamic")', () => {
     const plan = buildPlan(engine, uri);
     const summary = explainCompilation(plan);
     expect(summary.causes.dynamic).toBe(1);
+    expect(summary.resolvedDynamicSites).toHaveLength(0);
+  });
+
+  it("the single-declarer shape resolves statically instead (ADR 0004)", () => {
+    const engine = createEngine({ defaultDialect: DIALECT_2019_09 });
+    const uri = engine.registerSchema(
+      {
+        $recursiveAnchor: true,
+        type: "object",
+        properties: { child: { $recursiveRef: "#" } },
+      },
+      "https://legacy-islands.example/recursive-static",
+    );
+    const summary = explainCompilation(buildPlan(engine, uri));
+    expect(summary.interpretedUnits).toBe(0);
+    expect(summary.resolvedDynamicSites).toEqual([
+      {
+        unit: `${uri}#/properties/child`,
+        keyword: "$recursiveRef",
+        ref: "#",
+        target: `${uri}#`,
+        winner: uri,
+      },
+    ]);
+    const flag = compileValidator(engine, uri);
+    expect(flag.validate({ child: { child: {} } })).toBe(true);
+    expect(flag.validate({ child: { child: "nope" } })).toBe(false);
   });
 
   it("compiled flag verdicts match the interpreter on a valid and invalid recursive instance", () => {
@@ -121,12 +172,15 @@ describe('2019-09: $recursiveRef island (cause "dynamic")', () => {
     );
     const flag = compileValidator(engine, uri);
 
-    const good: JsonValue = { child: { child: {} } };
-    const bad: JsonValue = { child: { child: "nope" } };
+    const good: JsonValue = { kind: "numbers", child: { value: 1 } };
+    const bad: JsonValue = { kind: "numbers", child: { value: "nope" } };
     expect(flag.validate(good)).toBe(engine.evaluate(uri, good).valid);
     expect(flag.validate(bad)).toBe(engine.evaluate(uri, bad).valid);
     expect(engine.evaluate(uri, good).valid).toBe(true);
     expect(engine.evaluate(uri, bad).valid).toBe(false);
+    // Under `strings`, the same child rebinds the other way.
+    expect(flag.validate({ child: { value: "ok" } })).toBe(true);
+    expect(flag.validate({ child: { value: 1 } })).toBe(false);
   });
 
   it("compiled list error units deep-equal the interpreter's", () => {
@@ -137,7 +191,7 @@ describe('2019-09: $recursiveRef island (cause "dynamic")', () => {
     );
     const list = compileList(engine, uri, { errorParams: true });
 
-    const bad: JsonValue = { child: { child: "nope" } };
+    const bad: JsonValue = { kind: "numbers", child: { value: "nope" } };
     const got = list.evaluateList(bad);
     const expected = engine.evaluate(uri, bad, {
       output: "list",

@@ -4,7 +4,7 @@
 // evaluates through the interpreter as always, but the verdict comes from
 // compileValidator(...).validate(instance) instead of
 // engine.evaluate(...).valid — the compiled tier must be exactly as
-// complete as the interpreter ($recursiveRef-class dynamic islands and any
+// complete as the interpreter (unstable $recursiveRef sites and any
 // remaining fallback cause trampoline straight back to it), so this run's
 // totals must match the interpreter leg's exactly, with zero skips.
 

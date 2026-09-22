@@ -620,8 +620,8 @@ const SWEEP: Record<string, SweepPin> = {
   "draft2019-09": {
     dir: "draft2019-09",
     defaultDialect: DIALECT_2019_09,
-    pairs: 2094,
-    productions: 722,
+    pairs: 2262,
+    productions: 802,
     skippedTracked: 32,
   },
   draft7: {
