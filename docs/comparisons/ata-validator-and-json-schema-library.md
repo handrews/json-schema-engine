@@ -3,10 +3,10 @@
 A feature-completeness and performance comparison of `@json-schema-engine/*`
 (JSE) against two other TypeScript/JavaScript JSON Schema implementations:
 
-- [ata-validator](https://github.com/ata-core/ata-validator) — a
-  validation-focused library with a code-generating compiler, an interpreter
-  fallback, an ahead-of-time build step, TypeScript type inference, and an
-  optional native (simdjson) accelerator.
+- [ata-validator](https://github.com/ata-core/ata-validator)
+  — a validation-focused library with a code-generating compiler, an
+  interpreter fallback, an ahead-of-time build step, TypeScript type inference,
+  and an optional native (simdjson) accelerator.
 - [json-schema-library](https://github.com/sagold/json-schema-library) (JSL)
   — a tooling-oriented library ("for developers building custom tools around
   JSON Schema") with an interpreted validator plus default-data generation,
@@ -19,7 +19,7 @@ see [Reproduction](#reproduction).
 
 | Subject                | Version | Notes                                             |
 | ---------------------- | ------- | ------------------------------------------------- |
-| json-schema-engine     | 0.0.3   | this repository at `ee46b16`, run from source     |
+| json-schema-engine     | 0.0.3   | this repository at `b0fd79d`, run from source     |
 | ata-validator          | 1.27.1  | npm, with `@ata-validator/native-darwin-arm64`    |
 | json-schema-library    | 11.6.2  | npm, with the `json-schema-library/formats` entry |
 | ajv                    | 8.20.0  | reference point only                              |
@@ -35,10 +35,13 @@ three subjects saw the same cases.
   and draft-07 tests. JSE and JSL also pass 100% of required 2019-09,
   draft-06, and draft-04. ata-validator does not implement 2019-09,
   draft-06, or draft-04 as dialects: it applies 2020-12 semantics to them and
-  fails 44, 39, and 40 required cases respectively. On the optional and
-  format tests JSL is closest to complete, JSE is next, and ata-validator
-  trails mainly on `idn-hostname`, punycode `hostname`, and ECMA-262 regex
-  semantics.
+  fails 44, 39, and 40 required cases respectively. On the format tests JSE
+  is the only subject that passes every case in every draft (JSL misses 17,
+  ata-validator 234). On the optional tests JSL is closest to complete with
+  12 failures against JSE's 38 and ata-validator's 98; JSE's are mostly the
+  `dependencies` compatibility cases that JSL covers and JSE does not.
+  ata-validator trails mainly on `idn-hostname`, punycode `hostname`, and
+  ECMA-262 regex semantics.
 - **Output.** JSE is the only one of the three that implements the standard
   output formats in full (`flag`, `basic`, `detailed`, `verbose`, `list`,
   `hierarchical`) with general annotation collection. ata-validator has an
@@ -47,43 +50,38 @@ three subjects saw the same cases.
   walk. JSL has no standard output format, no location fields on errors, and
   collects only a `deprecated-warning` annotation.
 - **Verdict throughput.** On static schemas, ata-validator's generated code
-  is the fastest of everything measured: 1.3–1.7x faster than ajv and 2–4x
-  faster than JSE's compiled tier. On the `$dynamicRef`-heavy OpenAPI 3.1 schema,
-  ata-validator's interpreter is about 4x faster than JSE's compiled tier and
-  50x faster than JSE's interpreter. JSE's compiled tier wins by 6x on the
-  sparse-record corpus where property access goes megamorphic. JSL's
-  interpreter is 13–35x slower than the compiled engines on small payloads
-  but is the fastest subject on that same sparse-record corpus.
-- **JSE's interpreter is slow** relative to both competitors' interpreters:
-  6–7x slower than JSL on small payloads and 11x slower on 2000-record
-  arrays. This is the largest performance gap found.
+  is the fastest of everything measured: 1.4–1.7x faster than ajv and
+  1.9–4.7x faster than JSE's compiled tier. On the `$dynamicRef`-heavy
+  OpenAPI 3.1 schema the order is now reversed: JSE's compiled tier is 2.7x
+  faster than ata-validator's interpreter, because JSE resolves the dynamic
+  references at plan time instead of trampolining them. JSE's compiled tier
+  also wins by 5.7x on the sparse-record corpus where property access goes
+  megamorphic. JSL's interpreter is 12–32x slower than the compiled engines
+  on small payloads but is the fastest subject on that same sparse-record
+  corpus.
+- **JSE's interpreter is no longer the outlier it was.** Against JSL it is
+  1.2–1.3x slower on small payloads, 2.6–3.0x slower on 2000-record arrays,
+  and 15x faster on the OpenAPI corpus. Against ata-validator's interpreter
+  on that corpus it is 9.6x slower, the largest remaining gap.
 - **Error and spec-output throughput.** With errors actually materialized,
-  JSE's compiled list artifact is 1.3x faster than ata-validator on
-  `api-payload`, 7x faster on `migration`, and 18x faster on the sparse
-  records corpus. For `basic` output with annotations, JSE's compiled
-  evaluator is about 8x faster than ata-validator's `toOutput` on small
-  payloads and 8–36x faster on record arrays; only on the OpenAPI corpus is
-  `toOutput` faster, because its annotation walk does not follow `$ref` and
-  collects almost nothing there.
+  JSE's compiled list artifact is 1.7x faster than ata-validator on both
+  `api-payload` and the OpenAPI corpus, 6.9x faster on `migration`, and 17x
+  faster on the sparse records corpus; ata-validator keeps `records-uniform`
+  by 3.8x. For `basic` output with annotations, JSE's compiled evaluator is
+  10–13x faster than ata-validator's `toOutput` on small payloads and
+  8.5–56x faster on record arrays, and it is now also 1.3x faster on the
+  OpenAPI corpus, where `toOutput` used to win because its annotation walk
+  does not follow `$ref` and collects almost nothing there.
 - **Compile latency.** JSL compiles lazily and is fastest to first verdict on
-  small schemas (35–60 µs). ata-validator and JSE's interpreter are next
-  (200–400 µs). JSE's compiled tier costs 0.4–7 ms to first verdict, and ajv
-  1.8–30 ms.
+  small schemas (35–57 µs). JSE's interpreter and ata-validator are next
+  (220–400 µs). JSE's compiled tier costs 0.4–6.2 ms to first verdict, and
+  ajv 2.0–32 ms.
 - **Beyond validation**, the projects are not substitutes: ata-validator's
   distinguishing features are AOT standalone modules, TypeScript inference,
   Standard Schema, buffer/NDJSON validation, and LLM-oriented helpers; JSL's
   are `getData`, `getNode`, `reduceNode`, and schema traversal; JSE's are the
   output model, annotation selection, dependency data for custom keywords,
   source positions, loaders, and the ajv-compat layer.
-
-**Update, 2026-09-21.** The `oas-document` rows below predate
-[ADR 0004](../planning/next-steps/decisions/0004-static-dynamic-ref-resolution.md),
-which resolves `$dynamicRef` at compile time wherever every path agrees on
-the target. With it, JSE's compiled flag verdict on the same corpus measures
-4.0 µs per document (the harness's hot row; 45 µs before), against
-ata-validator's 11.4 µs, and the statement that ata-validator's interpreter
-beats JSE's compiled tier on that schema no longer holds. The other rows and
-the conformance results are unaffected.
 
 ## Conformance
 
@@ -112,7 +110,7 @@ Subject configuration:
 | -------- | -------- | ------------- | ------------- | ------------- |
 | 2020-12  | required | **1299/1299** | **1299/1299** | **1299/1299** |
 | 2020-12  | optional | 147/162       | 133/162       | 159/162       |
-| 2020-12  | format   | 654/655       | 577/655       | 650/655       |
+| 2020-12  | format   | **655/655**   | 577/655       | 650/655       |
 | 2019-09  | required | **1259/1259** | 1215/1259     | **1259/1259** |
 | 2019-09  | optional | 143/158       | 131/158       | 157/158       |
 | 2019-09  | format   | **647/647**   | 569/647       | 642/647       |
@@ -133,7 +131,7 @@ does not reject the dialect).
 
 ### What fails, and why
 
-**JSE (39 failures).** All in the optional tier:
+**JSE (38 failures).** All in the optional tier:
 
 - `optional/dependencies-compatibility.json` (2020-12 and 2019-09, 14 each):
   the pre-2019 `dependencies` keyword is not carried forward into the
@@ -145,8 +143,6 @@ does not reject the dialect).
   are annotations, not assertions. Same in both other libraries.
 - draft-04 `optional/zeroTerminatedFloats.json` (1): `1.0` is an integer in
   JavaScript. Same in both other libraries.
-- 2020-12 `optional/format/ecmascript-regex.json` (1): `\a` is accepted as a
-  valid `regex` format value. JSL and ata-validator reject it.
 
 **ata-validator (455 failures).**
 
@@ -237,8 +233,8 @@ case's output schema). JSL has nothing to run them against.
 | Capability                     | JSE                                                                        | ata-validator                                                                                                                           | JSL                                                                          |
 | ------------------------------ | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | `$id`/`$anchor`                | yes                                                                        | yes (interpreter)                                                                                                                       | yes                                                                          |
-| `$dynamicRef`/`$dynamicAnchor` | yes, compiled via interpreter trampoline                                   | yes, interpreter only                                                                                                                   | yes                                                                          |
-| `$recursiveRef`                | yes                                                                        | no                                                                                                                                      | yes                                                                          |
+| `$dynamicRef`/`$dynamicAnchor` | yes; resolved at plan time where every path agrees, else trampolined       | yes, interpreter only                                                                                                                   | yes                                                                          |
+| `$recursiveRef`                | yes; same plan-time resolution as `$dynamicRef`                            | no                                                                                                                                      | yes                                                                          |
 | Remote/cross-document          | yes; sync `registerSchema` or async `loadSchema` through pluggable loaders | pre-registered only (`schemas` option / `addSchema` before first validate); no loader hook; `compat.loadSchema` is typed but never read | pre-registered only (`remotes`, `remote`, `addRemoteSchema`); no loader hook |
 | Unresolvable ref               | error at load or first follow                                              | runtime error `ATA5001`, does not throw                                                                                                 | runtime `ref-error`, or throw with `throwOnInvalidRef`                       |
 
@@ -310,7 +306,7 @@ instance. `not` and `properties` are unaffected.
 | Implemented formats         | all standard formats from their RFCs, per-dialect tables, full IDNA2008 `idn-hostname` | 18 hand-written scanners; no `idn-hostname`; `hostname` skips A-label decoding; `iri` is approximate              | 10 in core (plus non-standard `url`); 10 more including `idn-*` via `json-schema-library/formats`, which inlines `@hyperjump/json-schema-formats` |
 | Format-assertion vocabulary | honored                                                                                | not honored                                                                                                       | partially (`"meta-schema"` mode)                                                                                                                  |
 | Custom formats              | table entry                                                                            | `formats` option                                                                                                  | `extendDraft({ formats })`                                                                                                                        |
-| Suite (2020-12 format)      | 654/655                                                                                | 577/655                                                                                                           | 650/655                                                                                                                                           |
+| Suite (2020-12 format)      | 655/655                                                                                | 577/655                                                                                                           | 650/655                                                                                                                                           |
 
 ### Custom keywords
 
@@ -416,26 +412,28 @@ Two methodology notes specific to the newcomers:
 
 | Corpus          | JSE compiled | JSE interpreter |      ata-validator |    ajv |   JSL | hyperjump |
 | --------------- | -----------: | --------------: | -----------------: | -----: | ----: | --------: |
-| oas-document    |         46.1 |             573 | 11.4 (interpreter) |      — | 1 617 |       310 |
-| api-payload     |         0.30 |            33.2 |     0.16 (codegen) |   0.21 |  4.76 |      11.6 |
-| migration       |         0.16 |            13.0 |     0.06 (codegen) |   0.10 |  2.09 |         — |
-| records-uniform |         34.0 |          23 859 |     7.74 (codegen) |   10.2 | 2 175 |     4 504 |
-| records-sparse  |        3 483 |          27 521 |   21 361 (codegen) | 21 629 | 2 934 |     6 402 |
+| oas-document    |         4.08 |             108 | 11.2 (interpreter) |      — | 1 639 |       322 |
+| api-payload     |         0.30 |            5.77 |     0.16 (codegen) |   0.22 |  4.84 |      11.8 |
+| migration       |         0.16 |            2.45 |     0.06 (codegen) |   0.10 |  1.89 |         — |
+| records-uniform |         32.5 |           7 118 |     6.87 (codegen) |   9.82 | 2 348 |     4 846 |
+| records-sparse  |        4 016 |           7 731 |   22 849 (codegen) | 23 261 | 3 036 |     6 819 |
 
 The `records-*` rows validate 2000 records per call. ata-validator's
-`isValidObject` and `abortEarly` variants were within noise of `validate`.
-JSE's numbers match the repository's own `bench/results/results.json` from
-2026-09-07 within a few percent.
+`isValidObject` and `abortEarly` variants were within noise of `validate`
+everywhere except `oas-document`, where `abortEarly` costs about 3x more
+than the plain verdict. JSE's numbers agree with the repository's own
+`bench/results/results.json` from 2026-09-21 within about 10%
+(14% on `records-uniform`).
 
 ### Errors materialized, invalid instances (µs per call)
 
 | Corpus          | JSE compiled list | JSE interpreter list | ata `validate+errors` | ajv `allErrors` |   JSL |
 | --------------- | ----------------: | -------------------: | --------------------: | --------------: | ----: |
-| oas-document    |              53.1 |                  753 |                  16.3 |               — | 1 608 |
-| api-payload     |              0.84 |                 41.2 |                  1.09 |            0.29 |  5.05 |
-| migration       |              0.06 |                 8.73 |                  0.44 |            0.07 |  2.06 |
-| records-uniform |               149 |               33 657 |                  25.2 |            10.5 | 2 151 |
-| records-sparse  |             3 664 |               38 202 |                64 640 |          21 773 | 2 986 |
+| oas-document    |              9.49 |                  190 |                  16.4 |               — | 1 642 |
+| api-payload     |              0.68 |                 10.4 |                  1.14 |            0.29 |  5.15 |
+| migration       |              0.07 |                 3.05 |                  0.48 |            0.07 |  2.09 |
+| records-uniform |              85.0 |               10 823 |                  22.4 |            9.91 | 2 306 |
+| records-sparse  |             4 055 |               12 581 |                69 959 |          23 281 | 3 043 |
 
 The error units are not equivalent: ajv reports one small object per
 failure, JSE reports every relevant unit with three locations, ata-validator
@@ -446,27 +444,28 @@ suggestions, and JSL copies the schema object into every error.
 
 | Corpus          | JSE compiled, valid | JSE interpreter, valid | ata `toOutput`, valid | JSE compiled, invalid | ata `toOutput`, invalid |
 | --------------- | ------------------: | ---------------------: | --------------------: | --------------------: | ----------------------: |
-| oas-document    |                55.3 |                    557 |                  14.1 |                  56.1 |                    16.6 |
-| api-payload     |                0.67 |                   33.8 |                  5.94 |                  0.93 |                    1.18 |
-| migration       |                0.31 |                   13.8 |                  2.51 |                  0.14 |                    0.53 |
-| records-uniform |                 217 |                 26 081 |                 7 705 |                   199 |                    25.9 |
-| records-sparse  |               3 821 |                 30 028 |                30 997 |                 3 813 |                  65 106 |
+| oas-document    |                11.1 |                    111 |                  14.3 |                  10.8 |                    16.8 |
+| api-payload     |                0.49 |                   6.02 |                  6.13 |                  0.75 |                    1.24 |
+| migration       |                0.25 |                   2.75 |                  2.63 |                  0.14 |                    0.55 |
+| records-uniform |                 153 |                  8 109 |                 8 593 |                   137 |                    22.5 |
+| records-sparse  |               4 067 |                  9 326 |                34 375 |                 4 072 |                  72 960 |
 
 ata-validator's `toOutput` walks the schema a second time and constructs a
 fresh `Validator` for each `anyOf`/`oneOf`/`if` branch it visits, which is
 where its cost on the record corpora comes from; on `oas-document` the walk
 is cheap because it does not follow `$ref`, so it also collects almost
-nothing there.
+nothing there — it is nonetheless slower than JSE's compiled evaluator on
+that corpus now, which collects the full annotation set.
 
 ### Compile plus first validation (µs per call)
 
 | Corpus          | JSE compiled | JSE interpreter | ata-validator |    ajv |   JSL |
 | --------------- | -----------: | --------------: | ------------: | -----: | ----: |
-| oas-document    |        4 784 |             964 |         4 006 |      — | 2 505 |
-| api-payload     |          563 |             261 |           400 |  3 534 |  59.3 |
-| migration       |          363 |             223 |           237 |  1 831 |  34.3 |
-| records-uniform |        3 120 |          24 108 |         1 459 |  6 854 | 2 649 |
-| records-sparse  |        6 921 |          28 243 |        23 167 | 29 831 | 3 329 |
+| oas-document    |        6 235 |             619 |         4 004 |      — | 2 571 |
+| api-payload     |          572 |             234 |           398 |  3 869 |  56.7 |
+| migration       |          388 |             222 |           248 |  2 043 |  35.5 |
+| records-uniform |        3 440 |           7 158 |         1 769 |  7 326 | 2 737 |
+| records-sparse  |        7 387 |           8 223 |        24 784 | 31 718 | 3 384 |
 
 A fresh engine/validator per iteration; a unique `$comment` is injected each
 time so ata-validator's content-keyed compile cache cannot hit. The `records`
@@ -474,36 +473,48 @@ rows include one 2000-record validation.
 
 ### Observations
 
-- **ata-validator's generated code is the fastest verdict engine measured**
-  on static schemas: 1.3–1.7x faster than ajv and 2–4x faster than JSE's
-  compiled tier on `api-payload`, `migration`, and `records-uniform`. Its
-  interpreter (closure compiler) handles `$dynamicRef` and beats JSE's
-  compiled tier on `oas-document` by 4x, because JSE's compiled artifact
-  trampolines the dynamic islands to JSE's interpreter.
+- **ata-validator's generated code is still the fastest verdict engine
+  measured on static schemas**: 1.4–1.7x faster than ajv and 1.9–4.7x faster
+  than JSE's compiled tier on `api-payload`, `migration`, and
+  `records-uniform`.
+- **JSE's compiled tier now leads on `oas-document`**, at 4.08 µs against
+  ata-validator's 11.2 µs — a 2.7x win where the previous run had
+  ata-validator's interpreter 4x ahead. JSE resolves `$dynamicRef` and
+  `$recursiveRef` at plan time wherever every path agrees on the target
+  (ADR 0004), so the compiled artifact no longer trampolines those sites to
+  the interpreter.
 - **JSE's compiled tier wins where property access is polymorphic.** On
-  `records-sparse` it is 6x faster than ata-validator and ajv, both of which
-  fall to about 22 ms per 2000 records (the `key in obj` probe discussed in
-  `bench/corpora/README.md`). JSL, which iterates instance keys rather than
-  schema properties, is fastest there.
-- **JSE's interpreter is the outlier.** It is 6–7x slower than JSL's
-  interpreter on small payloads, 10x slower on `records-uniform`, and 50x
-  slower than ata-validator's interpreter on `oas-document`. Since the
-  compiled tier falls back to it for dynamic islands and for anything it
-  cannot lower, this gap also bounds the compiled tier on schemas like OAS.
-- **With errors materialized the picture changes.** JSE's compiled list is
-  1.3x faster than ata-validator on `api-payload` and 7x faster on
-  `migration`; on `records-sparse`, ata-validator's rich-error construction
-  costs three times its verdict, and JSE's list artifact is 18x faster than
-  it.
-- **For standard output JSE's compiled evaluator is the fastest by a wide
-  margin**, and it is the only engine producing the full unit set. ata's
-  `toOutput` is about 8x slower on small payloads and 8–36x slower on record
-  arrays, and faster only on `oas-document` for the reason given above.
+  `records-sparse` it is 5.7x faster than ata-validator and 5.8x faster than
+  ajv, both of which fall to about 23 ms per 2000 records (the `key in obj`
+  probe discussed in `bench/corpora/README.md`). JSL, which iterates instance
+  keys rather than schema properties, is still fastest there.
+- **JSE's interpreter has closed most of its gap.** It is 1.2–1.3x slower
+  than JSL's interpreter on small payloads (was 6–7x), 2.6–3.0x slower on
+  the record arrays (was 10x), and 15x faster on `oas-document`. Against
+  ata-validator's interpreter on that corpus it remains 9.6x slower, down
+  from 50x. Since the compiled tier still falls back to it for anything it
+  cannot lower, this is the gap that continues to bound the compiled tier on
+  schemas it cannot fully plan.
+- **With errors materialized JSE's list artifact leads ata-validator on four
+  of five corpora.** It is 1.7x faster on `oas-document` and
+  `api-payload` and 6.9x faster on `migration`; on `records-sparse`,
+  ata-validator's rich-error construction costs three times its verdict and
+  JSE is 17x faster. ata-validator keeps `records-uniform`, where it is 3.8x
+  faster than JSE.
+- **For standard output JSE's compiled evaluator is the fastest on every row
+  where real annotations are collected**, and it is the only engine
+  producing the full unit set. ata's `toOutput` is 10–13x slower on small
+  payloads and 8.5–56x slower on record arrays, and its former
+  `oas-document` win is gone (14.3 µs against JSE's 11.1 µs). The one row it
+  still takes is invalid `records-uniform`, where it is 6x faster because it
+  stops at the first failure and collects nothing.
 - **Compile latency** favors JSL (lazy) and ata-validator; JSE's compiled
-  tier costs 1.2–2.1x more than ata-validator to first verdict on four
-  corpora and 3x less on `records-sparse`, and its interpreter's
-  first-validation cost on record arrays is dominated by the evaluation
-  itself.
+  tier costs 1.4–1.9x more than ata-validator to first verdict on four
+  corpora and 3.4x less on `records-sparse`. Planning the dynamic references
+  statically moved work into compilation: `oas-document` compile-plus-first
+  rose from 4.8 ms to 6.2 ms even as its hot verdict fell 11x. JSE's
+  interpreter dropped from 24 ms to 7.2 ms on `records-uniform`, where that
+  number is dominated by the evaluation itself rather than by compilation.
 
 ## Documentation accuracy notes
 
@@ -548,8 +559,10 @@ json-schema-library:
 json-schema-engine (found while running the same suite):
 
 - The `dependencies` keyword is not offered in the 2019-09/2020-12 dialects
-  (`optional/dependencies-compatibility.json`), and `format: "regex"` accepts
-  `\a`. Neither is mentioned in `STATUS.md` or `docs/conformance.md`.
+  (`optional/dependencies-compatibility.json`), and that is mentioned in
+  neither `STATUS.md` nor `docs/conformance.md`. The `format: "regex"` gap
+  reported here previously (`\a` accepted as a valid pattern) is fixed: the
+  2020-12 format tier is now clean.
 
 ## Where JSE stands, and what the others do better
 
@@ -563,13 +576,16 @@ annotation model (JSL's is a re-validation heuristic and has the
 
 The others are ahead in these areas:
 
-- **Raw verdict speed on static schemas** (ata-validator, 2–4x over JSE
-  compiled), and **interpreter speed** (both; ata-validator's closure
-  compiler and JSL's closure tree are 6–50x faster than JSE's interpreter).
-  The interpreter gap is the one that matters for JSE, because the compiled
-  tier delegates dynamic islands to it.
+- **Raw verdict speed on static schemas** (ata-validator, 1.9–4.7x over JSE
+  compiled), and **interpreter speed on those same schemas** (ata-validator's
+  closure compiler and JSL's closure tree remain ahead of JSE's interpreter,
+  by 1.2–3x for JSL and by 9.6x for ata-validator on `oas-document`). JSE's
+  interpreter has closed most of the gap the previous run reported, and on
+  the OpenAPI corpus it now leads JSL by 15x, though it still trails
+  ata-validator's interpreter there.
 - **Compile latency** (JSL's lazy compile; ata-validator's cache and cheap
-  construction).
+  construction). JSE's compiled tier pays 1.4–1.9x ata-validator's cost to
+  first verdict, partly because it resolves dynamic references at plan time.
 - **Developer surface**: ata-validator's TypeScript inference, Standard
   Schema, AOT modules with emitted types, CLI, source-mapped diagnostics with
   stable error codes, and LLM prompt/retry helpers; JSL's default-data

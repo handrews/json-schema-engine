@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-21T18:29:02.990Z",
+  "generatedAt": "2026-09-22T00:28:18.139Z",
   "node": "v24.13.0",
   "arch": "arm64",
   "budgetMs": 300,
@@ -21,383 +21,383 @@
       "corpus": "oas-document",
       "partition": "hot",
       "subject": "jse compiled flag",
-      "meanUs": 23.34,
-      "opsPerSec": 42842,
-      "samples": 12854
+      "meanUs": 2.11,
+      "opsPerSec": 474497,
+      "samples": 142350
     },
     {
       "corpus": "oas-document",
       "partition": "valid",
       "subject": "jse compiled flag",
-      "meanUs": 46.09,
-      "opsPerSec": 21695,
-      "samples": 6509
+      "meanUs": 4.08,
+      "opsPerSec": 245054,
+      "samples": 73517
     },
     {
       "corpus": "oas-document",
       "partition": "invalid",
       "subject": "jse compiled flag",
-      "meanUs": 0.14,
-      "opsPerSec": 7175080,
-      "samples": 2152525
+      "meanUs": 0.11,
+      "opsPerSec": 8745795,
+      "samples": 2623739
     },
     {
       "corpus": "oas-document",
       "partition": "hot",
       "subject": "jse compiled list",
-      "meanUs": 56.38,
-      "opsPerSec": 17736,
-      "samples": 5321
+      "meanUs": 9.84,
+      "opsPerSec": 101581,
+      "samples": 30475
     },
     {
       "corpus": "oas-document",
       "partition": "valid",
       "subject": "jse compiled list",
-      "meanUs": 52.78,
-      "opsPerSec": 18947,
-      "samples": 5685
+      "meanUs": 9.67,
+      "opsPerSec": 103377,
+      "samples": 31014
     },
     {
       "corpus": "oas-document",
       "partition": "invalid",
       "subject": "jse compiled list",
-      "meanUs": 53.12,
-      "opsPerSec": 18826,
-      "samples": 5648
+      "meanUs": 9.49,
+      "opsPerSec": 105337,
+      "samples": 31602
     },
     {
       "corpus": "oas-document",
       "partition": "hot",
       "subject": "jse compiled basic+annotations",
-      "meanUs": 55.84,
-      "opsPerSec": 17908,
-      "samples": 5373
+      "meanUs": 11.01,
+      "opsPerSec": 90811,
+      "samples": 27244
     },
     {
       "corpus": "oas-document",
       "partition": "valid",
       "subject": "jse compiled basic+annotations",
-      "meanUs": 55.31,
-      "opsPerSec": 18081,
-      "samples": 5425
+      "meanUs": 11.07,
+      "opsPerSec": 90308,
+      "samples": 27093
     },
     {
       "corpus": "oas-document",
       "partition": "invalid",
       "subject": "jse compiled basic+annotations",
-      "meanUs": 56.08,
-      "opsPerSec": 17831,
-      "samples": 5354
+      "meanUs": 10.83,
+      "opsPerSec": 92353,
+      "samples": 27706
     },
     {
       "corpus": "oas-document",
       "partition": "hot",
       "subject": "jse interpreter flag",
-      "meanUs": 572.26,
-      "opsPerSec": 1747,
-      "samples": 525
+      "meanUs": 114,
+      "opsPerSec": 8772,
+      "samples": 2632
     },
     {
       "corpus": "oas-document",
       "partition": "valid",
       "subject": "jse interpreter flag",
-      "meanUs": 572.67,
-      "opsPerSec": 1746,
-      "samples": 524
+      "meanUs": 108.1,
+      "opsPerSec": 9250,
+      "samples": 2776
     },
     {
       "corpus": "oas-document",
       "partition": "invalid",
       "subject": "jse interpreter flag",
-      "meanUs": 543.27,
-      "opsPerSec": 1841,
-      "samples": 553
+      "meanUs": 107.59,
+      "opsPerSec": 9295,
+      "samples": 2789
     },
     {
       "corpus": "oas-document",
       "partition": "hot",
       "subject": "jse interpreter list",
-      "meanUs": 743.31,
-      "opsPerSec": 1345,
-      "samples": 404
+      "meanUs": 191.49,
+      "opsPerSec": 5222,
+      "samples": 1567
     },
     {
       "corpus": "oas-document",
       "partition": "valid",
       "subject": "jse interpreter list",
-      "meanUs": 749.45,
-      "opsPerSec": 1334,
-      "samples": 401
+      "meanUs": 186.36,
+      "opsPerSec": 5366,
+      "samples": 1610
     },
     {
       "corpus": "oas-document",
       "partition": "invalid",
       "subject": "jse interpreter list",
-      "meanUs": 753.19,
-      "opsPerSec": 1328,
-      "samples": 399
+      "meanUs": 189.81,
+      "opsPerSec": 5268,
+      "samples": 1581
     },
     {
       "corpus": "oas-document",
       "partition": "hot",
       "subject": "jse interpreter list+annotations",
-      "meanUs": 774.01,
-      "opsPerSec": 1292,
-      "samples": 388
+      "meanUs": 195.52,
+      "opsPerSec": 5115,
+      "samples": 1535
     },
     {
       "corpus": "oas-document",
       "partition": "valid",
       "subject": "jse interpreter list+annotations",
-      "meanUs": 836.46,
-      "opsPerSec": 1196,
-      "samples": 359
+      "meanUs": 196.71,
+      "opsPerSec": 5084,
+      "samples": 1526
     },
     {
       "corpus": "oas-document",
       "partition": "invalid",
       "subject": "jse interpreter list+annotations",
-      "meanUs": 750.2,
-      "opsPerSec": 1333,
-      "samples": 400
+      "meanUs": 189.42,
+      "opsPerSec": 5279,
+      "samples": 1584
     },
     {
       "corpus": "oas-document",
       "partition": "hot",
       "subject": "jse interpreter basic+annotations",
-      "meanUs": 555.44,
-      "opsPerSec": 1800,
-      "samples": 541
+      "meanUs": 109.95,
+      "opsPerSec": 9095,
+      "samples": 2729
     },
     {
       "corpus": "oas-document",
       "partition": "valid",
       "subject": "jse interpreter basic+annotations",
-      "meanUs": 557.15,
-      "opsPerSec": 1795,
-      "samples": 539
+      "meanUs": 111.43,
+      "opsPerSec": 8974,
+      "samples": 2693
     },
     {
       "corpus": "oas-document",
       "partition": "invalid",
       "subject": "jse interpreter basic+annotations",
-      "meanUs": 538.84,
-      "opsPerSec": 1856,
-      "samples": 557
+      "meanUs": 107.37,
+      "opsPerSec": 9313,
+      "samples": 2795
     },
     {
       "corpus": "oas-document",
       "partition": "hot",
       "subject": "ata validate [interpreter]",
-      "meanUs": 5.85,
-      "opsPerSec": 171053,
-      "samples": 51316
+      "meanUs": 5.76,
+      "opsPerSec": 173481,
+      "samples": 52045
     },
     {
       "corpus": "oas-document",
       "partition": "valid",
       "subject": "ata validate [interpreter]",
-      "meanUs": 11.44,
-      "opsPerSec": 87427,
-      "samples": 26229
+      "meanUs": 11.2,
+      "opsPerSec": 89301,
+      "samples": 26791
     },
     {
       "corpus": "oas-document",
       "partition": "invalid",
       "subject": "ata validate [interpreter]",
       "meanUs": 0.17,
-      "opsPerSec": 5807881,
-      "samples": 1742365
+      "opsPerSec": 5727538,
+      "samples": 1718262
     },
     {
       "corpus": "oas-document",
       "partition": "hot",
       "subject": "ata validate+errors [interpreter]",
-      "meanUs": 14.79,
-      "opsPerSec": 67595,
-      "samples": 20279
+      "meanUs": 15.01,
+      "opsPerSec": 66644,
+      "samples": 19994
     },
     {
       "corpus": "oas-document",
       "partition": "valid",
       "subject": "ata validate+errors [interpreter]",
-      "meanUs": 11.37,
-      "opsPerSec": 87916,
-      "samples": 26375
+      "meanUs": 11.15,
+      "opsPerSec": 89712,
+      "samples": 26914
     },
     {
       "corpus": "oas-document",
       "partition": "invalid",
       "subject": "ata validate+errors [interpreter]",
-      "meanUs": 16.27,
-      "opsPerSec": 61462,
-      "samples": 18439
+      "meanUs": 16.44,
+      "opsPerSec": 60827,
+      "samples": 18248
     },
     {
       "corpus": "oas-document",
       "partition": "hot",
       "subject": "ata toOutput basic [interpreter]",
-      "meanUs": 16.34,
-      "opsPerSec": 61187,
-      "samples": 18357
+      "meanUs": 16.49,
+      "opsPerSec": 60641,
+      "samples": 18193
     },
     {
       "corpus": "oas-document",
       "partition": "valid",
       "subject": "ata toOutput basic [interpreter]",
-      "meanUs": 14.07,
-      "opsPerSec": 71067,
-      "samples": 21320
+      "meanUs": 14.3,
+      "opsPerSec": 69947,
+      "samples": 20985
     },
     {
       "corpus": "oas-document",
       "partition": "invalid",
       "subject": "ata toOutput basic [interpreter]",
-      "meanUs": 16.61,
-      "opsPerSec": 60192,
-      "samples": 18058
+      "meanUs": 16.81,
+      "opsPerSec": 59483,
+      "samples": 17845
     },
     {
       "corpus": "oas-document",
       "partition": "hot",
       "subject": "ata isValidObject [interpreter]",
-      "meanUs": 5.77,
-      "opsPerSec": 173309,
-      "samples": 51994
+      "meanUs": 5.74,
+      "opsPerSec": 174255,
+      "samples": 52277
     },
     {
       "corpus": "oas-document",
       "partition": "valid",
       "subject": "ata isValidObject [interpreter]",
-      "meanUs": 11.3,
-      "opsPerSec": 88457,
-      "samples": 26538
+      "meanUs": 11.25,
+      "opsPerSec": 88856,
+      "samples": 26657
     },
     {
       "corpus": "oas-document",
       "partition": "invalid",
       "subject": "ata isValidObject [interpreter]",
       "meanUs": 0.17,
-      "opsPerSec": 5976557,
-      "samples": 1792968
+      "opsPerSec": 5864222,
+      "samples": 1759267
     },
     {
       "corpus": "oas-document",
       "partition": "hot",
       "subject": "ata validate abortEarly [interpreter]",
-      "meanUs": 16.32,
-      "opsPerSec": 61264,
-      "samples": 18380
+      "meanUs": 17.11,
+      "opsPerSec": 58441,
+      "samples": 17534
     },
     {
       "corpus": "oas-document",
       "partition": "valid",
       "subject": "ata validate abortEarly [interpreter]",
-      "meanUs": 15.63,
-      "opsPerSec": 63982,
-      "samples": 19195
+      "meanUs": 16.11,
+      "opsPerSec": 62073,
+      "samples": 18622
     },
     {
       "corpus": "oas-document",
       "partition": "invalid",
       "subject": "ata validate abortEarly [interpreter]",
-      "meanUs": 15.85,
-      "opsPerSec": 63083,
-      "samples": 18925
+      "meanUs": 15.99,
+      "opsPerSec": 62540,
+      "samples": 18763
     },
     {
       "corpus": "oas-document",
       "partition": "hot",
       "subject": "ata validate [interpreter forced]",
-      "meanUs": 5.78,
-      "opsPerSec": 173122,
-      "samples": 51938
+      "meanUs": 5.89,
+      "opsPerSec": 169685,
+      "samples": 50906
     },
     {
       "corpus": "oas-document",
       "partition": "valid",
       "subject": "ata validate [interpreter forced]",
-      "meanUs": 11.34,
-      "opsPerSec": 88164,
-      "samples": 26450
+      "meanUs": 11.51,
+      "opsPerSec": 86860,
+      "samples": 26058
     },
     {
       "corpus": "oas-document",
       "partition": "invalid",
       "subject": "ata validate [interpreter forced]",
       "meanUs": 0.18,
-      "opsPerSec": 5656756,
-      "samples": 1697027
+      "opsPerSec": 5633816,
+      "samples": 1690145
     },
     {
       "corpus": "oas-document",
       "partition": "hot",
       "subject": "jsl validate",
-      "meanUs": 1632.29,
-      "opsPerSec": 613,
+      "meanUs": 1657.76,
+      "opsPerSec": 603,
+      "samples": 181
+    },
+    {
+      "corpus": "oas-document",
+      "partition": "valid",
+      "subject": "jsl validate",
+      "meanUs": 1638.77,
+      "opsPerSec": 610,
       "samples": 184
     },
     {
       "corpus": "oas-document",
-      "partition": "valid",
-      "subject": "jsl validate",
-      "meanUs": 1616.96,
-      "opsPerSec": 618,
-      "samples": 186
-    },
-    {
-      "corpus": "oas-document",
       "partition": "invalid",
       "subject": "jsl validate",
-      "meanUs": 1608.42,
-      "opsPerSec": 622,
-      "samples": 187
+      "meanUs": 1641.61,
+      "opsPerSec": 609,
+      "samples": 183
     },
     {
       "corpus": "oas-document",
       "partition": "hot",
       "subject": "hyperjump",
-      "meanUs": 314.75,
-      "opsPerSec": 3177,
-      "samples": 954
+      "meanUs": 320.02,
+      "opsPerSec": 3125,
+      "samples": 938
     },
     {
       "corpus": "oas-document",
       "partition": "valid",
       "subject": "hyperjump",
-      "meanUs": 310.01,
-      "opsPerSec": 3226,
-      "samples": 968
+      "meanUs": 321.8,
+      "opsPerSec": 3108,
+      "samples": 933
     },
     {
       "corpus": "oas-document",
       "partition": "invalid",
       "subject": "hyperjump",
-      "meanUs": 312.21,
-      "opsPerSec": 3203,
-      "samples": 961
+      "meanUs": 320.43,
+      "opsPerSec": 3121,
+      "samples": 937
     },
     {
       "corpus": "oas-document",
       "partition": "compile+first",
       "subject": "jse compiled flag",
-      "meanUs": 4784.38,
-      "opsPerSec": 209,
-      "samples": 63
+      "meanUs": 6235.26,
+      "opsPerSec": 160,
+      "samples": 49
     },
     {
       "corpus": "oas-document",
       "partition": "compile+first",
       "subject": "jse interpreter flag",
-      "meanUs": 963.91,
-      "opsPerSec": 1037,
-      "samples": 312
+      "meanUs": 618.68,
+      "opsPerSec": 1616,
+      "samples": 485
     },
     {
       "corpus": "oas-document",
       "partition": "compile+first",
       "subject": "ata validate",
-      "meanUs": 4006.47,
+      "meanUs": 4003.83,
       "opsPerSec": 250,
       "samples": 75
     },
@@ -405,1777 +405,1777 @@
       "corpus": "oas-document",
       "partition": "compile+first",
       "subject": "jsl validate",
-      "meanUs": 2505.46,
-      "opsPerSec": 399,
-      "samples": 120
+      "meanUs": 2570.75,
+      "opsPerSec": 389,
+      "samples": 117
     },
     {
       "corpus": "api-payload",
       "partition": "hot",
       "subject": "jse compiled flag",
-      "meanUs": 0.28,
-      "opsPerSec": 3519639,
-      "samples": 1055892
+      "meanUs": 0.3,
+      "opsPerSec": 3364274,
+      "samples": 1009283
     },
     {
       "corpus": "api-payload",
       "partition": "valid",
       "subject": "jse compiled flag",
       "meanUs": 0.3,
-      "opsPerSec": 3373827,
-      "samples": 1012149
+      "opsPerSec": 3282966,
+      "samples": 984890
     },
     {
       "corpus": "api-payload",
       "partition": "invalid",
       "subject": "jse compiled flag",
       "meanUs": 0.26,
-      "opsPerSec": 3889073,
-      "samples": 1166722
+      "opsPerSec": 3871645,
+      "samples": 1161494
     },
     {
       "corpus": "api-payload",
       "partition": "hot",
-      "subject": "jse compiled list",
-      "meanUs": 0.83,
-      "opsPerSec": 1210468,
-      "samples": 363141
-    },
-    {
-      "corpus": "api-payload",
-      "partition": "valid",
       "subject": "jse compiled list",
       "meanUs": 0.64,
-      "opsPerSec": 1569656,
-      "samples": 470897
+      "opsPerSec": 1554428,
+      "samples": 466329
+    },
+    {
+      "corpus": "api-payload",
+      "partition": "valid",
+      "subject": "jse compiled list",
+      "meanUs": 0.45,
+      "opsPerSec": 2235004,
+      "samples": 670502
     },
     {
       "corpus": "api-payload",
       "partition": "invalid",
       "subject": "jse compiled list",
-      "meanUs": 0.84,
-      "opsPerSec": 1191576,
-      "samples": 357473
+      "meanUs": 0.68,
+      "opsPerSec": 1462462,
+      "samples": 438739
     },
     {
       "corpus": "api-payload",
       "partition": "hot",
       "subject": "jse compiled basic+annotations",
-      "meanUs": 0.89,
-      "opsPerSec": 1117381,
-      "samples": 335215
+      "meanUs": 0.72,
+      "opsPerSec": 1393505,
+      "samples": 418052
     },
     {
       "corpus": "api-payload",
       "partition": "valid",
       "subject": "jse compiled basic+annotations",
-      "meanUs": 0.67,
-      "opsPerSec": 1485093,
-      "samples": 445529
+      "meanUs": 0.49,
+      "opsPerSec": 2035244,
+      "samples": 610574
     },
     {
       "corpus": "api-payload",
       "partition": "invalid",
       "subject": "jse compiled basic+annotations",
-      "meanUs": 0.93,
-      "opsPerSec": 1074602,
-      "samples": 322381
+      "meanUs": 0.75,
+      "opsPerSec": 1325578,
+      "samples": 397680
     },
     {
       "corpus": "api-payload",
       "partition": "hot",
       "subject": "jse interpreter flag",
-      "meanUs": 32.23,
-      "opsPerSec": 31025,
-      "samples": 9308
+      "meanUs": 5.69,
+      "opsPerSec": 175799,
+      "samples": 52740
     },
     {
       "corpus": "api-payload",
       "partition": "valid",
       "subject": "jse interpreter flag",
-      "meanUs": 33.17,
-      "opsPerSec": 30149,
-      "samples": 9045
+      "meanUs": 5.77,
+      "opsPerSec": 173446,
+      "samples": 52034
     },
     {
       "corpus": "api-payload",
       "partition": "invalid",
       "subject": "jse interpreter flag",
-      "meanUs": 28.89,
-      "opsPerSec": 34616,
-      "samples": 10385
+      "meanUs": 5.2,
+      "opsPerSec": 192476,
+      "samples": 57743
     },
     {
       "corpus": "api-payload",
       "partition": "hot",
       "subject": "jse interpreter list",
-      "meanUs": 44.57,
-      "opsPerSec": 22438,
-      "samples": 6732
+      "meanUs": 11.07,
+      "opsPerSec": 90368,
+      "samples": 27111
     },
     {
       "corpus": "api-payload",
       "partition": "valid",
       "subject": "jse interpreter list",
-      "meanUs": 45.32,
-      "opsPerSec": 22064,
-      "samples": 6620
+      "meanUs": 10.94,
+      "opsPerSec": 91449,
+      "samples": 27436
     },
     {
       "corpus": "api-payload",
       "partition": "invalid",
       "subject": "jse interpreter list",
-      "meanUs": 41.18,
-      "opsPerSec": 24283,
-      "samples": 7285
+      "meanUs": 10.44,
+      "opsPerSec": 95820,
+      "samples": 28747
     },
     {
       "corpus": "api-payload",
       "partition": "hot",
       "subject": "jse interpreter list+annotations",
-      "meanUs": 45.48,
-      "opsPerSec": 21987,
-      "samples": 6597
+      "meanUs": 11.46,
+      "opsPerSec": 87268,
+      "samples": 26181
     },
     {
       "corpus": "api-payload",
       "partition": "valid",
       "subject": "jse interpreter list+annotations",
-      "meanUs": 50.4,
-      "opsPerSec": 19841,
-      "samples": 6018
+      "meanUs": 11.87,
+      "opsPerSec": 84224,
+      "samples": 25268
     },
     {
       "corpus": "api-payload",
       "partition": "invalid",
       "subject": "jse interpreter list+annotations",
-      "meanUs": 40.7,
-      "opsPerSec": 24568,
-      "samples": 7371
+      "meanUs": 10.35,
+      "opsPerSec": 96632,
+      "samples": 28990
     },
     {
       "corpus": "api-payload",
       "partition": "hot",
       "subject": "jse interpreter basic+annotations",
-      "meanUs": 33.94,
-      "opsPerSec": 29460,
-      "samples": 8869
+      "meanUs": 5.78,
+      "opsPerSec": 172869,
+      "samples": 51861
     },
     {
       "corpus": "api-payload",
       "partition": "valid",
       "subject": "jse interpreter basic+annotations",
-      "meanUs": 33.77,
-      "opsPerSec": 29614,
-      "samples": 8885
+      "meanUs": 6.02,
+      "opsPerSec": 165985,
+      "samples": 49796
     },
     {
       "corpus": "api-payload",
       "partition": "invalid",
       "subject": "jse interpreter basic+annotations",
-      "meanUs": 29.38,
-      "opsPerSec": 34031,
-      "samples": 10210
+      "meanUs": 5.23,
+      "opsPerSec": 191120,
+      "samples": 57336
     },
     {
       "corpus": "api-payload",
       "partition": "hot",
       "subject": "ajv",
-      "meanUs": 0.18,
-      "opsPerSec": 5563771,
-      "samples": 1669132
+      "meanUs": 0.19,
+      "opsPerSec": 5354894,
+      "samples": 1606469
     },
     {
       "corpus": "api-payload",
       "partition": "valid",
       "subject": "ajv",
-      "meanUs": 0.21,
-      "opsPerSec": 4710369,
-      "samples": 1413111
+      "meanUs": 0.22,
+      "opsPerSec": 4467588,
+      "samples": 1340277
     },
     {
       "corpus": "api-payload",
       "partition": "invalid",
       "subject": "ajv",
       "meanUs": 0.07,
-      "opsPerSec": 14638686,
-      "samples": 4391607
+      "opsPerSec": 13735979,
+      "samples": 4120794
     },
     {
       "corpus": "api-payload",
       "partition": "hot",
       "subject": "ajv allErrors",
       "meanUs": 0.28,
-      "opsPerSec": 3513115,
-      "samples": 1053935
+      "opsPerSec": 3576577,
+      "samples": 1072974
     },
     {
       "corpus": "api-payload",
       "partition": "valid",
       "subject": "ajv allErrors",
       "meanUs": 0.25,
-      "opsPerSec": 3974366,
-      "samples": 1192310
+      "opsPerSec": 4024041,
+      "samples": 1207213
     },
     {
       "corpus": "api-payload",
       "partition": "invalid",
       "subject": "ajv allErrors",
       "meanUs": 0.29,
-      "opsPerSec": 3427354,
-      "samples": 1028207
+      "opsPerSec": 3395883,
+      "samples": 1018766
     },
     {
       "corpus": "api-payload",
       "partition": "hot",
       "subject": "ata validate [codegen]",
-      "meanUs": 0.14,
-      "opsPerSec": 6972367,
-      "samples": 2091710
+      "meanUs": 0.15,
+      "opsPerSec": 6849387,
+      "samples": 2054817
     },
     {
       "corpus": "api-payload",
       "partition": "valid",
       "subject": "ata validate [codegen]",
       "meanUs": 0.16,
-      "opsPerSec": 6164158,
-      "samples": 1849248
+      "opsPerSec": 6086855,
+      "samples": 1826057
     },
     {
       "corpus": "api-payload",
       "partition": "invalid",
       "subject": "ata validate [codegen]",
+      "meanUs": 0.09,
+      "opsPerSec": 11697836,
+      "samples": 3509351
+    },
+    {
+      "corpus": "api-payload",
+      "partition": "hot",
+      "subject": "ata validate+errors [codegen]",
+      "meanUs": 0.46,
+      "opsPerSec": 2189149,
+      "samples": 656745
+    },
+    {
+      "corpus": "api-payload",
+      "partition": "valid",
+      "subject": "ata validate+errors [codegen]",
+      "meanUs": 0.17,
+      "opsPerSec": 6029139,
+      "samples": 1808742
+    },
+    {
+      "corpus": "api-payload",
+      "partition": "invalid",
+      "subject": "ata validate+errors [codegen]",
+      "meanUs": 1.14,
+      "opsPerSec": 879523,
+      "samples": 263857
+    },
+    {
+      "corpus": "api-payload",
+      "partition": "hot",
+      "subject": "ata toOutput basic [codegen]",
+      "meanUs": 4.92,
+      "opsPerSec": 203193,
+      "samples": 60959
+    },
+    {
+      "corpus": "api-payload",
+      "partition": "valid",
+      "subject": "ata toOutput basic [codegen]",
+      "meanUs": 6.13,
+      "opsPerSec": 163136,
+      "samples": 48941
+    },
+    {
+      "corpus": "api-payload",
+      "partition": "invalid",
+      "subject": "ata toOutput basic [codegen]",
+      "meanUs": 1.24,
+      "opsPerSec": 804543,
+      "samples": 241363
+    },
+    {
+      "corpus": "api-payload",
+      "partition": "hot",
+      "subject": "ata isValidObject [codegen]",
+      "meanUs": 0.15,
+      "opsPerSec": 6858300,
+      "samples": 2057490
+    },
+    {
+      "corpus": "api-payload",
+      "partition": "valid",
+      "subject": "ata isValidObject [codegen]",
+      "meanUs": 0.16,
+      "opsPerSec": 6170772,
+      "samples": 1851232
+    },
+    {
+      "corpus": "api-payload",
+      "partition": "invalid",
+      "subject": "ata isValidObject [codegen]",
       "meanUs": 0.08,
-      "opsPerSec": 11824570,
-      "samples": 3547371
-    },
-    {
-      "corpus": "api-payload",
-      "partition": "hot",
-      "subject": "ata validate+errors [codegen]",
-      "meanUs": 0.41,
-      "opsPerSec": 2463205,
-      "samples": 738964
-    },
-    {
-      "corpus": "api-payload",
-      "partition": "valid",
-      "subject": "ata validate+errors [codegen]",
-      "meanUs": 0.16,
-      "opsPerSec": 6140643,
-      "samples": 1842193
-    },
-    {
-      "corpus": "api-payload",
-      "partition": "invalid",
-      "subject": "ata validate+errors [codegen]",
-      "meanUs": 1.09,
-      "opsPerSec": 919388,
-      "samples": 275817
-    },
-    {
-      "corpus": "api-payload",
-      "partition": "hot",
-      "subject": "ata toOutput basic [codegen]",
-      "meanUs": 4.85,
-      "opsPerSec": 206173,
-      "samples": 61852
-    },
-    {
-      "corpus": "api-payload",
-      "partition": "valid",
-      "subject": "ata toOutput basic [codegen]",
-      "meanUs": 5.94,
-      "opsPerSec": 168308,
-      "samples": 50493
-    },
-    {
-      "corpus": "api-payload",
-      "partition": "invalid",
-      "subject": "ata toOutput basic [codegen]",
-      "meanUs": 1.18,
-      "opsPerSec": 847778,
-      "samples": 254334
-    },
-    {
-      "corpus": "api-payload",
-      "partition": "hot",
-      "subject": "ata isValidObject [codegen]",
-      "meanUs": 0.14,
-      "opsPerSec": 7007352,
-      "samples": 2102206
-    },
-    {
-      "corpus": "api-payload",
-      "partition": "valid",
-      "subject": "ata isValidObject [codegen]",
-      "meanUs": 0.16,
-      "opsPerSec": 6089120,
-      "samples": 1826736
-    },
-    {
-      "corpus": "api-payload",
-      "partition": "invalid",
-      "subject": "ata isValidObject [codegen]",
-      "meanUs": 0.08,
-      "opsPerSec": 11915038,
-      "samples": 3574512
+      "opsPerSec": 12303824,
+      "samples": 3691148
     },
     {
       "corpus": "api-payload",
       "partition": "hot",
       "subject": "ata validate abortEarly [codegen]",
-      "meanUs": 0.17,
-      "opsPerSec": 6047974,
-      "samples": 1814393
+      "meanUs": 0.16,
+      "opsPerSec": 6382440,
+      "samples": 1914733
     },
     {
       "corpus": "api-payload",
       "partition": "valid",
       "subject": "ata validate abortEarly [codegen]",
-      "meanUs": 0.17,
-      "opsPerSec": 6031959,
-      "samples": 1809588
+      "meanUs": 0.18,
+      "opsPerSec": 5426618,
+      "samples": 1627986
     },
     {
       "corpus": "api-payload",
       "partition": "invalid",
       "subject": "ata validate abortEarly [codegen]",
       "meanUs": 0.09,
-      "opsPerSec": 11585959,
-      "samples": 3475788
+      "opsPerSec": 11087331,
+      "samples": 3326200
     },
     {
       "corpus": "api-payload",
       "partition": "hot",
       "subject": "ata validate [codegen forced]",
-      "meanUs": 0.15,
-      "opsPerSec": 6668620,
-      "samples": 2000587
+      "meanUs": 0.16,
+      "opsPerSec": 6268212,
+      "samples": 1880464
     },
     {
       "corpus": "api-payload",
       "partition": "valid",
       "subject": "ata validate [codegen forced]",
       "meanUs": 0.16,
-      "opsPerSec": 6348716,
-      "samples": 1904615
+      "opsPerSec": 6151283,
+      "samples": 1845386
     },
     {
       "corpus": "api-payload",
       "partition": "invalid",
       "subject": "ata validate [codegen forced]",
-      "meanUs": 0.08,
-      "opsPerSec": 11893467,
-      "samples": 3568133
+      "meanUs": 0.09,
+      "opsPerSec": 11455062,
+      "samples": 3436519
     },
     {
       "corpus": "api-payload",
       "partition": "hot",
       "subject": "jsl validate",
-      "meanUs": 5.3,
-      "opsPerSec": 188600,
-      "samples": 56580
+      "meanUs": 4.97,
+      "opsPerSec": 201166,
+      "samples": 60350
     },
     {
       "corpus": "api-payload",
       "partition": "valid",
       "subject": "jsl validate",
-      "meanUs": 4.76,
-      "opsPerSec": 210157,
-      "samples": 63048
+      "meanUs": 4.84,
+      "opsPerSec": 206654,
+      "samples": 61997
     },
     {
       "corpus": "api-payload",
       "partition": "invalid",
       "subject": "jsl validate",
-      "meanUs": 5.05,
-      "opsPerSec": 198202,
-      "samples": 59461
+      "meanUs": 5.15,
+      "opsPerSec": 194235,
+      "samples": 58271
     },
     {
       "corpus": "api-payload",
       "partition": "hot",
       "subject": "hyperjump",
-      "meanUs": 11.34,
-      "opsPerSec": 88203,
-      "samples": 26461
+      "meanUs": 11.56,
+      "opsPerSec": 86475,
+      "samples": 25943
     },
     {
       "corpus": "api-payload",
       "partition": "valid",
       "subject": "hyperjump",
-      "meanUs": 11.64,
-      "opsPerSec": 85885,
-      "samples": 25766
+      "meanUs": 11.76,
+      "opsPerSec": 85003,
+      "samples": 25501
     },
     {
       "corpus": "api-payload",
       "partition": "invalid",
       "subject": "hyperjump",
-      "meanUs": 10.53,
-      "opsPerSec": 94967,
-      "samples": 28491
+      "meanUs": 10.71,
+      "opsPerSec": 93375,
+      "samples": 28013
     },
     {
       "corpus": "api-payload",
       "partition": "compile+first",
       "subject": "jse compiled flag",
-      "meanUs": 562.99,
-      "opsPerSec": 1776,
-      "samples": 533
+      "meanUs": 572.26,
+      "opsPerSec": 1747,
+      "samples": 525
     },
     {
       "corpus": "api-payload",
       "partition": "compile+first",
       "subject": "jse interpreter flag",
-      "meanUs": 261.44,
-      "opsPerSec": 3825,
-      "samples": 1148
+      "meanUs": 234.08,
+      "opsPerSec": 4272,
+      "samples": 1282
     },
     {
       "corpus": "api-payload",
       "partition": "compile+first",
       "subject": "ajv",
-      "meanUs": 3534.13,
-      "opsPerSec": 283,
-      "samples": 85
+      "meanUs": 3869.48,
+      "opsPerSec": 258,
+      "samples": 78
     },
     {
       "corpus": "api-payload",
       "partition": "compile+first",
       "subject": "ata validate",
-      "meanUs": 400.03,
-      "opsPerSec": 2500,
-      "samples": 750
+      "meanUs": 398.02,
+      "opsPerSec": 2512,
+      "samples": 754
     },
     {
       "corpus": "api-payload",
       "partition": "compile+first",
       "subject": "jsl validate",
-      "meanUs": 59.32,
-      "opsPerSec": 16859,
-      "samples": 5058
+      "meanUs": 56.71,
+      "opsPerSec": 17634,
+      "samples": 5291
     },
     {
       "corpus": "migration",
       "partition": "hot",
       "subject": "jse compiled flag",
       "meanUs": 0.1,
-      "opsPerSec": 10355229,
-      "samples": 3106570
+      "opsPerSec": 10114440,
+      "samples": 3034332
     },
     {
       "corpus": "migration",
       "partition": "valid",
       "subject": "jse compiled flag",
       "meanUs": 0.16,
-      "opsPerSec": 6443565,
-      "samples": 1933070
+      "opsPerSec": 6105457,
+      "samples": 1831638
     },
     {
       "corpus": "migration",
       "partition": "invalid",
       "subject": "jse compiled flag",
-      "meanUs": 0.02,
-      "opsPerSec": 42393232,
-      "samples": 12717971
+      "meanUs": 0.03,
+      "opsPerSec": 38874728,
+      "samples": 11662419
     },
     {
       "corpus": "migration",
       "partition": "hot",
       "subject": "jse compiled list",
-      "meanUs": 0.18,
-      "opsPerSec": 5535568,
-      "samples": 1660671
+      "meanUs": 0.15,
+      "opsPerSec": 6496235,
+      "samples": 1948872
     },
     {
       "corpus": "migration",
       "partition": "valid",
       "subject": "jse compiled list",
-      "meanUs": 0.29,
-      "opsPerSec": 3397988,
-      "samples": 1019397
+      "meanUs": 0.22,
+      "opsPerSec": 4499648,
+      "samples": 1349895
     },
     {
       "corpus": "migration",
       "partition": "invalid",
       "subject": "jse compiled list",
-      "meanUs": 0.06,
-      "opsPerSec": 15640301,
-      "samples": 4692091
+      "meanUs": 0.07,
+      "opsPerSec": 14607710,
+      "samples": 4382313
     },
     {
       "corpus": "migration",
       "partition": "hot",
       "subject": "jse compiled basic+annotations",
-      "meanUs": 0.24,
-      "opsPerSec": 4202088,
-      "samples": 1260627
+      "meanUs": 0.22,
+      "opsPerSec": 4617183,
+      "samples": 1385155
     },
     {
       "corpus": "migration",
       "partition": "valid",
       "subject": "jse compiled basic+annotations",
-      "meanUs": 0.31,
-      "opsPerSec": 3267181,
-      "samples": 980155
+      "meanUs": 0.25,
+      "opsPerSec": 4046083,
+      "samples": 1213825
     },
     {
       "corpus": "migration",
       "partition": "invalid",
       "subject": "jse compiled basic+annotations",
       "meanUs": 0.14,
-      "opsPerSec": 7220097,
-      "samples": 2166029
+      "opsPerSec": 7086236,
+      "samples": 2127010
     },
     {
       "corpus": "migration",
       "partition": "hot",
       "subject": "jse interpreter flag",
-      "meanUs": 9.43,
-      "opsPerSec": 106023,
-      "samples": 31807
+      "meanUs": 1.97,
+      "opsPerSec": 508817,
+      "samples": 152645
     },
     {
       "corpus": "migration",
       "partition": "valid",
       "subject": "jse interpreter flag",
-      "meanUs": 12.96,
-      "opsPerSec": 77144,
-      "samples": 23144
+      "meanUs": 2.45,
+      "opsPerSec": 407594,
+      "samples": 122279
     },
     {
       "corpus": "migration",
       "partition": "invalid",
       "subject": "jse interpreter flag",
-      "meanUs": 4.44,
-      "opsPerSec": 225153,
-      "samples": 67547
+      "meanUs": 1.03,
+      "opsPerSec": 975266,
+      "samples": 292580
     },
     {
       "corpus": "migration",
       "partition": "hot",
       "subject": "jse interpreter list",
-      "meanUs": 13.32,
-      "opsPerSec": 75088,
-      "samples": 22527
+      "meanUs": 4.26,
+      "opsPerSec": 234985,
+      "samples": 70496
     },
     {
       "corpus": "migration",
       "partition": "valid",
       "subject": "jse interpreter list",
-      "meanUs": 18.92,
-      "opsPerSec": 52845,
-      "samples": 15871
+      "meanUs": 5.05,
+      "opsPerSec": 197827,
+      "samples": 59349
     },
     {
       "corpus": "migration",
       "partition": "invalid",
       "subject": "jse interpreter list",
-      "meanUs": 8.73,
-      "opsPerSec": 114566,
-      "samples": 34370
+      "meanUs": 3.05,
+      "opsPerSec": 327497,
+      "samples": 98250
     },
     {
       "corpus": "migration",
       "partition": "hot",
       "subject": "jse interpreter list+annotations",
-      "meanUs": 13.52,
-      "opsPerSec": 73966,
-      "samples": 22190
+      "meanUs": 4.56,
+      "opsPerSec": 219306,
+      "samples": 65792
     },
     {
       "corpus": "migration",
       "partition": "valid",
       "subject": "jse interpreter list+annotations",
-      "meanUs": 19.47,
-      "opsPerSec": 51363,
-      "samples": 15409
+      "meanUs": 5.68,
+      "opsPerSec": 176133,
+      "samples": 52840
     },
     {
       "corpus": "migration",
       "partition": "invalid",
       "subject": "jse interpreter list+annotations",
-      "meanUs": 7.62,
-      "opsPerSec": 131177,
-      "samples": 39353
+      "meanUs": 3.08,
+      "opsPerSec": 325173,
+      "samples": 97552
     },
     {
       "corpus": "migration",
       "partition": "hot",
       "subject": "jse interpreter basic+annotations",
-      "meanUs": 9.5,
-      "opsPerSec": 105230,
-      "samples": 31570
+      "meanUs": 2.1,
+      "opsPerSec": 476260,
+      "samples": 142993
     },
     {
       "corpus": "migration",
       "partition": "valid",
       "subject": "jse interpreter basic+annotations",
-      "meanUs": 13.78,
-      "opsPerSec": 72580,
-      "samples": 21774
+      "meanUs": 2.75,
+      "opsPerSec": 363631,
+      "samples": 109090
     },
     {
       "corpus": "migration",
       "partition": "invalid",
       "subject": "jse interpreter basic+annotations",
-      "meanUs": 4.79,
-      "opsPerSec": 208813,
-      "samples": 62644
+      "meanUs": 1.27,
+      "opsPerSec": 785505,
+      "samples": 235652
     },
     {
       "corpus": "migration",
       "partition": "hot",
       "subject": "ajv",
-      "meanUs": 0.07,
-      "opsPerSec": 13604700,
-      "samples": 4081410
+      "meanUs": 0.08,
+      "opsPerSec": 12743897,
+      "samples": 3823170
     },
     {
       "corpus": "migration",
       "partition": "valid",
       "subject": "ajv",
       "meanUs": 0.1,
-      "opsPerSec": 10457560,
-      "samples": 3137269
+      "opsPerSec": 9628852,
+      "samples": 2888656
     },
     {
       "corpus": "migration",
       "partition": "invalid",
       "subject": "ajv",
       "meanUs": 0.04,
-      "opsPerSec": 26843953,
-      "samples": 8053186
+      "opsPerSec": 23244715,
+      "samples": 6973415
     },
     {
       "corpus": "migration",
       "partition": "hot",
       "subject": "ajv allErrors",
-      "meanUs": 0.08,
-      "opsPerSec": 12006799,
-      "samples": 3602040
+      "meanUs": 0.09,
+      "opsPerSec": 11098261,
+      "samples": 3329479
     },
     {
       "corpus": "migration",
       "partition": "valid",
       "subject": "ajv allErrors",
       "meanUs": 0.1,
-      "opsPerSec": 9772722,
-      "samples": 2931817
+      "opsPerSec": 9661168,
+      "samples": 2898351
     },
     {
       "corpus": "migration",
       "partition": "invalid",
       "subject": "ajv allErrors",
       "meanUs": 0.07,
-      "opsPerSec": 13651486,
-      "samples": 4095447
+      "opsPerSec": 13784103,
+      "samples": 4135231
     },
     {
       "corpus": "migration",
       "partition": "hot",
       "subject": "ata validate [codegen]",
       "meanUs": 0.05,
-      "opsPerSec": 19897605,
-      "samples": 5969282
+      "opsPerSec": 19313869,
+      "samples": 5794161
     },
     {
       "corpus": "migration",
       "partition": "valid",
       "subject": "ata validate [codegen]",
       "meanUs": 0.06,
-      "opsPerSec": 16091277,
-      "samples": 4827383
+      "opsPerSec": 15678251,
+      "samples": 4703476
     },
     {
       "corpus": "migration",
       "partition": "invalid",
       "subject": "ata validate [codegen]",
       "meanUs": 0.03,
-      "opsPerSec": 37436497,
-      "samples": 11230950
+      "opsPerSec": 35752047,
+      "samples": 10725615
     },
     {
       "corpus": "migration",
       "partition": "hot",
       "subject": "ata validate+errors [codegen]",
-      "meanUs": 0.34,
-      "opsPerSec": 2933197,
-      "samples": 879960
+      "meanUs": 0.31,
+      "opsPerSec": 3245915,
+      "samples": 973776
     },
     {
       "corpus": "migration",
       "partition": "valid",
       "subject": "ata validate+errors [codegen]",
-      "meanUs": 0.06,
-      "opsPerSec": 15882894,
-      "samples": 4764869
+      "meanUs": 0.07,
+      "opsPerSec": 15357743,
+      "samples": 4607323
     },
     {
       "corpus": "migration",
       "partition": "invalid",
       "subject": "ata validate+errors [codegen]",
-      "meanUs": 0.44,
-      "opsPerSec": 2289879,
-      "samples": 686964
+      "meanUs": 0.48,
+      "opsPerSec": 2065117,
+      "samples": 619535
     },
     {
       "corpus": "migration",
       "partition": "hot",
       "subject": "ata toOutput basic [codegen]",
-      "meanUs": 1.59,
-      "opsPerSec": 630238,
-      "samples": 189072
+      "meanUs": 1.63,
+      "opsPerSec": 612753,
+      "samples": 183826
     },
     {
       "corpus": "migration",
       "partition": "valid",
       "subject": "ata toOutput basic [codegen]",
-      "meanUs": 2.51,
-      "opsPerSec": 399052,
-      "samples": 119716
+      "meanUs": 2.63,
+      "opsPerSec": 380055,
+      "samples": 114017
     },
     {
       "corpus": "migration",
       "partition": "invalid",
       "subject": "ata toOutput basic [codegen]",
-      "meanUs": 0.53,
-      "opsPerSec": 1899517,
-      "samples": 569856
+      "meanUs": 0.55,
+      "opsPerSec": 1816704,
+      "samples": 545012
     },
     {
       "corpus": "migration",
       "partition": "hot",
       "subject": "ata isValidObject [codegen]",
-      "meanUs": 0.04,
-      "opsPerSec": 22428423,
-      "samples": 6728527
+      "meanUs": 0.05,
+      "opsPerSec": 21080533,
+      "samples": 6324160
     },
     {
       "corpus": "migration",
       "partition": "valid",
       "subject": "ata isValidObject [codegen]",
       "meanUs": 0.06,
-      "opsPerSec": 16786681,
-      "samples": 5036005
+      "opsPerSec": 15480449,
+      "samples": 4644135
     },
     {
       "corpus": "migration",
       "partition": "invalid",
       "subject": "ata isValidObject [codegen]",
       "meanUs": 0.02,
-      "opsPerSec": 46790921,
-      "samples": 14037278
+      "opsPerSec": 45247199,
+      "samples": 13574160
     },
     {
       "corpus": "migration",
       "partition": "hot",
       "subject": "ata validate abortEarly [codegen]",
-      "meanUs": 0.05,
-      "opsPerSec": 19354347,
-      "samples": 5806305
+      "meanUs": 0.06,
+      "opsPerSec": 17093353,
+      "samples": 5128006
     },
     {
       "corpus": "migration",
       "partition": "valid",
       "subject": "ata validate abortEarly [codegen]",
-      "meanUs": 0.06,
-      "opsPerSec": 15470860,
-      "samples": 4641259
+      "meanUs": 0.07,
+      "opsPerSec": 14651623,
+      "samples": 4395488
     },
     {
       "corpus": "migration",
       "partition": "invalid",
       "subject": "ata validate abortEarly [codegen]",
       "meanUs": 0.03,
-      "opsPerSec": 36003348,
-      "samples": 10801005
+      "opsPerSec": 34655882,
+      "samples": 10396766
     },
     {
       "corpus": "migration",
       "partition": "hot",
       "subject": "ata validate [codegen forced]",
       "meanUs": 0.05,
-      "opsPerSec": 18755294,
-      "samples": 5626589
+      "opsPerSec": 18704033,
+      "samples": 5614087
     },
     {
       "corpus": "migration",
       "partition": "valid",
       "subject": "ata validate [codegen forced]",
       "meanUs": 0.06,
-      "opsPerSec": 16450702,
-      "samples": 4935212
+      "opsPerSec": 15447381,
+      "samples": 4634215
     },
     {
       "corpus": "migration",
       "partition": "invalid",
       "subject": "ata validate [codegen forced]",
       "meanUs": 0.03,
-      "opsPerSec": 38766100,
-      "samples": 11629830
+      "opsPerSec": 34552806,
+      "samples": 10365842
     },
     {
       "corpus": "migration",
       "partition": "hot",
       "subject": "jsl validate",
-      "meanUs": 2.37,
-      "opsPerSec": 421384,
-      "samples": 126540
+      "meanUs": 2.48,
+      "opsPerSec": 403418,
+      "samples": 121026
     },
     {
       "corpus": "migration",
       "partition": "valid",
+      "subject": "jsl validate",
+      "meanUs": 1.89,
+      "opsPerSec": 529117,
+      "samples": 158736
+    },
+    {
+      "corpus": "migration",
+      "partition": "invalid",
       "subject": "jsl validate",
       "meanUs": 2.09,
-      "opsPerSec": 478456,
-      "samples": 143537
-    },
-    {
-      "corpus": "migration",
-      "partition": "invalid",
-      "subject": "jsl validate",
-      "meanUs": 2.06,
-      "opsPerSec": 485914,
-      "samples": 145775
+      "opsPerSec": 478904,
+      "samples": 143672
     },
     {
       "corpus": "migration",
       "partition": "compile+first",
       "subject": "jse compiled flag",
-      "meanUs": 363.17,
-      "opsPerSec": 2753,
-      "samples": 827
+      "meanUs": 388.22,
+      "opsPerSec": 2576,
+      "samples": 773
     },
     {
       "corpus": "migration",
       "partition": "compile+first",
       "subject": "jse interpreter flag",
-      "meanUs": 222.52,
-      "opsPerSec": 4494,
-      "samples": 1349
+      "meanUs": 222.13,
+      "opsPerSec": 4502,
+      "samples": 1351
     },
     {
       "corpus": "migration",
       "partition": "compile+first",
       "subject": "ajv",
-      "meanUs": 1830.94,
-      "opsPerSec": 546,
-      "samples": 164
+      "meanUs": 2043.33,
+      "opsPerSec": 489,
+      "samples": 147
     },
     {
       "corpus": "migration",
       "partition": "compile+first",
       "subject": "ata validate",
-      "meanUs": 236.9,
-      "opsPerSec": 4221,
-      "samples": 1274
+      "meanUs": 248.23,
+      "opsPerSec": 4028,
+      "samples": 1213
     },
     {
       "corpus": "migration",
       "partition": "compile+first",
       "subject": "jsl validate",
-      "meanUs": 34.27,
-      "opsPerSec": 29184,
-      "samples": 8756
+      "meanUs": 35.55,
+      "opsPerSec": 28131,
+      "samples": 8440
     },
     {
       "corpus": "records-uniform",
       "partition": "hot",
       "subject": "jse compiled flag",
-      "meanUs": 34.65,
-      "opsPerSec": 28859,
-      "samples": 8658
+      "meanUs": 36.09,
+      "opsPerSec": 27710,
+      "samples": 8313
     },
     {
       "corpus": "records-uniform",
       "partition": "valid",
       "subject": "jse compiled flag",
-      "meanUs": 33.97,
-      "opsPerSec": 29438,
-      "samples": 8832
+      "meanUs": 32.49,
+      "opsPerSec": 30777,
+      "samples": 9233
     },
     {
       "corpus": "records-uniform",
       "partition": "invalid",
       "subject": "jse compiled flag",
-      "meanUs": 34.03,
-      "opsPerSec": 29387,
-      "samples": 8817
+      "meanUs": 32.03,
+      "opsPerSec": 31223,
+      "samples": 9367
     },
     {
       "corpus": "records-uniform",
       "partition": "hot",
       "subject": "jse compiled list",
-      "meanUs": 147.87,
-      "opsPerSec": 6763,
-      "samples": 2029
+      "meanUs": 86.39,
+      "opsPerSec": 11575,
+      "samples": 3473
     },
     {
       "corpus": "records-uniform",
       "partition": "valid",
       "subject": "jse compiled list",
-      "meanUs": 147.53,
-      "opsPerSec": 6778,
-      "samples": 2034
+      "meanUs": 85.81,
+      "opsPerSec": 11653,
+      "samples": 3496
     },
     {
       "corpus": "records-uniform",
       "partition": "invalid",
       "subject": "jse compiled list",
-      "meanUs": 149.19,
-      "opsPerSec": 6703,
-      "samples": 2011
+      "meanUs": 85.01,
+      "opsPerSec": 11763,
+      "samples": 3529
     },
     {
       "corpus": "records-uniform",
       "partition": "hot",
       "subject": "jse compiled basic+annotations",
-      "meanUs": 208.23,
-      "opsPerSec": 4802,
-      "samples": 1441
+      "meanUs": 144.32,
+      "opsPerSec": 6929,
+      "samples": 2079
     },
     {
       "corpus": "records-uniform",
       "partition": "valid",
       "subject": "jse compiled basic+annotations",
-      "meanUs": 216.79,
-      "opsPerSec": 4613,
-      "samples": 1384
+      "meanUs": 152.84,
+      "opsPerSec": 6543,
+      "samples": 1963
     },
     {
       "corpus": "records-uniform",
       "partition": "invalid",
       "subject": "jse compiled basic+annotations",
-      "meanUs": 199.34,
-      "opsPerSec": 5017,
-      "samples": 1505
+      "meanUs": 137.03,
+      "opsPerSec": 7298,
+      "samples": 2190
     },
     {
       "corpus": "records-uniform",
       "partition": "hot",
       "subject": "jse interpreter flag",
-      "meanUs": 23949.12,
-      "opsPerSec": 42,
-      "samples": 13
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "valid",
-      "subject": "jse interpreter flag",
-      "meanUs": 23858.87,
-      "opsPerSec": 42,
-      "samples": 13
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "invalid",
-      "subject": "jse interpreter flag",
-      "meanUs": 23793.18,
-      "opsPerSec": 42,
-      "samples": 13
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "hot",
-      "subject": "jse interpreter list",
-      "meanUs": 33652,
-      "opsPerSec": 30,
-      "samples": 10
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "valid",
-      "subject": "jse interpreter list",
-      "meanUs": 32036.05,
-      "opsPerSec": 31,
-      "samples": 10
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "invalid",
-      "subject": "jse interpreter list",
-      "meanUs": 33656.88,
-      "opsPerSec": 30,
-      "samples": 9
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "hot",
-      "subject": "jse interpreter list+annotations",
-      "meanUs": 35053.33,
-      "opsPerSec": 29,
-      "samples": 9
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "valid",
-      "subject": "jse interpreter list+annotations",
-      "meanUs": 37525.37,
-      "opsPerSec": 27,
-      "samples": 8
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "invalid",
-      "subject": "jse interpreter list+annotations",
-      "meanUs": 38016.95,
-      "opsPerSec": 26,
-      "samples": 8
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "hot",
-      "subject": "jse interpreter basic+annotations",
-      "meanUs": 25468.17,
-      "opsPerSec": 39,
-      "samples": 12
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "valid",
-      "subject": "jse interpreter basic+annotations",
-      "meanUs": 26080.65,
-      "opsPerSec": 38,
-      "samples": 12
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "invalid",
-      "subject": "jse interpreter basic+annotations",
-      "meanUs": 24014.72,
-      "opsPerSec": 42,
-      "samples": 13
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "hot",
-      "subject": "ajv",
-      "meanUs": 10.36,
-      "opsPerSec": 96561,
-      "samples": 28969
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "valid",
-      "subject": "ajv",
-      "meanUs": 10.17,
-      "opsPerSec": 98339,
-      "samples": 29502
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "invalid",
-      "subject": "ajv",
-      "meanUs": 10.19,
-      "opsPerSec": 98160,
-      "samples": 29448
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "hot",
-      "subject": "ajv allErrors",
-      "meanUs": 10.64,
-      "opsPerSec": 93959,
-      "samples": 28188
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "valid",
-      "subject": "ajv allErrors",
-      "meanUs": 10.53,
-      "opsPerSec": 94922,
-      "samples": 28477
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "invalid",
-      "subject": "ajv allErrors",
-      "meanUs": 10.49,
-      "opsPerSec": 95308,
-      "samples": 28593
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "hot",
-      "subject": "ata validate [codegen]",
-      "meanUs": 7.79,
-      "opsPerSec": 128316,
-      "samples": 38495
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "valid",
-      "subject": "ata validate [codegen]",
-      "meanUs": 7.74,
-      "opsPerSec": 129129,
-      "samples": 38739
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "invalid",
-      "subject": "ata validate [codegen]",
-      "meanUs": 7.78,
-      "opsPerSec": 128470,
-      "samples": 38541
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "hot",
-      "subject": "ata validate+errors [codegen]",
-      "meanUs": 16.48,
-      "opsPerSec": 60668,
-      "samples": 18201
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "valid",
-      "subject": "ata validate+errors [codegen]",
-      "meanUs": 7.73,
-      "opsPerSec": 129436,
-      "samples": 38831
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "invalid",
-      "subject": "ata validate+errors [codegen]",
-      "meanUs": 25.17,
-      "opsPerSec": 39726,
-      "samples": 11918
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "hot",
-      "subject": "ata toOutput basic [codegen]",
-      "meanUs": 3940.16,
-      "opsPerSec": 254,
-      "samples": 78
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "valid",
-      "subject": "ata toOutput basic [codegen]",
-      "meanUs": 7704.96,
-      "opsPerSec": 130,
-      "samples": 39
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "invalid",
-      "subject": "ata toOutput basic [codegen]",
-      "meanUs": 25.86,
-      "opsPerSec": 38669,
-      "samples": 11601
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "hot",
-      "subject": "ata isValidObject [codegen]",
-      "meanUs": 7.72,
-      "opsPerSec": 129501,
-      "samples": 38851
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "valid",
-      "subject": "ata isValidObject [codegen]",
-      "meanUs": 7.74,
-      "opsPerSec": 129195,
-      "samples": 38759
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "invalid",
-      "subject": "ata isValidObject [codegen]",
-      "meanUs": 7.78,
-      "opsPerSec": 128493,
-      "samples": 38549
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "hot",
-      "subject": "ata validate abortEarly [codegen]",
-      "meanUs": 7.82,
-      "opsPerSec": 127799,
-      "samples": 38340
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "valid",
-      "subject": "ata validate abortEarly [codegen]",
-      "meanUs": 7.78,
-      "opsPerSec": 128603,
-      "samples": 38581
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "invalid",
-      "subject": "ata validate abortEarly [codegen]",
-      "meanUs": 7.74,
-      "opsPerSec": 129188,
-      "samples": 38757
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "hot",
-      "subject": "ata validate [codegen forced]",
-      "meanUs": 7.79,
-      "opsPerSec": 128429,
-      "samples": 38529
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "valid",
-      "subject": "ata validate [codegen forced]",
-      "meanUs": 7.74,
-      "opsPerSec": 129237,
-      "samples": 38772
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "invalid",
-      "subject": "ata validate [codegen forced]",
-      "meanUs": 7.8,
-      "opsPerSec": 128276,
-      "samples": 38483
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "hot",
-      "subject": "jsl validate",
-      "meanUs": 2178.81,
-      "opsPerSec": 459,
-      "samples": 139
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "valid",
-      "subject": "jsl validate",
-      "meanUs": 2175.24,
-      "opsPerSec": 460,
-      "samples": 138
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "invalid",
-      "subject": "jsl validate",
-      "meanUs": 2150.93,
-      "opsPerSec": 465,
-      "samples": 140
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "hot",
-      "subject": "hyperjump",
-      "meanUs": 4573.32,
-      "opsPerSec": 219,
-      "samples": 66
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "valid",
-      "subject": "hyperjump",
-      "meanUs": 4503.54,
-      "opsPerSec": 222,
-      "samples": 67
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "invalid",
-      "subject": "hyperjump",
-      "meanUs": 4424.94,
-      "opsPerSec": 226,
-      "samples": 68
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "compile+first",
-      "subject": "jse compiled flag",
-      "meanUs": 3120.21,
-      "opsPerSec": 320,
-      "samples": 97
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "compile+first",
-      "subject": "jse interpreter flag",
-      "meanUs": 24107.87,
-      "opsPerSec": 41,
-      "samples": 13
-    },
-    {
-      "corpus": "records-uniform",
-      "partition": "compile+first",
-      "subject": "ajv",
-      "meanUs": 6853.92,
-      "opsPerSec": 146,
+      "meanUs": 6931.32,
+      "opsPerSec": 144,
       "samples": 44
     },
     {
       "corpus": "records-uniform",
+      "partition": "valid",
+      "subject": "jse interpreter flag",
+      "meanUs": 7117.69,
+      "opsPerSec": 140,
+      "samples": 43
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "invalid",
+      "subject": "jse interpreter flag",
+      "meanUs": 6928.11,
+      "opsPerSec": 144,
+      "samples": 44
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "hot",
+      "subject": "jse interpreter list",
+      "meanUs": 11162.04,
+      "opsPerSec": 90,
+      "samples": 27
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "valid",
+      "subject": "jse interpreter list",
+      "meanUs": 10819.52,
+      "opsPerSec": 92,
+      "samples": 28
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "invalid",
+      "subject": "jse interpreter list",
+      "meanUs": 10823.28,
+      "opsPerSec": 92,
+      "samples": 28
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "hot",
+      "subject": "jse interpreter list+annotations",
+      "meanUs": 12516.29,
+      "opsPerSec": 80,
+      "samples": 24
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "valid",
+      "subject": "jse interpreter list+annotations",
+      "meanUs": 13180.27,
+      "opsPerSec": 76,
+      "samples": 23
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "invalid",
+      "subject": "jse interpreter list+annotations",
+      "meanUs": 11572.54,
+      "opsPerSec": 86,
+      "samples": 26
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "hot",
+      "subject": "jse interpreter basic+annotations",
+      "meanUs": 7609.49,
+      "opsPerSec": 131,
+      "samples": 40
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "valid",
+      "subject": "jse interpreter basic+annotations",
+      "meanUs": 8108.74,
+      "opsPerSec": 123,
+      "samples": 37
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "invalid",
+      "subject": "jse interpreter basic+annotations",
+      "meanUs": 7020.75,
+      "opsPerSec": 142,
+      "samples": 43
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "hot",
+      "subject": "ajv",
+      "meanUs": 9.55,
+      "opsPerSec": 104738,
+      "samples": 31422
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "valid",
+      "subject": "ajv",
+      "meanUs": 9.82,
+      "opsPerSec": 101815,
+      "samples": 30545
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "invalid",
+      "subject": "ajv",
+      "meanUs": 9.58,
+      "opsPerSec": 104410,
+      "samples": 31324
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "hot",
+      "subject": "ajv allErrors",
+      "meanUs": 10.3,
+      "opsPerSec": 97135,
+      "samples": 29141
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "valid",
+      "subject": "ajv allErrors",
+      "meanUs": 9.7,
+      "opsPerSec": 103124,
+      "samples": 30938
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "invalid",
+      "subject": "ajv allErrors",
+      "meanUs": 9.91,
+      "opsPerSec": 100956,
+      "samples": 30287
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "hot",
+      "subject": "ata validate [codegen]",
+      "meanUs": 6.95,
+      "opsPerSec": 143940,
+      "samples": 43182
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "valid",
+      "subject": "ata validate [codegen]",
+      "meanUs": 6.87,
+      "opsPerSec": 145638,
+      "samples": 43692
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "invalid",
+      "subject": "ata validate [codegen]",
+      "meanUs": 6.86,
+      "opsPerSec": 145872,
+      "samples": 43762
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "hot",
+      "subject": "ata validate+errors [codegen]",
+      "meanUs": 14.82,
+      "opsPerSec": 67477,
+      "samples": 20244
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "valid",
+      "subject": "ata validate+errors [codegen]",
+      "meanUs": 6.89,
+      "opsPerSec": 145228,
+      "samples": 43569
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "invalid",
+      "subject": "ata validate+errors [codegen]",
+      "meanUs": 22.44,
+      "opsPerSec": 44566,
+      "samples": 13370
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "hot",
+      "subject": "ata toOutput basic [codegen]",
+      "meanUs": 4358.62,
+      "opsPerSec": 229,
+      "samples": 70
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "valid",
+      "subject": "ata toOutput basic [codegen]",
+      "meanUs": 8593.32,
+      "opsPerSec": 116,
+      "samples": 35
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "invalid",
+      "subject": "ata toOutput basic [codegen]",
+      "meanUs": 22.52,
+      "opsPerSec": 44406,
+      "samples": 13322
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "hot",
+      "subject": "ata isValidObject [codegen]",
+      "meanUs": 6.65,
+      "opsPerSec": 150436,
+      "samples": 45131
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "valid",
+      "subject": "ata isValidObject [codegen]",
+      "meanUs": 6.77,
+      "opsPerSec": 147787,
+      "samples": 44337
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "invalid",
+      "subject": "ata isValidObject [codegen]",
+      "meanUs": 6.82,
+      "opsPerSec": 146654,
+      "samples": 43997
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "hot",
+      "subject": "ata validate abortEarly [codegen]",
+      "meanUs": 6.73,
+      "opsPerSec": 148570,
+      "samples": 44572
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "valid",
+      "subject": "ata validate abortEarly [codegen]",
+      "meanUs": 6.92,
+      "opsPerSec": 144494,
+      "samples": 43349
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "invalid",
+      "subject": "ata validate abortEarly [codegen]",
+      "meanUs": 7.01,
+      "opsPerSec": 142618,
+      "samples": 42786
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "hot",
+      "subject": "ata validate [codegen forced]",
+      "meanUs": 6.85,
+      "opsPerSec": 145985,
+      "samples": 43796
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "valid",
+      "subject": "ata validate [codegen forced]",
+      "meanUs": 6.76,
+      "opsPerSec": 147867,
+      "samples": 44361
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "invalid",
+      "subject": "ata validate [codegen forced]",
+      "meanUs": 6.76,
+      "opsPerSec": 148017,
+      "samples": 44405
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "hot",
+      "subject": "jsl validate",
+      "meanUs": 2317.9,
+      "opsPerSec": 431,
+      "samples": 130
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "valid",
+      "subject": "jsl validate",
+      "meanUs": 2347.91,
+      "opsPerSec": 426,
+      "samples": 128
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "invalid",
+      "subject": "jsl validate",
+      "meanUs": 2306.1,
+      "opsPerSec": 434,
+      "samples": 131
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "hot",
+      "subject": "hyperjump",
+      "meanUs": 4921.46,
+      "opsPerSec": 203,
+      "samples": 61
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "valid",
+      "subject": "hyperjump",
+      "meanUs": 4846.09,
+      "opsPerSec": 206,
+      "samples": 62
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "invalid",
+      "subject": "hyperjump",
+      "meanUs": 4836.78,
+      "opsPerSec": 207,
+      "samples": 63
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "compile+first",
+      "subject": "jse compiled flag",
+      "meanUs": 3439.6,
+      "opsPerSec": 291,
+      "samples": 88
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "compile+first",
+      "subject": "jse interpreter flag",
+      "meanUs": 7157.97,
+      "opsPerSec": 140,
+      "samples": 42
+    },
+    {
+      "corpus": "records-uniform",
+      "partition": "compile+first",
+      "subject": "ajv",
+      "meanUs": 7325.78,
+      "opsPerSec": 137,
+      "samples": 42
+    },
+    {
+      "corpus": "records-uniform",
       "partition": "compile+first",
       "subject": "ata validate",
-      "meanUs": 1459.27,
-      "opsPerSec": 685,
-      "samples": 206
+      "meanUs": 1768.92,
+      "opsPerSec": 565,
+      "samples": 180
     },
     {
       "corpus": "records-uniform",
       "partition": "compile+first",
       "subject": "jsl validate",
-      "meanUs": 2648.66,
-      "opsPerSec": 378,
-      "samples": 114
+      "meanUs": 2737.18,
+      "opsPerSec": 365,
+      "samples": 110
     },
     {
       "corpus": "records-sparse",
       "partition": "hot",
       "subject": "jse compiled flag",
-      "meanUs": 3548.17,
-      "opsPerSec": 282,
-      "samples": 85
-    },
-    {
-      "corpus": "records-sparse",
-      "partition": "valid",
-      "subject": "jse compiled flag",
-      "meanUs": 3482.9,
-      "opsPerSec": 287,
-      "samples": 87
-    },
-    {
-      "corpus": "records-sparse",
-      "partition": "invalid",
-      "subject": "jse compiled flag",
-      "meanUs": 3482.64,
-      "opsPerSec": 287,
-      "samples": 87
-    },
-    {
-      "corpus": "records-sparse",
-      "partition": "hot",
-      "subject": "jse compiled list",
-      "meanUs": 3682.54,
-      "opsPerSec": 272,
-      "samples": 82
-    },
-    {
-      "corpus": "records-sparse",
-      "partition": "valid",
-      "subject": "jse compiled list",
-      "meanUs": 3741.01,
-      "opsPerSec": 267,
+      "meanUs": 3706.65,
+      "opsPerSec": 270,
       "samples": 81
     },
     {
       "corpus": "records-sparse",
+      "partition": "valid",
+      "subject": "jse compiled flag",
+      "meanUs": 4016.03,
+      "opsPerSec": 249,
+      "samples": 75
+    },
+    {
+      "corpus": "records-sparse",
       "partition": "invalid",
-      "subject": "jse compiled list",
-      "meanUs": 3663.69,
-      "opsPerSec": 273,
-      "samples": 82
+      "subject": "jse compiled flag",
+      "meanUs": 3813.52,
+      "opsPerSec": 262,
+      "samples": 79
     },
     {
       "corpus": "records-sparse",
       "partition": "hot",
-      "subject": "jse compiled basic+annotations",
-      "meanUs": 4035.58,
-      "opsPerSec": 248,
+      "subject": "jse compiled list",
+      "meanUs": 4007.74,
+      "opsPerSec": 250,
       "samples": 75
     },
     {
       "corpus": "records-sparse",
       "partition": "valid",
+      "subject": "jse compiled list",
+      "meanUs": 3870.48,
+      "opsPerSec": 258,
+      "samples": 78
+    },
+    {
+      "corpus": "records-sparse",
+      "partition": "invalid",
+      "subject": "jse compiled list",
+      "meanUs": 4054.82,
+      "opsPerSec": 247,
+      "samples": 74
+    },
+    {
+      "corpus": "records-sparse",
+      "partition": "hot",
       "subject": "jse compiled basic+annotations",
-      "meanUs": 3820.9,
-      "opsPerSec": 262,
-      "samples": 79
+      "meanUs": 3932.16,
+      "opsPerSec": 254,
+      "samples": 77
+    },
+    {
+      "corpus": "records-sparse",
+      "partition": "valid",
+      "subject": "jse compiled basic+annotations",
+      "meanUs": 4067.3,
+      "opsPerSec": 246,
+      "samples": 74
     },
     {
       "corpus": "records-sparse",
       "partition": "invalid",
       "subject": "jse compiled basic+annotations",
-      "meanUs": 3812.54,
-      "opsPerSec": 262,
-      "samples": 79
+      "meanUs": 4072.13,
+      "opsPerSec": 246,
+      "samples": 74
     },
     {
       "corpus": "records-sparse",
       "partition": "hot",
       "subject": "jse interpreter flag",
-      "meanUs": 27399.17,
-      "opsPerSec": 36,
-      "samples": 11
+      "meanUs": 7634.59,
+      "opsPerSec": 131,
+      "samples": 40
     },
     {
       "corpus": "records-sparse",
       "partition": "valid",
       "subject": "jse interpreter flag",
-      "meanUs": 27520.6,
-      "opsPerSec": 36,
-      "samples": 11
+      "meanUs": 7731.26,
+      "opsPerSec": 129,
+      "samples": 39
     },
     {
       "corpus": "records-sparse",
       "partition": "invalid",
       "subject": "jse interpreter flag",
-      "meanUs": 27285.81,
-      "opsPerSec": 37,
-      "samples": 11
+      "meanUs": 7728.68,
+      "opsPerSec": 129,
+      "samples": 39
     },
     {
       "corpus": "records-sparse",
       "partition": "hot",
       "subject": "jse interpreter list",
-      "meanUs": 37260.24,
-      "opsPerSec": 27,
-      "samples": 9
+      "meanUs": 12657.79,
+      "opsPerSec": 79,
+      "samples": 24
     },
     {
       "corpus": "records-sparse",
       "partition": "valid",
       "subject": "jse interpreter list",
-      "meanUs": 37208.13,
-      "opsPerSec": 27,
-      "samples": 9
+      "meanUs": 12503.9,
+      "opsPerSec": 80,
+      "samples": 24
     },
     {
       "corpus": "records-sparse",
       "partition": "invalid",
       "subject": "jse interpreter list",
-      "meanUs": 38201.55,
-      "opsPerSec": 26,
-      "samples": 8
+      "meanUs": 12580.78,
+      "opsPerSec": 79,
+      "samples": 24
     },
     {
       "corpus": "records-sparse",
       "partition": "hot",
       "subject": "jse interpreter list+annotations",
-      "meanUs": 40789.46,
-      "opsPerSec": 25,
-      "samples": 8
+      "meanUs": 14493.75,
+      "opsPerSec": 69,
+      "samples": 21
     },
     {
       "corpus": "records-sparse",
       "partition": "valid",
       "subject": "jse interpreter list+annotations",
-      "meanUs": 43268.38,
-      "opsPerSec": 23,
-      "samples": 7
+      "meanUs": 17997.04,
+      "opsPerSec": 56,
+      "samples": 17
     },
     {
       "corpus": "records-sparse",
       "partition": "invalid",
       "subject": "jse interpreter list+annotations",
-      "meanUs": 44362.69,
-      "opsPerSec": 23,
-      "samples": 7
+      "meanUs": 12946.17,
+      "opsPerSec": 77,
+      "samples": 24
     },
     {
       "corpus": "records-sparse",
       "partition": "hot",
       "subject": "jse interpreter basic+annotations",
-      "meanUs": 29465.58,
-      "opsPerSec": 34,
-      "samples": 11
+      "meanUs": 8824.14,
+      "opsPerSec": 113,
+      "samples": 34
     },
     {
       "corpus": "records-sparse",
       "partition": "valid",
       "subject": "jse interpreter basic+annotations",
-      "meanUs": 30027.87,
-      "opsPerSec": 33,
-      "samples": 10
+      "meanUs": 9326.28,
+      "opsPerSec": 107,
+      "samples": 33
     },
     {
       "corpus": "records-sparse",
       "partition": "invalid",
       "subject": "jse interpreter basic+annotations",
-      "meanUs": 28264.23,
-      "opsPerSec": 35,
-      "samples": 11
+      "meanUs": 7791.22,
+      "opsPerSec": 128,
+      "samples": 39
     },
     {
       "corpus": "records-sparse",
       "partition": "hot",
       "subject": "ajv",
-      "meanUs": 21855.88,
-      "opsPerSec": 46,
-      "samples": 14
+      "meanUs": 23196.9,
+      "opsPerSec": 43,
+      "samples": 13
     },
     {
       "corpus": "records-sparse",
       "partition": "valid",
       "subject": "ajv",
-      "meanUs": 21628.85,
-      "opsPerSec": 46,
-      "samples": 14
+      "meanUs": 23260.72,
+      "opsPerSec": 43,
+      "samples": 13
     },
     {
       "corpus": "records-sparse",
       "partition": "invalid",
       "subject": "ajv",
-      "meanUs": 22008.19,
-      "opsPerSec": 45,
-      "samples": 14
+      "meanUs": 23159.05,
+      "opsPerSec": 43,
+      "samples": 13
     },
     {
       "corpus": "records-sparse",
       "partition": "hot",
       "subject": "ajv allErrors",
-      "meanUs": 21870.22,
-      "opsPerSec": 46,
+      "meanUs": 23041.49,
+      "opsPerSec": 43,
       "samples": 14
     },
     {
       "corpus": "records-sparse",
       "partition": "valid",
       "subject": "ajv allErrors",
-      "meanUs": 21621.88,
-      "opsPerSec": 46,
-      "samples": 14
+      "meanUs": 23650.03,
+      "opsPerSec": 42,
+      "samples": 13
     },
     {
       "corpus": "records-sparse",
       "partition": "invalid",
       "subject": "ajv allErrors",
-      "meanUs": 21772.98,
-      "opsPerSec": 46,
-      "samples": 14
+      "meanUs": 23281.48,
+      "opsPerSec": 43,
+      "samples": 13
     },
     {
       "corpus": "records-sparse",
       "partition": "hot",
       "subject": "ata validate [codegen]",
-      "meanUs": 21618.36,
-      "opsPerSec": 46,
+      "meanUs": 22624.08,
+      "opsPerSec": 44,
       "samples": 14
     },
     {
       "corpus": "records-sparse",
       "partition": "valid",
       "subject": "ata validate [codegen]",
-      "meanUs": 21361.4,
-      "opsPerSec": 47,
-      "samples": 15
-    },
-    {
-      "corpus": "records-sparse",
-      "partition": "invalid",
-      "subject": "ata validate [codegen]",
-      "meanUs": 21495.52,
-      "opsPerSec": 47,
-      "samples": 14
-    },
-    {
-      "corpus": "records-sparse",
-      "partition": "hot",
-      "subject": "ata validate+errors [codegen]",
-      "meanUs": 46286.66,
-      "opsPerSec": 22,
-      "samples": 7
-    },
-    {
-      "corpus": "records-sparse",
-      "partition": "valid",
-      "subject": "ata validate+errors [codegen]",
-      "meanUs": 21589.62,
-      "opsPerSec": 46,
-      "samples": 14
-    },
-    {
-      "corpus": "records-sparse",
-      "partition": "invalid",
-      "subject": "ata validate+errors [codegen]",
-      "meanUs": 64640.09,
-      "opsPerSec": 15,
-      "samples": 5
-    },
-    {
-      "corpus": "records-sparse",
-      "partition": "hot",
-      "subject": "ata toOutput basic [codegen]",
-      "meanUs": 45637.3,
-      "opsPerSec": 22,
-      "samples": 7
-    },
-    {
-      "corpus": "records-sparse",
-      "partition": "valid",
-      "subject": "ata toOutput basic [codegen]",
-      "meanUs": 30997.15,
-      "opsPerSec": 32,
-      "samples": 10
-    },
-    {
-      "corpus": "records-sparse",
-      "partition": "invalid",
-      "subject": "ata toOutput basic [codegen]",
-      "meanUs": 65106.21,
-      "opsPerSec": 15,
-      "samples": 5
-    },
-    {
-      "corpus": "records-sparse",
-      "partition": "hot",
-      "subject": "ata isValidObject [codegen]",
-      "meanUs": 21372.79,
-      "opsPerSec": 47,
-      "samples": 15
-    },
-    {
-      "corpus": "records-sparse",
-      "partition": "valid",
-      "subject": "ata isValidObject [codegen]",
-      "meanUs": 22859.31,
+      "meanUs": 22848.52,
       "opsPerSec": 44,
       "samples": 14
     },
     {
       "corpus": "records-sparse",
       "partition": "invalid",
+      "subject": "ata validate [codegen]",
+      "meanUs": 22870.62,
+      "opsPerSec": 44,
+      "samples": 14
+    },
+    {
+      "corpus": "records-sparse",
+      "partition": "hot",
+      "subject": "ata validate+errors [codegen]",
+      "meanUs": 44280.24,
+      "opsPerSec": 23,
+      "samples": 7
+    },
+    {
+      "corpus": "records-sparse",
+      "partition": "valid",
+      "subject": "ata validate+errors [codegen]",
+      "meanUs": 22621.61,
+      "opsPerSec": 44,
+      "samples": 14
+    },
+    {
+      "corpus": "records-sparse",
+      "partition": "invalid",
+      "subject": "ata validate+errors [codegen]",
+      "meanUs": 69958.82,
+      "opsPerSec": 14,
+      "samples": 5
+    },
+    {
+      "corpus": "records-sparse",
+      "partition": "hot",
+      "subject": "ata toOutput basic [codegen]",
+      "meanUs": 52960.37,
+      "opsPerSec": 19,
+      "samples": 6
+    },
+    {
+      "corpus": "records-sparse",
+      "partition": "valid",
+      "subject": "ata toOutput basic [codegen]",
+      "meanUs": 34374.75,
+      "opsPerSec": 29,
+      "samples": 9
+    },
+    {
+      "corpus": "records-sparse",
+      "partition": "invalid",
+      "subject": "ata toOutput basic [codegen]",
+      "meanUs": 72959.72,
+      "opsPerSec": 14,
+      "samples": 5
+    },
+    {
+      "corpus": "records-sparse",
+      "partition": "hot",
       "subject": "ata isValidObject [codegen]",
-      "meanUs": 21587.74,
-      "opsPerSec": 46,
-      "samples": 14
+      "meanUs": 23683.51,
+      "opsPerSec": 42,
+      "samples": 13
+    },
+    {
+      "corpus": "records-sparse",
+      "partition": "valid",
+      "subject": "ata isValidObject [codegen]",
+      "meanUs": 23923.21,
+      "opsPerSec": 42,
+      "samples": 13
+    },
+    {
+      "corpus": "records-sparse",
+      "partition": "invalid",
+      "subject": "ata isValidObject [codegen]",
+      "meanUs": 23267.84,
+      "opsPerSec": 43,
+      "samples": 13
     },
     {
       "corpus": "records-sparse",
       "partition": "hot",
       "subject": "ata validate abortEarly [codegen]",
-      "meanUs": 21441.61,
-      "opsPerSec": 47,
-      "samples": 14
+      "meanUs": 24761.39,
+      "opsPerSec": 40,
+      "samples": 13
     },
     {
       "corpus": "records-sparse",
       "partition": "valid",
       "subject": "ata validate abortEarly [codegen]",
-      "meanUs": 21559.26,
-      "opsPerSec": 46,
+      "meanUs": 22674.01,
+      "opsPerSec": 44,
       "samples": 14
     },
     {
       "corpus": "records-sparse",
       "partition": "invalid",
       "subject": "ata validate abortEarly [codegen]",
-      "meanUs": 21833.12,
-      "opsPerSec": 46,
+      "meanUs": 22505.47,
+      "opsPerSec": 44,
       "samples": 14
     },
     {
       "corpus": "records-sparse",
       "partition": "hot",
       "subject": "ata validate [codegen forced]",
-      "meanUs": 21540.91,
-      "opsPerSec": 46,
+      "meanUs": 22671.23,
+      "opsPerSec": 44,
       "samples": 14
     },
     {
       "corpus": "records-sparse",
       "partition": "valid",
       "subject": "ata validate [codegen forced]",
-      "meanUs": 21412.15,
-      "opsPerSec": 47,
-      "samples": 15
+      "meanUs": 23343.87,
+      "opsPerSec": 43,
+      "samples": 13
     },
     {
       "corpus": "records-sparse",
       "partition": "invalid",
       "subject": "ata validate [codegen forced]",
-      "meanUs": 21468.97,
-      "opsPerSec": 47,
+      "meanUs": 22835.3,
+      "opsPerSec": 44,
       "samples": 14
     },
     {
       "corpus": "records-sparse",
       "partition": "hot",
       "subject": "jsl validate",
-      "meanUs": 2968.7,
-      "opsPerSec": 337,
-      "samples": 102
+      "meanUs": 3020.8,
+      "opsPerSec": 331,
+      "samples": 100
     },
     {
       "corpus": "records-sparse",
       "partition": "valid",
       "subject": "jsl validate",
-      "meanUs": 2933.86,
-      "opsPerSec": 341,
-      "samples": 103
+      "meanUs": 3035.95,
+      "opsPerSec": 329,
+      "samples": 99
     },
     {
       "corpus": "records-sparse",
       "partition": "invalid",
       "subject": "jsl validate",
-      "meanUs": 2986.46,
-      "opsPerSec": 335,
-      "samples": 101
+      "meanUs": 3043.14,
+      "opsPerSec": 329,
+      "samples": 99
     },
     {
       "corpus": "records-sparse",
       "partition": "hot",
       "subject": "hyperjump",
-      "meanUs": 6496.8,
-      "opsPerSec": 154,
-      "samples": 47
+      "meanUs": 6765.94,
+      "opsPerSec": 148,
+      "samples": 45
     },
     {
       "corpus": "records-sparse",
       "partition": "valid",
       "subject": "hyperjump",
-      "meanUs": 6401.83,
-      "opsPerSec": 156,
-      "samples": 48
+      "meanUs": 6818.76,
+      "opsPerSec": 147,
+      "samples": 44
     },
     {
       "corpus": "records-sparse",
       "partition": "invalid",
       "subject": "hyperjump",
-      "meanUs": 6390.46,
-      "opsPerSec": 156,
-      "samples": 47
+      "meanUs": 6835.44,
+      "opsPerSec": 146,
+      "samples": 45
     },
     {
       "corpus": "records-sparse",
       "partition": "compile+first",
       "subject": "jse compiled flag",
-      "meanUs": 6921.32,
-      "opsPerSec": 144,
-      "samples": 44
+      "meanUs": 7386.96,
+      "opsPerSec": 135,
+      "samples": 41
     },
     {
       "corpus": "records-sparse",
       "partition": "compile+first",
       "subject": "jse interpreter flag",
-      "meanUs": 28242.69,
-      "opsPerSec": 35,
-      "samples": 11
+      "meanUs": 8222.79,
+      "opsPerSec": 122,
+      "samples": 37
     },
     {
       "corpus": "records-sparse",
       "partition": "compile+first",
       "subject": "ajv",
-      "meanUs": 29831.04,
-      "opsPerSec": 34,
-      "samples": 11
+      "meanUs": 31718.43,
+      "opsPerSec": 32,
+      "samples": 10
     },
     {
       "corpus": "records-sparse",
       "partition": "compile+first",
       "subject": "ata validate",
-      "meanUs": 23166.99,
-      "opsPerSec": 43,
+      "meanUs": 24783.96,
+      "opsPerSec": 40,
       "samples": 13
     },
     {
       "corpus": "records-sparse",
       "partition": "compile+first",
       "subject": "jsl validate",
-      "meanUs": 3328.79,
-      "opsPerSec": 300,
-      "samples": 91
+      "meanUs": 3384.01,
+      "opsPerSec": 296,
+      "samples": 89
     }
   ]
 }

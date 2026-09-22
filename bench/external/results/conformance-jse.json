@@ -1,6 +1,6 @@
 {
   "subject": "jse",
-  "generatedAt": "2026-09-21T18:25:14.826Z",
+  "generatedAt": "2026-09-22T00:24:39.417Z",
   "node": "v24.13.0",
   "tallies": {
     "draft2020-12/required": {
@@ -17,8 +17,8 @@
     },
     "draft2020-12/format": {
       "run": 655,
-      "pass": 654,
-      "fail": 1,
+      "pass": 655,
+      "fail": 0,
       "error": 0
     },
     "draft2019-09/required": {
@@ -214,14 +214,6 @@
       "group": "all integers are multiples of 0.5, if overflow is handled",
       "test": "valid if optional overflow handling is implemented",
       "detail": "expected true, got false"
-    },
-    {
-      "draft": "draft2020-12",
-      "category": "format",
-      "file": "ecmascript-regex.json",
-      "group": "\\a is not an ECMA 262 control escape",
-      "test": "when used as a pattern",
-      "detail": "expected false, got true"
     },
     {
       "draft": "draft2019-09",
