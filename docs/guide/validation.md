@@ -115,7 +115,9 @@ assert.equal(engine.evaluate(uri, [1, "a"]).valid, false);
 
 Registration is all or nothing: when `registerSchema` throws, the registry
 is exactly as it was, and the engine stays usable. It throws
-`UnknownDialectError` for an unregistered `$schema` value;
+`UnknownDialectError` for an unregistered `$schema` value, at the root or
+at an embedded resource (`loadSchema` assembles such a dialect from its
+metaschema instead — see [Dialects](dialects.md));
 `InvalidSchemaError` when a schema position holds a value that is not a
 schema (not an object or boolean) — see [Dialects](dialects.md) for an
 example; `InvalidIdentifierError` for an `$id` that names no resource
