@@ -7,19 +7,29 @@ the current IETF draft and other proposals under consideration.
 
 Produced by Henry Andrews via Claude Code.
 
-**Status: `@json-schema-engine/core`, `@json-schema-engine/compiler`,
+**`@json-schema-engine/core`, `@json-schema-engine/compiler`,
 `@json-schema-engine/formats`, and `@json-schema-engine/dialect-draft04` are
 [published on npm](https://www.npmjs.com/org/json-schema-engine).**
 
-The `0.0.x` versions indicate that all documentation is AI-written and
-not yet audited against actual usage or human readability standards.
-Despite the version number, the functionality is believed to be complete
-and the API is unlikely to change.
+**Status: The `0.0.x` line is functionally complete but experimental.**
 
-The `0.1.x` version will ship once the documentation is deemed suitable
-for general consumption. `0.x.y` releases will continue while real-world
-testing is done. `1.0.0` will be released once enough feedback has been
-received that the implementation is trustworthy.
+See [CHANGELOG.md](CHANGELOG.md) for the current release's contents.
+[DESIGN.md](DESIGN.md) is the design contract and carries the milestone
+status.
+
+All features are expected to work, but have not been tested beyond
+what the CI tests, including Bowtie, cover. Additional testing
+and CI enhancements are in progress.
+
+Aside from the functionality, during the `0.0.x` release line,
+the exact shape of the function or method calls and any exceptions
+they raise may change to improve developer experience. This release
+line also has AI-written documentation. Promotion to `0.1.0` will
+occur when the interface is believed to have solid developer UX and
+the documentation has been human-audited.
+
+Promotion to `1.0.0` will occur when real-world usage indicates
+production-readiness.
 
 A follow-on package will support migrating from `ajv`, including support
 for most of the keywords in `ajv-keywords`.
