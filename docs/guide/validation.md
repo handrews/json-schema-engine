@@ -113,11 +113,47 @@ assert.equal(engine.evaluate(uri, [1, "a"]).valid, false);
 
 ## Schema registration errors
 
-`registerSchema` throws `UnknownDialectError` for an unregistered `$schema`
-value, and `InvalidSchemaError` when a schema position holds a value that
-is not a schema (not an object or boolean) — see
-[Dialects](dialects.md) for an example. Evaluation throws
-`UnresolvableRefError` when a followed reference has no registered target,
-and `InfiniteLoopError` on true reference cycles. Loading referenced
-documents asynchronously is covered in
+Registration is all or nothing: when `registerSchema` throws, the registry
+is exactly as it was, and the engine stays usable. It throws
+`UnknownDialectError` for an unregistered `$schema` value;
+`InvalidSchemaError` when a schema position holds a value that is not a
+schema (not an object or boolean) — see [Dialects](dialects.md) for an
+example; `InvalidIdentifierError` for an `$id` that names no resource
+(empty, `#`, or carrying a fragment under a dialect whose `$id` sets a
+base URI); `DuplicateResourceError` when two schema objects claim one
+resource URI, in one document or against a document already registered;
+and `DuplicateAnchorError` when two objects in one resource claim one
+anchor name. Registering a document equal to the one already registered
+under its URI is fine; replacing it with a different one is
+`unregisterSchema` followed by `registerSchema`. `MaxDepthExceededError`
+and the regex screens are covered in [Security](security.md).
+
+```ts
+import assert from "node:assert";
+import { createEngine, DuplicateAnchorError } from "@json-schema-engine/core";
+
+const engine = createEngine();
+const uri = "https://example.com/anchors";
+
+// Two objects claim one anchor name: refused, and nothing is registered.
+assert.throws(
+  () =>
+    engine.registerSchema(
+      { $defs: { a: { $anchor: "n" }, b: { $anchor: "n" } } },
+      uri,
+    ),
+  DuplicateAnchorError,
+);
+assert.equal(engine.registry.has(uri), false);
+
+// A registered document is replaced by unregistering it first.
+engine.registerSchema({ type: "string" }, uri);
+engine.unregisterSchema(uri);
+engine.registerSchema({ type: "integer" }, uri);
+assert.equal(engine.evaluate(uri, 1).valid, true);
+```
+
+Evaluation throws `UnresolvableRefError` when a followed reference has no
+registered target, and `InfiniteLoopError` on true reference cycles.
+Loading referenced documents asynchronously is covered in
 [Loaders and remote references](loaders.md).

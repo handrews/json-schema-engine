@@ -87,6 +87,15 @@ describe("surface semantics", () => {
     expect(ajv.getSchema("https://c.example/s")).toBeUndefined();
   });
 
+  it("compile() refuses a different schema under an added $id, keeping the original", () => {
+    const ajv = new Ajv2020();
+    ajv.addSchema({ $id: "https://c.example/dup", type: "string" });
+    expect(() =>
+      ajv.compile({ $id: "https://c.example/dup", type: "integer" }),
+    ).toThrow(/already exists/);
+    expect(ajv.getSchema("https://c.example/dup")!("ok")).toBe(true);
+  });
+
   it("cross-schema $ref through addSchema", () => {
     const ajv = new Ajv2020();
     ajv.addSchema({ $id: "https://c.example/pos", type: "number", minimum: 0 });

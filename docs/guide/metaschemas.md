@@ -83,12 +83,17 @@ await assert.rejects(
 
 ## Validate schemas against their metaschema
 
-`validateSchemas: true` checks every registered or loaded schema against
-its dialect's metaschema, throwing `SchemaValidationError` on failure. The
-standard metaschemas for the four built-in dialects are bundled, so this
-works with no loader for documents using them. The draft-04 metaschema is
-bundled in `@json-schema-engine/dialect-draft04`, not core — `registerDraft04(engine)`
-registers it, after which the same check covers draft-04 documents.
+`validateSchemas: true` checks every document against its dialect's
+metaschema before registering it — the document passed to `registerSchema`
+or `loadSchema`, the one `load` fetches, and every document a loader
+fetches for a reference — throwing `SchemaValidationError` on failure and
+registering nothing. The standard metaschemas for the four built-in
+dialects are bundled, so this works with no loader for documents using
+them. The draft-04 metaschema is bundled in
+`@json-schema-engine/dialect-draft04`, not core — `registerDraft04(engine)`
+registers it, after which the same check covers draft-04 documents. A
+metaschema registered before its own dialect exists (as `registerDraft04`
+does) is not checked against itself, like the bundled ones.
 
 ```ts
 import assert from "node:assert";

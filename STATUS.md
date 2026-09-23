@@ -5,7 +5,9 @@ for later, and which quality gates run where. Prose elsewhere (README,
 DESIGN.md milestone notes, guide pages) defers to this page when they
 disagree — and a disagreement is a bug worth filing.
 
-Last updated: 2026-09-21 (ADR 0004, static `$dynamicRef` resolution in
+Last updated: 2026-09-23 (ADR 0005, atomic and duplicate-checked
+registration with explicit `unregisterSchema`, on top of ADR 0004, static
+`$dynamicRef` resolution in
 the compiled tier, on top of 0.0.1 publication readiness,
 on top of M9a plus the IETF draft-03 semantic
 reconciliation, the output model, and the compiled tier's registry
@@ -88,13 +90,16 @@ or milestone:
 - **Registry correctness (D8–D15 in the
   [backlog inventory](docs/planning/next-steps/backlog-inventory.md#dialects-registry-and-extension-apis)).**
   Recorded 2026-09-22 from the Python engine's P10–P14 fixes and confirmed
-  here by probe: raw pointers in `schemaLocation`, silent duplicate `$id`
-  and anchors (a fragment-only embedded `$id` replaces the root document),
-  a failed registration staying evaluable, one dialect per document rather
-  than per resource, a failed fetch dropping the rest of the load queue,
-  `locate` mishandling an anchor fragment, and no stack backstop around
-  output assembly. None is fixed yet; none is exercised by the official
-  suite, which is why the gates are green.
+  here by probe. D9, D10, and D12 are delivered (ADR 0005, 2026-09-23):
+  registration is all-or-nothing, duplicate `$id`s and anchors and a
+  fragment-only `$id` are typed errors, `validateSchemas` runs before
+  registration on every path, and a failed fetch keeps the rest of the
+  load queue. Still open: raw pointers in `schemaLocation` (D8), one
+  dialect per document rather than per resource (D11), `locate`
+  mishandling an anchor fragment and message-only error context (D13),
+  no stack backstop around output assembly (D14), and the items shared
+  with the Python engine (D15). None of those is exercised by the
+  official suite, which is why the gates are green.
 
 ## Known positioning facts
 

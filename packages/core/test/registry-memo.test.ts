@@ -86,6 +86,7 @@ describe("resolveRef memo", () => {
     expect(engine.registry.resolveRef("#/$defs/x", r).node).toEqual({
       type: "string",
     });
+    engine.unregisterSchema(r);
     engine.registerSchema(
       { $defs: { x: { type: "integer" } } },
       "https://memo.example/e",
@@ -146,6 +147,7 @@ describe("dynamicReference memo", () => {
       "https://memo.example/i",
     );
     expect(engine.registry.dynamicReference("#x", uri).anchor).toBeNull();
+    engine.unregisterSchema(uri);
     engine.registerSchema(
       { $defs: { x: { $dynamicAnchor: "x" } } },
       "https://memo.example/i",
@@ -162,6 +164,7 @@ describe("dynamicReference memo", () => {
     expect(() => engine.registry.dynamicReference("#x", uri)).toThrow(
       UnresolvableRefError,
     );
+    engine.unregisterSchema(uri);
     engine.registerSchema(
       { $defs: { x: { $dynamicAnchor: "x" } } },
       "https://memo.example/j",
@@ -223,12 +226,14 @@ describe("recursiveReference memo", () => {
     const engine = engine2019();
     const uri = engine.registerSchema({}, "https://memo.example/rec-c");
     expect(engine.registry.recursiveReference("#", uri).rebinds).toBe(false);
+    engine.unregisterSchema(uri);
     engine.registerSchema(
       { $recursiveAnchor: true },
       "https://memo.example/rec-c",
     );
     expect(engine.registry.recursiveReference("#", uri).rebinds).toBe(true);
     const view = engine.registry.snapshot();
+    engine.unregisterSchema(uri);
     engine.registerSchema({}, "https://memo.example/rec-c");
     expect(engine.registry.recursiveReference("#", uri).rebinds).toBe(false);
     expect(view.recursiveReference("#", uri).rebinds).toBe(true);

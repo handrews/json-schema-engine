@@ -84,6 +84,7 @@ describe("artifacts bind to a registry snapshot", () => {
     expect(evaluator.evaluate({ p: "s" }, { output: "list" }).valid).toBe(true);
     expect(evaluator.evaluate({ p: 1 }, { output: "list" }).valid).toBe(false);
 
+    engine.unregisterSchema("https://snap.example/t");
     engine.registerSchema({ type: "integer" }, "https://snap.example/t");
     expect(flag.validate({ p: "s" })).toBe(true);
     expect(flag.validate({ p: 1 })).toBe(false);
@@ -113,7 +114,6 @@ describe("artifacts bind to a registry snapshot", () => {
     engine.registerSchema(
       {
         $id: "https://snap.example/n-a",
-        $dynamicAnchor: "n",
         $ref: "https://snap.example/n-shared",
         $defs: { item: { $dynamicAnchor: "n", type: "string" } },
       },
@@ -148,10 +148,10 @@ describe("artifacts bind to a registry snapshot", () => {
     expect(flag.plan.targets.length).toBeGreaterThan(0);
     expect(flag.validate(["s"])).toBe(true);
     expect(flag.validate([1])).toBe(false);
+    engine.unregisterSchema("https://snap.example/n-a");
     engine.registerSchema(
       {
         $id: "https://snap.example/n-a",
-        $dynamicAnchor: "n",
         $ref: "https://snap.example/n-shared",
         $defs: { item: { $dynamicAnchor: "n", type: "integer" } },
       },

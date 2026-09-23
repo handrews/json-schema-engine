@@ -35,6 +35,7 @@ import {
   MaxDepthExceededError,
   SchemaRegistry,
   describeNonSchema,
+  isStackOverflow,
 } from "./registry.js";
 import { CompiledRegex, RegexCache } from "./regex.js";
 
@@ -719,7 +720,7 @@ function applyWithOverflowBackstop(
   try {
     return applySchema(state, target, cursor, pathNode);
   } catch (err) {
-    if (err instanceof RangeError && /call stack/i.test(err.message)) {
+    if (isStackOverflow(err)) {
       throw new MaxDepthExceededError(
         `evaluation exceeded the native call stack (maxDepth=${maxDepth}); ` +
           `reduce nesting or lower maxDepth`,

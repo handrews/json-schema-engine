@@ -99,6 +99,10 @@ them:
   re-adding under the same key; previously compiled fns keep working.
 - `addSchema` throws on a key or `$id` that already exists (remove
   first to replace).
+- `compile({$id})` for an `$id` already added with a different schema
+  throws the same "already exists" error: the engine refuses a second
+  schema under one resource URI (`DuplicateResourceError`, mapped here),
+  and the added schema stays. A compat pin, not an oracle capture.
 - `compile({$id})` auto-registers under the `$id` unless
   `addUsedSchema: false`.
 
