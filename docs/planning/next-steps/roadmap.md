@@ -136,6 +136,12 @@ completion criteria, and rollback/migration before implementation:
 7. Optimization E4–E6 and E8; standalone list output E3.
 8. Documentation split Q1; fuzz corpora Q2; tooling Q3; D2, D4, D6, D7, and
    Q4 as demand appears.
+9. Registry correctness D8–D15: defects found by the Python engine's P10–P14
+   fixes (2026-09-22) and confirmed here by probe. D9 (a fragment-only
+   embedded `$id` replacing the root document) and D12 (a failed fetch
+   dropping the rest of the load queue) are silent wrong answers, not
+   missing features, and should move ahead of the feature items above when
+   the next core release is cut; D11 is the prerequisite for D5.
 
 The generic-error, transformation, and default-filling investigations continue
 in parallel as design probes. They feed Phase 2 only through the

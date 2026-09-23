@@ -85,6 +85,16 @@ or milestone:
   guide, explicit dialect overrides, and other recorded follow-ups:** DESIGN.md deferred
   register. (Coverage thresholds and `explainCompilation` were
   discharged 2026-07-09 by the testing-lessons hardening.)
+- **Registry correctness (D8–D15 in the
+  [backlog inventory](docs/planning/next-steps/backlog-inventory.md#dialects-registry-and-extension-apis)).**
+  Recorded 2026-09-22 from the Python engine's P10–P14 fixes and confirmed
+  here by probe: raw pointers in `schemaLocation`, silent duplicate `$id`
+  and anchors (a fragment-only embedded `$id` replaces the root document),
+  a failed registration staying evaluable, one dialect per document rather
+  than per resource, a failed fetch dropping the rest of the load queue,
+  `locate` mishandling an anchor fragment, and no stack backstop around
+  output assembly. None is fixed yet; none is exercised by the official
+  suite, which is why the gates are green.
 
 ## Known positioning facts
 
