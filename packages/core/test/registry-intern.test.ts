@@ -1,11 +1,11 @@
 // SchemaRef interning: within one registry generation, every lookup that
 // lands on a location returns the same object, so caches can key on ref
 // identity. A registration evicts the affected resource's refs; a snapshot
-// keeps the objects it was taken with; two schema objects claiming one
-// location fall back to uncached refs.
+// keeps the objects it was taken with; navigation from a stale ref falls
+// back to uncached refs.
 
 import { describe, it, expect } from "vitest";
-import { createEngine } from "@json-schema-engine/core";
+import { createEngine, DuplicateResourceError } from "@json-schema-engine/core";
 
 describe("SchemaRef interning", () => {
   it("returns one object per location across rootRef, resolveRef, child, and anchors", () => {
@@ -70,6 +70,7 @@ describe("SchemaRef interning", () => {
     const oldX = reg.resolveRef("#/$defs/x", r);
     const view = reg.snapshot();
     expect(view.rootRef(r)).toBe(oldRoot);
+    engine.unregisterSchema(r);
     engine.registerSchema(
       { $defs: { x: { type: "integer" } } },
       "https://intern.example/c",
@@ -92,6 +93,7 @@ describe("SchemaRef interning", () => {
     );
     const reg = engine.registry;
     const stale = reg.rootRef(r);
+    engine.unregisterSchema(r);
     engine.registerSchema(
       { $defs: { x: { type: "integer" } } },
       "https://intern.example/d",
@@ -104,26 +106,48 @@ describe("SchemaRef interning", () => {
     expect(reg.resolveRef("#/$defs/x", r)).toBe(current);
   });
 
-  it("gives duplicate $id declarations distinct refs with the right nodes", () => {
+  it("refuses a second document's different schema under an embedded $id", () => {
     const engine = createEngine();
     const dup = "https://intern.example/dup";
     const a = engine.registerSchema(
       { $defs: { one: { $id: dup, type: "string" } } },
       "https://intern.example/e1",
     );
+    expect(() =>
+      engine.registerSchema(
+        { $defs: { two: { $id: dup, type: "integer" } } },
+        "https://intern.example/e2",
+      ),
+    ).toThrow(DuplicateResourceError);
+    const reg = engine.registry;
+    expect(reg.has("https://intern.example/e2")).toBe(false);
+    expect(reg.rootRef(dup)).toBe(reg.child(reg.rootRef(a), ["$defs", "one"]));
+  });
+
+  it("lets an equal copy of an embedded resource rebind it to the newer document", () => {
+    const engine = createEngine();
+    const dup = "https://intern.example/dup2";
+    const a = engine.registerSchema(
+      { $defs: { one: { $id: dup, type: "string" } } },
+      "https://intern.example/f1",
+    );
     const b = engine.registerSchema(
-      { $defs: { two: { $id: dup, type: "integer" } } },
-      "https://intern.example/e2",
+      { $defs: { two: { $id: dup, type: "string" } } },
+      "https://intern.example/f2",
     );
     const reg = engine.registry;
     const viaA = reg.child(reg.rootRef(a), ["$defs", "one"]);
     const viaB = reg.child(reg.rootRef(b), ["$defs", "two"]);
     expect(viaA.node).toEqual({ $id: dup, type: "string" });
-    expect(viaB.node).toEqual({ $id: dup, type: "integer" });
+    expect(viaB.node).toEqual({ $id: dup, type: "string" });
+    // Two objects, one location: the newer copy is the interned one and the
+    // older document's navigation gets an uncached ref with its own node.
     expect(viaA).not.toBe(viaB);
-    // The registered document wins for direct lookups, as before.
-    expect(reg.rootRef(dup).node).toEqual({ $id: dup, type: "integer" });
     expect(reg.rootRef(dup)).toBe(viaB);
+    expect(reg.documentLocation(dup)).toEqual({
+      documentUri: b,
+      pointer: "/$defs/two",
+    });
   });
 
   it("does not intern a position past the document", () => {

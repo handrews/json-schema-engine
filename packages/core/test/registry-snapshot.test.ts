@@ -47,13 +47,16 @@ describe("SchemaRegistry.snapshot", () => {
     expect(view.has("https://snap.example/b")).toBe(false);
   });
 
-  it("keeps the replaced resource when the source re-registers a URI", () => {
+  it("keeps the replaced resource when the source unregisters and re-registers a URI", () => {
     const engine = createEngine();
     const r = engine.registerSchema(
       { type: "string", $anchor: "old" },
       "https://snap.example/r",
     );
     const view = engine.registry.snapshot();
+    engine.unregisterSchema(r);
+    expect(engine.registry.has(r)).toBe(false);
+    expect(view.rootRef(r).node).toEqual({ type: "string", $anchor: "old" });
     engine.registerSchema(
       { type: "integer", $anchor: "new" },
       "https://snap.example/r",
@@ -66,6 +69,9 @@ describe("SchemaRegistry.snapshot", () => {
     expect(view.resolveRef(`${r}#old`, r).pointer).toBe("");
     expect(() => view.resolveRef(`${r}#new`, r)).toThrow(UnresolvableRefError);
     expect(engine.registry.resolveRef(`${r}#new`, r).pointer).toBe("");
+    expect(() => engine.registry.resolveRef(`${r}#old`, r)).toThrow(
+      UnresolvableRefError,
+    );
   });
 
   it("keeps the dialect it was taken with when the source re-registers it", () => {

@@ -8,6 +8,7 @@
 
 import {
   createEngine,
+  DuplicateResourceError,
   DIALECT_2019_09,
   DIALECT_2020_12,
   DIALECT_DRAFT_07,
@@ -635,11 +636,24 @@ export class Ajv {
     // Drain pending refs accumulated by prior registrations so the check
     // below sees only what THIS schema introduces.
     engine.registry.takeUnresolved();
-    const uri = engine.registerSchema(
-      schema,
-      retrieval,
-      this.compatBehaviors() === undefined ? undefined : COMPAT_DIALECT,
-    );
+    let uri: string;
+    try {
+      uri = engine.registerSchema(
+        schema,
+        retrieval,
+        this.compatBehaviors() === undefined ? undefined : COMPAT_DIALECT,
+      );
+    } catch (err) {
+      // The engine refuses a second, different schema under one $id; AJV
+      // refuses the same thing in its own words (see addSchema).
+      if (err instanceof DuplicateResourceError) {
+        throw new Error(
+          `ajv-compat: schema with key or id "${retrieval}" already exists`,
+          { cause: err },
+        );
+      }
+      throw err;
+    }
     // AJV resolves references at compile time and compile() throws on a
     // missing one (oracle: ajv-lifecycle.json late-ref-visibility); the
     // engine would otherwise defer to a validate-time error, leaving a

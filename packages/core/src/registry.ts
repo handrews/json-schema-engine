@@ -6,8 +6,23 @@
 // the walk asks each keyword behavior's analyze() for its subschema positions
 // (DESIGN.md D1/D2), so a custom applicator registered through the dialect
 // registry gets correct identifier handling for free.
+//
+// Registration is all-or-nothing (ADR 0005). The walk writes into a
+// per-registration staging object and a single throw-free commit applies it,
+// so a throw anywhere in the walk — a non-schema value, a duplicate
+// identifier, a regex screen, a custom keyword's analyze(), even a native
+// stack overflow — leaves every live index exactly as it was. Anchors are
+// committed after documents so that their refs are the interned ones; the
+// produced/consumed unions are never evicted, since they only widen
+// retention and a stale entry is harmless.
 
-import { JsonValue, isObject, escapeSegment, unescapeSegment } from "./json.js";
+import {
+  JsonValue,
+  isObject,
+  escapeSegment,
+  jsonEqual,
+  unescapeSegment,
+} from "./json.js";
 import {
   resolveSplit,
   resolveUri,
@@ -52,15 +67,25 @@ export interface DocumentLocation {
 }
 
 /**
+ * What a document would register as, worked out without registering it
+ * ({@link SchemaRegistry.identify}): its canonical base URI, the
+ * fragment-free retrieval URI, and the dialect URI it is governed by.
+ */
+export interface RootIdentity {
+  baseUri: string;
+  retrievalResource: string;
+  dialectUri: string;
+}
+
+/**
  * A value that is not a schema (neither an object nor a boolean) was found
  * where a schema is required (D19): in a keyword-claimed schema position at
  * registration, or applied as a schema during evaluation. Keyword-value
  * validity beyond schema shape is not checked here — that is metaschema
  * validation's job ({@link EngineOptions.validateSchemas}).
  *
- * When thrown during registration, the document may be partially indexed;
- * re-register a corrected document under the same URI, or discard the
- * engine.
+ * Thrown during registration, it leaves the registry untouched
+ * ({@link SchemaRegistry.register}).
  */
 export class InvalidSchemaError extends Error {}
 
@@ -69,10 +94,36 @@ export class InvalidSchemaError extends Error {}
  * evaluation) exceeded {@link EngineOptions.maxDepth}. A bounded, catchable
  * failure that replaces the native stack overflow deep input would otherwise
  * cause; the engine remains usable afterward (each evaluation runs in fresh
- * state). Raise `maxDepth` for legitimately deep documents, within what the
- * runtime's own stack allows.
+ * state, and a failed registration writes nothing). Raise `maxDepth` for
+ * legitimately deep documents, within what the runtime's own stack allows.
  */
 export class MaxDepthExceededError extends Error {}
+
+/**
+ * Two different schema objects claim one resource URI: twice within one
+ * document, or a document whose root or embedded `$id` names a resource
+ * that a registered document already holds with different content. An
+ * equal copy is not a duplicate. Nothing is registered
+ * ({@link SchemaRegistry.register}); {@link SchemaRegistry.unregister}
+ * is the way to replace a document.
+ */
+export class DuplicateResourceError extends Error {}
+
+/**
+ * Two different schema objects within one resource claim one anchor name
+ * — through `$anchor`, `$dynamicAnchor`, or a legacy plain-fragment `$id`,
+ * in any combination. One object carrying `$anchor` and `$dynamicAnchor`
+ * under the same name names itself twice and is not a duplicate.
+ */
+export class DuplicateAnchorError extends Error {}
+
+/**
+ * A base-URI identifier that cannot name a resource: empty, `"#"`, or
+ * carrying a non-empty fragment. A base URI has no fragment; a plain-name
+ * fragment belongs to the dialect's anchor keyword. An empty trailing
+ * fragment (`"sub#"`) is accepted.
+ */
+export class InvalidIdentifierError extends Error {}
 
 /**
  * Default schema/application nesting bound. Chosen below the native
@@ -85,6 +136,11 @@ export const DEFAULT_MAX_DEPTH = 512;
 export function describeNonSchema(node: JsonValue): string {
   if (node === null) return "null";
   return Array.isArray(node) ? "array" : typeof node;
+}
+
+/** Whether a thrown value is the runtime's native stack-overflow signal. */
+export function isStackOverflow(err: unknown): err is RangeError {
+  return err instanceof RangeError && /call stack/i.test(err.message);
 }
 
 // A memoized resolution failure: the message to re-throw (a fresh error per
@@ -100,11 +156,69 @@ class RefMiss {
 // otherwise be a permanent entry.
 const MAX_MEMOIZED_MISSES = 1024;
 
+// One anchor claimed during a walk: the object that carries it and where
+// that object sits in its resource. Plain and dynamic anchors share the
+// namespace (a dynamic anchor is also a plain one, D8), so one map holds
+// both and the flag says whether `$dynamicRef` may rebind through it.
+interface StagedAnchor {
+  node: JsonValue;
+  pointer: string;
+  dynamic: boolean;
+}
+
+// One resource a walk claims, with everything the walk learns about it.
+interface StagedResource {
+  node: JsonValue;
+  dialectUri: string;
+  location: DocumentLocation;
+  anchors: Map<string, StagedAnchor>;
+  recursiveRoot: boolean;
+}
+
+// Everything one registration will write, held until the walk succeeds.
+interface Staging {
+  documentUri: string;
+  retrievalResource: string;
+  // A re-registration of an equal document under its own root: the
+  // previous version's entries are evicted before this one's are written.
+  rebinding: boolean;
+  resources: Map<string, StagedResource>; // insertion order = walk order
+  produced: Set<string>;
+  consumed: Set<string>;
+  coverageProducers: Set<string>;
+  pending: Set<string>;
+}
+
+// A base-URI identifier the dialect's extractor handed back must name a
+// resource of its own: empty and `"#"` resolve to the enclosing resource,
+// and a fragment cannot be part of a base URI. Checked on the raw text, so
+// a malformed escape in a fragment cannot surface as a URIError first.
+function checkBaseId(baseId: string, where: string): void {
+  if (baseId === "" || baseId === "#") {
+    throw new InvalidIdentifierError(
+      `base identifier ${JSON.stringify(baseId)} at '${where}' resolves to ` +
+        "the enclosing resource and identifies nothing new",
+    );
+  }
+  const hash = baseId.indexOf("#");
+  if (hash !== -1 && hash !== baseId.length - 1) {
+    throw new InvalidIdentifierError(
+      `base identifier ${JSON.stringify(baseId)} at '${where}' carries a ` +
+        "fragment; a base URI cannot, and a plain-name fragment belongs to " +
+        "the dialect's anchor keyword",
+    );
+  }
+}
+
 /** Schema registration, identifier indexing, and reference resolution. */
 export class SchemaRegistry {
   private documents = new Map<string, JsonValue>(); // resource URI -> schema node
-  private anchors = new Map<string, SchemaRef>(); // "resource#anchor"
-  private dynamicAnchors = new Map<string, SchemaRef>(); // $dynamicAnchor only (D8)
+  // resource URI -> anchor name -> ref. Two levels rather than a
+  // "resource#name" key so that a resource's anchors can be dropped as one
+  // entry; an inner map is built at commit and never mutated afterwards,
+  // which is what lets a snapshot share it.
+  private anchors = new Map<string, ReadonlyMap<string, SchemaRef>>();
+  private dynamicAnchors = new Map<string, ReadonlyMap<string, SchemaRef>>(); // $dynamicAnchor only (D8)
   private recursiveRoots = new Set<string>(); // 2019-09 $recursiveAnchor at root
   // Unions of StaticFacts.produces / consumes over every registered keyword
   // occurrence: produce()'s declaration guard and the elision predicate's
@@ -118,6 +232,11 @@ export class SchemaRegistry {
   private coverageConsumedIds = new Set<string>();
   private documentDialects = new Map<string, string>(); // resource URI -> dialect URI
   private resourceLocations = new Map<string, DocumentLocation>();
+  // Document URI -> the resources its last walk claimed, root first. The
+  // truth about who owns a resource is `resourceLocations`; this is the
+  // index that makes eviction O(document) rather than O(registry), and a
+  // resource an equal copy has since rebound is skipped by the truth check.
+  private ownedResources = new Map<string, readonly string[]>();
   // Retrieval URI -> declared $id base, when they differ: the document must
   // be reachable under both, but anchors and lexical bases live under $id.
   private aliases = new Map<string, string>();
@@ -135,13 +254,13 @@ export class SchemaRegistry {
    */
   onRegex?: (pattern: string, location: string) => void;
   // Resolution memos, keyed by referring base then reference value. An
-  // entry can point into any resource, so register() replaces them
+  // entry can point into any resource, so a commit replaces them
   // wholesale (a snapshot keeps the maps it was handed: its answers never
   // change), as does a dialect registration, since pointer navigation
   // rebases per the target dialect's identifier syntax.
   // One SchemaRef object per (canonical base URI, pointer): identity that
-  // the engine's caches key on. Keyed by resource so a (re)registration
-  // evicts exactly that resource's refs; a stale ref that user code still
+  // the engine's caches key on. Keyed by resource so a commit evicts
+  // exactly the resources it rewrites; a stale ref that user code still
   // holds keeps working, it just stops being the interned one.
   private interned = new Map<string, Map<string, SchemaRef>>();
   private refMemo = new Map<string, Map<string, SchemaRef | RefMiss>>();
@@ -151,8 +270,8 @@ export class SchemaRegistry {
   private misses = 0;
   private dialectGeneration: number;
   // Snapshots share the indexes above copy-on-write: the source copies them
-  // before its first registration after a snapshot, so a view stays frozen
-  // at no cost until the source changes.
+  // before its first commit after a snapshot, so a view stays frozen at no
+  // cost until the source changes.
   private shared = false;
   private readOnly = false;
 
@@ -187,6 +306,7 @@ export class SchemaRegistry {
     view.coverageConsumedIds = this.coverageConsumedIds;
     view.documentDialects = this.documentDialects;
     view.resourceLocations = this.resourceLocations;
+    view.ownedResources = this.ownedResources;
     view.aliases = this.aliases;
     view.documentRanges = this.documentRanges;
     view.interned = this.interned;
@@ -233,6 +353,7 @@ export class SchemaRegistry {
     this.coverageConsumedIds = new Set(this.coverageConsumedIds);
     this.documentDialects = new Map(this.documentDialects);
     this.resourceLocations = new Map(this.resourceLocations);
+    this.ownedResources = new Map(this.ownedResources);
     this.aliases = new Map(this.aliases);
     this.documentRanges = new Map(this.documentRanges);
     // The inner maps stay shared: an insert there is the same node under
@@ -283,9 +404,80 @@ export class SchemaRegistry {
   }
 
   /**
-   * Register a schema document. The dialect comes from `$schema` when present
-   * (and must already be registered), else `dialectUri`, else the default.
-   * Returns the document's canonical base URI.
+   * The dialect URI a document is governed by, fragment-free: its `$schema`
+   * resolved against the retrieval URI, else `dialectUri`, else the
+   * registry default. Registers nothing and consults no dialect.
+   * @throws UnresolvableRefError if `$schema` cannot be resolved.
+   */
+  dialectUriOf(
+    schema: JsonValue,
+    retrievalUri: string,
+    dialectUri?: string,
+  ): string {
+    // Dialect URIs are compared fragment-free: "…/draft-07/schema#" (the
+    // canonical in-the-wild $schema spelling) names the same dialect.
+    if (isObject(schema) && typeof schema.$schema === "string") {
+      return splitFragment(resolveUri(schema.$schema, retrievalUri)).resource;
+    }
+    return splitFragment(dialectUri ?? this.defaultDialectUri).resource;
+  }
+
+  /**
+   * What a document would register as, without registering it: the same
+   * base URI and dialect {@link register} would use, so a caller that must
+   * act first — metaschema validation, which refuses to register a document
+   * that fails — names the same resource the registration would.
+   * @throws UnknownDialectError if the dialect is not registered.
+   * @throws InvalidIdentifierError if the root identifier names no resource.
+   */
+  identify(
+    schema: JsonValue,
+    retrievalUri: string,
+    dialectUri?: string,
+  ): RootIdentity {
+    const effectiveDialect = this.dialectUriOf(
+      schema,
+      retrievalUri,
+      dialectUri,
+    );
+    const dialect = this.dialectRegistry.getDialect(effectiveDialect);
+    const retrievalResource = splitFragment(retrievalUri).resource;
+    let baseUri = retrievalResource;
+    const baseId = isObject(schema)
+      ? dialect.identifiers(schema).baseId
+      : undefined;
+    if (baseId !== undefined) {
+      checkBaseId(baseId, `${retrievalResource}#`);
+      baseUri = splitFragment(resolveUri(baseId, retrievalResource)).resource;
+    }
+    return { baseUri, retrievalResource, dialectUri: effectiveDialect };
+  }
+
+  /**
+   * Register a schema document and return its canonical base URI. The
+   * dialect comes from `$schema` when present (and must already be
+   * registered), else `dialectUri`, else the default.
+   *
+   * All or nothing: a throw from anywhere in the walk leaves the registry
+   * exactly as it was, including the pending-reference queue and the
+   * produced/consumed unions.
+   *
+   * One resource, one schema. Two different schema objects claiming one
+   * resource URI — twice in one document, or against a resource a
+   * registered document already holds — throw
+   * {@link DuplicateResourceError}; two objects in one resource claiming
+   * one anchor name throw {@link DuplicateAnchorError}. A retrieval URI
+   * that already names or aliases another resource is refused the same way.
+   * Registering a document equal to the one already registered under the
+   * same root is allowed (it is walked again, so its references are queued
+   * again) and rewrites that document's entries; an equal copy of a
+   * resource another document embeds is allowed and takes ownership of it.
+   * Replacing a document with a different one is {@link unregister}
+   * followed by `register`.
+   * @throws UnknownDialectError, InvalidIdentifierError,
+   * DuplicateResourceError, DuplicateAnchorError, InvalidSchemaError,
+   * MaxDepthExceededError, or whatever a keyword's `analyze()` or the
+   * regex screen throws.
    */
   register(
     schema: JsonValue,
@@ -293,37 +485,169 @@ export class SchemaRegistry {
     dialectUri?: string,
     getRange?: (pointer: string) => SourceRange | undefined,
   ): string {
-    this.mutable();
-    this.resetMemos();
-    // Dialect URIs are compared fragment-free: "…/draft-07/schema#" (the
-    // canonical in-the-wild $schema spelling) names the same dialect.
-    let effectiveDialect = splitFragment(
-      dialectUri ?? this.defaultDialectUri,
-    ).resource;
-    if (isObject(schema) && typeof schema.$schema === "string") {
-      effectiveDialect = splitFragment(
-        resolveUri(schema.$schema, retrievalUri),
-      ).resource;
+    if (this.readOnly) {
+      throw new ReadOnlyRegistryError("a registry snapshot is read-only");
     }
-    const dialect = this.dialectRegistry.getDialect(effectiveDialect);
+    const id = this.identify(schema, retrievalUri, dialectUri);
+    const dialect = this.dialectRegistry.getDialect(id.dialectUri);
+    const stage: Staging = {
+      documentUri: id.baseUri,
+      retrievalResource: id.retrievalResource,
+      rebinding:
+        this.resourceLocations.get(id.baseUri)?.documentUri === id.baseUri,
+      resources: new Map(),
+      produced: new Set(),
+      consumed: new Set(),
+      coverageProducers: new Set(),
+      pending: new Set(),
+    };
+    if (id.retrievalResource !== id.baseUri) {
+      // The retrieval URI becomes an alias of the declared base, so it must
+      // not already be a resource in its own right, nor the alias of a
+      // different one: either would leave one of them unreachable.
+      if (this.documents.has(id.retrievalResource)) {
+        throw new DuplicateResourceError(
+          `retrieval URI '${id.retrievalResource}' already names a registered ` +
+            `resource; the document declares '${id.baseUri}'`,
+        );
+      }
+      const bound = this.aliases.get(id.retrievalResource);
+      if (bound !== undefined && bound !== id.baseUri) {
+        throw new DuplicateResourceError(
+          `retrieval URI '${id.retrievalResource}' is already bound to ` +
+            `resource '${bound}'; the document declares '${id.baseUri}'`,
+        );
+      }
+    }
+    const root = this.stageResource(
+      stage,
+      id.baseUri,
+      schema,
+      id.dialectUri,
+      { documentUri: id.baseUri, pointer: "" },
+      `${id.baseUri}#`,
+    );
+    try {
+      this.walk(
+        schema,
+        id.baseUri,
+        "",
+        id.baseUri,
+        "",
+        dialect,
+        0,
+        stage,
+        root,
+      );
+    } catch (err) {
+      // Registration recursion has the same backstop as evaluation: a
+      // maxDepth set above the runtime's ceiling must surface as the typed
+      // error, not a bare RangeError. Nothing has been written either way.
+      if (isStackOverflow(err)) {
+        throw new MaxDepthExceededError(
+          `schema nesting exceeded the native call stack ` +
+            `(maxDepth=${this.maxDepth}); reduce nesting or lower maxDepth`,
+        );
+      }
+      throw err;
+    }
+    this.commit(stage, getRange);
+    return id.baseUri;
+  }
 
-    const retrievalResource = splitFragment(retrievalUri).resource;
-    let baseUri = retrievalResource;
-    const rootIds = isObject(schema) ? dialect.identifiers(schema) : {};
-    if (rootIds.baseId !== undefined) {
-      baseUri = splitFragment(resolveUri(rootIds.baseId, baseUri)).resource;
+  /**
+   * Remove a registered document: its root and every resource its
+   * registration claimed, with their anchors, dynamic anchors, recursive
+   * roots, dialect and location entries, source-range lookup, and every
+   * retrieval alias for it. A resource an equal copy in another document
+   * has since taken over stays with that document. A snapshot taken earlier
+   * keeps the removed document. Unregister then `register` is how a
+   * document is replaced.
+   * @throws UnresolvableRefError if `uri` is not a registered document
+   * root — including when it names a resource embedded in another document.
+   */
+  unregister(uri: string): void {
+    if (this.readOnly) {
+      throw new ReadOnlyRegistryError("a registry snapshot is read-only");
     }
-    if (baseUri !== retrievalResource)
-      this.aliases.set(retrievalResource, baseUri);
-    this.documents.set(baseUri, schema);
-    this.interned.delete(baseUri);
-    // A re-registered resource declares its root anchor afresh.
-    this.recursiveRoots.delete(baseUri);
-    this.documentDialects.set(baseUri, effectiveDialect);
-    this.resourceLocations.set(baseUri, { documentUri: baseUri, pointer: "" });
-    if (getRange) this.documentRanges.set(baseUri, getRange);
-    this.walk(schema, baseUri, "", baseUri, "", dialect, 0);
-    return baseUri;
+    const doc = this.canonical(splitFragment(uri).resource);
+    const location = this.resourceLocations.get(doc);
+    if (location === undefined) {
+      throw new UnresolvableRefError(`unknown schema '${doc}'`);
+    }
+    if (location.documentUri !== doc) {
+      throw new UnresolvableRefError(
+        `'${doc}' is a resource embedded in document ` +
+          `'${location.documentUri}'; unregister that document`,
+      );
+    }
+    this.mutable();
+    this.evict(doc);
+    this.resetMemos();
+  }
+
+  // Claim a resource for the registration in progress, or refuse it.
+  private stageResource(
+    stage: Staging,
+    uri: string,
+    node: JsonValue,
+    dialectUri: string,
+    location: DocumentLocation,
+    where: string,
+  ): StagedResource {
+    if (stage.resources.has(uri)) {
+      throw new DuplicateResourceError(
+        `resource '${uri}' is claimed twice in one document (at '${where}')`,
+      );
+    }
+    if (this.aliases.has(uri)) {
+      // The lookup path prefers the alias, so a resource under this name
+      // could never be reached.
+      throw new DuplicateResourceError(
+        `'${uri}' (at '${where}') is the retrieval URI of resource ` +
+          `'${this.aliases.get(uri)!}'`,
+      );
+    }
+    const existing = this.documents.get(uri);
+    if (existing !== undefined && !jsonEqual(existing, node)) {
+      throw new DuplicateResourceError(
+        `resource '${uri}' (at '${where}') is already registered as a ` +
+          "different schema",
+      );
+    }
+    const staged: StagedResource = {
+      node,
+      dialectUri,
+      location,
+      anchors: new Map(),
+      recursiveRoot: false,
+    };
+    stage.resources.set(uri, staged);
+    return staged;
+  }
+
+  // Claim an anchor name within a resource, or refuse it. `dynamic` marks a
+  // `$dynamicAnchor`, which is a plain anchor too (D8).
+  private static stageAnchor(
+    res: StagedResource,
+    resourceUri: string,
+    name: string,
+    node: JsonValue,
+    pointer: string,
+    dynamic: boolean,
+  ): void {
+    const prior = res.anchors.get(name);
+    if (prior !== undefined && prior.node !== node) {
+      throw new DuplicateAnchorError(
+        `anchor '${name}' is claimed by two schemas in resource ` +
+          `'${resourceUri}' (at '${prior.pointer}' and '${pointer}')`,
+      );
+    }
+    res.anchors.set(name, {
+      node,
+      pointer,
+      dynamic: dynamic || (prior?.dynamic ?? false),
+    });
   }
 
   private walk(
@@ -334,6 +658,8 @@ export class SchemaRegistry {
     docPointer: string, // pointer from the registered document's root
     dialect: Dialect,
     depth: number,
+    stage: Staging,
+    res: StagedResource,
   ): void {
     if (depth > this.maxDepth) {
       throw new MaxDepthExceededError(
@@ -351,49 +677,49 @@ export class SchemaRegistry {
 
     const ids = dialect.identifiers(node);
     if (pointer !== "" && ids.baseId !== undefined) {
+      const where = `${baseUri}#${pointer}`;
+      checkBaseId(ids.baseId, where);
+      const location = { documentUri, pointer: docPointer };
       baseUri = splitFragment(resolveUri(ids.baseId, baseUri)).resource;
       pointer = "";
-      this.documents.set(baseUri, node);
-      this.interned.delete(baseUri);
-      this.recursiveRoots.delete(baseUri);
-      this.documentDialects.set(baseUri, dialect.uri);
-      this.resourceLocations.set(baseUri, { documentUri, pointer: docPointer });
-    }
-    for (const anchor of ids.anchors ?? []) {
-      this.anchors.set(
-        `${baseUri}#${anchor}`,
-        this.intern(node, baseUri, pointer),
+      res = this.stageResource(
+        stage,
+        baseUri,
+        node,
+        dialect.uri,
+        location,
+        where,
       );
     }
-    // A dynamic anchor is also a plain anchor for $ref purposes; only the
-    // dynamic-anchor index participates in $dynamicRef rebinding (D8).
+    for (const anchor of ids.anchors ?? []) {
+      SchemaRegistry.stageAnchor(res, baseUri, anchor, node, pointer, false);
+    }
     if (ids.dynamicAnchor !== undefined) {
-      const ref = this.intern(node, baseUri, pointer);
-      this.anchors.set(`${baseUri}#${ids.dynamicAnchor}`, ref);
-      this.dynamicAnchors.set(`${baseUri}#${ids.dynamicAnchor}`, ref);
+      SchemaRegistry.stageAnchor(
+        res,
+        baseUri,
+        ids.dynamicAnchor,
+        node,
+        pointer,
+        true,
+      );
     }
     // $recursiveAnchor participates in rebinding only at a resource root.
     if (ids.recursiveAnchor === true && pointer === "") {
-      this.recursiveRoots.add(baseUri);
+      res.recursiveRoot = true;
     }
 
     for (const [name, value] of Object.entries(node)) {
       const behavior = dialect.keywords.get(name)?.behavior;
       const facts = behavior?.analyze?.(value, { schema: node });
       if (!facts) continue;
-      for (const p of facts.produces ?? []) this.producedBehaviorIds.add(p);
-      for (const c of facts.consumes ?? []) {
-        this.consumedBehaviorIds.add(c);
-        if (this.coverageProducerIds.has(c)) this.coverageConsumedIds.add(c);
-      }
+      for (const p of facts.produces ?? []) stage.produced.add(p);
+      for (const c of facts.consumes ?? []) stage.consumed.add(c);
       if (
         facts.evaluatesNames !== undefined ||
         facts.evaluatesIndexes !== undefined
       ) {
-        this.coverageProducerIds.add(behavior!.id);
-        if (this.consumedBehaviorIds.has(behavior!.id)) {
-          this.coverageConsumedIds.add(behavior!.id);
-        }
+        stage.coverageProducers.add(behavior!.id);
       }
       if (this.onRegex) {
         const keywordLocation = `${baseUri}#${pointer}/${escapeSegment(name)}`;
@@ -401,9 +727,7 @@ export class SchemaRegistry {
       }
       for (const ref of facts.references ?? []) {
         try {
-          this.pendingResources.add(
-            splitFragment(resolveUri(ref, baseUri)).resource,
-          );
+          stage.pending.add(splitFragment(resolveUri(ref, baseUri)).resource);
         } catch {
           // Unresolvable now is not an error: evaluation reports it if the
           // reference is actually followed.
@@ -430,8 +754,92 @@ export class SchemaRegistry {
           docPointer + suffix,
           dialect,
           depth + 1,
+          stage,
+          res,
         );
       }
+    }
+  }
+
+  // Apply a successful walk. Throw-free and non-recursive, so the indexes
+  // can never be left half-written.
+  private commit(
+    stage: Staging,
+    getRange?: (pointer: string) => SourceRange | undefined,
+  ): void {
+    this.mutable();
+    if (stage.rebinding) this.evict(stage.documentUri);
+    // A document root this registration absorbs as an embedded resource (an
+    // equal copy) stops being a document of its own.
+    const absorbed = new Set<string>();
+    for (const [uri, res] of stage.resources) {
+      const owner = this.resourceLocations.get(uri)?.documentUri;
+      if (owner !== undefined && owner === uri && uri !== stage.documentUri) {
+        absorbed.add(uri);
+      }
+      this.documents.set(uri, res.node);
+      this.documentDialects.set(uri, res.dialectUri);
+      this.resourceLocations.set(uri, res.location);
+      this.interned.delete(uri);
+      if (res.recursiveRoot) this.recursiveRoots.add(uri);
+      else this.recursiveRoots.delete(uri);
+    }
+    for (const doc of absorbed) {
+      this.ownedResources.delete(doc);
+      this.documentRanges.delete(doc);
+    }
+    this.ownedResources.set(stage.documentUri, [...stage.resources.keys()]);
+    if (stage.retrievalResource !== stage.documentUri) {
+      this.aliases.set(stage.retrievalResource, stage.documentUri);
+    }
+    if (getRange) this.documentRanges.set(stage.documentUri, getRange);
+    // Anchors after documents: `intern` returns the interned ref only for a
+    // node the registered document holds, and the resource's old refs were
+    // dropped above, so every anchor is the one object lookups will return.
+    for (const [uri, res] of stage.resources) {
+      this.anchors.delete(uri);
+      this.dynamicAnchors.delete(uri);
+      if (res.anchors.size === 0) continue;
+      const plain = new Map<string, SchemaRef>();
+      const dynamic = new Map<string, SchemaRef>();
+      for (const [name, anchor] of res.anchors) {
+        const ref = this.intern(anchor.node, uri, anchor.pointer);
+        plain.set(name, ref);
+        if (anchor.dynamic) dynamic.set(name, ref);
+      }
+      this.anchors.set(uri, plain);
+      if (dynamic.size > 0) this.dynamicAnchors.set(uri, dynamic);
+    }
+    for (const p of stage.produced) this.producedBehaviorIds.add(p);
+    for (const c of stage.consumed) this.consumedBehaviorIds.add(c);
+    for (const p of stage.coverageProducers) this.coverageProducerIds.add(p);
+    for (const c of stage.consumed) {
+      if (this.coverageProducerIds.has(c)) this.coverageConsumedIds.add(c);
+    }
+    for (const p of stage.coverageProducers) {
+      if (this.consumedBehaviorIds.has(p)) this.coverageConsumedIds.add(p);
+    }
+    for (const r of stage.pending) this.pendingResources.add(r);
+    this.resetMemos();
+  }
+
+  // Drop everything a document's last registration claimed and still owns.
+  // Runs on the post-`mutable()` maps only.
+  private evict(doc: string): void {
+    for (const r of this.ownedResources.get(doc) ?? []) {
+      if (this.resourceLocations.get(r)?.documentUri !== doc) continue;
+      this.documents.delete(r);
+      this.documentDialects.delete(r);
+      this.resourceLocations.delete(r);
+      this.anchors.delete(r);
+      this.dynamicAnchors.delete(r);
+      this.recursiveRoots.delete(r);
+      this.interned.delete(r);
+    }
+    this.ownedResources.delete(doc);
+    this.documentRanges.delete(doc);
+    for (const [alias, target] of this.aliases) {
+      if (target === doc) this.aliases.delete(alias);
     }
   }
 
@@ -467,9 +875,22 @@ export class SchemaRegistry {
     return missing;
   }
 
+  /**
+   * One external resource referenced but not yet registered, removed from
+   * the pending set; `undefined` when none remains. Taking one at a time is
+   * what lets a load loop that throws leave the rest for a later drain.
+   */
+  nextUnresolved(): string | undefined {
+    for (const r of this.pendingResources) {
+      this.pendingResources.delete(r);
+      if (!this.has(r)) return r;
+    }
+    return undefined;
+  }
+
   /** The `$dynamicAnchor` target for a name in a resource, if one was registered (D8). */
   dynamicAnchor(resourceUri: string, name: string): SchemaRef | undefined {
-    return this.dynamicAnchors.get(`${this.canonical(resourceUri)}#${name}`);
+    return this.dynamicAnchors.get(this.canonical(resourceUri))?.get(name);
   }
 
   /**
@@ -652,7 +1073,7 @@ export class SchemaRegistry {
     const fragment = resolved.fragment;
 
     if (fragment !== null && fragment !== "" && !fragment.startsWith("/")) {
-      const hit = this.anchors.get(`${resource}#${fragment}`);
+      const hit = this.anchors.get(resource)?.get(fragment);
       if (!hit)
         throw new UnresolvableRefError(
           `unknown anchor '${resource}#${fragment}'`,

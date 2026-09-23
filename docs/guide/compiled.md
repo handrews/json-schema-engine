@@ -192,7 +192,7 @@ dropped record. The emitted source is identical either way.
 ## Artifacts are frozen at compile time
 
 An artifact binds to a snapshot of the engine's schema and dialect registries
-taken when it was compiled. Schemas registered, re-registered, or given a new
+taken when it was compiled. Schemas registered, unregistered, or given a new
 dialect afterwards are invisible to it, and a `$ref` unresolved at compile
 time stays unresolved for that artifact. This holds for interpreted islands
 inside the artifact too, so there is one rule across the whole thing.
@@ -213,7 +213,8 @@ const artifact = compileValidator(engine, uri);
 assert.equal(artifact.validate("ok"), true);
 assert.equal(artifact.validate(1), false);
 
-// A later re-registration does not reach the existing artifact.
+// Replacing the target afterwards does not reach the existing artifact.
+engine.unregisterSchema("https://example.com/target");
 engine.registerSchema({ type: "integer" }, "https://example.com/target");
 assert.equal(artifact.validate("ok"), true);
 
