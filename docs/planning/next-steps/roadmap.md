@@ -137,11 +137,12 @@ completion criteria, and rollback/migration before implementation:
 8. Documentation split Q1; fuzz corpora Q2; tooling Q3; D2, D4, D6, D7, and
    Q4 as demand appears.
 9. Registry correctness D8–D15: defects found by the Python engine's P10–P14
-   fixes (2026-09-22) and confirmed here by probe. D9 (a fragment-only
-   embedded `$id` replacing the root document) and D12 (a failed fetch
-   dropping the rest of the load queue) are silent wrong answers, not
-   missing features, and should move ahead of the feature items above when
-   the next core release is cut; D11 is the prerequisite for D5.
+   fixes (2026-09-22) and confirmed here by probe. D9, D10, and D12 — the
+   silent wrong answers — are delivered
+   ([ADR 0005](decisions/0005-registry-integrity.md), 2026-09-23). Next,
+   D11 (per-resource dialects), which the atomic registration was the
+   prerequisite for and which D5 depends on; then D8, D13, and D14
+   together, since they all concern what an error or output unit says.
 
 The generic-error, transformation, and default-filling investigations continue
 in parallel as design probes. They feed Phase 2 only through the
