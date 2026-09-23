@@ -31,7 +31,12 @@ import {
   UnresolvableRefError,
 } from "./uri.js";
 import { SchemaRef } from "./ref.js";
-import { Dialect, DialectRegistry, ReadOnlyRegistryError } from "./dialect.js";
+import {
+  Dialect,
+  DialectRegistry,
+  ReadOnlyRegistryError,
+  UnknownDialectError,
+} from "./dialect.js";
 import { SourceRange } from "./loader.js";
 
 /**
@@ -171,8 +176,60 @@ interface StagedResource {
   node: JsonValue;
   dialectUri: string;
   location: DocumentLocation;
+  // The nearest enclosing staged resource and this root's pointer within
+  // it (`undefined` and "" at a document root): what masking reads before
+  // a check, and the seed of a location chain (backlog D13).
+  parent: string | undefined;
+  pointerInParent: string;
   anchors: Map<string, StagedAnchor>;
   recursiveRoot: boolean;
+}
+
+/** One resource a registration is about to commit, as a {@link ResourceCheck} sees it. */
+export interface StagedResourceView {
+  uri: string;
+  dialectUri: string;
+  node: JsonValue;
+}
+
+/**
+ * Runs once per staged resource after the walk succeeds and before the
+ * commit; a throw leaves the registry untouched. `node` is the resource's
+ * schema with the root of each directly embedded resource replaced by `{}`,
+ * so a check reads one resource at a time under one dialect.
+ */
+export type ResourceCheck = (resource: StagedResourceView) => void;
+
+// The resource's schema with the root of each directly embedded resource
+// replaced by {} — accepted in every schema position of every bundled
+// metaschema (draft-04's types a schema as "object", so `true` would not
+// do). Only the path to each child root is copied; the rest is shared. A
+// grandchild's parent is the child, so no two replaced paths nest.
+function masked(stage: Staging, uri: string, res: StagedResource): JsonValue {
+  let node = res.node;
+  for (const child of stage.resources.values()) {
+    if (child.parent !== uri) continue;
+    const path = child.pointerInParent.slice(1).split("/").map(unescapeSegment);
+    node = replaceAt(node, path, 0);
+  }
+  return node;
+}
+
+function replaceAt(
+  node: JsonValue,
+  path: readonly string[],
+  i: number,
+): JsonValue {
+  if (i === path.length) return {};
+  const seg = path[i]!;
+  if (Array.isArray(node)) {
+    const copy = [...node];
+    const index = Number(seg);
+    copy[index] = replaceAt(copy[index]!, path, i + 1);
+    return copy;
+  }
+  const object = node as Record<string, JsonValue>;
+  return { ...object, [seg]: replaceAt(object[seg]!, path, i + 1) };
 }
 
 // Everything one registration will write, held until the walk succeeds.
@@ -474,16 +531,29 @@ export class SchemaRegistry {
    * resource another document embeds is allowed and takes ownership of it.
    * Replacing a document with a different one is {@link unregister}
    * followed by `register`.
+   *
+   * `$schema` governs the schema resource it roots (backlog D11): an
+   * embedded `$id` resource declaring one is walked, indexed, and later
+   * evaluated under that dialect, which must already be registered — the
+   * `UnknownDialectError` otherwise carries its URI, so a caller holding
+   * loaders can assemble it and register again. A resource without
+   * `$schema` inherits the dialect of the resource containing it; a
+   * `$schema` where no resource starts is ignored.
+   *
+   * `check`, when given, runs for every staged resource between the walk
+   * and the commit ({@link ResourceCheck}); a throw from it registers
+   * nothing.
    * @throws UnknownDialectError, InvalidIdentifierError,
    * DuplicateResourceError, DuplicateAnchorError, InvalidSchemaError,
-   * MaxDepthExceededError, or whatever a keyword's `analyze()` or the
-   * regex screen throws.
+   * MaxDepthExceededError, or whatever a keyword's `analyze()`, the regex
+   * screen, or `check` throws.
    */
   register(
     schema: JsonValue,
     retrievalUri: string,
     dialectUri?: string,
     getRange?: (pointer: string) => SourceRange | undefined,
+    check?: ResourceCheck,
   ): string {
     if (this.readOnly) {
       throw new ReadOnlyRegistryError("a registry snapshot is read-only");
@@ -551,6 +621,15 @@ export class SchemaRegistry {
       }
       throw err;
     }
+    if (check !== undefined) {
+      for (const [uri, res] of stage.resources) {
+        check({
+          uri,
+          dialectUri: res.dialectUri,
+          node: masked(stage, uri, res),
+        });
+      }
+    }
     this.commit(stage, getRange);
     return id.baseUri;
   }
@@ -586,6 +665,32 @@ export class SchemaRegistry {
     this.resetMemos();
   }
 
+  // The dialect governing a resource rooted at `node` (backlog D11): its own
+  // $schema, resolved against the resource's base, when it declares one;
+  // otherwise the dialect in force around it. Naming the dialect already in
+  // force is a no-op — no lookup, no rebind.
+  private resourceDialect(
+    node: JsonValue,
+    baseUri: string,
+    inherited: Dialect,
+    where: string,
+  ): Dialect {
+    const declared = isObject(node) ? node.$schema : undefined;
+    if (typeof declared !== "string") return inherited;
+    const uri = splitFragment(resolveUri(declared, baseUri)).resource;
+    if (uri === inherited.uri) return inherited;
+    if (!this.dialectRegistry.hasDialect(uri)) {
+      // Carrying the URI: the registry holds no loaders, but the engine
+      // can assemble this dialect from its metaschema and register again.
+      throw new UnknownDialectError(
+        `embedded resource '${baseUri}' (at '${where}') declares unknown ` +
+          `dialect '${uri}'`,
+        uri,
+      );
+    }
+    return this.dialectRegistry.getDialect(uri);
+  }
+
   // Claim a resource for the registration in progress, or refuse it.
   private stageResource(
     stage: Staging,
@@ -594,6 +699,8 @@ export class SchemaRegistry {
     dialectUri: string,
     location: DocumentLocation,
     where: string,
+    parent?: string,
+    pointerInParent = "",
   ): StagedResource {
     if (stage.resources.has(uri)) {
       throw new DuplicateResourceError(
@@ -619,6 +726,8 @@ export class SchemaRegistry {
       node,
       dialectUri,
       location,
+      parent,
+      pointerInParent,
       anchors: new Map(),
       recursiveRoot: false,
     };
@@ -675,13 +784,24 @@ export class SchemaRegistry {
       );
     }
 
-    const ids = dialect.identifiers(node);
-    if (pointer !== "" && ids.baseId !== undefined) {
+    let ids = dialect.identifiers(node);
+    const baseId = ids.baseId;
+    if (pointer !== "" && baseId !== undefined) {
       const where = `${baseUri}#${pointer}`;
-      checkBaseId(ids.baseId, where);
+      checkBaseId(baseId, where);
       const location = { documentUri, pointer: docPointer };
-      baseUri = splitFragment(resolveUri(ids.baseId, baseUri)).resource;
+      const parent = baseUri;
+      const pointerInParent = pointer;
+      baseUri = splitFragment(resolveUri(baseId, baseUri)).resource;
       pointer = "";
+      // The boundary is decided from the outside, the contents from the
+      // inside (2020-12 core §8.1.1): the enclosing dialect's syntax said a
+      // resource starts here, and the resource's own $schema governs what
+      // is minted into it, its keyword table, refIgnoresSiblings, and the
+      // recursion below. The identifiers are read again with the inner
+      // extractor; its own baseId is never used.
+      dialect = this.resourceDialect(node, baseUri, dialect, where);
+      ids = { ...dialect.identifiers(node), baseId };
       res = this.stageResource(
         stage,
         baseUri,
@@ -689,8 +809,14 @@ export class SchemaRegistry {
         dialect.uri,
         location,
         where,
+        parent,
+        pointerInParent,
       );
     }
+    // A $schema where no resource starts is ignored, not refused: the spec
+    // forbids the placement, but refusing it is strict-mode hygiene (D14),
+    // and {"$schema": X, "not": {"$schema": X}} is how Bowtie spells
+    // "allows nothing" for every dialect it tests.
     for (const anchor of ids.anchors ?? []) {
       SchemaRegistry.stageAnchor(res, baseUri, anchor, node, pointer, false);
     }
@@ -709,7 +835,13 @@ export class SchemaRegistry {
       res.recursiveRoot = true;
     }
 
+    // draft-07/06 (D18): a $ref makes every sibling act as if absent — at
+    // registration as at evaluation, so no identifier, subschema, reference,
+    // or pattern inside a sibling is seen. Pointer references into a sibling
+    // still resolve, since navigation reads the document.
+    const refOnly = dialect.refIgnoresSiblings && Object.hasOwn(node, "$ref");
     for (const [name, value] of Object.entries(node)) {
+      if (refOnly && name !== "$ref") continue;
       const behavior = dialect.keywords.get(name)?.behavior;
       const facts = behavior?.analyze?.(value, { schema: node });
       if (!facts) continue;
@@ -1007,6 +1139,17 @@ export class SchemaRegistry {
     return dialect;
   }
 
+  // The dialect of a base that navigation has just entered, or the one in
+  // force when the walk never indexed that base (an $id inside an unknown
+  // keyword; a draft-07 $ref with an $id sibling): nothing throws where
+  // nothing threw before. A plain map read rather than dialectFor — no
+  // throw, and no cache entry for an unindexed base. Aliases cannot apply:
+  // a base minted from $id is already canonical.
+  private dialectAfter(baseUri: string, current: Dialect): Dialect {
+    const uri = this.documentDialects.get(baseUri);
+    return uri === undefined ? current : this.dialectRegistry.getDialect(uri);
+  }
+
   /**
    * Resolves a URI to its resource's root schema.
    * @throws UnresolvableRefError if the resource is not registered.
@@ -1089,8 +1232,12 @@ export class SchemaRegistry {
     }
 
     // JSON Pointer navigation, tracking identifier-induced base changes on
-    // the way, per the target document's dialect (D18).
-    const identifiers = this.dialectFor(resource).identifiers;
+    // the way, each under the dialect of the resource being navigated (D18):
+    // the enclosing dialect's syntax decides whether an $id starts a
+    // resource, exactly as in the walk, and the resource it starts governs
+    // every step after it.
+    let dialect = this.dialectFor(resource);
+    let identifiers = dialect.identifiers;
     let node: JsonValue | undefined = root;
     let baseUri = resource;
     let pointer = "";
@@ -1116,6 +1263,8 @@ export class SchemaRegistry {
           baseUri = splitFragment(resolveUri(baseId, baseUri)).resource;
           pointer = "";
           current &&= this.documents.get(baseUri) === node;
+          dialect = this.dialectAfter(baseUri, dialect);
+          identifiers = dialect.identifiers;
         }
       }
     }
@@ -1127,16 +1276,24 @@ export class SchemaRegistry {
    * canonical location and lexical base.
    */
   child(ref: SchemaRef, segments: readonly (string | number)[]): SchemaRef {
-    // One extractor per call, the starting position's (as before): each
-    // hop is memoized on its parent ref under that extractor, so a dialect
+    // Each hop is read with the extractor of the parent position's resource
+    // — the one that decides whether a child starts a resource — and
+    // memoized on the parent under that extractor, so a dialect
     // re-registration with another identifier syntax rebuilds the hops.
-    const identifiers = this.dialectFor(ref.baseUri).identifiers;
+    // Crossing into another resource switches to its dialect for the next
+    // hop, as the walk does.
+    let dialect = this.dialectFor(ref.baseUri);
+    let identifiers = dialect.identifiers;
     let at = ref;
     let i = 0;
     for (; i < segments.length; i++) {
       if (at.childrenBy !== identifiers) break;
       const hit = at.children?.get(String(segments[i]));
       if (hit === undefined) break;
+      if (hit.baseUri !== at.baseUri) {
+        dialect = this.dialectAfter(hit.baseUri, dialect);
+        identifiers = dialect.identifiers;
+      }
       at = hit;
     }
     if (i === segments.length) return at;
@@ -1159,12 +1316,14 @@ export class SchemaRegistry {
           ? (node as Record<string, JsonValue>)[seg as string]
           : undefined;
       pointer += "/" + escapeSegment(String(seg));
+      let rebased = false;
       if (isObject(node)) {
         const baseId = identifiers(node).baseId;
         if (baseId !== undefined) {
           baseUri = splitFragment(resolveUri(baseId, baseUri)).resource;
           pointer = "";
           current &&= this.documents.get(baseUri) === node;
+          rebased = true;
         }
       }
       const next = this.intern(node, baseUri, pointer, current);
@@ -1176,6 +1335,10 @@ export class SchemaRegistry {
         at.children!.set(String(seg), next);
       }
       at = next;
+      if (rebased) {
+        dialect = this.dialectAfter(baseUri, dialect);
+        identifiers = dialect.identifiers;
+      }
     }
     return at;
   }
