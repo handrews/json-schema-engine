@@ -139,10 +139,11 @@ completion criteria, and rollback/migration before implementation:
 9. Registry correctness D8–D15: defects found by the Python engine's P10–P14
    fixes (2026-09-22) and confirmed here by probe. D9, D10, and D12 — the
    silent wrong answers — are delivered
-   ([ADR 0005](decisions/0005-registry-integrity.md), 2026-09-23). Next,
-   D11 (per-resource dialects), which the atomic registration was the
-   prerequisite for and which D5 depends on; then D8, D13, and D14
-   together, since they all concern what an error or output unit says.
+   ([ADR 0005](decisions/0005-registry-integrity.md), 2026-09-23), and so
+   is D11, per-resource dialects
+   ([ADR 0006](decisions/0006-per-resource-dialects.md), 2026-09-23),
+   which D5 depends on. Next: D8, D13, and D14 together, since they all
+   concern what an error or output unit says.
 
 The generic-error, transformation, and default-filling investigations continue
 in parallel as design probes. They feed Phase 2 only through the

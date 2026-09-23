@@ -326,8 +326,19 @@ export interface DialectOptions {
   refIgnoresSiblings?: boolean;
 }
 
-/** Thrown when a dialect or vocabulary URI has no registered entry. */
-export class UnknownDialectError extends Error {}
+/**
+ * Thrown when a dialect or vocabulary URI has no registered entry.
+ * `dialectUri` is the dialect that could not be found or assembled — the
+ * URI a loader would be asked for — when the failure is about one.
+ */
+export class UnknownDialectError extends Error {
+  constructor(
+    message: string,
+    readonly dialectUri?: string,
+  ) {
+    super(message);
+  }
+}
 /** Thrown when a `$vocabulary` URI is required but not registered. */
 export class UnknownVocabularyError extends Error {}
 /** Thrown when a registry snapshot (a read-only view) is asked to register. */
@@ -436,7 +447,9 @@ export class DialectRegistry {
    */
   getDialect(uri: string): Dialect {
     const dialect = this.dialects.get(uri);
-    if (!dialect) throw new UnknownDialectError(`unknown dialect '${uri}'`);
+    if (!dialect) {
+      throw new UnknownDialectError(`unknown dialect '${uri}'`, uri);
+    }
     return dialect;
   }
 

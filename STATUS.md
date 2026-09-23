@@ -5,7 +5,8 @@ for later, and which quality gates run where. Prose elsewhere (README,
 DESIGN.md milestone notes, guide pages) defers to this page when they
 disagree — and a disagreement is a bug worth filing.
 
-Last updated: 2026-09-23 (ADR 0005, atomic and duplicate-checked
+Last updated: 2026-09-23 (ADR 0006, per-resource dialects, on top of
+ADR 0005, atomic and duplicate-checked
 registration with explicit `unregisterSchema`, on top of ADR 0004, static
 `$dynamicRef` resolution in
 the compiled tier, on top of 0.0.1 publication readiness,
@@ -92,14 +93,16 @@ or milestone:
   Recorded 2026-09-22 from the Python engine's P10–P14 fixes and confirmed
   here by probe. D9, D10, and D12 are delivered (ADR 0005, 2026-09-23):
   registration is all-or-nothing, duplicate `$id`s and anchors and a
-  fragment-only `$id` are typed errors, `validateSchemas` runs before
-  registration on every path, and a failed fetch keeps the rest of the
-  load queue. Still open: raw pointers in `schemaLocation` (D8), one
-  dialect per document rather than per resource (D11), `locate`
-  mishandling an anchor fragment and message-only error context (D13),
-  no stack backstop around output assembly (D14), and the items shared
-  with the Python engine (D15). None of those is exercised by the
-  official suite, which is why the gates are green.
+  fragment-only `$id` are typed errors, and a failed fetch keeps the rest
+  of the load queue. D11 is delivered (ADR 0006, 2026-09-23): `$schema`
+  governs the resource it roots, the async paths assemble a dialect an
+  embedded resource declares, and `validateSchemas` checks each resource
+  under its own metaschema inside registration. Still open: raw pointers
+  in `schemaLocation` (D8), `locate` mishandling an anchor fragment and
+  message-only error context (D13), no stack backstop around output
+  assembly (D14), and the data-position navigation item shared with the
+  Python engine (D15). None of those is exercised by the official suite,
+  which is why the gates are green.
 
 ## Known positioning facts
 

@@ -14,7 +14,11 @@ import {
   UnknownDialectError,
   UnknownVocabularyError,
 } from "./dialect.js";
-import { DEFAULT_MAX_DEPTH, SchemaRegistry } from "./registry.js";
+import {
+  DEFAULT_MAX_DEPTH,
+  SchemaRegistry,
+  type ResourceCheck,
+} from "./registry.js";
 import {
   createFragmentRunner,
   runEvaluation,
@@ -103,7 +107,9 @@ export type {
   DocumentLocation,
   DynamicReference,
   RecursiveReference,
+  ResourceCheck,
   RootIdentity,
+  StagedResourceView,
 } from "./registry.js";
 export {
   UnsafeRegexError,
@@ -238,9 +244,10 @@ export { DIALECT_2019_09 } from "./keywords/vocab2019.js";
 export { DIALECT_DRAFT_07, DIALECT_DRAFT_06 } from "./keywords/vocab7.js";
 
 /**
- * Thrown by {@link EngineOptions.validateSchemas} when a document fails its
- * metaschema. The check runs before registration, so the document is not
- * registered; `errors` are the list-format units of the failed evaluation.
+ * Thrown by {@link EngineOptions.validateSchemas} when a schema resource
+ * fails its dialect's metaschema. The check runs inside registration, per
+ * resource, after the walk and before the commit, so nothing is registered;
+ * `errors` are the list-format units of the failed evaluation.
  */
 export class SchemaValidationError extends Error {
   constructor(
@@ -258,14 +265,16 @@ export interface EngineOptions {
   /** resource loaders, tried in order (D7) */
   loaders?: readonly SchemaLoader[];
   /**
-   * Validate every document against its metaschema before registering it
-   * — the register/load target and each document a loader fetches — when
-   * that metaschema is registered as a schema resource. A document that
-   * fails is not registered ({@link SchemaValidationError}). The standard
-   * metaschemas for the built-in dialects are bundled; for custom
-   * dialects, an unavailable metaschema means "cannot check", not failure
-   * — supply a loader for it to get the check. A metaschema registered
-   * before its own dialect exists is not checked against itself.
+   * Validate every schema resource against its own dialect's metaschema as
+   * part of registering it — each resource of the register/load target and
+   * of each document a loader fetches, with embedded resources checked
+   * under their own `$schema` — when that metaschema is registered as a
+   * schema resource. A document with a failing resource is not registered
+   * ({@link SchemaValidationError}). The standard metaschemas for the
+   * built-in dialects are bundled; for custom dialects, an unavailable
+   * metaschema means "cannot check", not failure — supply a loader for it
+   * to get the check. A metaschema registered before its own dialect exists
+   * is not checked against itself.
    */
   validateSchemas?: boolean;
   /**
@@ -461,8 +470,9 @@ export class Engine {
 
   /**
    * Register a local schema document synchronously; returns its canonical
-   * base URI. References to unregistered resources are not loaded — use
-   * loadSchema for that. All or nothing, and one schema per resource: see
+   * base URI. References to unregistered resources are not loaded, and a
+   * dialect an embedded resource declares must already exist — use
+   * loadSchema for either. All or nothing, and one schema per resource: see
    * {@link SchemaRegistry.register} for the rules and the errors.
    */
   registerSchema(
@@ -471,8 +481,13 @@ export class Engine {
     dialectUri?: string,
     getRange?: (pointer: string) => SourceRange | undefined,
   ): string {
-    this.validateBeforeRegister(schema, retrievalUri, dialectUri);
-    return this.schemas.register(schema, retrievalUri, dialectUri, getRange);
+    return this.schemas.register(
+      schema,
+      retrievalUri,
+      dialectUri,
+      getRange,
+      this.resourceCheck(),
+    );
   }
 
   /**
@@ -486,7 +501,9 @@ export class Engine {
 
   /**
    * Register a schema document and load everything it transitively
-   * references through the configured loaders. Loader misses for referenced
+   * references through the configured loaders — including the metaschema
+   * of any dialect the document or one of its embedded resources declares
+   * and the engine has not assembled yet. Loader misses for referenced
    * resources are not errors here; evaluation reports them if the reference
    * is actually followed. A loader that throws, or a fetched document that
    * fails to register, rejects the call; the documents already registered
@@ -499,9 +516,7 @@ export class Engine {
     dialectUri?: string,
     getRange?: (pointer: string) => SourceRange | undefined,
   ): Promise<string> {
-    await this.ensureDialectFor(schema, retrievalUri, dialectUri);
-    this.validateBeforeRegister(schema, retrievalUri, dialectUri);
-    const baseUri = this.schemas.register(
+    const baseUri = await this.registerAssembling(
       schema,
       retrievalUri,
       dialectUri,
@@ -680,9 +695,49 @@ export class Engine {
     if (this.schemas.has(resource)) return resource;
     const doc = await this.fetch(resource);
     if (doc === undefined) return undefined;
-    await this.ensureDialectFor(doc.value, resource);
-    this.validateBeforeRegister(doc.value, resource);
-    return this.schemas.register(doc.value, resource, undefined, doc.getRange);
+    return this.registerAssembling(
+      doc.value,
+      resource,
+      undefined,
+      doc.getRange,
+    );
+  }
+
+  // Register, assembling any dialect the document demands (backlog D11):
+  // the root's, or one an embedded resource declares, which only the walk
+  // can discover. The registry asks through UnknownDialectError.dialectUri,
+  // the dialect is assembled, and the registration is retried — clean only
+  // because registration is all-or-nothing (ADR 0005). One attempt per
+  // distinct URI, so an assembly that returns without registering the URI
+  // it was asked for cannot spin.
+  private async registerAssembling(
+    schema: JsonValue,
+    retrievalUri: string,
+    dialectUri: string | undefined,
+    getRange: ((pointer: string) => SourceRange | undefined) | undefined,
+  ): Promise<string> {
+    const attempted = new Set<string>();
+    for (;;) {
+      try {
+        return this.schemas.register(
+          schema,
+          retrievalUri,
+          dialectUri,
+          getRange,
+          this.resourceCheck(),
+        );
+      } catch (err) {
+        if (
+          !(err instanceof UnknownDialectError) ||
+          err.dialectUri === undefined ||
+          attempted.has(err.dialectUri)
+        ) {
+          throw err;
+        }
+        attempted.add(err.dialectUri);
+        await this.ensureDialectUri(err.dialectUri);
+      }
+    }
   }
 
   // Drain reference targets collected by registration walks until closure,
@@ -700,34 +755,58 @@ export class Engine {
     }
   }
 
-  // Make the document's dialect exist before registration: known dialects
-  // pass through; otherwise the $schema target is loaded as a metaschema and
-  // a dialect is assembled from its $vocabulary (spec §8.1).
-  private async ensureDialectFor(
-    schema: JsonValue,
-    retrievalUri: string,
-    dialectUri?: string,
-  ): Promise<void> {
-    const effective = this.schemas.dialectUriOf(
-      schema,
-      retrievalUri,
-      dialectUri,
-    );
+  // Make one dialect exist: a known one passes through; otherwise its
+  // metaschema is fetched (or is already registered) and a dialect is
+  // assembled from its $vocabulary (spec §8.1).
+  private async ensureDialectUri(effective: string): Promise<void> {
     if (this.dialects.hasDialect(effective)) return;
     if (this.assembling.has(effective)) {
-      throw new UnknownDialectError(`metaschema cycle at '${effective}'`);
+      throw new UnknownDialectError(
+        `metaschema cycle at '${effective}'`,
+        effective,
+      );
     }
     this.assembling.add(effective);
     try {
-      const metaBase = await this.loadResource(effective);
-      const meta =
-        metaBase === undefined ? undefined : this.schemas.document(metaBase);
+      const registered = this.schemas.document(effective);
+      const fetched =
+        registered === undefined ? await this.fetch(effective) : undefined;
+      const meta = registered ?? fetched?.value;
       if (meta === undefined) {
         throw new UnknownDialectError(
           `dialect '${effective}' is not registered and no loader provides its metaschema`,
+          effective,
         );
       }
-      this.assembleDialect(effective, meta);
+      if (this.schemas.dialectUriOf(meta, effective) === effective) {
+        // Self-describing, the shape every standard metaschema has: the
+        // dialect must exist before the document can register under it,
+        // and assembly needs only $vocabulary. Should the document then
+        // fail to register, its dialect stays assembled with no metaschema
+        // behind it — "cannot check" for documents under it.
+        this.assembleDialect(effective, meta);
+        if (fetched !== undefined) {
+          await this.registerAssembling(
+            meta,
+            effective,
+            undefined,
+            fetched.getRange,
+          );
+        }
+      } else {
+        // Its own dialect first (the retry inside registerAssembling asks
+        // for it; a two-metaschema cycle surfaces there, with nothing
+        // assembled), then assemble from the registered document.
+        if (fetched !== undefined) {
+          await this.registerAssembling(
+            meta,
+            effective,
+            undefined,
+            fetched.getRange,
+          );
+        }
+        this.assembleDialect(effective, meta);
+      }
     } finally {
       this.assembling.delete(effective);
     }
@@ -771,30 +850,27 @@ export class Engine {
     });
   }
 
-  // The validateSchemas policy, applied before the walk so that a document
-  // failing its metaschema is never registered. The metaschema sees the
-  // document as plain data, so nothing needs to be registered to check it.
-  private validateBeforeRegister(
-    schema: JsonValue,
-    retrievalUri: string,
-    dialectUri?: string,
-  ): void {
-    if (!this.validateSchemas) return;
-    const metaUri = this.schemas.dialectUriOf(schema, retrievalUri, dialectUri);
-    // A dialect not assembled yet is registration's problem to report; the
-    // one document that legitimately arrives here is a metaschema being
-    // registered before its own dialect, which is not checked against
-    // itself — the same rule the bundled metaschemas get.
-    if (!this.dialects.hasDialect(metaUri)) return;
-    if (!this.schemas.has(metaUri)) return; // metaschema document unavailable
-    const { baseUri } = this.schemas.identify(schema, retrievalUri, dialectUri);
-    const result = this.evaluate(metaUri, schema, { output: "list" });
-    if (!result.valid) {
-      throw new SchemaValidationError(
-        `schema '${baseUri}' fails its metaschema '${metaUri}'`,
-        result.errors ?? [],
-      );
-    }
+  // The validateSchemas policy as a registration check: each staged
+  // resource against ITS dialect's metaschema, after the walk and before
+  // the commit, so a mixed-dialect document is checked one resource at a
+  // time and a failing one never registers. The metaschema sees the
+  // resource as plain data, so nothing needs to be registered to check it.
+  // A metaschema not registered as a schema resource is "cannot check",
+  // not failure — which also exempts a metaschema registered before its
+  // own dialect exists, as the bundled ones are.
+  private resourceCheck(): ResourceCheck | undefined {
+    if (!this.validateSchemas) return undefined;
+    return ({ uri, dialectUri, node }) => {
+      if (!this.dialects.hasDialect(dialectUri)) return;
+      if (!this.schemas.has(dialectUri)) return;
+      const result = this.evaluate(dialectUri, node, { output: "list" });
+      if (!result.valid) {
+        throw new SchemaValidationError(
+          `schema '${uri}' fails its metaschema '${dialectUri}'`,
+          result.errors ?? [],
+        );
+      }
+    };
   }
 }
 

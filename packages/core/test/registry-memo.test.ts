@@ -120,6 +120,42 @@ describe("resolveRef memo", () => {
     );
   });
 
+  it("tags hops below a boundary with the inner resource's extractor", () => {
+    const OUTER = "urn:memo:outer";
+    const INNER = "urn:memo:inner";
+    const engine = createEngine();
+    engine.registerDialect(OUTER, [CORE]);
+    engine.registerDialect(INNER, [CORE]);
+    const r = engine.registerSchema(
+      {
+        $defs: {
+          in: {
+            $id: "https://memo.example/in",
+            $schema: INNER,
+            $defs: { deep: { $id: "https://memo.example/deep" } },
+          },
+        },
+      },
+      "https://memo.example/tagged",
+      OUTER,
+    );
+    const reg = engine.registry;
+    const path = ["$defs", "in", "$defs", "deep"];
+    expect(reg.child(reg.rootRef(r), path).baseUri).toBe(
+      "https://memo.example/deep",
+    );
+    // The inner dialect stops recognizing $id: the hop inside the inner
+    // resource no longer rebases, while the outer→inner hop, read with the
+    // outer extractor, is unchanged.
+    engine.registerDialect(INNER, [CORE], { identifiers: () => ({}) });
+    const deep = reg.child(reg.rootRef(r), path);
+    expect(deep.baseUri).toBe("https://memo.example/in");
+    expect(deep.pointer).toBe("/$defs/deep");
+    expect(reg.child(reg.rootRef(r), ["$defs", "in"]).baseUri).toBe(
+      "https://memo.example/in",
+    );
+  });
+
   it("does not memoize a malformed percent-escape as a miss", () => {
     const engine = createEngine();
     const uri = engine.registerSchema({}, "https://memo.example/g");

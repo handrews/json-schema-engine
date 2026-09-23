@@ -319,10 +319,12 @@ describe("identifier strategies and legacy $ref semantics (D18)", () => {
 
   it("mints anchors from plain-fragment $id, without a base change", () => {
     const engine = legacyEngine();
+    // The suite's location-independent shape: $defs beside allOf, not
+    // beside a $ref that would make it invisible to the walk.
     const uri = engine.registerSchema(
       {
         $defs: { a: { $id: "#foo", type: "integer" } },
-        $ref: "#foo",
+        allOf: [{ $ref: "#foo" }],
       },
       "https://legacy.example/id-anchor",
       LEGACY,

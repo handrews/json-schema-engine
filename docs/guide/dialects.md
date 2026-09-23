@@ -8,8 +8,12 @@ separate package — see [draft-04](#draft-04-separate-package) below.
 
 ## Select a dialect
 
-A schema's own `$schema` keyword picks its dialect. Without one, the
-engine's `defaultDialect` applies — 2020-12 unless configured otherwise.
+A schema resource's own `$schema` keyword picks its dialect — the document
+root, and any embedded `$id` resource that declares one. An embedded
+resource without `$schema` inherits the dialect of the resource containing
+it; a document without one gets the engine's `defaultDialect` — 2020-12
+unless configured otherwise. A `$schema` anywhere other than a resource
+root is ignored rather than refused.
 
 ```ts
 import assert from "node:assert";
@@ -25,6 +29,52 @@ const uri = engine.registerSchema(
 assert.equal(engine.evaluate(uri, [true]).valid, true);
 assert.equal(engine.evaluate(uri, [3]).valid, false);
 ```
+
+## Mixed-dialect documents
+
+One document can hold resources of several dialects: each embedded `$id`
+resource is walked, indexed, validated, and evaluated under its own
+`$schema`, and `$ref` works across the boundary in both directions. The
+enclosing dialect's identifier syntax decides where a resource starts; the
+resource's own dialect governs everything inside it.
+
+```ts
+import assert from "node:assert";
+import { createEngine, DIALECT_DRAFT_07 } from "@json-schema-engine/core";
+
+const engine = createEngine();
+const uri = engine.registerSchema(
+  {
+    $id: "https://example.com/mixed",
+    properties: { legacy: { $ref: "https://example.com/legacy" } },
+    $defs: {
+      legacy: {
+        $id: "https://example.com/legacy",
+        $schema: DIALECT_DRAFT_07,
+        // Array-form items: valid draft-07, not a 2020-12 schema.
+        items: [{ type: "string" }, { type: "number" }],
+      },
+    },
+  },
+  "https://example.com/mixed",
+);
+
+assert.equal(
+  engine.registry.dialectUriFor("https://example.com/legacy"),
+  DIALECT_DRAFT_07,
+);
+assert.equal(engine.evaluate(uri, { legacy: ["a", 1] }).valid, true);
+assert.equal(engine.evaluate(uri, { legacy: [1, "a"] }).valid, false);
+```
+
+Under draft-07 and draft-06, a schema object with `$ref` has its siblings
+ignored — at registration as at evaluation. In the bundling shape
+`{"$ref": "#/definitions/Root", "definitions": {...}}` this means
+`definitions` is never walked: a pointer reference into it still resolves,
+but an `$id` or plain-fragment anchor inside it is not indexed, a remote
+reference inside it is not loaded by `loadSchema`, and its patterns are not
+screened. Put such definitions beside an `allOf` wrapper instead of beside
+the `$ref`.
 
 ## Fragment-free URIs
 
@@ -112,10 +162,13 @@ assert.throws(
 
 ## Unknown dialects
 
-`registerSchema` and `loadSchema` throw `UnknownDialectError` for a
-`$schema` value that names a dialect the engine has neither built in nor
-assembled from a loaded metaschema. See [Metaschemas](metaschemas.md) for
-assembling dialects from `$vocabulary`.
+`registerSchema` throws `UnknownDialectError` for a `$schema` value — at
+the document root or at an embedded resource — that names a dialect the
+engine has neither built in nor assembled; the error's `dialectUri` names
+it. `loadSchema` and `load` instead fetch that dialect's metaschema through
+the loaders, assemble the dialect from its `$vocabulary`, and register
+again, so they throw only when no loader provides it. See
+[Metaschemas](metaschemas.md) for assembling dialects from `$vocabulary`.
 
 ```ts
 import assert from "node:assert";

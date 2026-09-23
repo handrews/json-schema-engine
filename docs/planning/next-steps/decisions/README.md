@@ -14,3 +14,4 @@ discoverable.
 | [0003](0003-output-levels-and-orthogonal-controls.md) | Output levels and orthogonal output controls                    | Accepted 2026-09-05 |
 | [0004](0004-static-dynamic-ref-resolution.md)         | Static resolution of `$dynamicRef` in artifacts                 | Accepted 2026-09-21 |
 | [0005](0005-registry-integrity.md)                    | Atomic, duplicate-checked registration with explicit unregister | Accepted 2026-09-23 |
+| [0006](0006-per-resource-dialects.md)                 | Per-resource dialects: `$schema` governs the resource it roots  | Accepted 2026-09-23 |
