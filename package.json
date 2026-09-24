@@ -1,6 +1,6 @@
 {
   "name": "json-schema-engine",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "private": true,
   "description": "High-performance feature-complete JSON Schema engine: compiled and interpreted validators with full annotation and error output support.",
   "type": "module",
