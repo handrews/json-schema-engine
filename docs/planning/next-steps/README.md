@@ -47,8 +47,10 @@ planned. The downstream project has migrated, and remaining demand does not just
   It is neither annotation output nor controlled by annotation selection.
 - **Relevance** determines whether errors and annotations may appear in
   relevant-level output and whether dependency information may be consumed.
-- **Relevance marker** is the explicit per-unit indication, in verbose-level
-  output, that a rendered evaluation is irrelevant.
+- **Relevance marker** is the explicit indication, in verbose-level output,
+  that a rendered record is irrelevant: `droppedErrors`/`droppedAnnotations`
+  in `list` and `hierarchical`, and in `verbose` a `valid` that differs from
+  the root's somewhere on the node's path. It marks records, not units.
 - **Format name** selects one output structure and field vocabulary: `flag`,
   `basic`, `detailed`, `verbose` (draft-03 §13) or `list`, `hierarchical`
   (machines-oriented proposal). Provenance is documentation, not an API

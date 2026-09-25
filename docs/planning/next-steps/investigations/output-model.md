@@ -101,8 +101,8 @@ compiled artifact surface (Phase 3).
 - Plain cloneable data at public and worker boundaries.
 - Stable artifact registry visibility through interpreted islands.
 - Source decoration without hot-path cost.
-- An explicit relevance marker on every irrelevant unit rendered at the
-  verbose level.
+- An explicit relevance marker on every irrelevant record rendered at the
+  verbose level (records, not units: see the decision below).
 - Format choice independent of level, annotation selection, and detail
   controls.
 
@@ -208,10 +208,15 @@ Requirements:
   irrelevant records needed (verbose level), the trace needed (every format
   above `basic`, or `trace: true`), dependency tracking needed (from the
   schema's consumers).
-- Verbose-level `list` and `hierarchical` output carries an explicit per-unit
-  relevance marker; the machines proposal has none, and `droppedAnnotations`
-  covers only discarded annotations. Draft-03 §13.4.4 recommends `valid` per
-  node for the same purpose; the marker design must serve both.
+- Verbose-level `list` and `hierarchical` output marks every irrelevant
+  record: `droppedErrors` and `droppedAnnotations` (the machines proposal
+  has no relevance, and its `droppedAnnotations` covers only a failed
+  unit's own annotations). Units carry no marker, and a unit's `valid`
+  does not say whether it is relevant, even along its path: the keyword
+  whose acceptance made a branch irrelevant has no unit of its own. In the
+  `verbose` document, draft-03 §13.4.4's `valid` per node is the marker,
+  read along the whole path: a record is relevant exactly when every node
+  from the root down to it shares the root's `valid`.
 - `vocabulary`, `params`, and `source` are available on every format above
   minimal through the flat surface; documents stay exactly their source's
   structure.

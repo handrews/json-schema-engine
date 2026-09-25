@@ -218,7 +218,9 @@ const withDropped = <T>(
  * `details`. At the verbose level `droppedErrors`/`droppedAnnotations` mark
  * irrelevant records (draft-03 §12.2): the proposal defines
  * `droppedAnnotations` for a failed unit's own annotations, and the verbose
- * level extends the marker to every irrelevant record.
+ * level extends the marker to every irrelevant record. The markers classify
+ * records, not units: a unit's `valid`, even along its path, does not say
+ * whether it is relevant.
  */
 export interface OutputUnit {
   valid: boolean;
@@ -337,7 +339,10 @@ export function renderHierarchical(
 
     if (details.length > 0) unit.details = details;
 
-    // Relevant level (§13.4): a unit carrying nothing relevant is omitted.
+    // Relevant level: a unit carrying nothing relevant is omitted. The
+    // proposal includes every unit and makes such pruning opt-in; pruning
+    // by default is this engine's relevant level (draft-03 §12.2, §13.4),
+    // and "mark" is the unpruned structure.
     if (
       irrelevant === "omit" &&
       unit.errors === undefined &&
@@ -415,8 +420,9 @@ const nestedOf = (unit: DetailedOutputUnit): DetailedOutputUnit[] =>
  * becomes a node whose children are one node per keyword evaluation, in
  * evaluation order; each keyword node carries the keyword's own error or
  * annotation and the applications it performed. At the relevant level only
- * relevant records appear; the verbose level includes every record and
- * relies on `valid` per node as the relevance marker.
+ * relevant records appear; the verbose level includes every record. A
+ * record is relevant exactly when every node on its path from the root
+ * shares the root's `valid` (§13.4.4), so no single node's `valid` marks it.
  */
 function buildDraft03Tree(
   input: RenderInput,

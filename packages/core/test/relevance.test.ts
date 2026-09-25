@@ -1,10 +1,11 @@
 // IETF draft-03 §12.2 relevance: a keyword that accepts makes its rejecting
 // sub-evaluations irrelevant; a schema object that rejects makes its
 // accepting sub-evaluations irrelevant. Relevant-level output omits
-// irrelevant errors, annotations, and the units that end up empty (§13.4);
-// the verbose level of `list`/`hierarchical` marks them
-// (`droppedErrors`/`droppedAnnotations`); the draft-03 `verbose` document
-// includes them with `valid` per node as the marker (§13.4.4). Appendix D:
+// irrelevant errors, annotations, and the units that end up empty; the
+// verbose level of `list`/`hierarchical` marks the records
+// (`droppedErrors`/`droppedAnnotations`), not the units; the draft-03
+// `verbose` document includes them, relevant exactly when every node on
+// the path from the root shares the root's `valid` (§13.4.4). Appendix D:
 // dependency data comes only from an accepting producer.
 
 import { describe, it, expect } from "vitest";
@@ -468,6 +469,131 @@ describe("annotations under a rejecting ancestor are irrelevant", () => {
     expect(branch.droppedAnnotations).toEqual({ title: "t" });
     const list = listUnits(run(s, "branch-ann", 5, LIST));
     expect(unitAt(list, "/anyOf/0")).toBeUndefined();
+  });
+});
+
+describe("telling relevant results from irrelevant ones", () => {
+  // A `verbose` node's result is relevant exactly when every node from the
+  // root down to it shares the root's `valid` (§12.2: the first transition
+  // makes everything beneath it irrelevant, for good). Each case is checked
+  // against the relevant-level records of the same evaluation.
+  const cases: [string, JsonValue, JsonValue[]][] = [
+    [
+      "anyOf",
+      { anyOf: [{ required: ["a"], title: "A" }, { required: ["b"] }] },
+      [{ a: 1 }, {}, { a: 1, b: 2 }],
+    ],
+    [
+      "oneOf-ref",
+      {
+        $defs: { f: { title: "f", properties: { a: { title: "a" } } } },
+        oneOf: [{ required: ["a"] }, { required: ["b"], $ref: "#/$defs/f" }],
+      },
+      [{ a: 1 }, { a: 1, b: 1 }, {}],
+    ],
+    ["not", { not: { type: "string", title: "s" }, title: "root" }, [1, "x"]],
+    [
+      "if-then-else",
+      {
+        if: { required: ["a"], title: "if" },
+        then: { required: ["b"], title: "then" },
+        else: { title: "else" },
+      },
+      [{}, { a: 1 }, { a: 1, b: 1 }],
+    ],
+    [
+      "anyOf-in-failing-allOf",
+      {
+        allOf: [
+          { anyOf: [{ type: "integer", title: "i" }, { minimum: 3 }] },
+          { maximum: 2, title: "max" },
+        ],
+      },
+      [1, 5, 2.5],
+    ],
+  ];
+
+  const uniformPathRecords = (root: DetailedOutputUnit) => {
+    const errors = new Set<string>();
+    const annotations = new Set<string>();
+    const walk = (u: DetailedOutputUnit): void => {
+      if (u.valid !== root.valid) return;
+      const at = `${u.keywordLocation} ${u.instanceLocation}`;
+      if (u.error !== undefined) errors.add(at);
+      if ("annotation" in u) annotations.add(at);
+      [...(u.errors ?? []), ...(u.annotations ?? [])].forEach(walk);
+    };
+    walk(root);
+    return { errors, annotations };
+  };
+
+  for (const [name, schema, instances] of cases) {
+    it(`verbose: valid along the whole path (${name})`, () => {
+      const { engine, uri } = engineFor(schema, `path-${name}`);
+      for (const instance of instances) {
+        const verbose = engine.evaluate(uri, instance, {
+          ...VERBOSE_D03,
+          annotations: true,
+        });
+        const relevant = engine.evaluate(uri, instance, {
+          ...BASIC,
+          annotations: true,
+        });
+        const at = (u: { evaluationPath: string; inputLocation: string }) =>
+          `${u.evaluationPath} ${u.inputLocation}`;
+        expect(
+          uniformPathRecords(verbose.outputDocument as DetailedOutputUnit),
+        ).toEqual({
+          errors: new Set((relevant.errors ?? []).map(at)),
+          annotations: new Set((relevant.annotations ?? []).map(at)),
+        });
+      }
+    });
+  }
+
+  it("verbose: a valid node under a losing branch is irrelevant", () => {
+    const r = run(
+      {
+        oneOf: [{ required: ["a"] }, { required: ["b"], $ref: "#/$defs/f" }],
+        $defs: { f: { title: "f" } },
+      },
+      "losing-valid",
+      { a: 1 },
+      { ...VERBOSE_D03, annotations: true },
+    );
+    const losing = (r.outputDocument as DetailedOutputUnit).annotations![0]!
+      .annotations![1]!;
+    const ref = losing.errors![0]!;
+    expect([losing.valid, ref.keywordLocation, ref.valid]).toEqual([
+      false,
+      "/oneOf/1/$ref",
+      true,
+    ]);
+    expect(r.annotations).toEqual([]);
+    expect(r.droppedAnnotations?.map((a) => a.annotation)).toEqual(["f"]);
+  });
+
+  it("list/hierarchical: a unit's valid does not mark relevance", () => {
+    // The passing `anyOf` has no unit of its own, so its losing branch is
+    // `valid: false` under a `valid: false` root and still irrelevant:
+    // only the record marker says so.
+    const schema: JsonValue = {
+      required: ["x"],
+      anyOf: [{ required: ["a"] }, { required: ["b"] }],
+    };
+    const list = listUnits(
+      run(schema, "unit-valid", { a: 1 }, { ...LIST, verbose: true }),
+    );
+    const hier = flatten(
+      run(schema, "unit-valid", { a: 1 }, VERBOSE).outputDocument as OutputUnit,
+    );
+    for (const units of [list, hier]) {
+      const branch = unitAt(units, "/anyOf/1")!;
+      expect(unitAt(units, "")!.valid).toBe(false);
+      expect(branch.valid).toBe(false);
+      expect(branch.errors).toBeUndefined();
+      expect(Object.keys(branch.droppedErrors!)).toEqual(["required"]);
+    }
   });
 });
 
