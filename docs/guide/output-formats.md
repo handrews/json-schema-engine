@@ -25,14 +25,111 @@ above and names each format as its source does.
   error and, when selected, every relevant annotation. An error from a
   subschema that rejected under a keyword that accepted anyway (the losing
   branch of a passing `anyOf`) and an annotation under a rejecting ancestor
-  are irrelevant (IETF draft-03 §12.2); they are omitted and units left with
-  nothing to report are pruned (§13.4).
+  are irrelevant (IETF draft-03 §12.2), and nothing irrelevant becomes
+  relevant again. Irrelevant records are omitted, and units left with
+  nothing to report are pruned.
 - **Verbose** (`verbose`; `list` and `hierarchical` with `verbose: true`):
-  irrelevant results are included and marked. The `verbose` document marks
-  them with `valid` on every node; `list` and `hierarchical` keep every unit
-  and render irrelevant records under `droppedErrors` and
+  irrelevant results are included as well. `list` and `hierarchical` keep
+  every unit and render irrelevant records under `droppedErrors` and
   `droppedAnnotations`; `Result.droppedErrors` and
-  `Result.droppedAnnotations` carry the same records as flat units.
+  `Result.droppedAnnotations` carry the same records as flat units. How
+  each document tells relevant results apart is
+  [below](#telling-relevant-results-from-irrelevant-ones).
+
+### `list`, `hierarchical`, and the machines-oriented proposal
+
+The [machines-oriented proposal](https://github.com/json-schema-org/json-schema-spec/blob/4f56a9900674b27804f0ec32e3b7fdfa4efad695/specs/output/jsonschema-validation-output-machines.md) that defines `list` and
+`hierarchical` is a proposal, not part of the ratified specification, and it
+has no concept of relevance. Its `hierarchical` structure includes every
+output unit, and its `list` structure SHOULD exclude units that carry no
+errors or annotations. Removing anything else is optional "Output Unit
+Pruning", and the proposal requires every such filtering behavior to be
+configurable and disabled by default.
+
+The relevant and verbose levels of `list` and `hierarchical` are this
+engine's mapping of draft-03 relevance onto the proposal's structures, and
+the default departs from the proposal deliberately:
+
+- At the relevant level, the default, both formats omit irrelevant
+  records, and `hierarchical` prunes every unit that has no relevant error
+  or annotation of its own and none below it, including valid units with
+  nothing to report. Those are the proposal's two example reasons for
+  pruning, applied by default.
+- `verbose: true` turns both off. Every unit appears, as the proposal's
+  `hierarchical` describes, and irrelevant records are kept under
+  `droppedErrors` and `droppedAnnotations`. The proposal defines
+  `droppedAnnotations` for a failed unit's own annotations; the engine also
+  uses it on a passing unit beneath a failed one, and adds `droppedErrors`
+  for irrelevant errors, which the proposal, having no relevance, would
+  report under `errors`.
+
+### Telling relevant results from irrelevant ones
+
+A node's own `valid` does not say whether it is relevant. Under the losing
+branch of a passing `oneOf`, a subschema that accepted is `valid: true` and
+still irrelevant, because the branch around it rejected.
+
+- In the `verbose` document, a node's `error` or `annotation` is relevant
+  exactly when every node from the root down to it has the root's `valid`.
+  The first node that differs makes itself and everything beneath it
+  irrelevant. This is how draft-03 §13.4.4's recommended `valid` on every
+  node identifies relevance: read along the whole path, not node by node.
+- In `list` and `hierarchical` at the verbose level, every record is
+  marked: `errors` and `annotations` hold relevant records,
+  `droppedErrors` and `droppedAnnotations` irrelevant ones. The units
+  themselves are not marked, and here `valid` along the path is not enough
+  either: the keyword whose acceptance made a branch irrelevant has no unit
+  of its own, so the losing branch of a passing `anyOf` under a failing
+  root is `valid: false` beneath `valid: false` and still irrelevant.
+
+```ts
+import assert from "node:assert";
+import { createEngine } from "@json-schema-engine/core";
+
+const engine = createEngine();
+const uri = engine.registerSchema(
+  {
+    oneOf: [{ required: ["a"] }, { required: ["b"], $ref: "#/$defs/fields" }],
+    $defs: { fields: { title: "fields" } },
+  },
+  "https://example.com/one-of",
+);
+
+// verbose: the `$ref` into `fields` accepted under the rejected branch.
+const verbose = engine.evaluate(
+  uri,
+  { a: 1 },
+  { output: "verbose", annotations: true },
+);
+const losing = verbose.outputDocument.annotations![0]!.annotations![1]!;
+assert.deepEqual([losing.keywordLocation, losing.valid], ["/oneOf/1", false]);
+const ref = losing.errors![0]!;
+assert.deepEqual([ref.keywordLocation, ref.valid], ["/oneOf/1/$ref", true]);
+assert.deepEqual(verbose.annotations, []);
+assert.deepEqual(
+  verbose.droppedAnnotations?.map((a) => a.annotation),
+  ["fields"],
+);
+
+// list: a failing root, and the losing branch fails with it, yet its
+// error is irrelevant; only the record's marker says so.
+const failing = engine.registerSchema(
+  { required: ["x"], anyOf: [{ required: ["a"] }, { required: ["b"] }] },
+  "https://example.com/failing",
+);
+const list = engine.evaluate(
+  failing,
+  { a: 1 },
+  { output: "list", verbose: true },
+);
+const branch = list.outputDocument.details.find(
+  (d) => d.evaluationPath === "/anyOf/1",
+);
+assert.equal(list.valid, false);
+assert.equal(branch?.valid, false);
+assert.equal(branch?.errors, undefined);
+assert.ok(branch?.droppedErrors?.required);
+```
 
 Every option combination is either supported or rejected with
 `OutputOptionsError` before evaluation: any record-bearing option on `flag`;
@@ -198,8 +295,9 @@ assert.deepEqual(
 ## Verbose
 
 The full keyword-level tree of §13.4.4: one node per keyword evaluation,
-accepting or not, with irrelevant results included. `valid` on every node
-tells relevant results apart.
+accepting or not, with irrelevant results included. `valid` on every node,
+read along the path from the root, tells relevant results apart (see
+[Telling relevant results from irrelevant ones](#telling-relevant-results-from-irrelevant-ones)).
 
 ```ts
 import assert from "node:assert";
@@ -270,7 +368,9 @@ drafts.
 ## List
 
 A root unit with `valid` and `details`, the flat list of units that report
-an error or annotation. Errors and annotations are keyed by keyword name.
+a relevant error or annotation, as the proposal says it SHOULD be; at the
+verbose level every unit is listed. Errors and annotations are keyed by
+keyword name.
 
 ```ts
 import assert from "node:assert";
@@ -405,8 +505,10 @@ suite is `packages/core/test/error-params.test.ts`.
 ## Hierarchical
 
 A tree of units nested under `details`, following the evaluation path. At
-the relevant level only reporting units and their ancestors appear; with
-`verbose: true` every unit appears and irrelevant records are marked.
+the relevant level only units that report a relevant error or annotation,
+and their ancestors, appear; the proposal itself includes every unit, which
+is what `verbose: true` gives, with irrelevant records marked (see
+[the machines-oriented proposal](#list-hierarchical-and-the-machines-oriented-proposal)).
 
 ```ts
 import assert from "node:assert";
