@@ -6,6 +6,8 @@ errors they raise may change between releases.
 
 ## [Unreleased]
 
+## [0.0.6] - 2026-10-06
+
 Informative errors
 ([ADR 0007](docs/planning/next-steps/decisions/0007-informative-errors.md)).
 
