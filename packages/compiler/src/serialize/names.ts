@@ -102,7 +102,8 @@ export function findProduce(
         break;
       }
       case "forEachKey":
-      case "forEachIndex": {
+      case "forEachIndex":
+      case "rejectScope": {
         const b = findProduce(stmt.body);
         if (b) return b;
         break;
@@ -126,6 +127,7 @@ export function hasAnnotate(stmts: readonly LowerStmt[]): boolean {
         break;
       case "forEachKey":
       case "forEachIndex":
+      case "rejectScope":
         if (hasAnnotate(stmt.body)) return true;
         break;
       default:

@@ -29,6 +29,7 @@ import {
   KeywordContext,
   unknownKeywordId,
 } from "./dialect.js";
+import { Description } from "./lowering.js";
 import {
   DEFAULT_MAX_DEPTH,
   InvalidSchemaError,
@@ -112,7 +113,7 @@ export interface DependencyRecord {
   data: unknown;
 }
 
-/** One assertion failure. */
+/** One assertion failure (D13). */
 export interface ErrorRecord {
   /** `null` when the schema itself failed (boolean `false`). */
   keywordName: string | null;
@@ -121,8 +122,17 @@ export interface ErrorRecord {
   schemaRef: SchemaRef;
   pathNode: PathNode | null;
   cursor: Cursor;
+  /** the message text; empty when `describe` carries the description instead */
   message: string;
   params?: ErrorParams;
+  /**
+   * A deferred description: built, and realized against the cursor's value,
+   * only when the record is rendered — most records never are (a
+   * verdict-only evaluation renders none; a losing `anyOf` branch's are
+   * dropped). Every record carries the key, set or not, so the renderer sees
+   * one shape.
+   */
+  describe?: () => Description;
 }
 
 // Appends with a loop: an argument spread puts every element on the native
@@ -475,6 +485,18 @@ class KeywordContextImpl implements KeywordContext {
   }
 
   error(message: string, params?: ErrorParams): void {
+    this.record(message, params, undefined);
+  }
+
+  report(describe: () => Description): void {
+    this.record("", undefined, describe);
+  }
+
+  private record(
+    message: string,
+    params: ErrorParams | undefined,
+    describe: (() => Description) | undefined,
+  ): void {
     this.reported = true;
     this.state.errors.push({
       keywordName: this.entry.name,
@@ -483,7 +505,8 @@ class KeywordContextImpl implements KeywordContext {
       pathNode: this.pathNode,
       cursor: this.cursor,
       message,
-      ...(params === undefined ? {} : { params }),
+      params,
+      describe,
     });
   }
 }
@@ -565,6 +588,8 @@ function applySchemaAtDepth(
         pathNode,
         cursor,
         message: "schema is false",
+        params: undefined,
+        describe: undefined,
       });
     }
     if (state.tracing) {

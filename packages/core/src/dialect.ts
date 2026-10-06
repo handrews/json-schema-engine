@@ -8,7 +8,7 @@ import { JsonValue } from "./json.js";
 import { Cursor } from "./cursor.js";
 import { SchemaRef } from "./ref.js";
 import { CompiledRegex } from "./regex.js";
-import { LoweringContext } from "./lowering.js";
+import { Description, LoweringContext } from "./lowering.js";
 
 /**
  * Static contribution of one keyword to the evaluated-property-name set of
@@ -194,6 +194,16 @@ export interface KeywordContext {
   ): readonly DependencyView[];
   /** report an assertion failure for this keyword, with optional structured params (D13) */
   error(message: string, params?: ErrorParams): void;
+  /**
+   * Report an assertion failure described in lowering IR (D13). `describe()`
+   * returns the message and params exactly as the keyword's `lower` builds
+   * them, with runtime values as `lowerIR.constant(...)` and the instance as
+   * `lowerIR.instance`. It is called, and the description realized against
+   * this instance, only if the error is rendered, so a verdict-only
+   * evaluation or a dropped error costs nothing. A `binding`, `tally` or
+   * `tallyList` names compiled-only data and throws when rendered.
+   */
+  report(describe: () => Description): void;
 }
 
 /** A keyword's static analysis and evaluation semantics. */

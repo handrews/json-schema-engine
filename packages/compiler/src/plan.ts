@@ -8,6 +8,7 @@ import {
   UnresolvableRefError,
   type Engine,
   type JsonValue,
+  type LowerMessageHelper,
   type SchemaRef,
   type SchemaRegistry,
   type StaticFacts,
@@ -97,6 +98,12 @@ export interface CompilationPlan {
   patterns: string[];
   /** every format name any static unit's asserting `format` tests */
   formats: string[];
+  /**
+   * The message-formatting helpers some list-mode error calls, in first-use
+   * order; filled during serialization (like late coverage patterns) and
+   * bound by the prologue. Empty for every flag artifact.
+   */
+  messageHelpers: LowerMessageHelper[];
   /** interpreted units in stable order; index = target-table slot */
   targets: PlannedUnit[];
 }
@@ -693,6 +700,7 @@ function planRound(
       units,
       patterns: [...patterns],
       formats: [...formats],
+      messageHelpers: [],
       targets,
     },
     sites: roundSites,

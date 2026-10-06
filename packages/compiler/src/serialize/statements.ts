@@ -4,6 +4,7 @@
 import {
   type JsonValue,
   type LowerApply,
+  type LowerExpr,
   type LowerMessage,
   type LowerParams,
   type LowerStmt,
@@ -32,6 +33,51 @@ import { annUnit, annRecordSegment, produceChannel } from "./keywords.js";
 import { expr } from "./expressions.js";
 import { applyCall, tryInline } from "./apply.js";
 
+/** True when `e` names the passing-index list (tallyList), at any depth. */
+function mentionsTallyList(e: LowerExpr): boolean {
+  switch (e.kind) {
+    case "tallyList":
+      return true;
+    case "helper":
+      return e.args.some(mentionsTallyList);
+    case "item":
+      return mentionsTallyList(e.target) || mentionsTallyList(e.index);
+    case "member":
+    case "typeIs":
+      return mentionsTallyList(e.target);
+    case "hasOwn":
+      return (
+        mentionsTallyList(e.target) ||
+        (typeof e.key !== "string" && mentionsTallyList(e.key))
+      );
+    case "cmp":
+      return mentionsTallyList(e.left) || mentionsTallyList(e.right);
+    case "not":
+      return mentionsTallyList(e.expr);
+    case "logic":
+      return e.parts.some(mentionsTallyList);
+    default:
+      return false;
+  }
+}
+
+/**
+ * Whether a combine/count check must accumulate the passing indexes: its
+ * message names them, or its params do and params are rendered.
+ */
+function wantsTallyList(
+  ctx: UnitContext,
+  message: LowerMessage,
+  params: LowerParams | undefined,
+): boolean {
+  return (
+    message.some((p) => typeof p !== "string" && mentionsTallyList(p)) ||
+    (ctx.listParams &&
+      params !== undefined &&
+      Object.values(params).some(mentionsTallyList))
+  );
+}
+
 /**
  * Serialize one keyword's statement list. Runs of anyMayPass applies
  * (the anyOf shape) group into a single OR check; short-circuit emission
@@ -59,9 +105,12 @@ export function keywordStatements(
       const runs = anyRun.map((call) =>
         branchSpan(ctx, call, js`${a} = true;`),
       );
+      if (message === undefined) {
+        throw new SerializeError("anyMayPass run without a combineCheck");
+      }
       const onFail = pushError(
         ctx,
-        renderMessage(ctx, message ?? ["no branch matched"]),
+        renderMessage(ctx, message),
         true,
         paramsChunk(ctx, params),
       );
@@ -88,15 +137,16 @@ export function keywordStatements(
     if (oneRun.length === 0) return;
     const c = counterVar(ctx.counters.tally++);
     if (ctx.output === "list") {
-      // Params referencing the passing-branch indexes (tallyList) need an
-      // index accumulator next to the count; branch order IS run order.
-      // Both-pass discards at the caller (the unit fails, its span
+      if (message === undefined) {
+        throw new SerializeError("exactlyOne run without a combineCheck");
+      }
+      // A message or params naming the passing-branch indexes (tallyList)
+      // need an index accumulator next to the count; branch order IS run
+      // order. Both-pass discards at the caller (the unit fails, its span
       // truncates); each branch marks/truncates its own spans here.
-      const wantsList =
-        ctx.listParams &&
-        params !== undefined &&
-        Object.values(params).some((p) => p.kind === "tallyList");
-      const p = wantsList ? counterVar(ctx.counters.tally++) : undefined;
+      const p = wantsTallyList(ctx, message, params)
+        ? counterVar(ctx.counters.tally++)
+        : undefined;
       const incs = oneRun.map((call, k) =>
         branchSpan(
           ctx,
@@ -107,11 +157,7 @@ export function keywordStatements(
       const decl = p ? js`let ${c} = 0; const ${p} = [];` : js`let ${c} = 0;`;
       const onFail = pushError(
         ctx,
-        renderMessage(
-          ctx,
-          message ?? [{ kind: "tally" }, " branches matched"],
-          c,
-        ),
+        renderMessage(ctx, message, c, p),
         true,
         paramsChunk(ctx, params, c, p),
       );
@@ -317,6 +363,14 @@ function emitCountRange(
 ): CodeChunk {
   const b = bindingVar(stmt.binding);
   const c = counterVar(ctx.counters.tally++);
+  // The matched indexes, when the failure message or params name them.
+  const p =
+    ctx.output === "list" &&
+    wantsTallyList(ctx, stmt.outOfRangeMessage, stmt.outOfRangeParams)
+      ? counterVar(ctx.counters.tally++)
+      : undefined;
+  const decl = p ? js`let ${c} = 0; const ${p} = [];` : js`let ${c} = 0;`;
+  const pushMatched = p ? js` ${p}.push(${b});` : js``;
   const max = Number.isFinite(stmt.max) ? num(stmt.max) : null;
   const outOfRange =
     max === null
@@ -326,9 +380,9 @@ function emitCountRange(
     ctx.output === "list"
       ? pushError(
           ctx,
-          renderMessage(ctx, stmt.outOfRangeMessage, c),
+          renderMessage(ctx, stmt.outOfRangeMessage, c, p),
           true,
-          paramsChunk(ctx, stmt.outOfRangeParams, c),
+          paramsChunk(ctx, stmt.outOfRangeParams, c, p),
         )
       : js`return false;`;
   // List mode: an accepting contains drops every probe's errors, a
@@ -350,7 +404,7 @@ function emitCountRange(
       ctx.annKw?.matched && stmt.collectIndexes
         ? js` ${ctx.annKw.matched}.push(${b});`
         : js``;
-    const loop = js`${errDecl}let ${c} = 0; for (let ${b} = 0; ${b} < ${expr(ctx, stmt.target)}.length; ${b}++) { const ${m} = ${annsLength(ctx)}; if (${probe}) { ${c}++;${pushIdx} } else ${annsCut(ctx, m)} }`;
+    const loop = js`${errDecl}${decl} for (let ${b} = 0; ${b} < ${expr(ctx, stmt.target)}.length; ${b}++) { const ${m} = ${annsLength(ctx)}; if (${probe}) { ${c}++;${pushIdx}${pushMatched} } else ${annsCut(ctx, m)} }`;
     return js`${loop} ${check}`;
   }
   if (ctx.regionMode && stmt.countWhen.kind === "applyExpr") {
@@ -363,11 +417,44 @@ function emitCountRange(
       ctx.annKw?.matched && stmt.collectIndexes
         ? js` ${ctx.annKw.matched}.push(${b});`
         : js``;
-    const loop = js`${errDecl}let ${c} = 0; for (let ${b} = 0; ${b} < ${expr(ctx, stmt.target)}.length; ${b}++) { if (${probe}) { ${c}++;${pushIdx} } }`;
+    const loop = js`${errDecl}${decl} for (let ${b} = 0; ${b} < ${expr(ctx, stmt.target)}.length; ${b}++) { if (${probe}) { ${c}++;${pushIdx}${pushMatched} } }`;
     return js`${loop} ${check}`;
   }
-  const loop = js`${errDecl}let ${c} = 0; for (let ${b} = 0; ${b} < ${expr(ctx, stmt.target)}.length; ${b}++) { if (${expr(ctx, stmt.countWhen)}) ${c}++; }`;
+  const loop = js`${errDecl}${decl} for (let ${b} = 0; ${b} < ${expr(ctx, stmt.target)}.length; ${b}++) { if (${expr(ctx, stmt.countWhen)}) { ${c}++;${pushMatched} } }`;
   return js`${loop} ${check}`;
+}
+
+/**
+ * The keys a keyword rejects outright (a `false` subschema): list mode
+ * binds the list the body's rejects fill and reports once after the sweep;
+ * flag mode runs the body alone, since its first reject returns.
+ */
+function emitRejectScope(
+  ctx: UnitContext,
+  stmt: Extract<LowerStmt, { kind: "rejectScope" }>,
+): CodeChunk {
+  const body = join(
+    "\n",
+    stmt.body.map((s) => statement(ctx, s)),
+  );
+  if (ctx.output !== "list") return body;
+  const list = bindingVar(stmt.list);
+  const onFail = pushError(
+    ctx,
+    renderMessage(ctx, stmt.message),
+    true,
+    paramsChunk(ctx, stmt.params),
+  );
+  return js`const ${list} = []; ${body} if (${list}.length) { ${onFail} }`;
+}
+
+/** One rejected key: appended for the scope's summary in list mode, fail-fast in flag mode. */
+function emitReject(
+  ctx: UnitContext,
+  stmt: Extract<LowerStmt, { kind: "reject" }>,
+): CodeChunk {
+  if (ctx.output !== "list") return js`return false;`;
+  return js`${bindingVar(stmt.list)}.push(${expr(ctx, stmt.item)});`;
 }
 
 export function statement(ctx: UnitContext, stmt: LowerStmt): CodeChunk {
@@ -394,6 +481,10 @@ export function statement(ctx: UnitContext, stmt: LowerStmt): CodeChunk {
       );
     case "countRange":
       return emitCountRange(ctx, stmt);
+    case "rejectScope":
+      return emitRejectScope(ctx, stmt);
+    case "reject":
+      return emitReject(ctx, stmt);
   }
 }
 
@@ -434,9 +525,12 @@ function emitListApply(
       // unit records the not-error.
       const spans = channelSpans(ctx, evSpan);
       const em = errMark(ctx)!;
+      if (apply.message === undefined) {
+        throw new SerializeError("negate apply without a message");
+      }
       const err = pushError(
         ctx,
-        renderMessage(ctx, apply.message ?? ["must not match the subschema"]),
+        renderMessage(ctx, apply.message),
         true,
         paramsChunk(ctx, apply.params),
       );

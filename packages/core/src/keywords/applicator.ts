@@ -12,8 +12,9 @@ import {
   SubschemaApplication,
 } from "../dialect.js";
 import { childCursor } from "../cursor.js";
-import { LowerExpr, lowerIR } from "../lowering.js";
+import { LowerExpr, LowerStmt, lowerIR } from "../lowering.js";
 import { SELF, mapPositions } from "./core.js";
+import { isFalse, namesRejected } from "./rejects.js";
 
 /** 2020-12 applicator vocabulary URI. */
 export const VOCAB_APPLICATOR =
@@ -507,7 +508,7 @@ export const additionalProperties: KeywordBehavior = {
     produces: [id("additionalProperties")],
     evaluatesNames: { kind: "all" },
   }),
-  lower: (_value, lctx) => {
+  lower: (value, lctx) => {
     const names = isObject(lctx.schema.properties)
       ? Object.keys(lctx.schema.properties)
       : [];
@@ -515,42 +516,52 @@ export const additionalProperties: KeywordBehavior = {
       ? Object.keys(lctx.schema.patternProperties)
       : [];
     const b = lctx.binding();
+    const key: LowerExpr = { kind: "binding", id: b };
     const covered: LowerExpr[] = [
       ...names.map((n): LowerExpr =>
-        lowerIR.cmp("===", { kind: "binding", id: b }, lowerIR.constant(n)),
+        lowerIR.cmp("===", key, lowerIR.constant(n)),
       ),
-      ...patterns.map((p): LowerExpr =>
-        lowerIR.regexTest(p, { kind: "binding", id: b }),
-      ),
+      ...patterns.map((p): LowerExpr => lowerIR.regexTest(p, key)),
     ];
+    // A `false` subschema is never applied: every additional name is
+    // rejected and reported once, by name (rejects.ts).
+    const r = isFalse(value) ? lctx.binding() : null;
+    const step: LowerStmt =
+      r === null
+        ? {
+            kind: "apply",
+            apply: {
+              path: [],
+              cursor: { kind: "child", of: { kind: "here" }, segment: key },
+              fold: "allMustPass",
+            },
+          }
+        : lowerIR.reject(r, key);
+    const sweep: LowerStmt = {
+      kind: "forEachKey",
+      target: lctx.instance,
+      binding: b,
+      body: [
+        lowerIR.when(
+          covered.length === 0
+            ? lowerIR.constant(true)
+            : lowerIR.not(lowerIR.or(...covered)),
+          [step],
+        ),
+      ],
+    };
     lctx.emit(
       lowerIR.when(lowerIR.typeIs(lctx.instance, "object"), [
-        {
-          kind: "forEachKey",
-          target: lctx.instance,
-          binding: b,
-          body: [
-            lowerIR.when(
-              covered.length === 0
-                ? lowerIR.constant(true)
-                : lowerIR.not(lowerIR.or(...covered)),
-              [
-                {
-                  kind: "apply",
-                  apply: {
-                    path: [],
-                    cursor: {
-                      kind: "child",
-                      of: { kind: "here" },
-                      segment: { kind: "binding", id: b },
-                    },
-                    fold: "allMustPass",
-                  },
-                },
-              ],
+        r === null
+          ? sweep
+          : lowerIR.rejectScope(
+              r,
+              [sweep],
+              namesRejected("additional ", " not allowed", {
+                kind: "binding",
+                id: r,
+              }),
             ),
-          ],
-        },
       ]),
     );
     // Produce iff the instance is an object (an empty array otherwise), matching
@@ -561,7 +572,7 @@ export const additionalProperties: KeywordBehavior = {
       ]),
     );
   },
-  evaluate: (_value, cursor, ctx) => {
+  evaluate: (value, cursor, ctx) => {
     if (!isObject(cursor.value)) return true;
     const names = isObject(ctx.schema.properties)
       ? new Set(Object.keys(ctx.schema.properties))
@@ -577,12 +588,26 @@ export const additionalProperties: KeywordBehavior = {
       if (names.has(name) || patterns.some((re) => re.test(name))) continue;
       matched.push(name);
       if (
+        !isFalse(value) &&
         !ctx.apply(
           ["additionalProperties"],
           childCursor(cursor, name, cursor.value[name]!),
         )
       )
         ok = false;
+    }
+    if (isFalse(value) && matched.length > 0) {
+      // One summary error naming every additional property, never a
+      // "schema is false" per child (rejects.ts).
+      const rejected: JsonValue[] = [...matched];
+      ctx.report(() =>
+        namesRejected(
+          "additional ",
+          " not allowed",
+          lowerIR.constant(rejected),
+        ),
+      );
+      ok = false;
     }
     if (ok) ctx.produce(matched);
     return ok;

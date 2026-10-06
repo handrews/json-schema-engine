@@ -222,6 +222,12 @@ class RecipeExecutor {
       case "apply":
         this.execApply(stmt.apply);
         return;
+      case "rejectScope":
+        // The sweep runs; the summary error records no production.
+        this.runStmts(stmt.body);
+        return;
+      case "reject":
+        return;
       case "annotate":
         // The annotation value is the keyword's own value (draft-03 §12.9).
         this.out.push({

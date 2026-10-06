@@ -150,10 +150,17 @@ export {
   escapeSegment,
   firstDuplicatePair,
   hasDuplicateItems,
+  isMultipleOf,
   jsonEqual,
   unescapeSegment,
 } from "./json.js";
-export { isMultipleOf } from "./keywords/validation.js";
+export {
+  PREVIEW_LIMIT,
+  helperTable,
+  messageHelpers,
+  preview,
+  realize,
+} from "./messages.js";
 export { walkSchema } from "./walk.js";
 export type { SchemaWalkVisit } from "./walk.js";
 export type {
@@ -194,14 +201,17 @@ export type {
   ResultUnits,
 } from "./result.js";
 export type {
+  Description,
   LowerApply,
   LowerCursor,
   LowerExpr,
   LowerHelper,
   LowerMessage,
+  LowerMessageHelper,
   LowerParams,
   LowerProduceValue,
   LowerStmt,
+  LowerValueHelper,
   LoweringContext,
 } from "./lowering.js";
 export {

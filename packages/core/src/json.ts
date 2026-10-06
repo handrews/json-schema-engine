@@ -137,3 +137,43 @@ export function firstDuplicatePair(
 export function hasDuplicateItems(items: readonly JsonValue[]): boolean {
   return firstDuplicatePair(items) !== null;
 }
+
+// Number of digits after the decimal point in `n`'s shortest representation,
+// including exponential notation (1e-8 has 8). `%` on the raw floats fails
+// suite cases like 0.0075 % 0.0001 (binary rounding); scaling both operands
+// to integers by the same power of ten sidesteps that at the cost of this
+// string inspection.
+function decimalDigits(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  const s = Math.abs(n).toString();
+  const eIndex = s.indexOf("e");
+  if (eIndex !== -1) {
+    const mantissa = s.slice(0, eIndex);
+    const exponent = Number(s.slice(eIndex + 1));
+    const dot = mantissa.indexOf(".");
+    const mantissaDigits = dot === -1 ? 0 : mantissa.length - dot - 1;
+    return Math.max(0, mantissaDigits - exponent);
+  }
+  const dot = s.indexOf(".");
+  return dot === -1 ? 0 : s.length - dot - 1;
+}
+
+/**
+ * `instance` is an exact multiple of `divisor` (`multipleOf`'s predicate,
+ * shared by both tiers). Scales both operands to integers by the same power
+ * of ten before the modulus so binary-float rounding doesn't misfire (e.g.
+ * 0.0075 % 0.0001 in raw floats).
+ */
+export function isMultipleOf(instance: number, divisor: number): boolean {
+  const scale = 10 ** Math.max(decimalDigits(instance), decimalDigits(divisor));
+  const scaledInstance = instance * scale;
+  const scaledDivisor = divisor * scale;
+  // Suite case: the scaling itself can overflow to Infinity for huge
+  // instances against a small divisor; that must read as non-multiple, not
+  // throw or silently misvalidate.
+  if (Number.isFinite(scaledInstance) && Number.isFinite(scaledDivisor)) {
+    return Math.round(scaledInstance) % Math.round(scaledDivisor) === 0;
+  }
+  const quotient = instance / divisor;
+  return Number.isFinite(quotient) && Number.isInteger(quotient);
+}

@@ -107,6 +107,11 @@ export class UnitContext {
   // (Appendix D: dependency data only from an accepting keyword); the unit's
   // `ok` cannot serve, since list mode continues past a failed sibling.
   kwOk: CodeChunk | null = null;
+  // The active combine/count check's counter and passing-index list, bound
+  // while that check's message and params render so a `tally`/`tallyList`
+  // expression (also inside a helper's arguments) resolves.
+  tallyVar: CodeChunk | null = null;
+  tallyListVar: CodeChunk | null = null;
   // Object-guard CSE: one `const gN = (typeof x === "object" && …)` per
   // unit value, prepended by the body builder when used. Inlined `here`-
   // cursor children share the parent's guard (same value, same variable).
