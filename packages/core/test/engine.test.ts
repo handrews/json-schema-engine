@@ -142,7 +142,7 @@ describe("source-position prefix table (D17)", () => {
     const engine = registered();
     const r = engine.evaluate(A, {}, { output: "list" });
     expect(r.valid).toBe(false);
-    const unit = r.errors!.find((e) => e.error.includes("'x'"))!;
+    const unit = r.errors!.find((e) => e.error.includes('"x"'))!;
     expect(unit.schemaLocation).toBe(`${B}#/required`);
     // schemaLocation = resourceUri + "#" + ptr; document pointer = prefix + ptr
     const [resourceUri, ptr] = unit.schemaLocation.split("#");
@@ -181,7 +181,7 @@ describe("source positions (D17: getRange, locate, unit decoration)", () => {
     const { engine, uri } = await loaded();
     const r = engine.evaluate(uri, {}, { output: "list", positions: true });
     expect(r.valid).toBe(false);
-    const unit = r.errors!.find((e) => e.error.includes("'x'"))!;
+    const unit = r.errors!.find((e) => e.error.includes('"x"'))!;
     expect(unit.schemaLocation).toBe("https://pos.example/leaf#/required");
 
     const source = unit.source!;

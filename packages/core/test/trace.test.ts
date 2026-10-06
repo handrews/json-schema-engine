@@ -106,14 +106,25 @@ describe("trace option", () => {
     expect(r.errors![app.errorIndexes[0]!]!.keyword).toBe("pattern");
   });
 
-  it("attaches boolean-false schema errors to the application node", () => {
+  it("records no node for a false subschema its applicator rejects", () => {
+    // The applicator names the rejected key in one error of its own at
+    // the parent application; the `false` child is never applied.
     const r = run({ properties: { a: false } }, { a: 1 });
-    const app = findBySegments(r.trace, ["properties", "a"])!;
+    expect(findBySegments(r.trace, ["properties", "a"])).toBeUndefined();
+    expect(r.trace.errorIndexes.length).toBe(1);
+    const unit = r.errors![r.trace.errorIndexes[0]!]!;
+    expect(unit.keyword).toBe("properties");
+    expect(unit.inputLocation).toBe("");
+  });
+
+  it("attaches a referenced false schema's error to the application node", () => {
+    const r = run({ $ref: "#/$defs/f", $defs: { f: false } }, 1);
+    const app = findBySegments(r.trace, ["$ref"])!;
     expect(app.valid).toBe(false);
     expect(app.errorIndexes.length).toBe(1);
     const unit = r.errors![app.errorIndexes[0]!]!;
     expect(unit.keyword).toBe(undefined);
-    expect(unit.inputLocation).toBe("/a");
+    expect(unit.error).toBe("schema is false");
   });
 
   it("decodes escaped path segments", () => {

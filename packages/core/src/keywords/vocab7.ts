@@ -14,7 +14,8 @@ import {
   identifiersLegacy,
 } from "../dialect.js";
 import { childCursor } from "../cursor.js";
-import { LowerStmt, lowerIR } from "../lowering.js";
+import { Description, LowerExpr, LowerStmt, lowerIR } from "../lowering.js";
+import { missingDependencies } from "../messages.js";
 import {
   $ref,
   structural,
@@ -35,7 +36,12 @@ import {
   additionalProperties,
 } from "./applicator.js";
 import { items2019, additionalItems } from "./vocab2019.js";
-import { validationVocabulary } from "./validation.js";
+import {
+  describeDependencies,
+  dependencyAbsent,
+  validationVocabulary,
+} from "./validation.js";
+import { dependentsRejected, isFalse } from "./rejects.js";
 
 /** draft-07 core vocabulary identity (registry-internal; not a spec-meaningful URI, D2/D18). */
 export const VOCAB_CORE_07 = "urn:jse:vocab:draft-07:core";
@@ -69,6 +75,17 @@ export const DIALECT_DRAFT_06 = "http://json-schema.org/draft-06/schema";
 const id07 = (name: string): string => `${VOCAB_APPLICATOR_07}#${name}`;
 
 /**
+ * `no item matches the contains subschema`, params `count` (the matches),
+ * `matched` (their indexes) and `minContains` (always 1 here).
+ */
+function describeContains(count: LowerExpr, matched: LowerExpr): Description {
+  return {
+    message: ["no item matches the contains subschema"],
+    params: { count, matched, minContains: lowerIR.constant(1) },
+  };
+}
+
+/**
  * `contains` (draft-07/06): unlike 2020-12's `contains`, these drafts have
  * no `minContains`/`maxContains` keywords at all — any occurrence of those
  * names is just an unknown (annotation-only) keyword, never a sibling
@@ -85,12 +102,22 @@ export const containsLegacy: KeywordBehavior = {
       { path: [], mode: "childSweep", conditional: false, asserts: false },
     ],
   }),
-  // Unconditional "at least 1" — countRange with no upper bound, matching
-  // evaluate()'s fixed message exactly (no minContains/maxContains reads
-  // exist in these drafts, so unlike 2020-12 `contains` there is no tally
-  // or params in the failure text).
-  lower: (_value, lctx) => {
+  // Unconditional "at least 1" — countRange with no upper bound. A `false`
+  // subschema matches nothing, so no item is probed and the failure is
+  // reported directly.
+  lower: (value, lctx) => {
+    if (isFalse(value)) {
+      lctx.emit(
+        lowerIR.when(lowerIR.typeIs(lctx.instance, "array"), [
+          lowerIR.failDescribed(
+            describeContains(lowerIR.constant(0), lowerIR.constant([])),
+          ),
+        ]),
+      );
+      return;
+    }
     const b = lctx.binding();
+    const failure = describeContains({ kind: "tally" }, { kind: "tallyList" });
     lctx.emit(
       lowerIR.when(lowerIR.typeIs(lctx.instance, "array"), [
         {
@@ -111,20 +138,28 @@ export const containsLegacy: KeywordBehavior = {
           },
           min: 1,
           max: Infinity,
-          outOfRangeMessage: ["no item matches the contains subschema"],
+          outOfRangeMessage: failure.message,
+          outOfRangeParams: failure.params,
         },
       ]),
     );
   },
-  evaluate: (_value, cursor, ctx) => {
+  evaluate: (value, cursor, ctx) => {
     if (!Array.isArray(cursor.value)) return true;
-    const matched: number[] = [];
-    for (let i = 0; i < cursor.value.length; i++) {
-      if (ctx.apply(["contains"], childCursor(cursor, i, cursor.value[i]!)))
-        matched.push(i);
+    const matched: JsonValue[] = [];
+    if (!isFalse(value)) {
+      for (let i = 0; i < cursor.value.length; i++) {
+        if (ctx.apply(["contains"], childCursor(cursor, i, cursor.value[i]!)))
+          matched.push(i);
+      }
     }
     if (matched.length === 0) {
-      ctx.error("no item matches the contains subschema");
+      ctx.report(() =>
+        describeContains(
+          lowerIR.constant(matched.length),
+          lowerIR.constant(matched),
+        ),
+      );
       return false;
     }
     return true;
@@ -163,81 +198,72 @@ export const dependencies: KeywordBehavior = {
     };
   },
   // Per-member dispatch is plan-time (the value shape is static, just like
-  // evaluate()'s Array.isArray/isSchemaValue reads): array-valued members
-  // lower like dependentRequired (validation.ts), schema-valued members
-  // like dependentSchemas (applicator.ts, path ["dependencies", name]).
+  // evaluate()'s Array.isArray/isSchemaValue reads): schema-valued members
+  // lower like dependentSchemas (applicator.ts, path ["dependencies", name]),
+  // a `false` one rejected and named once; array-valued members lower like
+  // dependentRequired (validation.ts), one error after the schema members'.
   lower: (value, lctx) => {
     if (!isObject(value)) return;
-    const branches = Object.entries(value as Record<string, JsonValue>).flatMap(
-      ([name, dep]): LowerStmt[] => {
-        if (Array.isArray(dep)) {
-          return [
-            lowerIR.when(
-              { kind: "hasOwn", target: lctx.instance, key: name },
-              (dep as string[]).map((required) =>
-                lowerIR.when(
-                  lowerIR.not({
-                    kind: "hasOwn",
-                    target: lctx.instance,
-                    key: required,
-                  }),
-                  [
-                    lowerIR.failWith(
-                      {
-                        property: lowerIR.constant(name),
-                        missingProperty: lowerIR.constant(required),
-                      },
-                      `'${name}' requires '${required}' to be present`,
-                    ),
-                  ],
-                ),
-              ),
+    const members = Object.entries(value as Record<string, JsonValue>).filter(
+      ([, dep]) => !Array.isArray(dep) && isSchemaValue(dep),
+    );
+    const r = members.some(([, dep]) => isFalse(dep)) ? lctx.binding() : null;
+    const schemaSteps = members.map(([name, dep]) =>
+      lowerIR.when({ kind: "hasOwn", target: lctx.instance, key: name }, [
+        r !== null && isFalse(dep)
+          ? lowerIR.reject(r, lowerIR.constant(name))
+          : {
+              kind: "apply",
+              apply: {
+                path: [name],
+                cursor: { kind: "here" },
+                fold: "allMustPass",
+              },
+            },
+      ]),
+    );
+    const body: LowerStmt[] =
+      r === null
+        ? schemaSteps
+        : [
+            lowerIR.rejectScope(
+              r,
+              schemaSteps,
+              dependentsRejected("dependencies", { kind: "binding", id: r }),
             ),
           ];
-        }
-        if (isSchemaValue(dep)) {
-          return [
-            lowerIR.when({ kind: "hasOwn", target: lctx.instance, key: name }, [
-              {
-                kind: "apply",
-                apply: {
-                  path: [name],
-                  cursor: { kind: "here" },
-                  fold: "allMustPass",
-                },
-              },
-            ]),
-          ];
-        }
-        // Unreachable per the metaschema's anyOf (schema vs stringArray),
-        // mirrored defensively as evaluate()'s implicit no-op else branch.
-        return [];
-      },
-    );
-    if (branches.length === 0) return;
-    lctx.emit(lowerIR.when(lowerIR.typeIs(lctx.instance, "object"), branches));
+    const absent = dependencyAbsent(value, lctx.instance);
+    if (absent !== null) {
+      body.push(
+        lowerIR.when(absent, [
+          lowerIR.failDescribed(describeDependencies(value, lctx.instance)),
+        ]),
+      );
+    }
+    if (body.length === 0) return;
+    lctx.emit(lowerIR.when(lowerIR.typeIs(lctx.instance, "object"), body));
   },
   evaluate: (value, cursor, ctx) => {
     if (!isObject(cursor.value)) return true;
     const instance = cursor.value;
+    const spec = value as Record<string, JsonValue>;
     let ok = true;
-    for (const [name, dep] of Object.entries(
-      value as Record<string, JsonValue>,
-    )) {
-      if (!Object.hasOwn(instance, name)) continue;
-      if (Array.isArray(dep)) {
-        for (const required of dep as string[]) {
-          if (!Object.hasOwn(instance, required)) {
-            ctx.error(`'${name}' requires '${required}' to be present`, {
-              property: name,
-              missingProperty: required,
-            });
-            ok = false;
-          }
-        }
-      } else if (isSchemaValue(dep)) {
-        if (!ctx.apply(["dependencies", name], cursor)) ok = false;
-      }
+    const rejected: JsonValue[] = [];
+    for (const [name, dep] of Object.entries(spec)) {
+      if (!Object.hasOwn(instance, name) || Array.isArray(dep)) continue;
+      if (!isSchemaValue(dep)) continue;
+      if (isFalse(dep)) rejected.push(name);
+      else if (!ctx.apply(["dependencies", name], cursor)) ok = false;
+    }
+    if (rejected.length > 0) {
+      ctx.report(() =>
+        dependentsRejected("dependencies", lowerIR.constant(rejected)),
+      );
+      ok = false;
+    }
+    if (Object.keys(missingDependencies(instance, spec)).length > 0) {
+      ctx.report(() => describeDependencies(spec, lowerIR.instance));
+      ok = false;
     }
     return ok;
   },

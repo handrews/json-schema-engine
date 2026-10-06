@@ -1,7 +1,12 @@
 // LowerExpr rendering: instance access, type tests, helper calls, and the
 // coverage-fold membership tests of region emission.
 
-import { type LowerExpr } from "@json-schema-engine/core";
+import {
+  type LowerExpr,
+  type LowerHelper,
+  type LowerMessageHelper,
+  type LowerValueHelper,
+} from "@json-schema-engine/core";
 import { type CodeChunk, id, join, js, raw, str, json } from "../emit.js";
 import { bindingVar, regexConst, formatConst } from "./names.js";
 import { UnitContext, SerializeError } from "./context.js";
@@ -78,10 +83,16 @@ export function expr(ctx: UnitContext, e: LowerExpr): CodeChunk {
       )})`;
     }
     case "tally":
+      // Bound by renderMessage/paramsChunk while a combine/count check's
+      // message and params render (context.ts).
+      if (!ctx.tallyVar)
+        throw new SerializeError("tally outside a counted check");
+      return ctx.tallyVar;
     case "tallyList":
-      throw new SerializeError(
-        "'" + e.kind + "' is only meaningful inside a combineCheck message",
-      );
+      if (!ctx.tallyListVar) {
+        throw new SerializeError("tallyList outside a counted check");
+      }
+      return ctx.tallyListVar;
     case "applyExpr":
       // The two legal applyExpr positions (`if`'s condition, contains'
       // probe) are intercepted at the statement level so their span can
@@ -158,9 +169,46 @@ export function typeTest(
   return tests.length === 1 ? tests[0]! : js`(${join(" || ", tests)})`;
 }
 
+// The artifact-local name of each hoisted value helper, bound in the
+// prologue and defined by the standalone preamble.
+const VALUE_HELPER_VARS: Record<
+  Exclude<LowerValueHelper, "keysOf" | "lengthOf">,
+  string
+> = {
+  codePointLength: "h_cpl",
+  jsonEqual: "h_eq",
+  canonicalKey: "h_ck",
+  escapeSegment: "h_esc",
+  isMultipleOf: "h_mof",
+  hasDuplicateItems: "h_dup",
+  firstDuplicatePair: "h_fdp",
+};
+
+/**
+ * The artifact-local name of each message-formatting helper
+ * (core/messages.ts). The prologue binds exactly the ones some error in
+ * the artifact calls (`plan.messageHelpers`), so a flag artifact, which
+ * renders no message, never names one.
+ */
+export const MESSAGE_HELPER_VARS: Record<LowerMessageHelper, string> = {
+  preview: "h_prev",
+  apparentType: "h_atype",
+  typedPreview: "h_tprev",
+  indexRanges: "h_irng",
+  ranges: "h_rngs",
+  nameList: "h_names",
+  labeledNames: "h_lnames",
+  countedIndexes: "h_cidx",
+  indexGroups: "h_igrp",
+  duplicateGroups: "h_dupg",
+  missingNames: "h_miss",
+  missingDependencies: "h_mdep",
+  dependencyList: "h_dlist",
+};
+
 export function helperCall(
   ctx: UnitContext,
-  helper: string,
+  helper: LowerHelper,
   args: readonly LowerExpr[],
 ): CodeChunk {
   if (helper === "jsonEqual") {
@@ -174,15 +222,6 @@ export function helperCall(
     }
   }
   const rendered = args.map((a) => expr(ctx, a));
-  const hoisted: Record<string, string> = {
-    codePointLength: "h_cpl",
-    jsonEqual: "h_eq",
-    canonicalKey: "h_ck",
-    escapeSegment: "h_esc",
-    isMultipleOf: "h_mof",
-    hasDuplicateItems: "h_dup",
-    firstDuplicatePair: "h_fdp",
-  };
   switch (helper) {
     case "keysOf":
       return js`Object.keys(${rendered[0]!})`;
@@ -195,8 +234,12 @@ export function helperCall(
     case "isMultipleOf":
     case "hasDuplicateItems":
     case "firstDuplicatePair":
-      return js`${id(hoisted[helper]!)}(${join(", ", rendered)})`;
+      return js`${id(VALUE_HELPER_VARS[helper])}(${join(", ", rendered)})`;
     default:
-      throw new SerializeError("helper '" + helper + "' is not supported");
+      // A message-formatting helper: recorded so the prologue binds it.
+      if (!ctx.plan.messageHelpers.includes(helper)) {
+        ctx.plan.messageHelpers.push(helper);
+      }
+      return js`${id(MESSAGE_HELPER_VARS[helper])}(${join(", ", rendered)})`;
   }
 }

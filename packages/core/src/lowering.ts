@@ -116,12 +116,12 @@ export type LowerExpr =
     };
 
 /**
- * The closed set of runtime helpers emitted code may call. All are imported
- * from the compiler's runtime module (re-exports of core functions) — never
+ * The helpers a condition may call: predicates and measures, imported from
+ * the compiler's runtime module (re-exports of core functions) — never
  * re-emitted per artifact, so compiled and interpreted tiers share one
- * implementation of each semantic.
+ * implementation of each semantic — and mirrored in the standalone preamble.
  */
-export type LowerHelper =
+export type LowerValueHelper =
   | "codePointLength"
   | "jsonEqual"
   | "canonicalKey"
@@ -131,6 +131,29 @@ export type LowerHelper =
   | "isMultipleOf"
   | "hasDuplicateItems"
   | "firstDuplicatePair";
+
+/**
+ * The helpers an error message or its params may call (messages.ts):
+ * formatting only, never a condition, so a flag artifact never binds one
+ * and the standalone preamble never carries one.
+ */
+export type LowerMessageHelper =
+  | "preview"
+  | "apparentType"
+  | "typedPreview"
+  | "indexRanges"
+  | "ranges"
+  | "nameList"
+  | "labeledNames"
+  | "countedIndexes"
+  | "indexGroups"
+  | "duplicateGroups"
+  | "missingNames"
+  | "missingDependencies"
+  | "dependencyList";
+
+/** The closed set of runtime helpers emitted code may call. */
+export type LowerHelper = LowerValueHelper | LowerMessageHelper;
 
 /** A statement-level IR node. */
 export type LowerStmt =
@@ -224,6 +247,27 @@ export type LowerStmt =
       readonly max: number;
       readonly outOfRangeMessage: LowerMessage;
       readonly outOfRangeParams?: LowerParams;
+    }
+  /**
+   * The keys a keyword rejects outright because its subschema there is
+   * `false` (D13): `body` runs the sweep, each `reject` inside it appends to
+   * the list bound as `list`, and one error naming them all follows when the
+   * list is non-empty. A verdict-only artifact binds no list: its first
+   * `reject` returns false, exactly as a `fail`. Nothing is applied — a
+   * `false` subschema's own error would only repeat the summary.
+   */
+  | {
+      readonly kind: "rejectScope";
+      readonly list: number;
+      readonly body: readonly LowerStmt[];
+      readonly message: LowerMessage;
+      readonly params?: LowerParams;
+    }
+  /** append `item` to the enclosing rejectScope's list; a verdict-only artifact fails at once */
+  | {
+      readonly kind: "reject";
+      readonly list: number;
+      readonly item: LowerExpr;
     };
 
 /** How a keyword's lowered body applies one subschema. */
@@ -286,6 +330,18 @@ export type LowerMessage = readonly (string | LowerExpr)[];
  * exactly.
  */
 export type LowerParams = Readonly<Record<string, LowerExpr>>;
+
+/**
+ * One keyword error, described once (D13): the message and params `lower()`
+ * emits as a `fail`, and `evaluate()` reports through
+ * `KeywordContext.report` for the record to realize against the instance
+ * if it is ever rendered (messages.ts). Runtime data enters the lowered
+ * form as bindings and tallies, and the evaluate-side form as constants.
+ */
+export interface Description {
+  readonly message: LowerMessage;
+  readonly params?: LowerParams;
+}
 
 /**
  * A dependency-data recipe: what a keyword's lowered body communicates to
@@ -357,7 +413,7 @@ export interface LoweringContext {
   runtimeCoverage(): boolean;
   /** append statements to the keyword's lowered body */
   emit(...stmts: LowerStmt[]): void;
-  /** allocate a loop binding id for forEachKey/forEachIndex */
+  /** allocate a binding id: a forEachKey/forEachIndex loop variable, or a rejectScope's list */
   binding(): number;
 }
 
@@ -405,6 +461,28 @@ export const lowerIR = {
     kind: "fail",
     message,
     params,
+  }),
+  /** a `fail` carrying a keyword's one description */
+  failDescribed: (description: Description): LowerStmt => ({
+    kind: "fail",
+    message: description.message,
+    params: description.params,
+  }),
+  rejectScope: (
+    list: number,
+    body: readonly LowerStmt[],
+    description: Description,
+  ): LowerStmt => ({
+    kind: "rejectScope",
+    list,
+    body,
+    message: description.message,
+    params: description.params,
+  }),
+  reject: (list: number, item: LowerExpr): LowerStmt => ({
+    kind: "reject",
+    list,
+    item,
   }),
   when: (
     cond: LowerExpr,

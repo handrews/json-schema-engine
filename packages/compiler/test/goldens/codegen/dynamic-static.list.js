@@ -3,6 +3,7 @@ const { isObject: h_obj, isInteger: h_int, jsonEqual: h_eq, canonicalKey: h_ck, 
 const h_maxd = R.maxDepth;
 const h_s0 = [];
 const h_hop = Object.prototype.hasOwnProperty;
+const { typedPreview: h_tprev, apparentType: h_atype } = R.messageHelpers;
 function u0(v, d, s, ep, ip, errs) { if (d >= h_maxd) h_deep(); d++;
 const g0 = (typeof v === "object" && v !== null && !Array.isArray(v));
 let ok = true;
@@ -14,6 +15,6 @@ let ok = true;
 if (!u2(v, d, h_s0, ep + "/$dynamicRef", ip, errs)) { ok = false; }
 return ok; }
 function u2(v, d, s, ep, ip, errs) { let ok = true;
-if (!((typeof v === "string"))) { ok = false; errs.push({ evaluationPath: ep + "/type", schemaLocation: "https://codegen.example/dynamic-static#/$defs/node/type", inputLocation: ip, error: "expected type \"string\"", keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": "string" } }); }
+if (!((typeof v === "string"))) { ok = false; errs.push({ evaluationPath: ep + "/type", schemaLocation: "https://codegen.example/dynamic-static#/$defs/node/type", inputLocation: ip, error: ("expected string, got " + String(h_tprev(v))), keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": ["string"], "actual": h_atype(v), "value": v } }); }
 return ok; }
 return function evaluateList(v) { const errs = []; const ok = u0(v, 0, h_s0, "", "", errs); return { valid: ok, errors: errs }; };

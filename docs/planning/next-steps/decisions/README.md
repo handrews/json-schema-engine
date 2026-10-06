@@ -15,3 +15,4 @@ discoverable.
 | [0004](0004-static-dynamic-ref-resolution.md)         | Static resolution of `$dynamicRef` in artifacts                 | Accepted 2026-09-21 |
 | [0005](0005-registry-integrity.md)                    | Atomic, duplicate-checked registration with explicit unregister | Accepted 2026-09-23 |
 | [0006](0006-per-resource-dialects.md)                 | Per-resource dialects: `$schema` governs the resource it roots  | Accepted 2026-09-23 |
+| [0007](0007-informative-errors.md)                    | Informative errors: one description per keyword, both tiers     | Accepted 2026-10-06 |

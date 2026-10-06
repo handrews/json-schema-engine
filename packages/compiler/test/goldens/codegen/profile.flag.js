@@ -22,7 +22,7 @@ if (!((typeof t4 === "string"))) { return false; }
  }
 if (g1) {  }
 if (!(g1)) { return false; }
-if (g1) { if (!(("id" in v))) { return false; } }
+if ((g1 && (!(("id" in v))))) { return false; }
 
 return true; }
 return function validate(v) { return u0(v, 0, h_s0); };

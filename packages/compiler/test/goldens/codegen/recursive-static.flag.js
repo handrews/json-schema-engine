@@ -14,6 +14,6 @@ if (!u0(t3, d, h_s0)) return false; } }
 if (!(Array.isArray(t2))) { return false; } }
 if (g1) {  }
 if (!(g1)) { return false; }
-if (g1) { if (!(("name" in v))) { return false; } }
+if ((g1 && (!(("name" in v))))) { return false; }
 return true; }
 return function validate(v) { return u0(v, 0, h_s0); };

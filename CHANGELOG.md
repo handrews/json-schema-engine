@@ -6,8 +6,72 @@ errors they raise may change between releases.
 
 ## [Unreleased]
 
+Informative errors
+([ADR 0007](docs/planning/next-steps/decisions/0007-informative-errors.md)).
+
+### Changed
+
+- **Breaking:** `required` reports one error per keyword, with
+  `params.missing` listing every absent name, in place of one error per
+  name with `missingProperty`. The message reads `missing required property
+"a"` or `missing required properties "a", "c"`.
+- **Breaking:** `dependentRequired` and the array members of draft-07
+  `dependencies` report one error, with `params.missing` a record from each
+  present property to its absent requirements, in place of one error per
+  missing name with `{property, missingProperty}`.
+- **Breaking:** `uniqueItems` reports `params.duplicates`, the groups of
+  equal items as lists of indexes, in place of the first duplicate pair
+  `[i, j]`.
+- **Breaking:** `type` reports `params.expected` as an array always (it was
+  the schema's own value, a string or an array), with `actual` (`integer`
+  for a mathematical integer) and `value` added. `enum`, `const`,
+  `multipleOf`, the numeric bounds, `minLength`/`maxLength`, `pattern`, and
+  asserting `format` add `value`; the string and size bounds add `length`
+  or `count`; `contains` adds `matched`, the indexes of the matching items.
+- **Breaking:** an applicator no longer applies a `false` subschema.
+  `additionalProperties`, `unevaluatedProperties`, `properties`,
+  `patternProperties`, `propertyNames`, `dependentSchemas`, `dependencies`,
+  `items`, `additionalItems`, `unevaluatedItems`, `prefixItems`, and
+  `allOf` report one error at their own location, with their own `keyword`
+  and params naming the rejected keys, names, or index ranges, in place of
+  one `schema is false` unit per child. No trace node exists for the child.
+  `contains: false` reports only the `contains` error. A root `false`, a
+  `$ref` to `false`, `then`/`else: false`, and `anyOf`/`oneOf` branches
+  still report `schema is false`.
+- **Breaking:** `ErrorRecord.message` is empty when the record carries a
+  `describe` thunk; the realized text is what a unit's `error` holds.
+- Every built-in message names what was wrong with what: `expected string,
+got 3 (integer)`, `must be >= 5, got 3`, `must be one of [1, 2, 3], got
+4`, `matched 2 branches (0, 2), expected exactly 1 of 3`. A value shows as
+  compact JSON cut at 64 code points; a list of names shows at most 10
+  then `and N more`; a list of indexes collapses runs of three or more.
+  Both tiers produce the same text and params. Params carry the full value.
+- ajv-compat output is unchanged. The adapter fans the engine's summaries
+  back out into AJV's per-property and per-index errors, and
+  `propertyNames: false` no longer needs the evaluation trace.
+
+### Added
+
+- `KeywordContext.report(describe)`, beside `error(message, params)`: a
+  keyword whose message carries instance data returns a `Description` built
+  from lowering IR, which the record realizes against the instance only if
+  the error is rendered, so a verdict-only evaluation or a dropped error
+  costs nothing.
+- `Description`, `realize`, `preview`, `PREVIEW_LIMIT`, `messageHelpers`,
+  and `helperTable`, exported from `@json-schema-engine/core`; and the
+  optional `ErrorRecord.describe`.
+- `LowerHelper` is now `LowerValueHelper | LowerMessageHelper`, the latter
+  the 13 message-formatting helpers (`preview`, `apparentType`,
+  `typedPreview`, `indexRanges`, `ranges`, `nameList`, `labeledNames`,
+  `countedIndexes`, `indexGroups`, `duplicateGroups`, `missingNames`,
+  `missingDependencies`, `dependencyList`).
+- Lowering IR statements `rejectScope` and `reject`, with
+  `lowerIR.rejectScope`, `lowerIR.reject`, and `lowerIR.failDescribed`.
+
 ### Fixed
 
+- ajv-compat now matches AJV on `uniqueItems.json#0` and
+  `propertyNames.json#3`, two cases that were suite mismatches.
 - The output guide now says how `list` and `hierarchical` relate to the
   machines-oriented proposal that defines them. The proposal has no
   concept of relevance, includes every unit in `hierarchical`, and makes

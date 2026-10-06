@@ -1,7 +1,7 @@
 // Unevaluated vocabulary: the channel-consumer keyword class. Phase 1: runs
 // after every other keyword in the same schema object has merged.
 
-import { isObject } from "../json.js";
+import { isObject, JsonValue } from "../json.js";
 import { KeywordBehavior } from "../dialect.js";
 import { LowerExpr, LowerStmt, lowerIR } from "../lowering.js";
 import { childCursor } from "../cursor.js";
@@ -14,6 +14,12 @@ import {
   items,
   contains,
 } from "./applicator.js";
+import {
+  isFalse,
+  rejectingSweep,
+  unevaluatedNamesRejected,
+  unevaluatedRejected,
+} from "./rejects.js";
 
 /** 2020-12 unevaluated vocabulary URI. */
 export const VOCAB_UNEVALUATED =
@@ -44,7 +50,7 @@ export const unevaluatedProperties: KeywordBehavior = {
   // Static-coverage path only (D9a): the planner classifies this schema
   // object as interpreted when any coverage contributor is dynamic, so
   // lower() is never called with a null coverage.
-  lower: (_value, lctx) => {
+  lower: (value, lctx) => {
     // Runtime-coverage path (phase B activates it): fold the unit's runtime
     // channel into an evaluated-name set and sweep the names it does not
     // cover, mirroring evaluate()'s seen-set skip. The object-gated
@@ -53,37 +59,32 @@ export const unevaluatedProperties: KeywordBehavior = {
     if (lctx.runtimeCoverage()) {
       const f = lctx.binding();
       const b = lctx.binding();
+      const { step, scope } = rejectingSweep(
+        value,
+        { kind: "binding", id: b },
+        lctx,
+        unevaluatedNamesRejected,
+      );
       lctx.emit(
         lowerIR.when(lowerIR.typeIs(lctx.instance, "object"), [
           { kind: "coverageFold", half: "names", binding: f },
-          {
-            kind: "forEachKey",
-            target: lctx.instance,
-            binding: b,
-            body: [
-              lowerIR.when(
-                lowerIR.not({
-                  kind: "coverageCovers",
-                  fold: f,
-                  target: { kind: "binding", id: b },
-                }),
-                [
-                  {
-                    kind: "apply",
-                    apply: {
-                      path: [],
-                      cursor: {
-                        kind: "child",
-                        of: { kind: "here" },
-                        segment: { kind: "binding", id: b },
-                      },
-                      fold: "allMustPass",
-                    },
-                  },
-                ],
-              ),
-            ],
-          },
+          ...scope([
+            {
+              kind: "forEachKey",
+              target: lctx.instance,
+              binding: b,
+              body: [
+                lowerIR.when(
+                  lowerIR.not({
+                    kind: "coverageCovers",
+                    fold: f,
+                    target: { kind: "binding", id: b },
+                  }),
+                  [step],
+                ),
+              ],
+            },
+          ]),
           { kind: "produce", value: { kind: "collectedNames" } },
         ]),
       );
@@ -110,39 +111,36 @@ export const unevaluatedProperties: KeywordBehavior = {
           lowerIR.regexTest(p, { kind: "binding", id: b }),
         ),
       ];
-      body.push({
-        kind: "forEachKey",
-        target: lctx.instance,
-        binding: b,
-        body: [
-          lowerIR.when(
-            covered.length === 0
-              ? lowerIR.constant(true)
-              : lowerIR.not(lowerIR.or(...covered)),
-            [
-              {
-                kind: "apply",
-                apply: {
-                  path: [],
-                  cursor: {
-                    kind: "child",
-                    of: { kind: "here" },
-                    segment: { kind: "binding", id: b },
-                  },
-                  fold: "allMustPass",
-                },
-              },
+      const { step, scope } = rejectingSweep(
+        value,
+        { kind: "binding", id: b },
+        lctx,
+        unevaluatedNamesRejected,
+      );
+      body.push(
+        ...scope([
+          {
+            kind: "forEachKey",
+            target: lctx.instance,
+            binding: b,
+            body: [
+              lowerIR.when(
+                covered.length === 0
+                  ? lowerIR.constant(true)
+                  : lowerIR.not(lowerIR.or(...covered)),
+                [step],
+              ),
             ],
-          ),
-        ],
-      });
+          },
+        ]),
+      );
     }
     body.push({ kind: "produce", value: { kind: "collectedNames" } });
     // Produce iff the instance is an object (nothing otherwise), matching
     // evaluate()'s object-type guard before ctx.produce.
     lctx.emit(lowerIR.when(lowerIR.typeIs(lctx.instance, "object"), body));
   },
-  evaluate: (_value, cursor, ctx) => {
+  evaluate: (value, cursor, ctx) => {
     if (!isObject(cursor.value)) return true;
     const seen = new Set<string>();
     for (const p of ctx.visible([
@@ -159,12 +157,18 @@ export const unevaluatedProperties: KeywordBehavior = {
       if (seen.has(name)) continue;
       matched.push(name);
       if (
+        !isFalse(value) &&
         !ctx.apply(
           ["unevaluatedProperties"],
           childCursor(cursor, name, cursor.value[name]!),
         )
       )
         ok = false;
+    }
+    if (isFalse(value) && matched.length > 0) {
+      const rejected: JsonValue[] = [...matched];
+      ctx.report(() => unevaluatedNamesRejected(lowerIR.constant(rejected)));
+      ok = false;
     }
     // Dependency data only from an accepting keyword (Appendix D; see
     // applicator.ts properties).
@@ -196,7 +200,7 @@ export const unevaluatedItems: KeywordBehavior = {
   // interpreted whenever any index-coverage contributor is dynamic (e.g. a
   // sibling `contains`, whose coverage is instance-dependent), so lower() is
   // never called with a null/incomplete coverage.
-  lower: (_value, lctx) => {
+  lower: (value, lctx) => {
     // Runtime-coverage path (phase B activates it): fold the unit's runtime
     // channel into a coveredPrefix/coveredIdx summary over this array's
     // length and sweep the indexes it does not cover, mirroring evaluate()'s
@@ -205,38 +209,33 @@ export const unevaluatedItems: KeywordBehavior = {
     if (lctx.runtimeCoverage()) {
       const f = lctx.binding();
       const b = lctx.binding();
+      const { step, scope } = rejectingSweep(
+        value,
+        { kind: "binding", id: b },
+        lctx,
+        unevaluatedRejected,
+      );
       lctx.emit(
         lowerIR.when(lowerIR.typeIs(lctx.instance, "array"), [
           { kind: "coverageFold", half: "indexes", binding: f },
-          {
-            kind: "forEachIndex",
-            target: lctx.instance,
-            binding: b,
-            start: 0,
-            body: [
-              lowerIR.when(
-                lowerIR.not({
-                  kind: "coverageCovers",
-                  fold: f,
-                  target: { kind: "binding", id: b },
-                }),
-                [
-                  {
-                    kind: "apply",
-                    apply: {
-                      path: [],
-                      cursor: {
-                        kind: "child",
-                        of: { kind: "here" },
-                        segment: { kind: "binding", id: b },
-                      },
-                      fold: "allMustPass",
-                    },
-                  },
-                ],
-              ),
-            ],
-          },
+          ...scope([
+            {
+              kind: "forEachIndex",
+              target: lctx.instance,
+              binding: b,
+              start: 0,
+              body: [
+                lowerIR.when(
+                  lowerIR.not({
+                    kind: "coverageCovers",
+                    fold: f,
+                    target: { kind: "binding", id: b },
+                  }),
+                  [step],
+                ),
+              ],
+            },
+          ]),
           {
             kind: "produce",
             value: { kind: "collectedIndexes", render: "appliedTrue" },
@@ -253,28 +252,23 @@ export const unevaluatedItems: KeywordBehavior = {
     }
     if (coverage.coversAllIndexes) return; // statically vacuous
     const b = lctx.binding();
+    const { step, scope } = rejectingSweep(
+      value,
+      { kind: "binding", id: b },
+      lctx,
+      unevaluatedRejected,
+    );
     lctx.emit(
       lowerIR.when(lowerIR.typeIs(lctx.instance, "array"), [
-        {
-          kind: "forEachIndex",
-          target: lctx.instance,
-          binding: b,
-          start: coverage.prefixCount,
-          body: [
-            {
-              kind: "apply",
-              apply: {
-                path: [],
-                cursor: {
-                  kind: "child",
-                  of: { kind: "here" },
-                  segment: { kind: "binding", id: b },
-                },
-                fold: "allMustPass",
-              },
-            },
-          ],
-        },
+        ...scope([
+          {
+            kind: "forEachIndex",
+            target: lctx.instance,
+            binding: b,
+            start: coverage.prefixCount,
+            body: [step],
+          },
+        ]),
       ]),
     );
     // Annotation: true iff it applied to any unevaluated index.
@@ -283,7 +277,7 @@ export const unevaluatedItems: KeywordBehavior = {
       value: { kind: "collectedIndexes", render: "appliedTrue" },
     });
   },
-  evaluate: (_value, cursor, ctx) => {
+  evaluate: (value, cursor, ctx) => {
     if (!Array.isArray(cursor.value)) return true;
     const length = cursor.value.length;
     let coveredPrefix = 0;
@@ -305,17 +299,22 @@ export const unevaluatedItems: KeywordBehavior = {
     }
     let ok = true;
     let applied = false;
+    const rejected: JsonValue[] = [];
     for (let i = coveredPrefix; i < length; i++) {
       if (coveredIdx.has(i)) continue;
       applied = true;
-      if (
+      if (isFalse(value)) rejected.push(i);
+      else if (
         !ctx.apply(
           ["unevaluatedItems"],
           childCursor(cursor, i, cursor.value[i]!),
         )
-      ) {
+      )
         ok = false;
-      }
+    }
+    if (rejected.length > 0) {
+      ctx.report(() => unevaluatedRejected(lowerIR.constant(rejected)));
+      ok = false;
     }
     if (applied && ok) ctx.produce(true);
     return ok;

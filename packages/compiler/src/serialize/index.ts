@@ -41,6 +41,7 @@ import {
 } from "./context.js";
 import { guardDecl } from "./guards.js";
 import { unitBody } from "./unit.js";
+import { MESSAGE_HELPER_VARS } from "./expressions.js";
 
 export type {
   AnnotateOptions,
@@ -107,6 +108,15 @@ function prologueChunks(
       prologue.push(
         js`const { traceState: h_tstate, traceNode: h_tnode, traceError: h_err, traceAnn: h_ann, cutErrors: h_cutE, cutAnns: h_cutA, fragTrace: h_fragt } = ${R};`,
       );
+    }
+    // Message-formatting helpers (core/messages.ts): bound only when some
+    // error in the artifact calls one, in first-use order. A flag artifact
+    // renders no message, so its prologue is unchanged.
+    if (plan.messageHelpers.length > 0) {
+      const bound = plan.messageHelpers.map(
+        (h) => js`${id(h)}: ${id(MESSAGE_HELPER_VARS[h])}`,
+      );
+      prologue.push(js`const { ${join(", ", bound)} } = ${R}.messageHelpers;`);
     }
     // Region emission (phase B) helpers: the two channel folds, plus the
     // coverage-harvesting island trampoline in flag mode (list islands go

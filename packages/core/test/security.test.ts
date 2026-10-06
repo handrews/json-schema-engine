@@ -35,7 +35,7 @@ describe("uniqueItems is near-linear (D20)", () => {
     );
     const result = engine.evaluate(uri, [1, 2, 3, 2], { output: "list" });
     expect(result.valid).toBe(false);
-    expect(result.errors?.[0]?.error).toContain("items at 1 and 3");
+    expect(result.errors?.[0]?.error).toContain("[1, 3] are equal");
   });
 
   it("treats values that only look alike as distinct (no hash-collision miss)", () => {

@@ -4,6 +4,7 @@ const h_maxd = R.maxDepth;
 const h_s0 = [];
 const h_hop = Object.prototype.hasOwnProperty;
 const h_fragla = R.fragListAnn;
+const { typedPreview: h_tprev, apparentType: h_atype, missingNames: h_miss, labeledNames: h_lnames } = R.messageHelpers;
 function u0(v, d, s, ep, ip, errs, anns) { if (d >= h_maxd) h_deep(); d++;
 const g1 = (typeof v === "object" && v !== null && !Array.isArray(v));
 let ok = true;
@@ -12,27 +13,27 @@ if ((g1 && ("displayName" in v))) { const m2 = anns.length; if (!u2(v["displayNa
 if ((g1 && ("bio" in v))) { const m3 = anns.length; if (!u3(v["bio"], d, h_s0, ep + "/properties/bio", ip + "/bio", errs, anns)) { ok = false; anns.length = m3; } }
 if ((g1 && ("createdAt" in v))) { const m4 = anns.length; if (!u4(v["createdAt"], d, h_s0, ep + "/properties/createdAt", ip + "/createdAt", errs, anns)) { ok = false; anns.length = m4; } }
 if (g1) {  }
-if (!(g1)) { ok = false; errs.push({ evaluationPath: ep + "/type", schemaLocation: "https://spike.example/profile#/type", inputLocation: ip, error: "expected type \"object\"", keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": "object" } }); }
-if (g1) { if (!(("id" in v))) { ok = false; errs.push({ evaluationPath: ep + "/required", schemaLocation: "https://spike.example/profile#/required", inputLocation: ip, error: "missing required property 'id'", keyword: "required", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "missingProperty": "id" } }); } }
+if (!(g1)) { ok = false; errs.push({ evaluationPath: ep + "/type", schemaLocation: "https://spike.example/profile#/type", inputLocation: ip, error: ("expected object, got " + String(h_tprev(v))), keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": ["object"], "actual": h_atype(v), "value": v } }); }
+if ((g1 && (!(("id" in v))))) { ok = false; errs.push({ evaluationPath: ep + "/required", schemaLocation: "https://spike.example/profile#/required", inputLocation: ip, error: ("missing required " + String(h_lnames(h_miss(v, ["id"]), "property", "properties"))), keyword: "required", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "missing": h_miss(v, ["id"]) } }); }
 anns.push({ keyword: "title", vocabulary: "https://json-schema.org/draft/2020-12/vocab/meta-data", evaluationPath: ep + "/title", schemaLocation: "https://spike.example/profile#/title", inputLocation: ip, annotation: "User profile" });
 return ok; }
 function u1(v, d, s, ep, ip, errs, anns) { let ok = true;
-if (!((typeof v === "string"))) { ok = false; errs.push({ evaluationPath: ep + "/type", schemaLocation: "https://spike.example/profile#/properties/id/type", inputLocation: ip, error: "expected type \"string\"", keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": "string" } }); }
+if (!((typeof v === "string"))) { ok = false; errs.push({ evaluationPath: ep + "/type", schemaLocation: "https://spike.example/profile#/properties/id/type", inputLocation: ip, error: ("expected string, got " + String(h_tprev(v))), keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": ["string"], "actual": h_atype(v), "value": v } }); }
 anns.push({ keyword: "title", vocabulary: "https://json-schema.org/draft/2020-12/vocab/meta-data", evaluationPath: ep + "/title", schemaLocation: "https://spike.example/profile#/properties/id/title", inputLocation: ip, annotation: "Identifier" });
 anns.push({ keyword: "readOnly", vocabulary: "https://json-schema.org/draft/2020-12/vocab/meta-data", evaluationPath: ep + "/readOnly", schemaLocation: "https://spike.example/profile#/properties/id/readOnly", inputLocation: ip, annotation: true });
 return ok; }
 function u2(v, d, s, ep, ip, errs, anns) { let ok = true;
-if (!((typeof v === "string"))) { ok = false; errs.push({ evaluationPath: ep + "/type", schemaLocation: "https://spike.example/profile#/properties/displayName/type", inputLocation: ip, error: "expected type \"string\"", keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": "string" } }); }
+if (!((typeof v === "string"))) { ok = false; errs.push({ evaluationPath: ep + "/type", schemaLocation: "https://spike.example/profile#/properties/displayName/type", inputLocation: ip, error: ("expected string, got " + String(h_tprev(v))), keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": ["string"], "actual": h_atype(v), "value": v } }); }
 anns.push({ keyword: "title", vocabulary: "https://json-schema.org/draft/2020-12/vocab/meta-data", evaluationPath: ep + "/title", schemaLocation: "https://spike.example/profile#/properties/displayName/title", inputLocation: ip, annotation: "Display name" });
 anns.push({ keyword: "default", vocabulary: "https://json-schema.org/draft/2020-12/vocab/meta-data", evaluationPath: ep + "/default", schemaLocation: "https://spike.example/profile#/properties/displayName/default", inputLocation: ip, annotation: "" });
 return ok; }
 function u3(v, d, s, ep, ip, errs, anns) { let ok = true;
-if (!((typeof v === "string"))) { ok = false; errs.push({ evaluationPath: ep + "/type", schemaLocation: "https://spike.example/profile#/properties/bio/type", inputLocation: ip, error: "expected type \"string\"", keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": "string" } }); }
+if (!((typeof v === "string"))) { ok = false; errs.push({ evaluationPath: ep + "/type", schemaLocation: "https://spike.example/profile#/properties/bio/type", inputLocation: ip, error: ("expected string, got " + String(h_tprev(v))), keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": ["string"], "actual": h_atype(v), "value": v } }); }
 anns.push({ keyword: "title", vocabulary: "https://json-schema.org/draft/2020-12/vocab/meta-data", evaluationPath: ep + "/title", schemaLocation: "https://spike.example/profile#/properties/bio/title", inputLocation: ip, annotation: "Biography" });
 anns.push({ keyword: "default", vocabulary: "https://json-schema.org/draft/2020-12/vocab/meta-data", evaluationPath: ep + "/default", schemaLocation: "https://spike.example/profile#/properties/bio/default", inputLocation: ip, annotation: "" });
 return ok; }
 function u4(v, d, s, ep, ip, errs, anns) { let ok = true;
-if (!((typeof v === "string"))) { ok = false; errs.push({ evaluationPath: ep + "/type", schemaLocation: "https://spike.example/profile#/properties/createdAt/type", inputLocation: ip, error: "expected type \"string\"", keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": "string" } }); }
+if (!((typeof v === "string"))) { ok = false; errs.push({ evaluationPath: ep + "/type", schemaLocation: "https://spike.example/profile#/properties/createdAt/type", inputLocation: ip, error: ("expected string, got " + String(h_tprev(v))), keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": ["string"], "actual": h_atype(v), "value": v } }); }
 anns.push({ keyword: "title", vocabulary: "https://json-schema.org/draft/2020-12/vocab/meta-data", evaluationPath: ep + "/title", schemaLocation: "https://spike.example/profile#/properties/createdAt/title", inputLocation: ip, annotation: "Created" });
 anns.push({ keyword: "readOnly", vocabulary: "https://json-schema.org/draft/2020-12/vocab/meta-data", evaluationPath: ep + "/readOnly", schemaLocation: "https://spike.example/profile#/properties/createdAt/readOnly", inputLocation: ip, annotation: true });
 return ok; }

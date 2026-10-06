@@ -25,6 +25,7 @@ import {
   isMultipleOf,
   jsonEqual,
   makeRecordPredicate,
+  messageHelpers,
   rootCursor,
   type FormatTable,
   type FragmentOptions,
@@ -159,6 +160,8 @@ export interface Runtime {
   readonly isMultipleOf: typeof isMultipleOf;
   readonly hasDuplicateItems: typeof hasDuplicateItems;
   readonly firstDuplicatePair: typeof firstDuplicatePair;
+  /** the message-formatting helpers list-mode errors call (core's messages.ts), bound by name in the prologue */
+  readonly messageHelpers: typeof messageHelpers;
   /** compiled-consumer coverage folds (COMPILED-CONSUMERS.md phase B) */
   readonly foldNameCoverage: typeof foldNameCoverage;
   readonly foldIndexCoverage: typeof foldIndexCoverage;
@@ -348,6 +351,7 @@ export function makeRuntime(
     isMultipleOf,
     hasDuplicateItems,
     firstDuplicatePair,
+    messageHelpers,
     foldNameCoverage,
     foldIndexCoverage,
     re,

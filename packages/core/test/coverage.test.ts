@@ -163,8 +163,9 @@ describe("differential: fold equals the interpreter consumer's skip set", () => 
       "https://cov.example/producers",
     );
     // Full schema adding the consumer as a false subschema: every UNcovered
-    // property fails, so its error locations reveal the interpreter's actual
-    // skip (covered) set independently of the fold under test.
+    // property is rejected, and the consumer's one error names them, so it
+    // reveals the interpreter's actual skip (covered) set independently of
+    // the fold under test.
     const consumerUri = engine.registerSchema(
       {
         properties: { a: true, b: true },
@@ -187,12 +188,16 @@ describe("differential: fold equals the interpreter consumer's skip set", () => 
       harvestCoverage(dependencies, cursor, engine.registry.consumedIds()),
     );
 
-    // 2. Independent interpreter observation: the names the consumer applied
-    //    to (i.e. did NOT skip) are exactly those with an error under `false`.
-    const result = engine.evaluate(consumerUri, instance, { output: "list" });
+    // 2. Independent interpreter observation: the names the consumer swept
+    //    (i.e. did NOT skip) are exactly those its error rejects.
+    const result = engine.evaluate(consumerUri, instance, {
+      output: "list",
+      errorParams: true,
+    });
     expect(result.valid).toBe(false);
+    expect(result.errors).toHaveLength(1);
     const appliedTo = new Set(
-      result.errors!.map((e) => e.inputLocation.slice(1)),
+      result.errors![0]!.params!.properties as string[],
     );
     const skipped = new Set(
       Object.keys(instance).filter((k) => !appliedTo.has(k)),

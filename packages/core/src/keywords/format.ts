@@ -13,7 +13,8 @@
 
 import { JsonValue, JsonType, jsonTypeOf } from "../json.js";
 import { KeywordBehavior } from "../dialect.js";
-import { lowerIR } from "../lowering.js";
+import { Description, LowerExpr, lowerIR } from "../lowering.js";
+import { preview } from "../messages.js";
 
 /** 2020-12 format-assertion vocabulary URI. */
 export const VOCAB_FORMAT_ASSERTION =
@@ -52,6 +53,15 @@ const appliesTo = (
       ? typeof value === "number" && Number.isInteger(value)
       : jsonTypeOf(value) === t,
   );
+
+// `must match format "email", got "x"`: the one error, shared by both tiers.
+const describeFormat = (name: string, instance: LowerExpr): Description => ({
+  message: [
+    "must match format " + preview(name) + ", got ",
+    lowerIR.helper("preview", instance),
+  ],
+  params: { format: lowerIR.constant(name), value: instance },
+});
 
 /**
  * Builds an asserting `format` behavior over a table. `refuseUnknown`
@@ -108,20 +118,14 @@ export function assertingFormat(
       // nothing further (evaluate() parity).
       const definition = Object.hasOwn(table, value) ? table[value] : undefined;
       if (definition === undefined) return;
-      const { and, not, typeIs, when, failWith, constant, formatTest } =
-        lowerIR;
+      const { and, not, typeIs, when, failDescribed, formatTest } = lowerIR;
       lctx.emit(
         when(
           and(
             typeIs(lctx.instance, ...(definition.types ?? ["string"])),
             not(formatTest(value, lctx.instance)),
           ),
-          [
-            failWith(
-              { format: constant(value) },
-              "must match format '" + value + "'",
-            ),
-          ],
+          [failDescribed(describeFormat(value, lctx.instance))],
         ),
       );
     },
@@ -136,7 +140,7 @@ export function assertingFormat(
         return true;
       }
       if (definition.test(cursor.value)) return true;
-      ctx.error(`must match format '${value}'`, { format: value });
+      ctx.report(() => describeFormat(value, lowerIR.instance));
       return false;
     },
   };

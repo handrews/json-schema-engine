@@ -10,20 +10,19 @@ if ((g1 && ("actor" in v))) { const t2 = v["actor"];
 if (!((typeof t2 === "string"))) { return false; } }
 if (g1) {  }
 if (!(g1)) { return false; }
-if (g1) { if (!(("id" in v))) { return false; }
-if (!(("actor" in v))) { return false; } }
+if ((g1 && (!(("id" in v)) || !(("actor" in v))))) { return false; }
 if ((g1 && ("createdAt" in v))) { const t3 = v["createdAt"];
 if (!((typeof t3 === "string"))) { return false; } }
 if ((g1 && ("updatedAt" in v))) { const t4 = v["updatedAt"];
 if (!((typeof t4 === "string"))) { return false; } }
 if (g1) {  }
 if (!(g1)) { return false; }
-if (g1) { if (!(("createdAt" in v))) { return false; } }
+if ((g1 && (!(("createdAt" in v))))) { return false; }
 if ((g1 && ("kind" in v))) { const t5 = v["kind"];
 if (!(((t5 === "created") || (t5 === "updated") || (t5 === "deleted")))) { return false; } }
 if (g1) {  }
 if (!(g1)) { return false; }
-if (g1) { if (!(("kind" in v))) { return false; } }
+if ((g1 && (!(("kind" in v))))) { return false; }
 if (g1) { for (const b0 in v) { if (!(((b0 === "id") || (b0 === "actor") || (b0 === "createdAt") || (b0 === "updatedAt") || (b0 === "kind")))) { return false; } }
  }
 return true; }

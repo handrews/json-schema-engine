@@ -138,6 +138,43 @@ silent): `type`→`{type}` (value or array), `enum`→`{allowedValues}`,
 `unevaluatedItems`/`items`/`additionalItems`→`{limit}` (coalesced),
 `discriminator`→`{error, tag, tagValue}`.
 
+The engine reports each keyword once, with its facts in full (see
+[Output formats](../../docs/guide/output-formats.md#structured-error-params));
+the adapter rebuilds AJV's shapes from those params, which are the only
+input for every row below. AJV's output is unchanged by this, fixture for
+fixture.
+
+- `required`, `dependentRequired`, `dependencies` (array members): the
+  engine's one unit, with `missing` (a list, or a record from each present
+  property to its absent requirements), fans out to AJV's one error per
+  missing name (and, for dependencies, per property) in keyword order.
+  Under the default "return after the first error" only the first
+  survives. `deps` and `depsCount` come from the keyword's own schema
+  value, which the adapter holds.
+- `uniqueItems`: the engine's `duplicates` lists groups of equal items.
+  AJV scans from the end, so `{i, j}` is the largest duplicated index and
+  the next-largest index equal to it (**oracle**).
+- A `false` subschema an applicator rejects — `properties`,
+  `patternProperties`, `dependentSchemas`/`dependencies`, `prefixItems`,
+  tuple `items`, `allOf`, and `contains: false` — arrives as one summary unit naming the
+  rejected names, indexes, or patterns. The adapter fans it back out to
+  AJV's `false schema` error per name or index, each at the instance path
+  and schema path AJV would have applied the child at, in AJV's sweep
+  order (`patternProperties` pattern-major).
+- `additionalProperties`/`unevaluatedProperties` (a `false` value): the
+  rejected `properties` fan out to one `{additionalProperty}` /
+  `{unevaluatedProperty}` error per name.
+- `items`, `additionalItems`, `unevaluatedItems` with a `false` value:
+  AJV's single `{limit}` error, `limit` = the summary's `start`.
+- `propertyNames: false`: one summary unit with the rejected `properties`
+  fans out to AJV's pair per name (a `false schema` error at the object's
+  path with `propertyName`, then the `propertyNames` container). It needs
+  no evaluation trace; `propertyNames` with a non-false subschema still
+  does.
+- Boolean `false` schemas the engine does apply (the root, a `$ref`
+  target, `then`/`else`, `anyOf`/`oneOf` branches) map to the
+  `false schema` error directly.
+
 AJV reports nothing from subtrees that passed (a satisfied `anyOf`'s
 failing branches, `not`/`contains` probes, the `if` condition) — the
 adapter filters the engine's complete error record to match (**oracle**:

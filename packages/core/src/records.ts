@@ -6,6 +6,7 @@
 
 import { escapeSegment } from "./json.js";
 import { instancePointer } from "./cursor.js";
+import { realize } from "./messages.js";
 import {
   AnnotationRecord,
   ErrorRecord,
@@ -49,16 +50,22 @@ export function renderError(
   record: ErrorRecord,
   includeParams = false,
 ): ErrorUnit {
+  // A deferred description is realized here, against the record's own
+  // cursor value, and only here: most records are never rendered.
+  const { message, params } =
+    record.describe === undefined
+      ? record
+      : realize(record.describe(), record.cursor.value, includeParams);
   const unit: ErrorUnit = {
     evaluationPath: evaluationPathOf(record.pathNode, record.keywordName),
     schemaLocation: schemaLocationOf(record.schemaRef, record.keywordName),
     inputLocation: instancePointer(record.cursor),
-    error: record.message,
+    error: message,
   };
   if (includeParams) {
     if (record.keywordName !== null) unit.keyword = record.keywordName;
     if (record.vocabularyUri !== null) unit.vocabulary = record.vocabularyUri;
-    unit.params = record.params ?? {};
+    unit.params = params ?? {};
   }
   return unit;
 }

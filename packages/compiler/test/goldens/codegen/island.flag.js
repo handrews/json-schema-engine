@@ -11,7 +11,7 @@ function u1(v, d, s) { const g1 = (typeof v === "object" && v !== null && !Array
 if ((g1 && ("kind" in v))) { const t0 = v["kind"];
 if (!((t0 === "strict"))) { return false; } }
 if (g1) {  }
-if (g1) { if (!(("kind" in v))) { return false; } }
+if ((g1 && (!(("kind" in v))))) { return false; }
 return true; }
 function u3(v, d, s) { if (d >= h_maxd) h_deep(); d++;
 s = s[s.length - 1] === "https://codegen.example/island" ? s : [...s, "https://codegen.example/island"];

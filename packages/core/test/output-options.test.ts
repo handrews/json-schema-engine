@@ -117,7 +117,11 @@ describe("accepted combinations", () => {
         "type",
         "anyOf",
       ]);
-      expect(r.errors![0]!.params).toEqual({ expected: "string" });
+      expect(r.errors![0]!.params).toEqual({
+        expected: ["string"],
+        actual: "boolean",
+        value: true,
+      });
       expect(r.errors![0]!.vocabulary).toBe(
         "https://json-schema.org/draft/2020-12/vocab/validation",
       );
@@ -162,24 +166,25 @@ describe("resolveOutputDemand and assembleResult (shared with a compiled evaluat
       annotations: false,
     });
 
-    // A boolean-`false` schema application: the render-input contract's
-    // simplest case (render-input.test.ts's "boolean-false schema
-    // application"), hand-built here with no interpreter run — exactly
-    // what a compiled evaluator's own trace recording stands in for.
-    const FALSE_SCHEMA_LOCATION =
-      "https://assemble.example/schema#/properties/x";
+    // A referenced boolean-`false` schema application: the render-input
+    // contract's simplest case (render-input.test.ts's "boolean-false
+    // schema application"), hand-built here with no interpreter run —
+    // exactly what a compiled evaluator's own trace recording stands in
+    // for. (An applicator's own `false` subschema is never applied, so the
+    // reference is what still reaches a boolean application.)
+    const FALSE_SCHEMA_LOCATION = "https://assemble.example/schema#/$defs/f";
 
     const falseSchemaError: ErrorUnit = {
-      evaluationPath: "/properties/x",
+      evaluationPath: "/$ref",
       schemaLocation: FALSE_SCHEMA_LOCATION,
-      inputLocation: "/x",
+      inputLocation: "",
       error: "schema is false",
     };
 
     const child: RenderNode = {
-      evaluationPath: "/properties/x",
+      evaluationPath: "/$ref",
       schemaLocation: FALSE_SCHEMA_LOCATION,
-      inputLocation: "/x",
+      inputLocation: "",
       valid: false,
       keywords: [],
       errors: [0],
@@ -194,7 +199,7 @@ describe("resolveOutputDemand and assembleResult (shared with a compiled evaluat
       schemaLocation: "https://assemble.example/schema#",
       inputLocation: "",
       valid: false,
-      keywords: [{ name: "properties", valid: false }],
+      keywords: [{ name: "$ref", valid: false }],
       errors: [],
       droppedErrors: [],
       annotations: [],
@@ -221,14 +226,10 @@ describe("resolveOutputDemand and assembleResult (shared with a compiled evaluat
     // both tiers.
     const engine = createEngine();
     const uri = engine.registerSchema(
-      { properties: { x: false } },
+      { $ref: "#/$defs/f", $defs: { f: false } },
       "https://assemble.example/schema",
     );
-    const interp = engine.evaluate(
-      uri,
-      { x: 1 },
-      { output: "list", trace: true },
-    );
+    const interp = engine.evaluate(uri, 1, { output: "list", trace: true });
     expect(result).toEqual(interp);
     // Invalid, no annotations requested, verbose off, trace requested: the
     // assignment order in assembleResult (valid, then errors, then trace,

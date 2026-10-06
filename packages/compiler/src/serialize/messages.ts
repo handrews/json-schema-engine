@@ -8,34 +8,57 @@ import {
 } from "@json-schema-engine/core";
 import { type CodeChunk, id, join, js, str } from "../emit.js";
 import { ERRS, ST, TN } from "./names.js";
-import { UnitContext, SerializeError } from "./context.js";
+import { UnitContext } from "./context.js";
 import { expr } from "./expressions.js";
 
 /**
- * Renders a LowerMessage to a string expression. `tallyVar` binds the
- * message's tally placeholder (combine/count checks).
+ * Runs `render` with the active check's counter and passing-index list
+ * bound on the context, so `tally`/`tallyList` expressions resolve wherever
+ * they sit in the message or params (a helper argument included).
+ */
+function withTallies<T>(
+  ctx: UnitContext,
+  tallyVar: CodeChunk | undefined,
+  tallyListVar: CodeChunk | undefined,
+  render: () => T,
+): T {
+  const savedTally = ctx.tallyVar;
+  const savedList = ctx.tallyListVar;
+  ctx.tallyVar = tallyVar ?? null;
+  ctx.tallyListVar = tallyListVar ?? null;
+  try {
+    return render();
+  } finally {
+    ctx.tallyVar = savedTally;
+    ctx.tallyListVar = savedList;
+  }
+}
+
+/**
+ * Renders a LowerMessage to a string expression: literal parts as written,
+ * expression parts through `String()`, exactly as core's `realize` builds
+ * the interpreter's text. `tallyVar`/`tallyListVar` bind the message's
+ * tally placeholders (combine/count checks).
  */
 export function renderMessage(
   ctx: UnitContext,
   msg: LowerMessage,
   tallyVar?: CodeChunk,
+  tallyListVar?: CodeChunk,
 ): CodeChunk {
-  const parts = msg.map((part) => {
-    if (typeof part === "string") return str(part);
-    if (part.kind === "tally") {
-      if (!tallyVar) throw new SerializeError("tally outside a counted check");
-      return js`String(${tallyVar})`;
-    }
-    return js`String(${expr(ctx, part)})`;
-  });
+  const parts = withTallies(ctx, tallyVar, tallyListVar, () =>
+    msg.map((part) =>
+      typeof part === "string" ? str(part) : js`String(${expr(ctx, part)})`,
+    ),
+  );
   if (parts.length === 0) return str("");
   return parts.length === 1 ? parts[0]! : js`(${join(" + ", parts)})`;
 }
 
 /**
  * Renders a LowerParams map to an object-literal expression, mirroring
- * renderError's includeParams shape. `tallyVar` binds tally placeholders
- * exactly as in {@link renderMessage}.
+ * renderError's includeParams shape. `tallyVar`/`tallyListVar` bind tally
+ * placeholders exactly as in {@link renderMessage}.
  */
 export function paramsChunk(
   ctx: UnitContext,
@@ -46,18 +69,11 @@ export function paramsChunk(
   // pushError drops the chunk entirely when params are off — don't render
   // (a tallyList reference has no accumulator to bind to in that mode).
   if (!ctx.listParams || params === undefined) return js`{}`;
-  const entries = Object.entries(params).map(([key, part]) => {
-    let value: CodeChunk;
-    if (part.kind === "tally" || part.kind === "tallyList") {
-      const bound = part.kind === "tally" ? tallyVar : tallyListVar;
-      if (!bound)
-        throw new SerializeError(part.kind + " outside a counted check");
-      value = bound;
-    } else {
-      value = expr(ctx, part);
-    }
-    return js`${str(key)}: ${value}`;
-  });
+  const entries = withTallies(ctx, tallyVar, tallyListVar, () =>
+    Object.entries(params).map(
+      ([key, part]) => js`${str(key)}: ${expr(ctx, part)}`,
+    ),
+  );
   return js`{ ${join(", ", entries)} }`;
 }
 

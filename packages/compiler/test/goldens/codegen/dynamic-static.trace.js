@@ -4,6 +4,7 @@ const h_maxd = R.maxDepth;
 const h_s0 = [];
 const h_hop = Object.prototype.hasOwnProperty;
 const { traceState: h_tstate, traceNode: h_tnode, traceError: h_err, traceAnn: h_ann, cutErrors: h_cutE, cutAnns: h_cutA, fragTrace: h_fragt } = R;
+const { typedPreview: h_tprev, apparentType: h_atype } = R.messageHelpers;
 function u0(v, d, s, ep, ip, st, tp) { if (d >= h_maxd) h_deep(); d++;
 const tn = h_tnode(tp, ep, "https://codegen.example/dynamic-static#", ip);
 const g2 = (typeof v === "object" && v !== null && !Array.isArray(v));
@@ -25,7 +26,7 @@ return ok; }
 function u2(v, d, s, ep, ip, st, tp) { const tn = h_tnode(tp, ep, "https://codegen.example/dynamic-static#/$defs/node", ip);
 let ok = true;
 let k0 = true;
-if (!((typeof v === "string"))) { ok = false; k0 = false; h_err(st, tn, { evaluationPath: ep + "/type", schemaLocation: "https://codegen.example/dynamic-static#/$defs/node/type", inputLocation: ip, error: "expected type \"string\"", keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": "string" } }); }
+if (!((typeof v === "string"))) { ok = false; k0 = false; h_err(st, tn, { evaluationPath: ep + "/type", schemaLocation: "https://codegen.example/dynamic-static#/$defs/node/type", inputLocation: ip, error: ("expected string, got " + String(h_tprev(v))), keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": ["string"], "actual": h_atype(v), "value": v } }); }
 tn.keywords.push({ name: "type", valid: k0 });
 tn.valid = ok;
 return ok; }
