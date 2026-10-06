@@ -44,9 +44,9 @@ export interface MapOptions {
 /**
  * Keywords whose failures need application context to map faithfully:
  * passing-subtree filtering (not/contains/if, anyOf/oneOf), synthesized
- * companions (propertyNames, then/else → if). The scan is deliberately
- * conservative — a property literally named one of these also matches,
- * which costs an interpreter re-run, never correctness.
+ * companions (propertyNames' inner errors, then/else → if). The scan is
+ * deliberately conservative — a property literally named one of these also
+ * matches, which costs an interpreter re-run, never correctness.
  */
 const TRACE_TRIGGERS = new Set([
   "anyOf",
@@ -59,104 +59,21 @@ const TRACE_TRIGGERS = new Set([
   "propertyNames",
 ]);
 
-/** True when mapping `units` needs the evaluation trace for context. */
+/**
+ * True when mapping `units` needs the evaluation trace for context. A
+ * keyworded unit's final segment is the keyword itself: that one never
+ * needs context (`propertyNames: false` reports at `/propertyNames` and
+ * maps from its params alone), only an ancestor edge does.
+ */
 export const needsTrace = (units: readonly ErrorUnit[]): boolean =>
   units.some((u) => {
     const segs = segments(u.evaluationPath);
-    if (segs.some((s) => TRACE_TRIGGERS.has(s))) return true;
-    // Boolean-false units need the tail position classified; when the
-    // root-anchored walk can't (unknown keyword in the path), only the
-    // trace can decide. An empty path is the root schema itself — trivial.
-    return (
-      u.keyword === undefined &&
-      segs.length > 0 &&
-      classifyTail(segs) === undefined
-    );
+    const scan = u.keyword === undefined ? segs : segs.slice(0, -1);
+    return scan.some((s) => TRACE_TRIGGERS.has(s));
   });
 
 const last = (pointer: string): string =>
   unescapeSegment(pointer.slice(pointer.lastIndexOf("/") + 1));
-const parent = (pointer: string): string =>
-  pointer.slice(0, pointer.lastIndexOf("/"));
-
-/**
- * Keywords that take subschemas at NAMED positions: a path segment right
- * after one of these is a name, never a keyword (disambiguates a property
- * literally called "anyOf" from the applicator).
- */
-const NAME_POSITION = new Set([
-  "properties",
-  "patternProperties",
-  "dependentSchemas",
-  "dependencies",
-  "$defs",
-  "definitions",
-]);
-
-/** Keywords whose subschemas live only at integer positions. */
-const INDEX_POSITION = new Set(["allOf", "anyOf", "oneOf", "prefixItems"]);
-
-/**
- * Keywords that apply their own value as a subschema. items/additionalItems
- * appear here for their single-schema application; their legacy tuple form
- * is recognized by the integer that follows (keywords are never integers,
- * so the lookahead is unambiguous).
- */
-const SELF_POSITION = new Set([
-  "additionalProperties",
-  "unevaluatedProperties",
-  "unevaluatedItems",
-  "propertyNames",
-  "not",
-  "contains",
-  "if",
-  "then",
-  "else",
-  "items",
-  "additionalItems",
-  "contentSchema",
-  "$ref",
-  "$dynamicRef",
-  "$recursiveRef",
-]);
-
-/**
- * Root-anchored classification of an evaluation path's final position: the
- * keyword that applied the final subschema, and whether the final segment
- * is that keyword itself (vs a name or index beneath it). Left-to-right
- * from the root there is no ambiguity — a name can only follow a
- * NAME_POSITION keyword — where tail-anchored sniffing misreads shapes
- * like /properties/properties/anyOf. Returns undefined when an unknown
- * keyword makes the walk lose its place (callers escalate to the trace).
- */
-const classifyTail = (
-  segs: readonly string[],
-): { keyword: string; tailIsKeyword: boolean } | undefined => {
-  let result: { keyword: string; tailIsKeyword: boolean } | undefined;
-  let i = 0;
-  while (i < segs.length) {
-    const kw = segs[i]!;
-    let consumed = 1;
-    if (NAME_POSITION.has(kw)) {
-      if (i + 1 < segs.length) consumed = 2;
-    } else if (INDEX_POSITION.has(kw)) {
-      if (i + 1 < segs.length && /^\d+$/.test(segs[i + 1]!)) consumed = 2;
-    } else if (SELF_POSITION.has(kw)) {
-      if (
-        (kw === "items" || kw === "additionalItems") &&
-        i + 1 < segs.length &&
-        /^\d+$/.test(segs[i + 1]!)
-      ) {
-        consumed = 2;
-      }
-    } else {
-      return undefined;
-    }
-    i += consumed;
-    result = { keyword: kw, tailIsKeyword: consumed === 1 };
-  }
-  return result;
-};
 
 /** Per-evaluation join of error units to their trace applications. */
 interface TraceIndex {
@@ -283,11 +200,9 @@ const COMPARISON: Record<string, string> = {
  * `if` condition), while the engine's list output keeps every record
  * (errors are never rolled back). Drop what AJV would not show, walking
  * the error's application ancestry:
- * - under not/if: always (their inner failures are not failures of the
- *   instance);
- * - under contains: except a boolean-false failure AT the probe itself —
- *   AJV reports those ("#/contains/false schema"), pinned by the suite
- *   differential (contains.json boolean-schema groups);
+ * - under not/if/contains: always (their inner failures are not failures
+ *   of the instance; a `contains: false` probe is never applied, so its
+ *   AJV errors are synthesized by the `contains` unit's mapping instead);
  * - under an anyOf/oneOf branch: only when that combiner passed. "Failed"
  *   is either the combiner's own error at the parent application, or zero
  *   valid sibling branches — which relies on the interpreter applying
@@ -300,25 +215,38 @@ const makeSurvives = (
   { nodeOf, parentOf }: TraceIndex,
 ): ((index: number) => boolean) => {
   return (index) => {
-    const keywordless = units[index]!.keyword === undefined;
-    let atErrorNode = true;
     for (let node = nodeOf[index]; node; node = parentOf.get(node)) {
       const parent = parentOf.get(node);
       if (!parent) break;
       const edge = node.segments[0];
-      if (edge === "not" || edge === "if") return false;
-      if (edge === "contains" && !(atErrorNode && keywordless)) return false;
+      if (edge === "not" || edge === "if" || edge === "contains") return false;
       if (edge === "anyOf" || edge === "oneOf") {
         const failed =
           parent.errorIndexes.some((j) => units[j]!.keyword === edge) ||
           parent.children.every((c) => c.segments[0] !== edge || !c.valid);
         if (!failed) return false;
       }
-      atErrorNode = false;
     }
     return true;
   };
 };
+
+/** One mapped error with the schema location `verbose` resolves it from. */
+interface Mapped {
+  error: AjvErrorObject;
+  location: string;
+}
+
+/**
+ * One engine unit's AJV errors: `groups` in report order, each atomic under
+ * AJV's "return after the first error", plus the synthesized `companion`
+ * (propertyNames' container, if's failingKeyword) AJV appends after
+ * whatever it reported from the unit.
+ */
+interface MappedUnit {
+  groups: Mapped[][];
+  companion?: Mapped;
+}
 
 /**
  * Maps engine list-output units (errorParams on) to AJV error objects.
@@ -345,32 +273,34 @@ export function mapErrors(
     traceIndex === undefined ? undefined : makeSurvives(units, traceIndex);
 
   const out: AjvErrorObject[] = [];
-  // items/additionalItems/unevaluatedItems false-schema units coalesce to
-  // one {limit} error per (schema position, array) — AJV's shape.
-  const coalesced = new Set<string>();
+  const emit = (unit: ErrorUnit, m: Mapped): void => {
+    const e = m.error;
+    if (options.messages)
+      e.message = message(e.keyword, e.params) ?? unit.error;
+    if (options.verbose) {
+      e.schema = options.resolveSchema(m.location);
+      e.parentSchema = options.resolveSchema(
+        m.location.slice(0, m.location.lastIndexOf("/")),
+      );
+      e.data = resolveInstance(instance, e.instancePath);
+    }
+    out.push(e);
+  };
 
   for (let index = 0; index < units.length; index++) {
     const unit = units[index]!;
     if (survives !== undefined && !survives(index)) continue;
-    const mapped = mapUnit(unit, index, units, coalesced, options, traceIndex);
-    for (const e of mapped) {
-      if (options.messages)
-        e.message = message(e.keyword, e.params) ?? unit.error;
-      if (options.verbose) {
-        const value = options.resolveSchema(unit.schemaLocation);
-        const parentLoc = unit.schemaLocation.slice(
-          0,
-          unit.schemaLocation.lastIndexOf("/"),
-        );
-        e.schema = value;
-        e.parentSchema = options.resolveSchema(parentLoc);
-        e.data = resolveInstance(instance, e.instancePath);
-      }
-      out.push(e);
-    }
+    const mapped = mapUnit(unit, index, instance, options, traceIndex);
     // AJV's "return after the first error" keeps synthesized companions
-    // (propertyNames' container, if's failingKeyword) — a mapUnit group is
-    // atomic under truncation.
+    // (propertyNames' container, if's failingKeyword): the first group and
+    // the companion survive truncation together.
+    const groups = options.allErrors
+      ? mapped.groups
+      : mapped.groups.slice(0, 1);
+    for (const group of groups) for (const m of group) emit(unit, m);
+    if (mapped.companion !== undefined && groups.length > 0) {
+      emit(unit, mapped.companion);
+    }
     if (!options.allErrors && out.length > 0) return out;
   }
   return out;
@@ -379,83 +309,66 @@ export function mapErrors(
 const resolveInstance = (instance: JsonValue, pointer: string): JsonValue =>
   getAtPointer(instance, pointer) as JsonValue;
 
-/** One engine unit → zero or more AJV errors (synthesis may append). */
+/** RFC 6901 escaping for a name joined onto a pointer. */
+const escape = (name: string): string =>
+  name.replace(/~/g, "~0").replace(/\//g, "~1");
+
+/** AJV compiles a pattern in unicode mode, falling back for patterns the `u` flag rejects. */
+const patternRegExp = (pattern: string): RegExp => {
+  try {
+    return new RegExp(pattern, "u");
+  } catch {
+    return new RegExp(pattern);
+  }
+};
+
+/** Expands `[first, last]` index runs to the indexes they cover, ascending. */
+const expandRuns = (runs: readonly (readonly number[])[]): number[] => {
+  const indexes: number[] = [];
+  for (const [first, lastIndex] of runs as [number, number][]) {
+    for (let i = first; i <= lastIndex; i++) indexes.push(i);
+  }
+  return indexes;
+};
+
+/** One engine unit → its AJV errors (see {@link MappedUnit}). */
 function mapUnit(
   unit: ErrorUnit,
   index: number,
-  all: readonly ErrorUnit[],
-  coalesced: Set<string>,
+  instance: JsonValue,
   options: MapOptions,
   traceIndex: TraceIndex | undefined,
-): AjvErrorObject[] {
+): MappedUnit {
   const sp = (loc: string): string =>
     renderSchemaPath(loc, options.rootBaseUri);
-  const evalSegs = segments(unit.evaluationPath);
   const node = traceIndex?.nodeOf[index];
-
-  // Boolean-false schema units (no keyword): the schema POSITION decides
-  // which AJV error shape applies — specifically the applying edge, and
-  // only when the failing position is the keyword's own value (a property
-  // literally named "items" descends via properties instead).
-  if (unit.keyword === undefined) {
-    let edge: string | undefined;
-    if (traceIndex !== undefined) {
-      edge = node?.segments.length === 1 ? node.segments[0] : undefined;
-    } else if (evalSegs.length > 0) {
-      // needsTrace guarantees the classifier cannot lose its place here.
-      const c = classifyTail(evalSegs)!;
-      edge = c.tailIsKeyword ? c.keyword : undefined;
-    }
-    if (edge === "additionalProperties" || edge === "unevaluatedProperties") {
-      const param =
-        edge === "additionalProperties"
-          ? "additionalProperty"
-          : "unevaluatedProperty";
-      return [
-        {
-          keyword: edge,
-          instancePath: parent(unit.inputLocation),
-          schemaPath: sp(unit.schemaLocation),
-          params: { [param]: last(unit.inputLocation) },
-        },
-      ];
-    }
-    if (
-      edge === "items" ||
-      edge === "additionalItems" ||
-      edge === "unevaluatedItems"
-    ) {
-      const arrayPath = parent(unit.inputLocation);
-      const key = `${unit.evaluationPath}\u0000${arrayPath}`;
-      if (coalesced.has(key)) return [];
-      coalesced.add(key);
-      let limit = Number(last(unit.inputLocation));
-      for (const other of all) {
-        if (
-          other.keyword === undefined &&
-          other.evaluationPath === unit.evaluationPath &&
-          parent(other.inputLocation) === arrayPath
-        ) {
-          limit = Math.min(limit, Number(last(other.inputLocation)));
-        }
-      }
-      return [
-        {
-          keyword: edge,
-          instancePath: arrayPath,
-          schemaPath: sp(unit.schemaLocation),
-          params: { limit },
-        },
-      ];
-    }
-    return [
+  const one = (
+    error: AjvErrorObject,
+    location = unit.schemaLocation,
+  ): Mapped[] => [{ error, location }];
+  // A `false` subschema the engine's applicator rejected rather than
+  // applied: AJV's error for the schema position it would have applied at.
+  const falseSchema = (
+    instancePath: string,
+    childLocation: string,
+    extra: Partial<AjvErrorObject> = {},
+  ): Mapped[] =>
+    one(
       {
         keyword: "false schema",
-        instancePath: unit.inputLocation,
-        schemaPath: sp(unit.schemaLocation) + "/false schema",
+        instancePath,
+        schemaPath: sp(childLocation) + "/false schema",
         params: {},
+        ...extra,
       },
-    ];
+      childLocation,
+    );
+
+  // A boolean-false schema unit (no keyword): the root schema, a `$ref`
+  // target, a then/else value, or an anyOf/oneOf branch — the positions
+  // whose applicator still applies a `false` subschema.
+  if (unit.keyword === undefined) {
+    return { groups: [falseSchema(unit.inputLocation, unit.schemaLocation)] };
   }
 
   const params = (unit.params ?? {}) as Record<string, JsonValue>;
@@ -465,11 +378,26 @@ function mapUnit(
     schemaPath: sp(unit.schemaLocation),
     params: {},
   };
+  let groups: Mapped[][] = [one(base)];
+  // AJV's per-name/per-index errors, rebuilt from the engine's one summary.
+  const names = (params.properties ?? []) as string[];
+  const childAt = (segment: string): string =>
+    `${unit.schemaLocation}/${escape(segment)}`;
 
   switch (unit.keyword) {
-    case "type":
-      base.params = { type: params.expected };
+    case "type": {
+      // AJV echoes the schema's own form: a one-element array stays one.
+      const expected = params.expected as string[];
+      const declared = options.resolveSchema(unit.schemaLocation);
+      base.params = {
+        type:
+          Array.isArray(declared) ||
+          (declared === undefined && expected.length > 1)
+            ? expected
+            : expected[0],
+      };
       break;
+    }
     case "enum":
       base.params = { allowedValues: params.allowedValues };
       break;
@@ -500,11 +428,19 @@ function mapUnit(
       base.params = { pattern: params.pattern };
       break;
     case "required":
-      base.params = { missingProperty: params.missingProperty };
+      // One AJV error per missing name, in keyword order.
+      groups = (params.missing as string[]).map((missingProperty) =>
+        one({ ...base, params: { missingProperty } }),
+      );
       break;
     case "uniqueItems": {
-      const [j, i] = params.duplicates as [number, number];
-      base.params = { i, j };
+      // AJV scans from the end: it reports the duplicated item with the
+      // largest index and, as `j`, the next-largest index equal to it.
+      const dupGroups = params.duplicates as number[][];
+      const group = dupGroups.reduce((best, g) =>
+        g[g.length - 1]! > best[best.length - 1]! ? g : best,
+      );
+      base.params = { i: group[group.length - 1], j: group[group.length - 2] };
       break;
     }
     case "contains": {
@@ -515,6 +451,23 @@ function mapUnit(
               minContains: params.minContains,
               maxContains: params.maxContains,
             };
+      // The engine never applies a `false` contains subschema; AJV reports
+      // every probe as a false-schema error before the contains error
+      // (only under allErrors, which keeps every probe).
+      if (
+        options.resolveSchema(unit.schemaLocation) === false &&
+        options.allErrors
+      ) {
+        const items = resolveInstance(instance, unit.inputLocation);
+        const count = Array.isArray(items) ? items.length : 0;
+        groups = [];
+        for (let i = 0; i < count; i++) {
+          groups.push(
+            falseSchema(`${unit.inputLocation}/${i}`, unit.schemaLocation),
+          );
+        }
+        groups.push(one(base));
+      }
       break;
     }
     case "oneOf": {
@@ -533,23 +486,117 @@ function mapUnit(
       break;
     case "dependentRequired":
     case "dependencies": {
-      // depsCount/deps derive from the keyword's own schema value — the
-      // adapter owns the schema, so no engine-side duplication (D13).
-      const kwLoc = unit.schemaLocation.slice(
-        0,
-        unit.schemaLocation.lastIndexOf("/"),
-      );
-      const map = options.resolveSchema(`${kwLoc}/${unit.keyword}`) as
-        Record<string, JsonValue> | undefined;
-      const deps = (map?.[params.property as string] ?? []) as string[];
-      base.params = {
-        property: params.property,
-        missingProperty: params.missingProperty,
-        depsCount: deps.length,
-        deps: deps.join(", "),
-      };
+      if ("missing" in params) {
+        // One AJV error per (property, missing name); depsCount/deps derive
+        // from the keyword's own schema value — the adapter owns the
+        // schema, so no engine-side duplication (D13).
+        const map = options.resolveSchema(unit.schemaLocation) as
+          Record<string, JsonValue> | undefined;
+        groups = [];
+        for (const [property, missing] of Object.entries(
+          params.missing as Record<string, string[]>,
+        )) {
+          const deps = (map?.[property] ?? []) as string[];
+          for (const missingProperty of missing) {
+            groups.push(
+              one({
+                ...base,
+                params: {
+                  property,
+                  missingProperty,
+                  depsCount: deps.length,
+                  deps: deps.join(", "),
+                },
+              }),
+            );
+          }
+        }
+      } else {
+        // draft-07 `dependencies` with `false` schema members.
+        groups = names.map((name) =>
+          falseSchema(unit.inputLocation, childAt(name)),
+        );
+      }
       break;
     }
+    case "additionalProperties":
+    case "unevaluatedProperties": {
+      const param =
+        unit.keyword === "additionalProperties"
+          ? "additionalProperty"
+          : "unevaluatedProperty";
+      groups = names.map((name) => one({ ...base, params: { [param]: name } }));
+      break;
+    }
+    case "properties": {
+      // AJV visits the schema's members in their order, not the instance's.
+      const declared = options.resolveSchema(unit.schemaLocation);
+      const ordered =
+        declared !== null &&
+        typeof declared === "object" &&
+        !Array.isArray(declared)
+          ? Object.keys(declared).filter((k) => names.includes(k))
+          : names;
+      groups = ordered.map((name) =>
+        falseSchema(`${unit.inputLocation}/${escape(name)}`, childAt(name)),
+      );
+      break;
+    }
+    case "patternProperties": {
+      // Pattern-major, as AJV sweeps: every name each false pattern matches.
+      groups = [];
+      for (const pattern of params.patterns as string[]) {
+        const re = patternRegExp(pattern);
+        for (const name of names) {
+          if (!re.test(name)) continue;
+          groups.push(
+            falseSchema(
+              `${unit.inputLocation}/${escape(name)}`,
+              childAt(pattern),
+            ),
+          );
+        }
+      }
+      break;
+    }
+    case "propertyNames":
+      // AJV reports the name's failure at the object's data path, then a
+      // container error naming the offending property.
+      groups = names.map((name) => [
+        ...falseSchema(unit.inputLocation, unit.schemaLocation, {
+          propertyName: name,
+        }),
+        ...one({ ...base, params: { propertyName: name } }),
+      ]);
+      break;
+    case "dependentSchemas":
+      groups = names.map((name) =>
+        falseSchema(unit.inputLocation, childAt(name)),
+      );
+      break;
+    case "items":
+    case "additionalItems":
+    case "unevaluatedItems":
+      if ("start" in params) {
+        // Everything from `start` is rejected: AJV's one {limit} error.
+        base.params = { limit: params.start };
+      } else {
+        // A tuple's false members (2019-09 `items` array form).
+        groups = expandRuns(params.failed as number[][]).map((i) =>
+          falseSchema(`${unit.inputLocation}/${i}`, childAt(String(i))),
+        );
+      }
+      break;
+    case "prefixItems":
+      groups = expandRuns(params.failed as number[][]).map((i) =>
+        falseSchema(`${unit.inputLocation}/${i}`, childAt(String(i))),
+      );
+      break;
+    case "allOf":
+      groups = (params.failed as number[]).map((i) =>
+        falseSchema(unit.inputLocation, childAt(String(i))),
+      );
+      break;
     default:
       base.params = { ...params };
       break;
@@ -558,23 +605,31 @@ function mapUnit(
   // Both syntheses need application context; their trigger keywords
   // guarantee the trace is present whenever they can apply.
   if (traceIndex !== undefined) {
-    // propertyNames: AJV reports the inner failure at the OBJECT's data
-    // path and appends a container error naming the offending property.
+    // propertyNames (a non-false subschema): AJV reports the inner failure
+    // at the OBJECT's data path and appends a container error naming the
+    // offending property.
     for (let n = node; n !== undefined; n = traceIndex.parentOf.get(n)) {
       if (n.segments[0] !== "propertyNames") continue;
       const name = last(unit.inputLocation);
       const container = traceIndex.parentOf.get(n)!;
-      base.instancePath = container.inputLocation;
-      base.propertyName = name;
-      return [
-        base,
-        {
-          keyword: "propertyNames",
-          instancePath: base.instancePath,
-          schemaPath: sp(n.schemaLocation),
-          params: { propertyName: name },
+      for (const group of groups) {
+        for (const m of group) {
+          m.error.instancePath = container.inputLocation;
+          m.error.propertyName = name;
+        }
+      }
+      return {
+        groups,
+        companion: {
+          error: {
+            keyword: "propertyNames",
+            instancePath: container.inputLocation,
+            schemaPath: sp(n.schemaLocation),
+            params: { propertyName: name },
+          },
+          location: n.schemaLocation,
         },
-      ];
+      };
     }
 
     // then/else branch failures: AJV appends a synthesized `if` error at
@@ -593,17 +648,20 @@ function mapUnit(
       const container = traceIndex.parentOf.get(c)!;
       const ifLocation = container.schemaLocation + "/if";
       if (options.resolveSchema(ifLocation) === undefined) continue;
-      return [
-        base,
-        {
-          keyword: "if",
-          instancePath: container.inputLocation,
-          schemaPath: sp(ifLocation),
-          params: { failingKeyword: edge },
+      return {
+        groups,
+        companion: {
+          error: {
+            keyword: "if",
+            instancePath: container.inputLocation,
+            schemaPath: sp(ifLocation),
+            params: { failingKeyword: edge },
+          },
+          location: ifLocation,
         },
-      ];
+      };
     }
   }
 
-  return [base];
+  return { groups };
 }

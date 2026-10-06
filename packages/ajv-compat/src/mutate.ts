@@ -610,16 +610,36 @@ const applyRemoval = (
     return changed;
   }
 
-  // true / "failing": driven by the additionalProperties APPLICATION units
-  // (each one's instanceLocation IS the offending property). true removes
-  // only where the subschema is literally `false`.
+  // true / "failing". A `false` additionalProperties is never applied per
+  // property: the failing OBJECT application carries its one summary error,
+  // and the extra names are the keep set's complement (the same rule as
+  // "all"). A non-`false` subschema still applies per property, and only
+  // "failing" removes each failing application's property.
   for (const unit of units) {
     if (unit.valid) continue;
-    if (lastSegment(unit.schemaLocation) !== "additionalProperties") continue;
-    if (mode === true && resolveSchema(unit.schemaLocation) !== false) continue;
-    if (getAt(root, unit.instanceLocation) === undefined) continue;
-    deleteAt(root, unit.instanceLocation);
-    mark();
+    if (lastSegment(unit.schemaLocation) === "additionalProperties") {
+      if (mode === true) continue;
+      if (getAt(root, unit.instanceLocation) === undefined) continue;
+      deleteAt(root, unit.instanceLocation);
+      mark();
+      continue;
+    }
+    if (unit.errors?.additionalProperties === undefined) continue;
+    const node = resolveSchema(unit.schemaLocation);
+    if (!isPlainObject(node) || node.additionalProperties !== false) continue;
+    const instance = getAt(root, unit.instanceLocation);
+    if (!isPlainObject(instance)) continue;
+    const props = isPlainObject(node.properties) ? node.properties : null;
+    const patterns = isPlainObject(node.patternProperties)
+      ? Object.keys(node.patternProperties)
+      : null;
+    for (const key of Object.keys(instance)) {
+      if (props !== null && key in props) continue;
+      if (patterns?.some((p) => new RegExp(p, "u").test(key)) === true)
+        continue;
+      Reflect.deleteProperty(instance, key);
+      mark();
+    }
   }
   return changed;
 };
