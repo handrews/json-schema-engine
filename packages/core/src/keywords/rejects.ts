@@ -8,7 +8,15 @@
 // both tiers.
 
 import { JsonValue } from "../json.js";
-import { Description, LowerExpr, LowerParams, lowerIR } from "../lowering.js";
+import { KeywordContext } from "../dialect.js";
+import {
+  Description,
+  LowerExpr,
+  LowerParams,
+  LowerStmt,
+  LoweringContext,
+  lowerIR,
+} from "../lowering.js";
 
 /** The boolean schema `false`: `value === false`, never a falsy value. */
 export const isFalse = (value: JsonValue): value is false => value === false;
@@ -85,4 +93,68 @@ export function unevaluatedRejected(indexes: LowerExpr): Description {
     ],
     params: { start: first, failed: lowerIR.helper("ranges", indexes) },
   };
+}
+
+/** `unevaluated properties "b", "c" not allowed`, params `properties`. */
+export function unevaluatedNamesRejected(names: LowerExpr): Description {
+  return namesRejected("unevaluated ", " not allowed", names);
+}
+
+/** What a sweep does at each key or index: apply the subschema, or reject the key. */
+export interface RejectingSweep {
+  /** the statement for one swept key, to sit where the sweep's apply would */
+  readonly step: LowerStmt;
+  /** the sweep's own statements, wrapped in the scope that reports the rejects (unchanged when nothing is rejected) */
+  readonly scope: (sweep: readonly LowerStmt[]) => readonly LowerStmt[];
+}
+
+/**
+ * The step of a sweep over the child of the instance at `key` (a loop
+ * binding): an application of the keyword's subschema, or, when that is
+ * `false`, a reject that `scope` turns into one error built by `describe`
+ * from the list of rejected keys.
+ */
+export function rejectingSweep(
+  value: JsonValue,
+  key: LowerExpr,
+  lctx: LoweringContext,
+  describe: (rejected: LowerExpr) => Description,
+): RejectingSweep {
+  if (!isFalse(value)) {
+    return {
+      step: {
+        kind: "apply",
+        apply: {
+          path: [],
+          cursor: { kind: "child", of: { kind: "here" }, segment: key },
+          fold: "allMustPass",
+        },
+      },
+      scope: (sweep) => sweep,
+    };
+  }
+  const list = lctx.binding();
+  return {
+    step: lowerIR.reject(list, key),
+    scope: (sweep) => [
+      lowerIR.rejectScope(list, sweep, describe({ kind: "binding", id: list })),
+    ],
+  };
+}
+
+/**
+ * `evaluate` for a `false` subschema over every index of `instance` from
+ * `start`: one error naming them all, or nothing when none are that far.
+ */
+export function tailEvaluate(
+  noun: string,
+  start: number,
+  instance: readonly JsonValue[],
+  ctx: KeywordContext,
+): boolean {
+  if (instance.length <= start) return true;
+  const rejected: JsonValue[] = [];
+  for (let i = start; i < instance.length; i++) rejected.push(i);
+  ctx.report(() => tailRejected(noun, start, lowerIR.constant(rejected)));
+  return false;
 }

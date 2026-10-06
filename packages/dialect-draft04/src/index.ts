@@ -10,11 +10,13 @@
 // below.
 
 import {
+  Description,
   Engine,
   IdentifierExtractor,
   KeywordBehavior,
   DIALECT_DRAFT_07,
   lowerIR,
+  LowerExpr,
   LoweringContext,
 } from "@json-schema-engine/core";
 import { METASCHEMAS_DRAFT_04 } from "./metaschema4.js";
@@ -63,14 +65,28 @@ const structural = (name: string): KeywordBehavior => ({
 // sibling minimum/maximum, not standalone assertions — so minimum/maximum
 // read the sibling through ctx.schema (the same sibling-read pattern as
 // 2020-12's contains with minContains) and the booleans themselves assert
-// nothing. Params stay { limit } per the shared bounds-keyword shape (D13);
-// exclusivity is recoverable from the schema itself.
+// nothing. Exclusivity is recoverable from the schema itself, so the params
+// stay the shared bounds shape (D13).
 // lower(): the exclusive/inclusive choice is plan-time data (the sibling
 // boolean lives on lctx.schema, same sibling-read pattern as core's
 // additionalItems reading lctx.schema.items) — so the comparison operator
 // and message are picked once at lowering time rather than branching at
 // runtime. Guard/compare/fail shape mirrors core's guardedCompare exemplar
 // for 2020-12 minimum/maximum (validation.ts).
+
+// `must be >= 5, got 3`, built once for both tiers.
+const describeBound = (
+  op: string,
+  limit: number,
+  instance: LowerExpr,
+): Description => ({
+  message: [
+    `must be ${op} ${limit}, got `,
+    lowerIR.helper("preview", instance),
+  ],
+  params: { limit: lowerIR.constant(limit), value: instance },
+});
+
 const minimum: KeywordBehavior = {
   id: id04("minimum"),
   evaluate: (value, cursor, ctx) => {
@@ -79,26 +95,26 @@ const minimum: KeywordBehavior = {
     const limit = value as number;
     if (ctx.schema.exclusiveMinimum === true) {
       if (instance > limit) return true;
-      ctx.error(`must be > ${limit}`, { limit });
+      ctx.report(() => describeBound(">", limit, lowerIR.instance));
       return false;
     }
     if (instance >= limit) return true;
-    ctx.error(`must be >= ${limit}`, { limit });
+    ctx.report(() => describeBound(">=", limit, lowerIR.instance));
     return false;
   },
   lower: (value, lctx: LoweringContext) => {
-    const exclusive = lctx.schema.exclusiveMinimum === true;
-    const op = exclusive ? ">" : ">=";
-    const message = exclusive
-      ? `must be > ${value as number}`
-      : `must be >= ${value as number}`;
+    const op = lctx.schema.exclusiveMinimum === true ? ">" : ">=";
     lctx.emit(
       lowerIR.when(
         lowerIR.and(
           lowerIR.typeIs(lctx.instance, "number"),
           lowerIR.not(lowerIR.cmp(op, lctx.instance, lowerIR.constant(value))),
         ),
-        [lowerIR.failWith({ limit: lowerIR.constant(value) }, message)],
+        [
+          lowerIR.failDescribed(
+            describeBound(op, value as number, lctx.instance),
+          ),
+        ],
       ),
     );
   },
@@ -112,26 +128,26 @@ const maximum: KeywordBehavior = {
     const limit = value as number;
     if (ctx.schema.exclusiveMaximum === true) {
       if (instance < limit) return true;
-      ctx.error(`must be < ${limit}`, { limit });
+      ctx.report(() => describeBound("<", limit, lowerIR.instance));
       return false;
     }
     if (instance <= limit) return true;
-    ctx.error(`must be <= ${limit}`, { limit });
+    ctx.report(() => describeBound("<=", limit, lowerIR.instance));
     return false;
   },
   lower: (value, lctx: LoweringContext) => {
-    const exclusive = lctx.schema.exclusiveMaximum === true;
-    const op = exclusive ? "<" : "<=";
-    const message = exclusive
-      ? `must be < ${value as number}`
-      : `must be <= ${value as number}`;
+    const op = lctx.schema.exclusiveMaximum === true ? "<" : "<=";
     lctx.emit(
       lowerIR.when(
         lowerIR.and(
           lowerIR.typeIs(lctx.instance, "number"),
           lowerIR.not(lowerIR.cmp(op, lctx.instance, lowerIR.constant(value))),
         ),
-        [lowerIR.failWith({ limit: lowerIR.constant(value) }, message)],
+        [
+          lowerIR.failDescribed(
+            describeBound(op, value as number, lctx.instance),
+          ),
+        ],
       ),
     );
   },

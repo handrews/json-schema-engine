@@ -32,8 +32,8 @@ const failures = (
 };
 
 describe("draft-04 errorParams pins", () => {
-  it("minimum / maximum carry {limit} in both inclusive and exclusive forms", () => {
-    const cases: [JsonValue, JsonValue, string, number][] = [
+  it("minimum / maximum carry {limit, value} in both inclusive and exclusive forms", () => {
+    const cases: [JsonValue, number, string, number][] = [
       [{ minimum: 3 }, 2, "minimum", 3],
       [{ minimum: 3, exclusiveMinimum: true }, 3, "minimum", 3],
       [{ maximum: 1 }, 2, "maximum", 1],
@@ -47,7 +47,7 @@ describe("draft-04 errorParams pins", () => {
       );
       expect(units, keyword).toHaveLength(1);
       expect(units[0]!.keyword, keyword).toBe(keyword);
-      expect(units[0]!.params, keyword).toEqual({ limit });
+      expect(units[0]!.params, keyword).toEqual({ limit, value: instance });
     }
   });
 
