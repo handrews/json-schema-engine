@@ -172,7 +172,7 @@ describe("compiled list output ≡ interpreter (full local suite)", () => {
     );
     expect(byKeyword.uniqueItems).toEqual({ duplicates: [[0, 2]] });
     expect(byKeyword.oneOf).toEqual({ passing: [0, 1] });
-    expect(byKeyword.required).toEqual({ missingProperty: "id" });
+    expect(byKeyword.required).toEqual({ missing: ["id"] });
   });
 
   it("D9e: valid instances allocate no error units (flag parity preserved)", () => {

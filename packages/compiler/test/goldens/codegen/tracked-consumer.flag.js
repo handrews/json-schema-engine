@@ -10,7 +10,7 @@ const ev = [];
 let c0 = false; { const m0 = ev.length; if (u1c(v, d, h_s0, ev)) { c0 = true; } else { ev.length = m0; } } { const m1 = ev.length; if (u3c(v, d, h_s0, ev)) { c0 = true; } else { ev.length = m1; } } if (!c0) return false;
 const n2 = new Set();
 if (g4) { const f3 = h_covN(ev);
-for (const b1 in v) { if (!(f3.has(b1))) { n2.add(b1); return false; } }
+for (const b1 in v) { if (!(f3.has(b1))) { return false; } }
 ev.push([...n2]); }
 return true; }
 function u1(v, d, s) { if (d >= h_maxd) h_deep(); d++;

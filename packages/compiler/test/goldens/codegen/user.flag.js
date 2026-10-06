@@ -35,15 +35,11 @@ if (!((typeof t11 === "string"))) { return false; }
 if (((typeof t11 === "string") && !(r1.test(t11)))) { return false; } }
 if (g9) {  }
 if (!(g9)) { return false; }
-if (g9) { if (!(("street" in t7))) { return false; }
-if (!(("city" in t7))) { return false; } } }
+if ((g9 && (!(("street" in t7)) || !(("city" in t7))))) { return false; } }
 if (g1) {  }
 if (g1) { for (const b1 in v) { if (!(((b1 === "id") || (b1 === "name") || (b1 === "email") || (b1 === "role") || (b1 === "tags") || (b1 === "address")))) { return false; } } }
 if (g1) {  }
 if (!(g1)) { return false; }
-if (g1) { if (!(("id" in v))) { return false; }
-if (!(("name" in v))) { return false; }
-if (!(("email" in v))) { return false; }
-if (!(("tags" in v))) { return false; } }
+if ((g1 && (!(("id" in v)) || !(("name" in v)) || !(("email" in v)) || !(("tags" in v))))) { return false; }
 return true; }
 return function validate(v) { return u0(v, 0, h_s0); };

@@ -4,6 +4,7 @@ const h_maxd = R.maxDepth;
 const h_s0 = [];
 const h_hop = Object.prototype.hasOwnProperty;
 const { traceState: h_tstate, traceNode: h_tnode, traceError: h_err, traceAnn: h_ann, cutErrors: h_cutE, cutAnns: h_cutA, fragTrace: h_fragt } = R;
+const { labeledNames: h_lnames, typedPreview: h_tprev, apparentType: h_atype } = R.messageHelpers;
 const h_covN = R.foldNameCoverage, h_covI = R.foldIndexCoverage;
 function u0(v, d, s, ep, ip, st, tp) { if (d >= h_maxd) h_deep(); d++;
 const tn = h_tnode(tp, ep, "https://codegen.example/static-consumer#", ip);
@@ -17,7 +18,7 @@ if (g4) { if (k0) { ev.push([...n2]); } }
 tn.keywords.push({ name: "properties", valid: k0 });
 const n5 = new Set();
 if (g4) { const f6 = h_covN(ev);
-for (const b1 in v) { if (!(f6.has(b1))) { n5.add(b1); const m7 = st.anns.length; if (!u2(v[b1], d, h_s0, ep + "/unevaluatedProperties", ip + "/" + h_esc(String(b1)), st, tn)) { ok = false; k1 = false; h_cutA(st, m7); } } }
+const b2 = []; for (const b1 in v) { if (!(f6.has(b1))) { b2.push(b1); } } if (b2.length) { ok = false; k1 = false; h_err(st, tn, { evaluationPath: ep + "/unevaluatedProperties", schemaLocation: "https://codegen.example/static-consumer#/unevaluatedProperties", inputLocation: ip, error: ("unevaluated " + String(h_lnames(b2, "property", "properties")) + " not allowed"), keyword: "unevaluatedProperties", vocabulary: "https://json-schema.org/draft/2020-12/vocab/unevaluated", params: { "properties": b2 } }); }
 if (k1) { ev.push([...n5]); } }
 tn.keywords.push({ name: "unevaluatedProperties", valid: k1 });
 tn.valid = ok;
@@ -25,7 +26,7 @@ return ok; }
 function u1(v, d, s, ep, ip, st, tp) { const tn = h_tnode(tp, ep, "https://codegen.example/static-consumer#/properties/a", ip);
 let ok = true;
 let k0 = true;
-if (!((typeof v === "string"))) { ok = false; k0 = false; h_err(st, tn, { evaluationPath: ep + "/type", schemaLocation: "https://codegen.example/static-consumer#/properties/a/type", inputLocation: ip, error: "expected type \"string\"", keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": "string" } }); }
+if (!((typeof v === "string"))) { ok = false; k0 = false; h_err(st, tn, { evaluationPath: ep + "/type", schemaLocation: "https://codegen.example/static-consumer#/properties/a/type", inputLocation: ip, error: ("expected string, got " + String(h_tprev(v))), keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": ["string"], "actual": h_atype(v), "value": v } }); }
 tn.keywords.push({ name: "type", valid: k0 });
 tn.valid = ok;
 return ok; }

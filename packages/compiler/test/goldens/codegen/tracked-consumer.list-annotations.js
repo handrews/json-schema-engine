@@ -4,16 +4,17 @@ const h_maxd = R.maxDepth;
 const h_s0 = [];
 const h_hop = Object.prototype.hasOwnProperty;
 const h_fragla = R.fragListAnn;
+const { labeledNames: h_lnames, typedPreview: h_tprev, apparentType: h_atype } = R.messageHelpers;
 const h_covN = R.foldNameCoverage, h_covI = R.foldIndexCoverage;
 function u0(v, d, s, ep, ip, errs, anns) { if (d >= h_maxd) h_deep(); d++;
-const g9 = (typeof v === "object" && v !== null && !Array.isArray(v));
+const g8 = (typeof v === "object" && v !== null && !Array.isArray(v));
 let ok = true;
 const ev = [];
-let c0 = false; const m0 = errs.length; { const m1 = anns.length; const m2 = ev.length; if (u1c(v, d, h_s0, ep + "/anyOf/0", ip, errs, anns, ev)) { c0 = true; } else { anns.length = m1; ev.length = m2; } } { const m3 = anns.length; const m4 = ev.length; if (u3c(v, d, h_s0, ep + "/anyOf/1", ip, errs, anns, ev)) { c0 = true; } else { anns.length = m3; ev.length = m4; } } if (c0) { errs.length = m0; } else { ok = false; errs.push({ evaluationPath: ep + "/anyOf", schemaLocation: "https://codegen.example/tracked-consumer#/anyOf", inputLocation: ip, error: "no branch matched", keyword: "anyOf", vocabulary: "https://json-schema.org/draft/2020-12/vocab/applicator", params: {} }); }
+let c0 = false; const m0 = errs.length; { const m1 = anns.length; const m2 = ev.length; if (u1c(v, d, h_s0, ep + "/anyOf/0", ip, errs, anns, ev)) { c0 = true; } else { anns.length = m1; ev.length = m2; } } { const m3 = anns.length; const m4 = ev.length; if (u3c(v, d, h_s0, ep + "/anyOf/1", ip, errs, anns, ev)) { c0 = true; } else { anns.length = m3; ev.length = m4; } } if (c0) { errs.length = m0; } else { ok = false; errs.push({ evaluationPath: ep + "/anyOf", schemaLocation: "https://codegen.example/tracked-consumer#/anyOf", inputLocation: ip, error: "does not match any of the 2 anyOf branches", keyword: "anyOf", vocabulary: "https://json-schema.org/draft/2020-12/vocab/applicator", params: {} }); }
 let k5 = true;
 const n6 = new Set();
-if (g9) { const f7 = h_covN(ev);
-for (const b1 in v) { if (!(f7.has(b1))) { n6.add(b1); const m8 = anns.length; if (!u5(v[b1], d, h_s0, ep + "/unevaluatedProperties", ip + "/" + h_esc(String(b1)), errs, anns)) { ok = false; k5 = false; anns.length = m8; } } }
+if (g8) { const f7 = h_covN(ev);
+const b2 = []; for (const b1 in v) { if (!(f7.has(b1))) { b2.push(b1); } } if (b2.length) { ok = false; k5 = false; errs.push({ evaluationPath: ep + "/unevaluatedProperties", schemaLocation: "https://codegen.example/tracked-consumer#/unevaluatedProperties", inputLocation: ip, error: ("unevaluated " + String(h_lnames(b2, "property", "properties")) + " not allowed"), keyword: "unevaluatedProperties", vocabulary: "https://json-schema.org/draft/2020-12/vocab/unevaluated", params: { "properties": b2 } }); }
 if (k5) { ev.push([...n6]); } }
 return ok; }
 function u1(v, d, s, ep, ip, errs, anns) { if (d >= h_maxd) h_deep(); d++;
@@ -31,7 +32,7 @@ if ((g3 && ("a" in v))) { n1.add("a"); const m2 = anns.length; if (!u2(v["a"], d
 if (g3) { if (k0) { ev.push([...n1]); } }
 return ok; }
 function u2(v, d, s, ep, ip, errs, anns) { let ok = true;
-if (!((typeof v === "number" && Number.isInteger(v)))) { ok = false; errs.push({ evaluationPath: ep + "/type", schemaLocation: "https://codegen.example/tracked-consumer#/anyOf/0/properties/a/type", inputLocation: ip, error: "expected type \"integer\"", keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": "integer" } }); }
+if (!((typeof v === "number" && Number.isInteger(v)))) { ok = false; errs.push({ evaluationPath: ep + "/type", schemaLocation: "https://codegen.example/tracked-consumer#/anyOf/0/properties/a/type", inputLocation: ip, error: ("expected integer, got " + String(h_tprev(v))), keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": ["integer"], "actual": h_atype(v), "value": v } }); }
 return ok; }
 function u3(v, d, s, ep, ip, errs, anns) { if (d >= h_maxd) h_deep(); d++;
 const g1 = (typeof v === "object" && v !== null && !Array.isArray(v));
@@ -48,7 +49,7 @@ if ((g3 && ("b" in v))) { n1.add("b"); const m2 = anns.length; if (!u4(v["b"], d
 if (g3) { if (k0) { ev.push([...n1]); } }
 return ok; }
 function u4(v, d, s, ep, ip, errs, anns) { let ok = true;
-if (!((typeof v === "string"))) { ok = false; errs.push({ evaluationPath: ep + "/type", schemaLocation: "https://codegen.example/tracked-consumer#/anyOf/1/properties/b/type", inputLocation: ip, error: "expected type \"string\"", keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": "string" } }); }
+if (!((typeof v === "string"))) { ok = false; errs.push({ evaluationPath: ep + "/type", schemaLocation: "https://codegen.example/tracked-consumer#/anyOf/1/properties/b/type", inputLocation: ip, error: ("expected string, got " + String(h_tprev(v))), keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": ["string"], "actual": h_atype(v), "value": v } }); }
 return ok; }
 function u5(v, d, s, ep, ip, errs, anns) { errs.push({ evaluationPath: ep, schemaLocation: "https://codegen.example/tracked-consumer#/unevaluatedProperties", inputLocation: ip, error: "schema is false", params: {} }); return false; }
 return function evaluateList(v) { const errs = []; const anns = []; const ok = u0(v, 0, h_s0, "", "", errs, anns); return { valid: ok, errors: errs, annotations: anns }; };

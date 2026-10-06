@@ -93,7 +93,7 @@ const COUNT_ERROR = {
   evaluationPath: "/properties/count/type",
   schemaLocation: "https://golden.example/schema#/properties/count/type",
   inputLocation: "/count",
-  error: 'expected type "integer"',
+  error: 'expected integer, got "nope" (string)',
 };
 
 for (const [name, options] of renderings) {

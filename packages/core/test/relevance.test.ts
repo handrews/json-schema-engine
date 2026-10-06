@@ -630,8 +630,7 @@ describe("dependency data comes only from an accepting producer (Appendix D)", (
     expect(errorTuples(r)).toEqual([
       ["/properties/X/type", "/X"],
       ["/properties/Y/type", "/Y"],
-      ["/unevaluatedProperties", "/X"],
-      ["/unevaluatedProperties", "/Y"],
+      ["/unevaluatedProperties", ""],
     ]);
   });
 
@@ -657,8 +656,7 @@ describe("dependency data comes only from an accepting producer (Appendix D)", (
     expect(r.valid).toBe(false);
     expect(errorTuples(r)).toEqual([
       ["/$ref/prefixItems/1/type", "/1"],
-      ["/unevaluatedItems", "/0"],
-      ["/unevaluatedItems", "/1"],
+      ["/unevaluatedItems", ""],
     ]);
   });
 
@@ -670,7 +668,7 @@ describe("dependency data comes only from an accepting producer (Appendix D)", (
       LIST,
     );
     expect(r.valid).toBe(false);
-    expect(errorTuples(r)).toEqual([["/unevaluatedItems", "/0"]]);
+    expect(errorTuples(r)).toEqual([["/unevaluatedItems", ""]]);
   });
 });
 

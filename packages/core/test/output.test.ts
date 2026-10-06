@@ -28,7 +28,7 @@ describe("flat surface", () => {
         evaluationPath: "/allOf/0/$ref/required",
         schemaLocation: "https://output.example/schema#/$defs/base/required",
         inputLocation: "",
-        error: "missing required property 'id'",
+        error: 'missing required property "id"',
       },
     ]);
   });
@@ -55,7 +55,7 @@ describe("flat surface", () => {
     expect(r.errors![0]).toMatchObject({
       keyword: "required",
       vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation",
-      params: { missingProperty: "id" },
+      params: { missing: ["id"] },
     });
   });
 
@@ -111,19 +111,39 @@ describe("flat surface", () => {
     expect(engine.evaluate(uri, {})).toEqual({ valid: false });
   });
 
-  it("reports a boolean false schema with schema-level locations", () => {
+  it("names a rejected false subschema at its applicator", () => {
     const { engine, uri } = engineFor({ properties: { x: false } });
     const r = engine.evaluate(uri, { x: 1 }, { output: "list" });
-    expect(r.errors).toContainEqual({
-      evaluationPath: "/properties/x",
-      schemaLocation: "https://output.example/schema#/properties/x",
-      inputLocation: "/x",
-      error: "schema is false",
-    });
+    expect(r.errors).toEqual([
+      {
+        evaluationPath: "/properties",
+        schemaLocation: "https://output.example/schema#/properties",
+        inputLocation: "",
+        error: 'property "x" not allowed',
+      },
+    ]);
+  });
+
+  it("reports a referenced false schema with schema-level locations", () => {
+    const { engine, uri } = engineFor(
+      { $ref: "#/$defs/f", $defs: { f: false } },
+      "ref-false",
+    );
+    const r = engine.evaluate(uri, 1, { output: "list" });
+    expect(r.errors).toEqual([
+      {
+        evaluationPath: "/$ref",
+        schemaLocation: "https://output.example/ref-false#/$defs/f",
+        inputLocation: "",
+        error: "schema is false",
+      },
+    ]);
   });
 
   it("escapes JSON Pointer segments in input locations", () => {
-    const { engine, uri } = engineFor({ additionalProperties: false });
+    const { engine, uri } = engineFor({
+      additionalProperties: { type: "string" },
+    });
     const r = engine.evaluate(uri, { "a/b~c": 1 }, { output: "list" });
     expect(r.errors![0]!.inputLocation).toBe("/a~1b~0c");
   });
@@ -151,7 +171,7 @@ describe("basic (IETF draft-03 §13.4.2)", () => {
           absoluteKeywordLocation:
             "https://output.example/schema#/$defs/base/required",
           instanceLocation: "",
-          error: "missing required property 'id'",
+          error: 'missing required property "id"',
         },
       ],
     });
@@ -375,8 +395,8 @@ describe("detailed (IETF draft-03 §13.4.3)", () => {
               keywordLocation: "/items/$ref/additionalProperties",
               absoluteKeywordLocation:
                 "https://example.com/polygon#/$defs/point/additionalProperties",
-              instanceLocation: "/1/z",
-              error: "schema is false",
+              instanceLocation: "/1",
+              error: 'additional property "z" not allowed',
             },
             {
               valid: false,
@@ -384,7 +404,7 @@ describe("detailed (IETF draft-03 §13.4.3)", () => {
               absoluteKeywordLocation:
                 "https://example.com/polygon#/$defs/point/required",
               instanceLocation: "/1",
-              error: "missing required property 'y'",
+              error: 'missing required property "y"',
             },
           ],
         },
@@ -497,16 +517,7 @@ describe("verbose (IETF draft-03 §13.4.4)", () => {
           absoluteKeywordLocation:
             "https://example.com/polygon#/additionalProperties",
           instanceLocation: "",
-          errors: [
-            {
-              valid: false,
-              keywordLocation: "/additionalProperties",
-              absoluteKeywordLocation:
-                "https://example.com/polygon#/additionalProperties",
-              instanceLocation: "/disallowedProp",
-              error: "schema is false",
-            },
-          ],
+          error: 'additional property "disallowedProp" not allowed',
         },
         {
           valid: true,

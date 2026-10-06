@@ -60,7 +60,7 @@ const COUNT_ERROR: ErrorUnit = {
   evaluationPath: "/properties/count/type",
   schemaLocation: `${ROOT_LOCATION}/properties/count/type`,
   inputLocation: "/count",
-  error: 'expected type "integer"',
+  error: 'expected integer, got "nope" (string)',
 };
 
 // Leaf application: `$defs/named`'s `properties.name`. Identical in both

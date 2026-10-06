@@ -26,6 +26,7 @@ import {
 } from "@json-schema-engine/compiler";
 import { FORMATS_2020_12 } from "@json-schema-engine/formats";
 import { STANDALONE_PREAMBLE } from "../src/standalone.js";
+import { MESSAGE_HELPER_VARS } from "../src/serialize/expressions.js";
 
 interface PreambleHelpers {
   h_eq: (a: JsonValue, b: JsonValue) => boolean;
@@ -45,6 +46,29 @@ const preambleFactory = new Function(
     "return { h_eq, h_ck, h_dup, h_cpl, h_esc, h_mof, MaxDepthExceededError };",
 ) as () => PreambleHelpers;
 const helpers = preambleFactory();
+
+describe("message helpers stay out of standalone artifacts", () => {
+  // Standalone emission is flag-only: no message is ever rendered, so the
+  // preamble defines no message helper and no artifact may name one.
+  it("emits no message-helper binding for an error-heavy schema", () => {
+    const engine = createEngine();
+    const uri = engine.registerSchema(
+      {
+        type: "object",
+        required: ["a", "b"],
+        properties: { a: { type: "string", minLength: 2 }, b: false },
+        additionalProperties: false,
+        uniqueItems: true,
+      },
+      "https://standalone.example/messages",
+    );
+    const source = emitStandalone(engine, uri);
+    for (const name of Object.values(MESSAGE_HELPER_VARS)) {
+      expect(source, name).not.toContain(name);
+    }
+    expect(STANDALONE_PREAMBLE).not.toContain("h_prev");
+  });
+});
 
 describe("standalone preamble drift guards (M6.5)", () => {
   const values: JsonValue[] = [

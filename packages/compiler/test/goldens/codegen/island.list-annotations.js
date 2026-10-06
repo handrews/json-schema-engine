@@ -4,6 +4,7 @@ const h_maxd = R.maxDepth;
 const h_s0 = [];
 const h_hop = Object.prototype.hasOwnProperty;
 const h_fragla = R.fragListAnn;
+const { missingNames: h_miss, labeledNames: h_lnames, preview: h_prev, typedPreview: h_tprev, apparentType: h_atype } = R.messageHelpers;
 function u0(v, d, s, ep, ip, errs, anns) { if (d >= h_maxd) h_deep(); d++;
 s = s[s.length - 1] === "https://codegen.example/island" ? s : [...s, "https://codegen.example/island"];
 let ok = true;
@@ -14,10 +15,10 @@ const g1 = (typeof v === "object" && v !== null && !Array.isArray(v));
 let ok = true;
 if ((g1 && ("kind" in v))) { const m0 = anns.length; if (!u2(v["kind"], d, h_s0, ep + "/properties/kind", ip + "/kind", errs, anns)) { ok = false; anns.length = m0; } }
 if (g1) {  }
-if (g1) { if (!(("kind" in v))) { ok = false; errs.push({ evaluationPath: ep + "/required", schemaLocation: "https://codegen.example/island#/if/required", inputLocation: ip, error: "missing required property 'kind'", keyword: "required", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "missingProperty": "kind" } }); } }
+if ((g1 && (!(("kind" in v))))) { ok = false; errs.push({ evaluationPath: ep + "/required", schemaLocation: "https://codegen.example/island#/if/required", inputLocation: ip, error: ("missing required " + String(h_lnames(h_miss(v, ["kind"]), "property", "properties"))), keyword: "required", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "missing": h_miss(v, ["kind"]) } }); }
 return ok; }
 function u2(v, d, s, ep, ip, errs, anns) { let ok = true;
-if (!((v === "strict"))) { ok = false; errs.push({ evaluationPath: ep + "/const", schemaLocation: "https://codegen.example/island#/if/properties/kind/const", inputLocation: ip, error: "does not equal the required constant", keyword: "const", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "allowedValue": "strict" } }); }
+if (!((v === "strict"))) { ok = false; errs.push({ evaluationPath: ep + "/const", schemaLocation: "https://codegen.example/island#/if/properties/kind/const", inputLocation: ip, error: ("must equal \"strict\", got " + String(h_prev(v))), keyword: "const", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "allowedValue": "strict", "value": v } }); }
 return ok; }
 function u3(v, d, s, ep, ip, errs, anns) { if (d >= h_maxd) h_deep(); d++;
 s = s[s.length - 1] === "https://codegen.example/island" ? s : [...s, "https://codegen.example/island"];
@@ -38,10 +39,10 @@ const g1 = (typeof v === "object" && v !== null && !Array.isArray(v));
 let ok = true;
 if ((g1 && ("child" in v))) { const m0 = anns.length; if (!h_fragla(T[0], v["child"], s, d, ep + "/properties/child", ip + "/child", errs, anns)) { ok = false; anns.length = m0; } }
 if (g1) {  }
-if (!(g1)) { ok = false; errs.push({ evaluationPath: ep + "/type", schemaLocation: "https://codegen.example/tree#/type", inputLocation: ip, error: "expected type \"object\"", keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": "object" } }); }
+if (!(g1)) { ok = false; errs.push({ evaluationPath: ep + "/type", schemaLocation: "https://codegen.example/tree#/type", inputLocation: ip, error: ("expected object, got " + String(h_tprev(v))), keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": ["object"], "actual": h_atype(v), "value": v } }); }
 return ok; }
 function u6(v, d, s, ep, ip, errs, anns) { let ok = true;
-if (!((typeof v === "number" && Number.isInteger(v)))) { ok = false; errs.push({ evaluationPath: ep + "/type", schemaLocation: "https://codegen.example/strict#/properties/data/type", inputLocation: ip, error: "expected type \"integer\"", keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": "integer" } }); }
+if (!((typeof v === "number" && Number.isInteger(v)))) { ok = false; errs.push({ evaluationPath: ep + "/type", schemaLocation: "https://codegen.example/strict#/properties/data/type", inputLocation: ip, error: ("expected integer, got " + String(h_tprev(v))), keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": ["integer"], "actual": h_atype(v), "value": v } }); }
 return ok; }
 function u7(v, d, s, ep, ip, errs, anns) { if (d >= h_maxd) h_deep(); d++;
 s = s[s.length - 1] === "https://codegen.example/island" ? s : [...s, "https://codegen.example/island"];
@@ -57,6 +58,6 @@ if ((g2 && ("data" in v))) { const m1 = anns.length; if (!u9(v["data"], d, s, ep
 if (g2) {  }
 return ok; }
 function u9(v, d, s, ep, ip, errs, anns) { let ok = true;
-if (!((typeof v === "string"))) { ok = false; errs.push({ evaluationPath: ep + "/type", schemaLocation: "https://codegen.example/loose#/properties/data/type", inputLocation: ip, error: "expected type \"string\"", keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": "string" } }); }
+if (!((typeof v === "string"))) { ok = false; errs.push({ evaluationPath: ep + "/type", schemaLocation: "https://codegen.example/loose#/properties/data/type", inputLocation: ip, error: ("expected string, got " + String(h_tprev(v))), keyword: "type", vocabulary: "https://json-schema.org/draft/2020-12/vocab/validation", params: { "expected": ["string"], "actual": h_atype(v), "value": v } }); }
 return ok; }
 return function evaluateList(v) { const errs = []; const anns = []; const ok = u0(v, 0, h_s0, "", "", errs, anns); return { valid: ok, errors: errs, annotations: anns }; };

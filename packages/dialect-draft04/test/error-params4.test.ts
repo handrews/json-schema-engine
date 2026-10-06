@@ -57,12 +57,12 @@ describe("draft-04 errorParams pins", () => {
       {},
       "https://p4.example/required",
     );
-    expect(r!.params).toEqual({ missingProperty: "a" });
+    expect(r!.params).toEqual({ missing: ["a"] });
     const [d] = failures(
       { dependencies: { a: ["b"] } },
       { a: 1 },
       "https://p4.example/dependencies",
     );
-    expect(d!.params).toEqual({ property: "a", missingProperty: "b" });
+    expect(d!.params).toEqual({ missing: { a: ["b"] } });
   });
 });
