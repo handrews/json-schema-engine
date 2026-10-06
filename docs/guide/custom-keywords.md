@@ -47,6 +47,74 @@ assert.equal(engine.evaluate(uri, 8).valid, true);
 assert.equal(engine.evaluate(uri, 6).valid, false);
 ```
 
+## Messages that carry instance data
+
+`ctx.error(message, params)` takes a finished string and a params object,
+which suits a message built from the keyword's own value alone. A message
+that quotes the instance uses `ctx.report(describe)` instead. `describe()`
+returns a `Description`: a `message` (strings and expressions, joined) and
+optional `params`, written in the lowering IR (`lowerIR`) that a keyword's
+`lower` emits. The instance is `lowerIR.instance`, a keyword's own runtime
+value is `lowerIR.constant(value)`, and the message-formatting helpers
+(`preview`, `apparentType`, `nameList`, and the rest of `messageHelpers`)
+are called with `lowerIR.helper(name, ...args)`.
+
+The engine calls `describe()`, and realizes the description against the
+instance, only when the error is rendered. A verdict-only evaluation, and an
+error dropped because a sibling branch passed, never build the text. A
+description is built from the same IR in both tiers, so the interpreter and a
+compiled artifact word the error identically. The rule is that every runtime
+value in a description is an expression: wrap a value in `lowerIR.constant`
+and never splice it into a string. A `binding`, `tally`, or `tallyList` names
+compiled-only data and cannot appear in a description passed to `ctx.report`.
+
+```ts
+import assert from "node:assert";
+import {
+  createEngine,
+  KeywordBehavior,
+  lowerIR,
+} from "@json-schema-engine/core";
+
+const VOCAB = "https://example.com/vocab/not-equal";
+const DIALECT = "https://example.com/dialect/not-equal";
+
+const notEqual: KeywordBehavior = {
+  id: `${VOCAB}#notEqual`,
+  evaluate: (value, cursor, ctx) => {
+    if (cursor.value !== value) return true;
+    ctx.report(() => ({
+      message: [
+        "must differ from ",
+        lowerIR.helper("preview", lowerIR.constant(value)),
+        ", got ",
+        lowerIR.helper("preview", lowerIR.instance),
+      ],
+      params: { value: lowerIR.instance },
+    }));
+    return false;
+  },
+};
+
+const engine = createEngine();
+engine.registerVocabulary(VOCAB, { notEqual });
+engine.registerDialect(DIALECT, [
+  "https://json-schema.org/draft/2020-12/vocab/core",
+  VOCAB,
+]);
+
+const uri = engine.registerSchema(
+  { notEqual: "x" },
+  "https://example.com/not-equal-schema",
+  DIALECT,
+);
+assert.equal(engine.evaluate(uri, "y").valid, true);
+
+const result = engine.evaluate(uri, "x", { output: "list", errorParams: true });
+assert.equal(result.errors?.[0]?.error, 'must differ from "x", got "x"');
+assert.deepEqual(result.errors?.[0]?.params, { value: "x" });
+```
+
 ## An annotation keyword
 
 `ctx.annotate()` records the keyword's value as an annotation at the current
@@ -103,7 +171,7 @@ its subschema's outcome, and `then`/`else`, which read it with
 `unevaluatedProperties`, which also sees data merged from successful
 in-place sub-applications.
 
-A keyword that reports an error through `ctx.error` must reject: the engine
+A keyword that reports an error through `ctx.error` or `ctx.report` must reject: the engine
 drops the errors of an accepting keyword's sub-evaluations (draft-03 §12.2)
 and throws `KeywordContractError` if the keyword itself reported one and
 then returned `true`.

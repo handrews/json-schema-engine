@@ -286,7 +286,7 @@ assert.equal(point.instanceLocation, "/1");
 assert.deepEqual(
   point.errors?.map((n) => [n.keywordLocation, n.instanceLocation]),
   [
-    ["/items/$ref/additionalProperties", "/1/z"],
+    ["/items/$ref/additionalProperties", "/1"],
     ["/items/$ref/required", "/1"],
   ],
 );
@@ -327,9 +327,13 @@ assert.deepEqual(
     ["/type", true],
   ],
 );
-const disallowed = result.outputDocument.errors![1]!.errors![0]!;
-assert.equal(disallowed.instanceLocation, "/disallowedProp");
-assert.equal(typeof disallowed.error, "string");
+// The applicator reports the rejected name once, at its own location.
+const disallowed = result.outputDocument.errors![1]!;
+assert.equal(disallowed.instanceLocation, "");
+assert.equal(
+  disallowed.error,
+  'additional property "disallowedProp" not allowed',
+);
 ```
 
 Every keyword evaluation is a node, and every schema application is a
@@ -397,9 +401,10 @@ The `errorParams` option adds `keyword`, `vocabulary`, and `params` to each
 flat error unit: the failing keyword's identity and a plain-JSON object of
 structured failure data, so tooling consumes the failure mechanically
 instead of parsing the message string. `keyword` and `vocabulary` are absent
-when a boolean `false` schema failed. Documents never carry these fields;
-`compileList` and `compileEvaluator` accept the same option and produce
-identical units.
+on a unit for a boolean `false` schema (see
+[Boolean `false` schemas](#boolean-false-schemas)). Documents never carry
+these fields; `compileList` and `compileEvaluator` accept the same option
+and produce identical units.
 
 ```ts
 import assert from "node:assert";
@@ -417,13 +422,74 @@ const result = engine.evaluate(
   { output: "list", errorParams: true },
 );
 const byKeyword = new Map(result.errors?.map((e) => [e.keyword, e.params]));
-assert.deepEqual(byKeyword.get("required"), { missingProperty: "b" });
-assert.deepEqual(byKeyword.get("enum"), { allowedValues: [1] });
+assert.deepEqual(byKeyword.get("required"), { missing: ["b"] });
+assert.deepEqual(byKeyword.get("enum"), {
+  allowedValues: [1],
+  value: { a: 1 },
+});
 assert.equal(
   result.errors?.[0]?.vocabulary,
   "https://json-schema.org/draft/2020-12/vocab/validation",
 );
 ```
+
+Message text names what was wrong with what; `params` carry the same facts
+in full. A message shows a value as compact JSON cut at 64 code points with
+a trailing `…`, a list of names shows at most 10 then `and N more`, and a
+list of indexes collapses runs of three or more (`0, 1, 3-5`); `params`
+always carry the complete value, names, and indexes. A keyword reports one
+error however many members failed, so `required` with two absent properties
+is one unit whose `missing` lists both.
+
+| Keyword                                                                     | `params`, in order                                                       |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `type`                                                                      | `expected` (always an array of type names), `actual`, `value`            |
+| `enum`                                                                      | `allowedValues`, `value`                                                 |
+| `const`                                                                     | `allowedValue`, `value`                                                  |
+| `multipleOf`                                                                | `multipleOf`, `value`                                                    |
+| `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum`                | `limit`, `value`                                                         |
+| `minLength`, `maxLength`                                                    | `limit`, `value`, `length`                                               |
+| `minItems`, `maxItems`, `minProperties`, `maxProperties`                    | `limit`, `count`                                                         |
+| `pattern`                                                                   | `pattern`, `value`                                                       |
+| `format` under assertion                                                    | `format`, `value`                                                        |
+| `required`                                                                  | `missing`: the absent names                                              |
+| `dependentRequired`, and array members of `dependencies`                    | `missing`: a record from each present property to its absent requirement |
+| `uniqueItems`                                                               | `duplicates`: groups of equal items, each a list of indexes              |
+| `contains`                                                                  | `count`, `matched` (indexes), `minContains`, `maxContains` when set      |
+| `oneOf`                                                                     | `passing`: the indexes of the matching branches                          |
+| `anyOf`, `not`                                                              | `{}`                                                                     |
+| `additionalProperties`, `unevaluatedProperties`                             | `properties`: the rejected names                                         |
+| `properties`, `dependentSchemas`, `dependencies`, `propertyNames` (`false`) | `properties`: the rejected names                                         |
+| `patternProperties` (`false`)                                               | `properties`, `patterns`                                                 |
+| `items`, `additionalItems`, `unevaluatedItems` (`false`)                    | `start`, `failed`: `[first, last]` index ranges                          |
+| `prefixItems`, tuple `items` (`false` members)                              | `failed`: `[first, last]` index ranges                                   |
+| `allOf` (`false` members)                                                   | `failed`: the false branch indexes                                       |
+
+`type.actual` is the instance's apparent type: `integer` for a number with
+no fractional part, otherwise the JSON type. `uniqueItems` groups items by
+equality and lists each group's indexes in ascending order, groups ordered
+by their first index. `contains` is the draft 2019-09 and later keyword;
+under draft-06 and draft-07 it reports the same `count` and `matched`
+without the bounds. Custom keywords pass whatever their `ctx.error(message,
+params)` or `ctx.report(describe)` call supplies (see
+[Custom keywords](custom-keywords.md)). The full pin suite is
+`packages/core/test/error-params.test.ts`.
+
+### Boolean `false` schemas
+
+A unit for a boolean `false` schema reads `schema is false`, carries no
+`keyword` or `vocabulary`, and has `params` of `{}`. It appears where a
+`false` schema is applied as a whole: at the root, as the target of a
+`$ref`, as `then` or `else`, and as an `anyOf` or `oneOf` branch.
+
+An applicator that holds a `false` subschema does not apply it. It reports
+one error at its own location, with its own `keyword`, naming the keys,
+names, or indexes the `false` subschema rejected. `additionalProperties`
+reports `additional properties "b", "c" not allowed`; `properties` with
+`{ "a": false }` reports `property "a" not allowed`; `items: false` after
+`prefixItems` reports `items not allowed from index 1: 1-4`; `allOf` reports
+`allOf branches 1-2, 4 are false`. No unit and no trace node exists for the
+rejected child. `contains: false` reports only the `contains` error.
 
 ### Compiled evaluators
 
@@ -489,18 +555,6 @@ evaluator serves the relevant level too, at the cost of keeping the
 dropped records; its emitted source is identical. A verbose-level request
 on any other evaluator, and any attempt to change the compile-time controls
 at evaluation, throw `OutputOptionsError`.
-
-The vocabulary, per keyword: `type` → `{expected}` (the schema value);
-`enum` → `{allowedValues}`; `const` → `{allowedValue}`; the string/
-array/object bounds and numeric limits → `{limit}`; `multipleOf` →
-`{multipleOf}`; `pattern` → `{pattern}`; `required` → one unit per
-missing property, each `{missingProperty}`; `dependentRequired` (and
-legacy `dependencies`) → `{property, missingProperty}`; `uniqueItems` →
-`{duplicates: [i, j]}` (first duplicate pair); `contains` → `{count,
-minContains[, maxContains]}`; `oneOf` → `{passing: [indexes]}`; `format`
-under assertion → `{format}`; `anyOf`/`not` → `{}`. Custom keywords pass
-whatever their `ctx.error(message, params)` call supplies. The full pin
-suite is `packages/core/test/error-params.test.ts`.
 
 ## Hierarchical
 

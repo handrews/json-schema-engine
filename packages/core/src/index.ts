@@ -161,6 +161,7 @@ export {
   preview,
   realize,
 } from "./messages.js";
+export type { HelperFn } from "./messages.js";
 export { walkSchema } from "./walk.js";
 export type { SchemaWalkVisit } from "./walk.js";
 export type {

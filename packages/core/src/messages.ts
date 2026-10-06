@@ -258,9 +258,12 @@ export function dependencyList(
 
 // --- the helper tables ---------------------------------------------------------
 
-// Every helper is called with the values its IR arguments evaluate to; the
-// table's parameter type is the one every function signature accepts.
-type HelperFn = (...args: never[]) => unknown;
+/**
+ * A helper as the tables hold it. Every helper is called with the values its
+ * IR arguments evaluate to, so the parameter type is the one every helper's
+ * own signature accepts.
+ */
+export type HelperFn = (...args: never[]) => unknown;
 
 /** The message-formatting helpers by IR name: what a message or its params may call, and what the compiled runtime binds. */
 export const messageHelpers: Readonly<Record<LowerMessageHelper, HelperFn>> = {
