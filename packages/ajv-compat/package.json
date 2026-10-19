@@ -25,13 +25,13 @@
     "@json-schema-engine/formats": "^0.0.6"
   },
   "devDependencies": {
-    "@fastify/ajv-compiler": "^4.0.6",
+    "@fastify/ajv-compiler": "^4.0.7",
     "ajv": "^8.17.1",
     "ajv-errors": "^3.0.0",
     "ajv-formats": "^3.0.1",
     "ajv-keywords": "^5.1.0",
-    "fastify": "^5.12.5",
-    "light-my-request": "^6.6.0"
+    "fastify": "^5.12.7",
+    "light-my-request": "^6.8.0"
   },
   "types": "./dist/index.d.ts",
   "files": [
