@@ -5,17 +5,26 @@
 
 import { describe, it, expect } from "vitest";
 import {
+  childCursor,
   createEngine,
   evaluateFragment,
   makeRecordPredicate,
+  renderDetailed,
+  renderHierarchical,
+  renderList,
   rootCursor,
   runEvaluation,
+  toRenderNode,
   traceToRenderNodes,
   UndeclaredProductionError,
+  type Cursor,
   type EvaluateOptions,
   type JsonValue,
   type KeywordBehavior,
+  type PathNode,
+  type RenderNode,
   type Result,
+  type TraceNode,
 } from "@json-schema-engine/core";
 
 const DEPENDENCY_PRODUCERS = [
@@ -296,5 +305,226 @@ describe("traceToRenderNodes", () => {
     expect(at.get(r.droppedErrors[0]!.pathNode)).toEqual([root.children[0]]);
     expect(at.get(r.allAnnotations[0]!.pathNode)).toEqual([root]);
     expect(root.errors).toEqual([]);
+  });
+});
+
+// --- the located tree at the relevant level ---------------------------------
+
+type Sets = Parameters<typeof toRenderNode>[1];
+
+describe("toRenderNode pruning", () => {
+  // A hand-built trace: every application mints its own path node, records
+  // attach by that identity.
+  const node = (
+    segment: string | null,
+    parent: PathNode | null,
+  ): PathNode | null => (segment === null ? parent : { parent, segment });
+  const trace = (
+    pathNode: PathNode | null,
+    cursor: Cursor,
+    children: TraceNode[] = [],
+    valid = true,
+  ): TraceNode => ({
+    schemaRef: REF,
+    pathNode,
+    cursor,
+    valid,
+    keywords: [],
+    children,
+  });
+  const REF = {
+    node: {},
+    baseUri: "https://records.example/tree",
+    pointer: "",
+  };
+  const root = rootCursor({ a: { b: "x" }, c: 1, d: 2 });
+  const sets = (
+    overrides: Partial<Record<keyof Sets, { pathNode: PathNode | null }[]>>,
+  ): Sets =>
+    ({
+      errors: [],
+      droppedErrors: [],
+      annotations: [],
+      droppedAnnotations: [],
+      ...overrides,
+    }) as unknown as Sets;
+  const paths = (n: RenderNode): string[] => [
+    n.evaluationPath,
+    ...n.children.flatMap(paths),
+  ];
+
+  // root → [/properties/a → [/properties/a/properties/b (annotation)],
+  //         /properties/c (annotation), /properties/d (nothing)]
+  const pA = node("a", node("properties", null));
+  const pB = node("b", node("properties", pA));
+  const pC = node("c", node("properties", null));
+  const pD = node("d", node("properties", null));
+  const tree = trace(null, root, [
+    trace(pA, childCursor(root, "a", { b: "x" }), [
+      trace(pB, childCursor(childCursor(root, "a", { b: "x" }), "b", "x")),
+    ]),
+    trace(pC, childCursor(root, "c", 1)),
+    trace(pD, childCursor(root, "d", 2)),
+  ]);
+  const annotated = sets({ annotations: [{ pathNode: pB }, { pathNode: pC }] });
+
+  it("keeps an application for a record below it and drops record-free ones, in order", () => {
+    expect(paths(toRenderNode(tree, annotated))).toEqual([
+      "",
+      "/properties/a",
+      "/properties/a/properties/b",
+      "/properties/c",
+      "/properties/d",
+    ]);
+    expect(paths(toRenderNode(tree, annotated, true))).toEqual([
+      "",
+      "/properties/a",
+      "/properties/a/properties/b",
+      "/properties/c",
+    ]);
+  });
+
+  it("keeps the root alone when nothing carries a record", () => {
+    const pruned = toRenderNode(tree, sets({}), true);
+    expect(pruned.children).toEqual([]);
+    expect(pruned.evaluationPath).toBe("");
+    expect(pruned.valid).toBe(true);
+  });
+
+  it("counts a record in any of the four sets", () => {
+    const pruned = toRenderNode(
+      tree,
+      sets({ droppedErrors: [{ pathNode: pD }] }),
+      true,
+    );
+    expect(paths(pruned)).toEqual(["", "/properties/d"]);
+    expect(pruned.children[0]!.droppedErrors).toEqual([0]);
+  });
+
+  it("renders the same relevant-level documents from the pruned tree", () => {
+    const units = {
+      errors: [],
+      droppedErrors: [],
+      annotations: [
+        {
+          evaluationPath: "/properties/a/properties/b/title",
+          schemaLocation: `${REF.baseUri}#/properties/a/properties/b/title`,
+          inputLocation: "/a/b",
+          keyword: "title",
+          annotation: "B",
+        },
+        {
+          evaluationPath: "/properties/c/title",
+          schemaLocation: `${REF.baseUri}#/properties/c/title`,
+          inputLocation: "/c",
+          keyword: "title",
+          annotation: "C",
+        },
+      ],
+      droppedAnnotations: [],
+    };
+    const full = { ...units, root: toRenderNode(tree, annotated) };
+    const pruned = { ...units, root: toRenderNode(tree, annotated, true) };
+    expect(renderHierarchical(pruned, "omit")).toEqual(
+      renderHierarchical(full, "omit"),
+    );
+    expect(renderList(pruned, "omit")).toEqual(renderList(full, "omit"));
+    expect(renderDetailed(pruned)).toEqual(renderDetailed(full));
+  });
+});
+
+describe("the relevant level prunes only the document, never the trace", () => {
+  const schema: JsonValue = {
+    properties: { a: { properties: { b: { type: "string" } } }, d: true },
+  };
+  for (const output of ["list", "hierarchical", "detailed"] as const) {
+    it(`${output} with trace: the trace holds every application`, () => {
+      const engine = createEngine();
+      const uri = engine.registerSchema(schema, "https://prune.example/gate");
+      const result = engine.evaluate(
+        uri,
+        { a: { b: "x" }, d: 1 },
+        { output, trace: true },
+      );
+      expect(result.valid).toBe(true);
+      expect(result.trace.children.map((c) => c.segments)).toEqual([
+        ["properties", "a"],
+        ["properties", "d"],
+      ]);
+      const document = result.outputDocument as unknown as Record<
+        string,
+        unknown
+      >;
+      // list: a `details` array with nothing in it; hierarchical: the root
+      // unit alone; detailed: the root with no nested results.
+      if (output === "list") expect(document.details).toEqual([]);
+      else expect(document.details ?? document.annotations).toBeUndefined();
+    });
+  }
+});
+
+describe("stray applications render in evaluation order", () => {
+  // A custom keyword may apply a subschema under a structural member (a
+  // first segment that is no keyword of the node) or with no segment at all
+  // (sharing the node's path). Such applications are strays of the draft-03
+  // tree: they hang under the application in the order they ran, child by
+  // child — not grouped by first segment, which would let the first child of
+  // a group decide where the whole group lands.
+  const VOCAB = "urn:jse:test:vocab:strays";
+  const DIALECT = "urn:jse:test:dialect:strays";
+  const behaviors: Record<string, KeywordBehavior> = {
+    // Holds subschemas; evaluates to nothing.
+    x: { id: `${VOCAB}#x`, structural: true, evaluate: () => true },
+    // Applies `x/y` (always `true`): a record-free application.
+    a: {
+      id: `${VOCAB}#a`,
+      evaluate: (_v, cursor, ctx) => ctx.apply(["x", "y"], cursor),
+    },
+    // Applies the whole schema again at `/p`, with no segment of its own.
+    c: {
+      id: `${VOCAB}#c`,
+      evaluate: (_v, cursor, ctx) => {
+        const value = cursor.value;
+        if (typeof value !== "object" || value === null || Array.isArray(value))
+          return true;
+        return (
+          !("p" in value) || ctx.apply([], childCursor(cursor, "p", value.p))
+        );
+      },
+    },
+    // Applies `x/z` (`type: string`), rejecting an object.
+    d: {
+      id: `${VOCAB}#d`,
+      evaluate: (_v, cursor, ctx) => ctx.apply(["x", "z"], cursor),
+    },
+  };
+
+  it("places a later stray group after an earlier one", () => {
+    const engine = createEngine();
+    engine.registerVocabulary(VOCAB, behaviors);
+    engine.registerDialect(DIALECT, [
+      "https://json-schema.org/draft/2020-12/vocab/core",
+      "https://json-schema.org/draft/2020-12/vocab/validation",
+      VOCAB,
+    ]);
+    const uri = engine.registerSchema(
+      { x: { y: true, z: { type: "string" } }, a: true, c: true, d: true },
+      "https://strays.example/schema",
+      DIALECT,
+    );
+    const result = engine.evaluate(uri, { p: 1 }, { output: "detailed" });
+    expect(result.valid).toBe(false);
+    const document = result.outputDocument as {
+      errors: { keywordLocation: string; instanceLocation: string }[];
+    };
+    // Children ran as: x/y at "" (record-free, condensed away), the whole
+    // schema at /p, then x/z at "" — so the /p application's result comes
+    // before the root's own x/z error.
+    expect(
+      document.errors.map((e) => [e.keywordLocation, e.instanceLocation]),
+    ).toEqual([
+      ["/x/z/type", "/p"],
+      ["/x/z/type", ""],
+    ]);
   });
 });

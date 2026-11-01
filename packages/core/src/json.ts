@@ -105,7 +105,7 @@ export const escapeSegment = (s: string): string =>
 
 /** Unescapes a JSON Pointer segment (RFC 6901). */
 export const unescapeSegment = (s: string): string =>
-  s.replace(/~1/g, "/").replace(/~0/g, "~");
+  s.includes("~") ? s.replace(/~1/g, "/").replace(/~0/g, "~") : s;
 
 /**
  * The first jsonEqual-duplicate pair in `items` (by ascending index), or

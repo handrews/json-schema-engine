@@ -6,6 +6,7 @@
 
 import {
   UnresolvableRefError,
+  schemaLocation,
   type Engine,
   type JsonValue,
   type LowerMessageHelper,
@@ -108,7 +109,8 @@ export interface CompilationPlan {
   targets: PlannedUnit[];
 }
 
-const unitKey = (ref: SchemaRef): string => `${ref.baseUri}#${ref.pointer}`;
+const unitKey = (ref: SchemaRef): string =>
+  schemaLocation(ref.baseUri, ref.pointer);
 
 const isObj = (v: JsonValue): v is Record<string, JsonValue> =>
   typeof v === "object" && v !== null && !Array.isArray(v);

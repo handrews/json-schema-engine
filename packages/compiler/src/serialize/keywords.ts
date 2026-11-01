@@ -3,6 +3,8 @@
 
 import {
   escapeSegment,
+  pointerFragment,
+  schemaLocation,
   type LowerCursor,
   type LowerProduceValue,
   type LowerStmt,
@@ -75,7 +77,9 @@ export function beginKeyword(
  */
 export function annUnit(ctx: UnitContext, valueExpr: CodeChunk): CodeChunk {
   const suffix = "/" + escapeSegment(ctx.currentKeyword);
-  const sloc = ctx.unit.ref.baseUri + "#" + ctx.unit.ref.pointer + suffix;
+  const sloc =
+    schemaLocation(ctx.unit.ref.baseUri, ctx.unit.ref.pointer) +
+    pointerFragment(suffix);
   const vocab =
     ctx.currentVocab !== null
       ? js`vocabulary: ${str(ctx.currentVocab)}, `

@@ -172,6 +172,15 @@ tree.
 | input location   | `inputLocation`         | `instanceLocation`                | `instanceLocation`                  |
 | keyword identity | `keyword`, `vocabulary` | last segment of `keywordLocation` | keys of `errors`/`annotations` maps |
 
+A schema location is a URI: the JSON Pointer rides in its fragment,
+percent-encoded only where RFC 3986's `fragment` production requires it
+(space, `"`, `%`, `#`, control and non-ASCII characters, a few others), so
+an ordinary pointer reads unchanged while a property named `100%` reports
+`#/properties/100%25`. The value can be pasted into a `$ref` or handed to
+`Engine.locate`; `pointerFromFragment` from `@json-schema-engine/core`
+decodes it for display. The evaluation path and the input location are
+plain-text JSON Pointers, as their specifications require.
+
 IETF draft-03 calls the value being validated the "input" in its evaluation
 sections and the "instance" in its output section; the engine's concept is
 the input location, and each document keeps the field name its source

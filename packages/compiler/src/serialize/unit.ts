@@ -3,6 +3,8 @@
 
 import {
   escapeSegment,
+  pointerFragment,
+  schemaLocation,
   type JsonValue,
   type LowerStmt,
   type LoweringContext,
@@ -81,7 +83,9 @@ export function unitBody(ctx: UnitContext): CodeChunk[] {
       if (!ctx.annMode) continue;
       if (ctx.annKeep && !ctx.annKeep("", name, null)) continue;
       const suffix = "/" + escapeSegment(name);
-      const sloc = ctx.unit.ref.baseUri + "#" + ctx.unit.ref.pointer + suffix;
+      const sloc =
+        schemaLocation(ctx.unit.ref.baseUri, ctx.unit.ref.pointer) +
+        pointerFragment(suffix);
       out.push(
         annsPush(
           ctx,

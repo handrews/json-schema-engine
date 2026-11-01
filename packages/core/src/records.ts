@@ -4,8 +4,8 @@
 // renderers in output.ts consume — so those renderers stay free of engine
 // internals and serve any producer of a RenderInput.
 
-import { escapeSegment } from "./json.js";
 import { instancePointer } from "./cursor.js";
+import { schemaLocation } from "./uri.js";
 import { realize } from "./messages.js";
 import {
   AnnotationRecord,
@@ -22,28 +22,45 @@ import {
   type RenderInput,
   type RenderNode,
   NO_INDEXES,
+  keywordSuffix,
   makeRecordPredicate,
 } from "./output.js";
 
-/** The two fields of a schema reference that locate it; `node` is not needed. */
+/**
+ * The two fields of a schema reference that locate it; `node` is not
+ * needed. `key` is the location string itself (`uri.schemaLocation`),
+ * cached on a `SchemaRef` (the registry fills it for interned refs, the
+ * cycle guard for the rest) so a position's location is built once however
+ * many records and trace nodes name it.
+ */
 export interface LocationRef {
   baseUri: string;
   pointer: string;
+  key?: string;
 }
 
-const keywordSuffix = (name: string | null): string =>
-  name === null ? "" : "/" + escapeSegment(name);
-
+// A keyword's own segment is appended at render time, once per unit:
+// sibling keywords share their application's path node and schema ref.
+// `keywordName` is `null` for a boolean `false` schema, which has no
+// keyword to name, so the unit sits at the application's own location.
 const evaluationPathOf = (
   pathNode: PathNode | null,
   keywordName: string | null,
-): string => materializePath(pathNode) + keywordSuffix(keywordName);
+): string => {
+  const path = materializePath(pathNode);
+  return keywordName === null ? path : path + keywordSuffix(keywordName).plain;
+};
 
 /** Canonical schema location of a schema object, or of one of its keywords. */
 export const schemaLocationOf = (
   ref: LocationRef,
   keywordName: string | null,
-): string => `${ref.baseUri}#${ref.pointer}${keywordSuffix(keywordName)}`;
+): string => {
+  const location = (ref.key ??= schemaLocation(ref.baseUri, ref.pointer));
+  return keywordName === null
+    ? location
+    : location + keywordSuffix(keywordName).fragment;
+};
 
 /** Renders one error record into its native unit. */
 export function renderError(
@@ -147,25 +164,110 @@ function indexByPath(
  * Adapts the interpreter's trace into the located tree, materializing every
  * location once per application; the index lists point into the unit
  * arrays paired with `records`.
+ *
+ * With `pruneEmpty`, an application with no record in any of the four sets,
+ * at itself or anywhere below, is left out together with its subtree; the
+ * root always remains. That is the tree the relevant level renders:
+ * `hierarchical`/`list` omit a unit with nothing to report and `detailed`
+ * condenses one away, so the pruned tree renders to the same documents
+ * while its size follows the records rather than the applications, and a
+ * pruned application never materializes a location. The verbose level and
+ * `trace` render every application and take the whole tree. Children are
+ * filtered, never reordered, and a kept application keeps its parent, so
+ * the {@link RenderNode} invariants hold either way.
  */
-export function toRenderNode(root: TraceNode, records: RecordSets): RenderNode {
+export function toRenderNode(
+  root: TraceNode,
+  records: RecordSets,
+  pruneEmpty = false,
+): RenderNode {
   const errorsAt = indexByPath(records.errors);
   const droppedErrorsAt = indexByPath(records.droppedErrors);
   const annotationsAt = indexByPath(records.annotations);
   const droppedAnnotationsAt = indexByPath(records.droppedAnnotations);
-  const toNode = (node: TraceNode): RenderNode => ({
+  const locate = (
+    node: TraceNode,
+    errors: readonly number[],
+    droppedErrors: readonly number[],
+    annotations: readonly number[],
+    droppedAnnotations: readonly number[],
+    children: RenderNode[],
+  ): RenderNode => ({
     evaluationPath: materializePath(node.pathNode),
     schemaLocation: schemaLocationOf(node.schemaRef, null),
     inputLocation: instancePointer(node.cursor),
     valid: node.valid,
     keywords: node.keywords,
-    errors: errorsAt.get(node.pathNode) ?? NO_INDEXES,
-    droppedErrors: droppedErrorsAt.get(node.pathNode) ?? NO_INDEXES,
-    annotations: annotationsAt.get(node.pathNode) ?? NO_INDEXES,
-    droppedAnnotations: droppedAnnotationsAt.get(node.pathNode) ?? NO_INDEXES,
-    children: node.children.map(toNode),
+    errors,
+    droppedErrors,
+    annotations,
+    droppedAnnotations,
+    children,
   });
-  return toNode(root);
+  const toNode = (node: TraceNode): RenderNode | undefined => {
+    // Children first, then the record test, and only then the locations.
+    const children: RenderNode[] = [];
+    for (const child of node.children) {
+      const kept = toNode(child);
+      if (kept !== undefined) children.push(kept);
+    }
+    const key = node.pathNode;
+    const errors = errorsAt.get(key);
+    const droppedErrors = droppedErrorsAt.get(key);
+    const annotations = annotationsAt.get(key);
+    const droppedAnnotations = droppedAnnotationsAt.get(key);
+    if (
+      pruneEmpty &&
+      children.length === 0 &&
+      errors === undefined &&
+      droppedErrors === undefined &&
+      annotations === undefined &&
+      droppedAnnotations === undefined
+    ) {
+      return undefined;
+    }
+    return locate(
+      node,
+      errors ?? NO_INDEXES,
+      droppedErrors ?? NO_INDEXES,
+      annotations ?? NO_INDEXES,
+      droppedAnnotations ?? NO_INDEXES,
+      children,
+    );
+  };
+  // Nothing anywhere: the root alone, with every child pruned.
+  return (
+    toNode(root) ??
+    locate(root, NO_INDEXES, NO_INDEXES, NO_INDEXES, NO_INDEXES, [])
+  );
+}
+
+/**
+ * Prunes record-free applications from a producer-built tree in place, as
+ * {@link toRenderNode} does with `pruneEmpty` while building: every non-root
+ * node with empty index lists and no surviving child is dropped from its
+ * parent's `children`, in place and in order. For the relevant level only;
+ * the verbose level and `trace` take the whole tree. Run it after the last
+ * record has been attributed, and only where the renderer would otherwise
+ * do more work per record-free node than this walk does (`detailed`).
+ */
+export function pruneRecordFree(root: MutableRenderNode): void {
+  const prune = (node: MutableRenderNode): boolean => {
+    const children = node.children;
+    let kept = 0;
+    for (const child of children) {
+      if (prune(child)) children[kept++] = child;
+    }
+    children.length = kept;
+    return (
+      kept > 0 ||
+      node.errors.length > 0 ||
+      node.droppedErrors.length > 0 ||
+      node.annotations.length > 0 ||
+      node.droppedAnnotations.length > 0
+    );
+  };
+  prune(root);
 }
 
 /**

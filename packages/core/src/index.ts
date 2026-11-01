@@ -118,7 +118,12 @@ export {
   classifyRegex,
 } from "./regex.js";
 export type { RegexEngine, CompiledRegex } from "./regex.js";
-export { UnresolvableRefError } from "./uri.js";
+export {
+  UnresolvableRefError,
+  pointerFragment,
+  pointerFromFragment,
+  schemaLocation,
+} from "./uri.js";
 export {
   InfiniteLoopError,
   KeywordContractError,
@@ -182,11 +187,13 @@ export {
   renderVerbose,
 } from "./output.js";
 export {
+  pruneRecordFree,
   renderAnnotation,
   renderError,
+  toRenderNode,
   traceToRenderNodes,
 } from "./records.js";
-export type { MutableRenderNode } from "./records.js";
+export type { MutableRenderNode, RecordSets, UnitSets } from "./records.js";
 export {
   OutputOptionsError,
   assembleResult,
@@ -664,8 +671,15 @@ export class Engine {
         droppedAnnotations = selected.units;
       }
     }
+    // The verbose level renders every application and `trace` reports
+    // every one; the relevant level needs only those with records at or
+    // below them.
     const root = demand.tracing
-      ? toRenderNode(state.traceRoot!, records)
+      ? toRenderNode(
+          state.traceRoot!,
+          records,
+          !demand.verbose && options.trace !== true,
+        )
       : null;
     const result = assembleResult(
       demand,

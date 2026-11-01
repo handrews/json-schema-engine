@@ -6,6 +6,7 @@
 
 import {
   makeRecordPredicate,
+  schemaLocation,
   type RecordPredicate,
   type SchemaRegistry,
 } from "@json-schema-engine/core";
@@ -339,7 +340,7 @@ function serializeUnit(
     : unitFn(fnIndex.get(unit.key)!);
   const node = unit.ref.node;
   const { output, annMode, trace } = shape;
-  const sloc = str(unit.ref.baseUri + "#" + unit.ref.pointer);
+  const sloc = str(schemaLocation(unit.ref.baseUri, unit.ref.pointer));
   // Trace emission: every application, boolean schemas included, is a node.
   const enterNode = js`const ${TN} = ${id("h_tnode")}(${TP}, ${EP}, ${sloc}, ${IP});`;
   // The unit signature carries the channels of the emission (channelArgs); a

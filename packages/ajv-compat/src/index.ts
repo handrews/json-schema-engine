@@ -7,6 +7,7 @@
 // JTD) fails loudly with a typed error instead of approximating.
 
 import {
+  pointerFromFragment,
   createEngine,
   DuplicateResourceError,
   DIALECT_2019_09,
@@ -702,7 +703,9 @@ export class Ajv {
       const pointer = location.slice(hash + 1);
       const doc =
         base === rootBase ? schema : (this.docs.get(base) ?? undefined);
-      return doc === undefined ? undefined : getAtPointer(doc, pointer);
+      return doc === undefined
+        ? undefined
+        : getAtPointer(doc, pointerFromFragment(pointer));
     };
     const opts = this.opts;
     const mutations: MutationOptions = {
