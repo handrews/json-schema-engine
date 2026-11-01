@@ -18,7 +18,7 @@
 // specific schema nodes and reads keyword VALUES there (a `default`, the
 // patternProperties map, the literal additionalProperties value).
 
-import { unescapeSegment } from "@json-schema-engine/core";
+import { pointerFromFragment, unescapeSegment } from "@json-schema-engine/core";
 import type {
   Engine,
   ErrorUnit,
@@ -576,7 +576,9 @@ const applyRemoval = (
   if (mode === false) return false;
   const lastSegment = (loc: string): string => {
     const ptr = loc.slice(loc.indexOf("#") + 1);
-    return unescapeSegment(ptr.slice(ptr.lastIndexOf("/") + 1));
+    return unescapeSegment(
+      pointerFromFragment(ptr.slice(ptr.lastIndexOf("/") + 1)),
+    );
   };
 
   if (mode === "all") {

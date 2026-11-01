@@ -8,8 +8,10 @@ import {
   DEFAULT_MAX_DEPTH,
   OutputOptionsError,
   assembleResult,
+  pruneRecordFree,
   renderBasic,
   resolveOutputDemand,
+  schemaLocation,
   type AnnotationSelection,
   type AnnotationUnit,
   type BasicOutputDocument,
@@ -232,7 +234,7 @@ export function compileList(
   );
   const targets = plan.targets.map((t) => t.ref);
   const root = registry.rootRef(schemaUri);
-  const rootLocation = `${root.baseUri}#${root.pointer}`;
+  const rootLocation = schemaLocation(root.baseUri, root.pointer);
   const keep = typeof selection === "object" ? selection.keep : undefined;
 
   if (!collect) {
@@ -321,7 +323,7 @@ export function compileEvaluator(
     plan.targets.map((t) => t.ref),
   );
   const root = registry.rootRef(schemaUri);
-  const rootLocation = `${root.baseUri}#${root.pointer}`;
+  const rootLocation = schemaLocation(root.baseUri, root.pointer);
   const keep = typeof selection === "object" ? selection.keep : undefined;
 
   const evaluate = (
@@ -355,6 +357,21 @@ export function compileEvaluator(
     const st = run(instance);
     if (demand.format === "flag") return { valid: st.valid };
     const { units, root: node } = finishTrace(st, keep, demand.verbose);
+    // `detailed` builds its keyword-level tree over every application and
+    // then condenses the record-free ones away: pruning them first costs
+    // one walk and saves the rest (2-3x on the harness corpora). The tree
+    // is already built by the emitted code, so for `hierarchical`/`list`,
+    // whose renderer drops a unit with nothing to report as cheaply as the
+    // walk would, the walk is pure overhead; the interpreter, which builds
+    // its tree afterwards, prunes while building instead. The verbose
+    // level and `trace` take every application.
+    if (
+      demand.format === "detailed" &&
+      !demand.verbose &&
+      evaluateOptions.trace !== true
+    ) {
+      pruneRecordFree(node);
+    }
     return assembleResult(
       demand,
       st.valid,

@@ -4,7 +4,7 @@
 // D15); messages come from our own template table reproducing AJV's
 // defaults, since downstream tests assert on message text.
 
-import { unescapeSegment } from "@json-schema-engine/core";
+import { pointerFragment, unescapeSegment } from "@json-schema-engine/core";
 import type { ErrorUnit, JsonValue, TraceUnit } from "@json-schema-engine/core";
 import { getAtPointer, segments } from "./pointer.js";
 
@@ -382,7 +382,7 @@ function mapUnit(
   // AJV's per-name/per-index errors, rebuilt from the engine's one summary.
   const names = (params.properties ?? []) as string[];
   const childAt = (segment: string): string =>
-    `${unit.schemaLocation}/${escape(segment)}`;
+    unit.schemaLocation + pointerFragment(`/${escape(segment)}`);
 
   switch (unit.keyword) {
     case "type": {

@@ -19,7 +19,7 @@ export interface SchemaRef {
   baseUri: string;
   /** JSON Pointer from the base's root schema. */
   pointer: string;
-  /** `${baseUri}#${pointer}`, built once. */
+  /** The canonical location (`uri.schemaLocation`), built once. */
   key?: string;
   /** Memoized child positions, one hop per segment (registry-owned). */
   children?: Map<string, SchemaRef> | null;

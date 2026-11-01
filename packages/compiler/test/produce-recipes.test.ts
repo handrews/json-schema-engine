@@ -15,6 +15,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  schemaLocation,
   createEngine,
   evaluateFragment,
   rootCursor,
@@ -227,7 +228,7 @@ function contractCompare(
     ? compareProductions(
         oracle,
         interpreter,
-        `${unit.ref.baseUri}#${unit.ref.pointer}`,
+        schemaLocation(unit.ref.baseUri, unit.ref.pointer),
       )
     : null;
   return { valid, oracle, interpreter, divergence };
@@ -568,7 +569,7 @@ describe("Leg A (formats) — asserting format recipes match the interpreter", (
       const divergence = compareProductions(
         oracle,
         interpreter,
-        `${unit.ref.baseUri}#${unit.ref.pointer}`,
+        schemaLocation(unit.ref.baseUri, unit.ref.pointer),
       );
       expect(
         divergence,
@@ -742,7 +743,10 @@ async function sweepDialect(
         if (!root) continue;
         walkTrace(root, (node) => {
           if (!node.valid) return; // valid-only contract
-          const key = `${node.schemaRef.baseUri}#${node.schemaRef.pointer}`;
+          const key = schemaLocation(
+            node.schemaRef.baseUri,
+            node.schemaRef.pointer,
+          );
           const unit = staticUnits.get(key);
           if (!unit) return;
           // Tracked consumers read a cross-unit runtime channel the oracle

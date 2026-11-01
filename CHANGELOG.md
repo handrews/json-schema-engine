@@ -6,6 +6,41 @@ errors they raise may change between releases.
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** `schemaLocation` and `absoluteKeywordLocation` are URIs:
+  the JSON Pointer in the fragment is percent-encoded exactly where RFC
+  3986's `fragment` production requires — space, `"`, `<`, `>`, `\`,
+  `^`, `` ` ``, `{`, `|`, `}`, `#`, `%`, control characters, and every
+  non-ASCII character as UTF-8 bytes — and nowhere else, so an ordinary
+  pointer reads unchanged while a property named `100%` reports
+  `#/properties/100%25` instead of `#/properties/100%`. The same form
+  appears in error messages that name a schema position, in a compiled
+  artifact's constants, and in ajv-compat's `schemaPath`, which now
+  agrees with AJV's own encoding in four more official-suite cases.
+  `evaluationPath` and `inputLocation` stay plain-text pointers.
+  `pointerFragment`, `pointerFromFragment` and `schemaLocation` are
+  exported from `@json-schema-engine/core`; `Engine.locate` and `$ref`
+  resolution decode through the same pair.
+- **Large results render faster.** At the relevant level the interpreter
+  no longer builds the parts of the located tree that `list`,
+  `hierarchical` and `detailed` would then leave out: a schema application
+  with no error or annotation at or below it is skipped before its
+  locations are built, so the cost follows the records rather than the
+  applications. A compiled evaluator, whose tree the emitted code builds,
+  prunes those applications before `detailed` condenses them away. A path
+  node caches its evaluation path once materialized, a schema position's
+  location string is built once (the cycle guard's cached key serves the
+  renderers too), a keyword's path suffix is escaped once per name, and
+  the renderers allocate less per node. Documents are unchanged. On the
+  bench corpora (ops/s): interpreter `hierarchical`/`list` 1.1–1.7×,
+  `detailed` 1.2–2.2× (interpreter) and 1.2–5.5× (compiled), `verbose`
+  1.1–1.3× (interpreter) and 1.3–2.2× (compiled).
+- `detailed` and `verbose` place applications a custom keyword performs
+  without a segment of its own (strays) under their application in
+  evaluation order, child by child, rather than grouped by first segment.
+  Built-in keywords never produce strays, so their documents are unchanged.
+
 ## [0.0.6] - 2026-10-06
 
 Informative errors

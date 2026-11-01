@@ -8,6 +8,7 @@
 
 import { JsonValue, isObject, escapeSegment } from "./json.js";
 import { Dialect } from "./dialect.js";
+import { pointerFragment } from "./uri.js";
 import { DEFAULT_MAX_DEPTH, MaxDepthExceededError } from "./registry.js";
 
 /**
@@ -46,7 +47,7 @@ export function walkSchema(
   ): void => {
     if (depth > maxDepth) {
       throw new MaxDepthExceededError(
-        `schema nesting exceeds maxDepth (${maxDepth}) at '#${pointer}'`,
+        `schema nesting exceeds maxDepth (${maxDepth}) at '#${pointerFragment(pointer)}'`,
       );
     }
     if (typeof node === "boolean") {

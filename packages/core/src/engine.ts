@@ -21,6 +21,7 @@
 import { JsonValue, isObject, escapeSegment } from "./json.js";
 import { Cursor, rootCursor } from "./cursor.js";
 import { SchemaRef } from "./ref.js";
+import { schemaLocation } from "./uri.js";
 import {
   DependencyView,
   Dialect,
@@ -71,13 +72,40 @@ export type RecordPredicate = (
 export interface PathNode {
   readonly parent: PathNode | null;
   readonly segment: string;
+  /**
+   * The materialized path, filled on first use by {@link materializePath}
+   * the way `Cursor.ptr` is: every record and the trace node of one
+   * application share the node, and the renderers ask each of them.
+   */
+  path?: string;
 }
 
-/** Materializes a path node chain into its JSON Pointer string. */
+/**
+ * Materializes a path node chain into its JSON Pointer string.
+ *
+ * Walks up to the nearest node that already holds its path and fills in
+ * the chain on the way back down, so a fresh node under a cached parent
+ * (the usual case: `items` over an array mints one node per element, all
+ * under one shared parent) costs one concatenation. Iterative: the chain's
+ * length is the evaluation depth.
+ */
 export function materializePath(node: PathNode | null): string {
-  let s = "";
-  for (let n = node; n !== null; n = n.parent) s = "/" + n.segment + s;
-  return s;
+  if (node === null) return "";
+  if (node.path !== undefined) return node.path;
+  const chain: PathNode[] = [];
+  let n: PathNode | null = node;
+  while (n !== null && n.path === undefined) {
+    chain.push(n);
+    n = n.parent;
+  }
+  // Stopped either at a cached ancestor or past the root.
+  let path = n === null ? "" : n.path!;
+  for (let i = chain.length - 1; i >= 0; i--) {
+    const link = chain[i]!;
+    path = path + "/" + link.segment;
+    link.path = path;
+  }
+  return path;
 }
 
 /**
@@ -301,7 +329,10 @@ export class EvalState {
    * @throws InfiniteLoopError if this schema is already active at this cursor.
    */
   enter(schemaRef: SchemaRef, cursor: Cursor): void {
-    const key = (schemaRef.key ??= `${schemaRef.baseUri}#${schemaRef.pointer}`);
+    const key = (schemaRef.key ??= schemaLocation(
+      schemaRef.baseUri,
+      schemaRef.pointer,
+    ));
     const cursors = this.activeCursors;
     const keys = this.activeKeys;
     const depth = cursor.depth;
@@ -526,7 +557,7 @@ export function applySchema(
   if (state.depth >= state.maxDepth) {
     throw new MaxDepthExceededError(
       `schema application exceeds maxDepth (${state.maxDepth}) at ` +
-        `'${schemaRef.baseUri}#${schemaRef.pointer}'`,
+        `'${schemaLocation(schemaRef.baseUri, schemaRef.pointer)}'`,
     );
   }
   state.depth++;
@@ -603,7 +634,7 @@ function applySchemaAtDepth(
   if (!isObject(node)) {
     throw new InvalidSchemaError(
       `non-schema value (${describeNonSchema(node)}) applied as a schema ` +
-        `at '${schemaRef.baseUri}#${schemaRef.pointer}'`,
+        `at '${schemaLocation(schemaRef.baseUri, schemaRef.pointer)}'`,
     );
   }
 

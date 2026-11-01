@@ -3,6 +3,8 @@
 
 import {
   escapeSegment,
+  pointerFragment,
+  schemaLocation,
   type LowerMessage,
   type LowerParams,
 } from "@json-schema-engine/core";
@@ -89,7 +91,9 @@ export function pushError(
   params?: CodeChunk,
 ): CodeChunk {
   const suffix = withKeyword ? "/" + escapeSegment(ctx.currentKeyword) : "";
-  const sloc = ctx.unit.ref.baseUri + "#" + ctx.unit.ref.pointer + suffix;
+  const sloc =
+    schemaLocation(ctx.unit.ref.baseUri, ctx.unit.ref.pointer) +
+    pointerFragment(suffix);
   const vocab =
     ctx.currentVocab !== null
       ? js`vocabulary: ${str(ctx.currentVocab)}, `

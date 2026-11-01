@@ -8,6 +8,7 @@
 // trace (records.ts) or a compiled artifact — renders through one code path.
 
 import { escapeSegment, unescapeSegment } from "./json.js";
+import { pointerFragment } from "./uri.js";
 import { ErrorParams } from "./dialect.js";
 import type { KeywordTrace, RecordPredicate } from "./engine.js";
 import { SourceLocation } from "./loader.js";
@@ -160,6 +161,37 @@ export interface RenderInput {
 /** The index list of a node without records, shared rather than allocated. */
 export const NO_INDEXES: readonly number[] = [];
 
+// A keyword's own path segment, `/`-prefixed and RFC 6901 escaped, memoized
+// per name: keyword names come from the schema, a small set that every unit
+// and every keyword node of the draft-03 tree repeats. The bound keeps a
+// pathological schema from growing the cache without limit.
+const suffixes = new Map<string, KeywordSuffix>();
+const SUFFIX_CACHE_LIMIT = 1024;
+
+/**
+ * A keyword's own segment in both location forms: `plain` is the
+ * `/`-prefixed RFC 6901 segment an `evaluationPath` (plain text) appends,
+ * `fragment` the same segment percent-encoded for a `schemaLocation` (a
+ * URI). Encoding the segment on its own equals encoding the joined pointer,
+ * since percent-encoding works byte by byte.
+ */
+export interface KeywordSuffix {
+  readonly plain: string;
+  readonly fragment: string;
+}
+
+/** Both location forms of a keyword's own segment, memoized per name. */
+export function keywordSuffix(name: string): KeywordSuffix {
+  let suffix = suffixes.get(name);
+  if (suffix === undefined) {
+    if (suffixes.size >= SUFFIX_CACHE_LIMIT) suffixes.clear();
+    const plain = "/" + escapeSegment(name);
+    suffix = { plain, fragment: pointerFragment(plain) };
+    suffixes.set(name, suffix);
+  }
+  return suffix;
+}
+
 // A unit at a node carries the node's path plus at most one keyword segment
 // (RenderNode's invariant); the keyword name is that segment, decoded, and a
 // boolean-`false` schema's error, located at the node itself, keys as "".
@@ -251,7 +283,7 @@ export type IrrelevantRendering = "omit" | "mark";
 // A keyword may report several errors (required's missing names); a
 // one-message-per-keyword field joins them.
 const joinMessages = (errs: readonly ErrorUnit[]): string =>
-  errs.map((e) => e.error).join("; ");
+  errs.length === 1 ? errs[0]!.error : errs.map((e) => e.error).join("; ");
 
 // The by-keyword records are keyed by names the schema chooses, and the
 // documents stay ordinary objects (consumers compare them as plain JSON),
@@ -314,9 +346,13 @@ export function renderHierarchical(
   });
 
   const toUnit = (node: RenderNode): OutputUnit | undefined => {
-    const details = node.children
-      .map(toUnit)
-      .filter((u): u is OutputUnit => u !== undefined);
+    let details: OutputUnit[] | undefined;
+    for (const child of node.children) {
+      const rendered = toUnit(child);
+      if (rendered === undefined) continue;
+      if (details === undefined) details = [rendered];
+      else details.push(rendered);
+    }
 
     const unit = unitOf(node);
 
@@ -337,7 +373,7 @@ export function renderHierarchical(
       }
     }
 
-    if (details.length > 0) unit.details = details;
+    if (details !== undefined) unit.details = details;
 
     // Relevant level: a unit carrying nothing relevant is omitted. The
     // proposal includes every unit and makes such pruning opt-in; pruning
@@ -370,16 +406,17 @@ export function renderList(
 ): ListOutputDocument {
   const nested = renderHierarchical(input, irrelevant);
   const details: OutputUnit[] = [];
+  // Only a unit that reaches the list is copied without its `details`.
   const collect = (unit: OutputUnit): void => {
-    const { details: children, ...rest } = unit;
     if (
       irrelevant === "mark" ||
-      rest.errors !== undefined ||
-      rest.annotations !== undefined
+      unit.errors !== undefined ||
+      unit.annotations !== undefined
     ) {
+      const { details: _children, ...rest } = unit;
       details.push(rest);
     }
-    children?.forEach(collect);
+    unit.details?.forEach(collect);
   };
   collect(nested);
   return { valid: input.root.valid, details };
@@ -402,14 +439,15 @@ export interface DetailedOutputUnit {
   annotations?: DetailedOutputUnit[];
 }
 
+// `nested` is a fresh array the caller gives up: it is attached, not copied.
 function attachNested(
   unit: DetailedOutputUnit,
-  nested: readonly DetailedOutputUnit[],
+  nested: DetailedOutputUnit[],
 ): void {
   if (nested.length === 0) return;
   // §13.3.5: nested results key on the node's own result.
-  if (unit.valid) unit.annotations = [...nested];
-  else unit.errors = [...nested];
+  if (unit.valid) unit.annotations = nested;
+  else unit.errors = nested;
 }
 
 const nestedOf = (unit: DetailedOutputUnit): DetailedOutputUnit[] =>
@@ -455,46 +493,63 @@ function buildDraft03Tree(
           )
         : pick(node.annotations, input.annotations);
     // A boolean `false` schema's error belongs to the application itself.
-    const own = errs.filter((e) => e.evaluationPath === keywordLocation);
-    if (own.length > 0) unit.error = joinMessages(own);
+    if (errs.length > 0) {
+      const own = errs.filter((e) => e.evaluationPath === keywordLocation);
+      if (own.length > 0) unit.error = joinMessages(own);
+    }
 
     // The first evaluation-path segment of a child application below its
-    // parent names the applying keyword.
-    const childrenOf = new Map<string | null, RenderNode[]>();
-    for (const child of node.children) {
-      const key = firstSegmentBelow(child, keywordLocation);
-      const list = childrenOf.get(key);
-      if (list) list.push(child);
-      else childrenOf.set(key, [child]);
+    // parent names the applying keyword. Most applications have none.
+    let childrenOf: Map<string | null, RenderNode[]> | undefined;
+    if (node.children.length > 0) {
+      childrenOf = new Map();
+      for (const child of node.children) {
+        const key = firstSegmentBelow(child, keywordLocation);
+        const list = childrenOf.get(key);
+        if (list) list.push(child);
+        else childrenOf.set(key, [child]);
+      }
     }
 
     const nested: DetailedOutputUnit[] = [];
     for (const k of node.keywords) {
-      const suffix = "/" + escapeSegment(k.name);
-      const kwLocation = keywordLocation + suffix;
+      const suffix = keywordSuffix(k.name);
+      const kwLocation = keywordLocation + suffix.plain;
       const kwUnit: DetailedOutputUnit = {
         valid: k.valid,
         keywordLocation: kwLocation,
-        absoluteKeywordLocation: absoluteKeywordLocation + suffix,
+        // `keywordLocation` is a plain-text pointer and
+        // `absoluteKeywordLocation` a URI: the same segment in two forms.
+        absoluteKeywordLocation: absoluteKeywordLocation + suffix.fragment,
         instanceLocation,
       };
-      const kwErrs = errs.filter((e) => e.evaluationPath === kwLocation);
-      if (kwErrs.length > 0) kwUnit.error = joinMessages(kwErrs);
-      const kwAnn = anns.find((a) => a.keyword === k.name);
-      if (kwAnn !== undefined) kwUnit.annotation = kwAnn.annotation;
-      const applied = childrenOf.get(k.name);
+      if (errs.length > 0) {
+        const kwErrs = errs.filter((e) => e.evaluationPath === kwLocation);
+        if (kwErrs.length > 0) kwUnit.error = joinMessages(kwErrs);
+      }
+      if (anns.length > 0) {
+        const kwAnn = anns.find((a) => a.keyword === k.name);
+        if (kwAnn !== undefined) kwUnit.annotation = kwAnn.annotation;
+      }
+      const applied = childrenOf?.get(k.name);
       if (applied !== undefined) {
-        childrenOf.delete(k.name);
+        childrenOf!.delete(k.name);
         attachNested(kwUnit, applied.map(build));
       }
       nested.push(kwUnit);
     }
     // Applications not attributable to a keyword entry (a custom keyword
     // applying with no segment of its own) stay under the application node,
-    // appended one by one: a stray list holds one entry per application, and
-    // an argument spread over it has a native-stack ceiling.
-    for (const stray of childrenOf.values()) {
-      for (const child of stray) nested.push(build(child));
+    // in evaluation order — each child whose group no keyword entry
+    // consumed, walked one by one rather than group by group, so the order
+    // never depends on which child of a group came first (and a located
+    // tree pruned of record-free applications renders identically).
+    if (childrenOf !== undefined && childrenOf.size > 0) {
+      for (const child of node.children) {
+        if (childrenOf.has(firstSegmentBelow(child, keywordLocation))) {
+          nested.push(build(child));
+        }
+      }
     }
     attachNested(unit, nested);
     return unit;

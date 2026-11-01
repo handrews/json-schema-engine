@@ -97,8 +97,10 @@ or milestone:
   of the load queue. D11 is delivered (ADR 0006, 2026-09-23): `$schema`
   governs the resource it roots, the async paths assemble a dialect an
   embedded resource declares, and `validateSchemas` checks each resource
-  under its own metaschema inside registration. Still open: raw pointers
-  in `schemaLocation` (D8), `locate` mishandling an anchor fragment and
+  under its own metaschema inside registration. D8 is delivered
+  (2026-10-13): every `schemaLocation`/`absoluteKeywordLocation` is a
+  URI whose fragment percent-encodes exactly what RFC 3986 forbids, with
+  one encode/decode pair in `uri.ts`. Still open: `locate` mishandling an anchor fragment and
   message-only error context (D13), no stack backstop around output
   assembly (D14), and the data-position navigation item shared with the
   Python engine (D15). None of those is exercised by the official suite,
@@ -151,6 +153,19 @@ or milestone:
   `records-sparse` runs ~5× (`list` at the verbose level) and ~3.6×
   (`verbose`), the retention now being the dominant cost there rather
   than the presence probe.
+- **Relevant-level rendering follows the records** (2026-10-13): the
+  interpreter leaves record-free applications out of its located tree
+  (`toRenderNode`'s `pruneEmpty`), a compiled evaluator prunes them
+  before `detailed` condenses them away, path nodes cache their
+  materialized path, a schema position's location string is built once,
+  and the renderers allocate less per node. On the harness corpora
+  (report-only, after/before ops/s): interpreter `hierarchical` and
+  `list` 1.1–1.7×, `detailed` 1.2–2.2× (interpreter) and 1.2–5.5×
+  (compiled, `records-sparse` the high end), `verbose` 1.1–1.3×
+  (interpreter) and 1.3–2.2× (compiled); compiled `hierarchical` and
+  `list` rows within ±10%. Documents are unchanged. The remaining cost
+  of a large `verbose` render is the objects themselves: a third of it is
+  the collector, in both this engine and the Python port.
 - ajv-compat is a **migration adapter for a documented subset**, not a
   full AJV clone; divergences are enumerated in COMPAT.md and enforced
   by fixture tests and a suite-differential golden set.

@@ -29,6 +29,7 @@ import {
   splitFragment,
   SplitUri,
   UnresolvableRefError,
+  schemaLocation,
 } from "./uri.js";
 import { SchemaRef } from "./ref.js";
 import {
@@ -451,7 +452,7 @@ export class SchemaRegistry {
       node,
       baseUri,
       pointer,
-      key: `${baseUri}#${pointer}`,
+      key: schemaLocation(baseUri, pointer),
       children: null,
       childrenBy: null,
       table: null,
@@ -773,21 +774,21 @@ export class SchemaRegistry {
     if (depth > this.maxDepth) {
       throw new MaxDepthExceededError(
         `schema nesting exceeds maxDepth (${this.maxDepth}) at ` +
-          `'${baseUri}#${pointer}'`,
+          `'${schemaLocation(baseUri, pointer)}'`,
       );
     }
     if (typeof node === "boolean") return;
     if (!isObject(node)) {
       throw new InvalidSchemaError(
         `non-schema value (${describeNonSchema(node)}) in schema position ` +
-          `'${baseUri}#${pointer}'`,
+          `'${schemaLocation(baseUri, pointer)}'`,
       );
     }
 
     let ids = dialect.identifiers(node);
     const baseId = ids.baseId;
     if (pointer !== "" && baseId !== undefined) {
-      const where = `${baseUri}#${pointer}`;
+      const where = schemaLocation(baseUri, pointer);
       checkBaseId(baseId, where);
       const location = { documentUri, pointer: docPointer };
       const parent = baseUri;
@@ -854,7 +855,10 @@ export class SchemaRegistry {
         stage.coverageProducers.add(behavior!.id);
       }
       if (this.onRegex) {
-        const keywordLocation = `${baseUri}#${pointer}/${escapeSegment(name)}`;
+        const keywordLocation = schemaLocation(
+          baseUri,
+          `${pointer}/${escapeSegment(name)}`,
+        );
         for (const rx of facts.regexes ?? []) this.onRegex(rx, keywordLocation);
       }
       for (const ref of facts.references ?? []) {
